@@ -45,6 +45,7 @@ def get_light_curve(oid):
     df = pd.read_sql_query(query, POSTGRESQL_CONNECTION)
     if df.empty:
         return None
+    df['mjd_58000'] = df['mjd'] - 58000
     return df
 
 

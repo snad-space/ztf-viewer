@@ -32,10 +32,11 @@ def get_figure(oid, df):
     color = COLORS[get_meta(oid)['filter']]
     figure = px.scatter(
         df,
-        x='mjd',
+        x='mjd_58000',
         y='mag',
         error_y='magerr',
         range_y=range_y,
+        labels={'mjd_58000': 'mjd − 58000'},
         color_discrete_sequence=[color],
     )
     return figure
