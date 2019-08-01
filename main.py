@@ -12,7 +12,7 @@ from viewer import get_layout as get_viewer_layout
 
 
 app.layout = html.Div([
-    dcc.Location(id='url', refresh=False),
+    dcc.Location(id='url', refresh=True),
     html.Div(
         [
             dcc.Input(
