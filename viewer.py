@@ -90,7 +90,7 @@ def get_layout(pathname):
         ),
         html.Div(
             [
-                html.H2(html.A('Aladin', href='//aladin.u-strasbg.fr/aladin.gml')),
+                html.H2(html.A('Aladin', href=f'//aladin.u-strasbg.fr/AladinLite/?target={coord}')),
                 set_div_for_aladin(oid),
                 html.Div(
                     id='aladin-lite-div',
