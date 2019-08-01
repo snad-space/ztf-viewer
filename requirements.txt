@@ -3,3 +3,6 @@ dash_defer_js_import
 pandas
 SQLAlchemy
 psycopg2
+numpy
+astropy
+astroquery
