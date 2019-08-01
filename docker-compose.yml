@@ -1,0 +1,19 @@
+version: '2'
+services:
+   web:
+     build: .
+     networks:
+       - proxy
+     environment:
+       VIRTUAL_HOST: ztf.homb.it
+       DYNDNS_HOST: ztf.homb.it
+       LETSENCRYPT_HOST: ztf.homb.it
+       LETSENCRYPT_EMAIL: ztf@homb.it
+     volumes:
+       - /var/run/postgresql:/var/run/postgresql
+     restart: always
+
+networks:
+  proxy:
+    external:
+      name: proxy
