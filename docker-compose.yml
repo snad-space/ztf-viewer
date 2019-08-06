@@ -5,9 +5,9 @@ services:
      networks:
        - proxy
      environment:
-       VIRTUAL_HOST: ztf.homb.it
-       DYNDNS_HOST: ztf.homb.it
-       LETSENCRYPT_HOST: ztf.homb.it
+       VIRTUAL_HOST: ztf.homb.it,ztf.snad.space
+       DYNDNS_HOST: ztf.homb.it,ztf.snad.space
+       LETSENCRYPT_HOST: ztf.homb.it,ztf.snad.space
        LETSENCRYPT_EMAIL: ztf@homb.it
      volumes:
        - /var/run/postgresql:/var/run/postgresql
