@@ -1,8 +1,10 @@
 import math
 import re
 
+import astropy.table
 import numpy as np
 from astropy import units
+from jinja2 import Template
 
 
 def dict_to_bullet(d):
@@ -45,3 +47,27 @@ def astropy_table_to_records(table, columns=None):
     d = {c: convert_to_json_friendly(table[c]) for c in columns}
     records = [{c: d[c][i] for c in columns} for i in range(length)]
     return records
+
+
+def html_from_astropy_table(table: astropy.table.Table, columns: dict):
+    template = Template('''
+        <table id="simbad-table">
+        <tr>
+        {% for column in columns %}
+            <td>{{columns[column]}}</td>
+        {% endfor %}
+        </tr>
+        {% for row in table %}
+            <tr>
+            {% for cell in row %}
+                <td>{{cell}}</td>
+            {% endfor %}
+            </tr>
+        {% endfor %}
+        </table>
+    ''')
+    table = table[list(columns.keys())].copy()
+    for column in table.colnames:
+        table[column] = convert_to_json_friendly(table[column])
+    html = template.render(table=table, columns=columns)
+    return html

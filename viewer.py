@@ -1,7 +1,9 @@
 import logging
 from functools import lru_cache
+from urllib.parse import quote as url_quote
 
 import dash_core_components as dcc
+import dash_dangerously_set_inner_html as ddsih
 import dash_defer_js_import as dji
 import dash_html_components as html
 import plotly.express as px
@@ -11,12 +13,20 @@ from dash_table import DataTable
 from app import app
 from cross import find_simbad
 from db import get_light_curve, get_meta
-from util import dict_to_bullet, coord_str_to_pair, astropy_table_to_records
+from util import dict_to_bullet, coord_str_to_pair, astropy_table_to_records, html_from_astropy_table
 
 
 LIGHT_CURVE_TABLE_COLUMNS = ('mjd', 'mag', 'magerr', 'clrcoeff')
-SIMBAD_TABLE_COLUMNS = ('MAIN_ID', 'separation', 'OTYPE', 'OTYPES', 'V__vartyp', 'V__period', 'FLUX_R', 'FLUX_V',
-                        'Distance_distance', 'Distance_unit')
+SIMBAD_TABLE_COLUMNS = {
+    'url': 'MAIN_ID',
+    'separation': 'Separation, arcsec',
+    'OTYPE': 'Main type',
+    'OTYPES': 'Other types',
+    'V__vartyp': 'Variable type',
+    'V__period': 'Period',
+    'Distance_distance': 'Distance',
+    'Distance_unit': 'Distance unit'
+}
 COLORS = {'zr': '#CC3344', 'zg': '#117733'}
 
 
@@ -26,36 +36,8 @@ def oid_from_pathname(pathname):
     return int(oid)
 
 
-def get_title(oid):
-    return f'{oid}'
-
-
-def get_figure(oid, df):
-    mag_min = (df['mag'] - df['magerr']).min()
-    mag_max = (df['mag'] + df['magerr']).max()
-    mag_ampl = mag_max - mag_min
-    range_y = [mag_max + 0.1 * mag_ampl, mag_min - 0.1*mag_ampl]
-    color = COLORS[get_meta(oid)['filter']]
-    figure = px.scatter(
-        df,
-        x='mjd_58000',
-        y='mag',
-        error_y='magerr',
-        range_y=range_y,
-        labels={'mjd_58000': 'mjd − 58000'},
-        color_discrete_sequence=[color],
-    )
-    return figure
-
-
 def get_table(df):
     return df[list(LIGHT_CURVE_TABLE_COLUMNS)].to_dict('records')
-
-
-def get_meta_markdown(oid):
-    d = get_meta(oid)
-    text = dict_to_bullet(d)
-    return dcc.Markdown(text)
 
 
 def set_div_for_aladin(oid):
@@ -82,16 +64,15 @@ def get_layout(pathname):
     coord = get_meta(oid)['coord']
     layout = html.Div([
         html.Div(f'{oid}', id='oid', style={'display': 'none'}),
-        html.H2(get_title(oid)),
+        html.H2(id='title'),
         dcc.Graph(
             id='graph',
             style={'width': '75%'},
-            figure=get_figure(oid, df),
         ),
         html.Div(
             [
                 html.H2('Metadata'),
-                get_meta_markdown(oid),
+                dcc.Markdown(id='metadata'),
             ],
             style={'width': '50%'},
         ),
@@ -99,12 +80,12 @@ def get_layout(pathname):
             [
                 html.H2('Simbad'),
                 dcc.Input(
-                    value='10',
+                    value='300',
                     id='simbad-radius',
-                    placeholder='Search radius, arcmin',
+                    placeholder='Search radius, arcsec',
                     type='number',
                 ),
-                ' search radius, arcmin',
+                ' search radius, arcsec',
                 html.Div(id='simbad-table'),
             ],
         ),
@@ -137,25 +118,63 @@ def get_layout(pathname):
 
 
 @app.callback(
+    Output('title', 'children'),
+    [Input('oid', 'children')],
+)
+def set_title(oid):
+    return f'{oid}'
+
+
+@app.callback(
+    Output('metadata', 'children'),
+    [Input('oid', 'children')],
+)
+def get_meta_markdown(oid):
+    d = get_meta(oid)
+    text = dict_to_bullet(d)
+    return text
+
+
+@app.callback(
+    Output('graph', 'figure'),
+    [Input('oid', 'children')],
+)
+def set_figure(oid):
+    df = get_light_curve(oid)
+    mag_min = (df['mag'] - df['magerr']).min()
+    mag_max = (df['mag'] + df['magerr']).max()
+    mag_ampl = mag_max - mag_min
+    range_y = [mag_max + 0.1 * mag_ampl, mag_min - 0.1*mag_ampl]
+    color = COLORS[get_meta(oid)['filter']]
+    figure = px.scatter(
+        df,
+        x='mjd_58000',
+        y='mag',
+        error_y='magerr',
+        range_y=range_y,
+        labels={'mjd_58000': 'mjd − 58000'},
+        color_discrete_sequence=[color],
+    )
+    return figure
+
+
+@app.callback(
     Output('simbad-table', 'children'),
     [Input('simbad-radius', 'value')],
     state=[State('oid', 'children')]
 )
-def get_simbad_table(radius, oid):
+def set_simbad_table(radius, oid):
     radius = float(radius)
     coord = get_meta(oid)['coord']
     ra, dec = coord_str_to_pair(coord)
     table = find_simbad(ra, dec, radius)
     if table is None:
-        return html.P(f'No Simbad objects within {radius} arcmin from {ra:.5f}, {dec:.5f}')
-    data = astropy_table_to_records(table, SIMBAD_TABLE_COLUMNS)
+        return html.P(f'No Simbad objects within {radius} arcsec from {ra:.5f}, {dec:.5f}')
+    table = table.copy()
+    table['url'] = [f'<a href="//simbad.u-strasbg.fr/simbad/sim-id?Ident={url_quote(x.decode())}">{x.decode()}</a>' for x in table['MAIN_ID']]
     div = html.Div(
         [
-            DataTable(
-                id='simbad-data-table',
-                columns=[{'name': column, 'id': column} for column in SIMBAD_TABLE_COLUMNS],
-                data=data,
-            ),
+            ddsih.DangerouslySetInnerHTML(html_from_astropy_table(table, SIMBAD_TABLE_COLUMNS)),
         ],
     )
     return div
