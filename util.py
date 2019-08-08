@@ -71,3 +71,11 @@ def html_from_astropy_table(table: astropy.table.Table, columns: dict):
         table[column] = convert_to_json_friendly(table[column])
     html = template.render(table=table, columns=columns)
     return html
+
+
+def decode(s):
+    if isinstance(s, bytes):
+        return s.decode()
+    if isinstance(s, str):
+        return s
+    raise ValueError('Argument should be str or bytes')

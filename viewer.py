@@ -1,6 +1,4 @@
-import logging
-from functools import lru_cache
-from urllib.parse import quote as url_quote
+from functools import lru_cache, partial
 
 import dash_core_components as dcc
 import dash_dangerously_set_inner_html as ddsih
@@ -11,12 +9,14 @@ from dash.dependencies import Input, Output, State
 from dash_table import DataTable
 
 from app import app
-from cross import find_simbad
+from cross import find, object_url, catalog_id_column
 from db import get_light_curve, get_meta
-from util import dict_to_bullet, coord_str_to_pair, astropy_table_to_records, html_from_astropy_table
+from util import dict_to_bullet, coord_str_to_pair, html_from_astropy_table, decode
 
+PATHNAME = oid_from_pathname(pathname)
 
 LIGHT_CURVE_TABLE_COLUMNS = ('mjd', 'mag', 'magerr', 'clrcoeff')
+
 SIMBAD_TABLE_COLUMNS = {
     'url': 'MAIN_ID',
     'separation': 'Separation, arcsec',
@@ -27,6 +27,18 @@ SIMBAD_TABLE_COLUMNS = {
     'Distance_distance': 'Distance',
     'Distance_unit': 'Distance unit'
 }
+GCVS_TABLE_COLUMNS = {
+    'url': 'Designation',
+    'separation': 'Separation, arcsec',
+    'Period': 'Period, days',
+    'VarType': 'Type of variability',
+    'SpType': 'Spectral type',
+}
+CATALOG_COLUMNS = {
+    'Simbad': SIMBAD_TABLE_COLUMNS,
+    'GCVS': GCVS_TABLE_COLUMNS,
+}
+
 COLORS = {'zr': '#CC3344', 'zg': '#117733'}
 
 
@@ -57,7 +69,7 @@ def set_div_for_aladin(oid):
 
 @lru_cache(maxsize=128)
 def get_layout(pathname):
-    oid = oid_from_pathname(pathname)
+    oid = PATHNAME
     df = get_light_curve(oid)
     if df is None:
         return html.H1('404')
@@ -75,6 +87,19 @@ def get_layout(pathname):
                 dcc.Markdown(id='metadata'),
             ],
             style={'width': '50%'},
+        ),
+        html.Div(
+            [
+                html.H2('GCVS'),
+                dcc.Input(
+                    value='10',
+                    id='gcvs-radius',
+                    placeholder='Search radius, arcsec',
+                    type='number',
+                ),
+                ' search radius, arcsec',
+                html.Div(id='gcvs-table'),
+            ],
         ),
         html.Div(
             [
@@ -158,23 +183,34 @@ def set_figure(oid):
     return figure
 
 
-@app.callback(
-    Output('simbad-table', 'children'),
-    [Input('simbad-radius', 'value')],
-    state=[State('oid', 'children')]
-)
-def set_simbad_table(radius, oid):
+def set_table(radius, oid, catalog):
     radius = float(radius)
     coord = get_meta(oid)['coord']
     ra, dec = coord_str_to_pair(coord)
-    table = find_simbad(ra, dec, radius)
+    table = find(catalog, ra, dec, radius)
     if table is None:
-        return html.P(f'No Simbad objects within {radius} arcsec from {ra:.5f}, {dec:.5f}')
+        return html.P(f'No {catalog} objects within {radius} arcsec from {ra:.5f}, {dec:.5f}')
     table = table.copy()
-    table['url'] = [f'<a href="//simbad.u-strasbg.fr/simbad/sim-id?Ident={url_quote(x.decode())}">{x.decode()}</a>' for x in table['MAIN_ID']]
+    columns = CATALOG_COLUMNS[catalog]
+    id_column = catalog_id_column(catalog)
+    table['url'] = [f'<a href="{object_url(catalog, decode(x))}">{decode(x)}</a>' for x in table[id_column]]
     div = html.Div(
         [
-            ddsih.DangerouslySetInnerHTML(html_from_astropy_table(table, SIMBAD_TABLE_COLUMNS)),
+            ddsih.DangerouslySetInnerHTML(html_from_astropy_table(table, columns)),
         ],
     )
     return div
+
+
+app.callback(
+    Output('gcvs-table', 'children'),
+    [Input('gcvs-radius', 'value')],
+    state=[State('oid', 'children')]
+)(partial(set_table, catalog='GCVS'))
+
+
+app.callback(
+    Output('simbad-table', 'children'),
+    [Input('simbad-radius', 'value')],
+    state=[State('oid', 'children')]
+)(partial(set_table, catalog='Simbad'))
