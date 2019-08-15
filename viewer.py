@@ -9,35 +9,12 @@ from dash.dependencies import Input, Output, State
 from dash_table import DataTable
 
 from app import app
-from cross import find, object_url, catalog_id_column
+from cross import get_catalog_query
 from db import get_light_curve, get_meta
 from util import dict_to_bullet, coord_str_to_pair, html_from_astropy_table, decode
 
-PATHNAME = oid_from_pathname(pathname)
 
 LIGHT_CURVE_TABLE_COLUMNS = ('mjd', 'mag', 'magerr', 'clrcoeff')
-
-SIMBAD_TABLE_COLUMNS = {
-    'url': 'MAIN_ID',
-    'separation': 'Separation, arcsec',
-    'OTYPE': 'Main type',
-    'OTYPES': 'Other types',
-    'V__vartyp': 'Variable type',
-    'V__period': 'Period',
-    'Distance_distance': 'Distance',
-    'Distance_unit': 'Distance unit'
-}
-GCVS_TABLE_COLUMNS = {
-    'url': 'Designation',
-    'separation': 'Separation, arcsec',
-    'Period': 'Period, days',
-    'VarType': 'Type of variability',
-    'SpType': 'Spectral type',
-}
-CATALOG_COLUMNS = {
-    'Simbad': SIMBAD_TABLE_COLUMNS,
-    'GCVS': GCVS_TABLE_COLUMNS,
-}
 
 COLORS = {'zr': '#CC3344', 'zg': '#117733'}
 
@@ -69,7 +46,7 @@ def set_div_for_aladin(oid):
 
 @lru_cache(maxsize=128)
 def get_layout(pathname):
-    oid = PATHNAME
+    oid = oid_from_pathname(pathname)
     df = get_light_curve(oid)
     if df is None:
         return html.H1('404')
@@ -187,16 +164,15 @@ def set_table(radius, oid, catalog):
     radius = float(radius)
     coord = get_meta(oid)['coord']
     ra, dec = coord_str_to_pair(coord)
-    table = find(catalog, ra, dec, radius)
+    query = get_catalog_query(catalog)
+    table = query.find(ra, dec, radius)
     if table is None:
         return html.P(f'No {catalog} objects within {radius} arcsec from {ra:.5f}, {dec:.5f}')
     table = table.copy()
-    columns = CATALOG_COLUMNS[catalog]
-    id_column = catalog_id_column(catalog)
-    table['url'] = [f'<a href="{object_url(catalog, decode(x))}">{decode(x)}</a>' for x in table[id_column]]
+    table['url'] = [f'<a href="{query.get_url(decode(x))}">{decode(x)}</a>' for x in table[query.id_column]]
     div = html.Div(
         [
-            ddsih.DangerouslySetInnerHTML(html_from_astropy_table(table, columns)),
+            ddsih.DangerouslySetInnerHTML(html_from_astropy_table(table, query.columns)),
         ],
     )
     return div
