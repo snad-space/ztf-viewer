@@ -11,7 +11,7 @@ from dash_table import DataTable
 from app import app
 from cross import get_catalog_query
 from db import get_light_curve, get_meta
-from util import dict_to_bullet, coord_str_to_pair, html_from_astropy_table, decode
+from util import dict_to_bullet, coord_str_to_pair, html_from_astropy_table, to_str
 
 
 LIGHT_CURVE_TABLE_COLUMNS = ('mjd', 'mag', 'magerr', 'clrcoeff')
@@ -76,6 +76,19 @@ def get_layout(pathname):
                 ),
                 ' search radius, arcsec',
                 html.Div(id='gcvs-table'),
+            ],
+        ),
+        html.Div(
+            [
+                html.H2('AAVSO VSX'),
+                dcc.Input(
+                    value='10',
+                    id='vsx-radius',
+                    placeholder='Search radius, arcsec',
+                    type='number',
+                ),
+                ' search radius, arcsec',
+                html.Div(id='vsx-table'),
             ],
         ),
         html.Div(
@@ -161,15 +174,17 @@ def set_figure(oid):
 
 
 def set_table(radius, oid, catalog):
-    radius = float(radius)
     coord = get_meta(oid)['coord']
     ra, dec = coord_str_to_pair(coord)
+    if radius is None:
+        return html.P('No radius is specified')
+    radius = float(radius)
     query = get_catalog_query(catalog)
     table = query.find(ra, dec, radius)
     if table is None:
         return html.P(f'No {catalog} objects within {radius} arcsec from {ra:.5f}, {dec:.5f}')
     table = table.copy()
-    table['url'] = [f'<a href="{query.get_url(decode(x))}">{decode(x)}</a>' for x in table[query.id_column]]
+    table['url'] = [f'<a href="{query.get_url(to_str(x))}">{to_str(x)}</a>' for x in table[query.id_column]]
     div = html.Div(
         [
             ddsih.DangerouslySetInnerHTML(html_from_astropy_table(table, query.columns)),
@@ -183,6 +198,13 @@ app.callback(
     [Input('gcvs-radius', 'value')],
     state=[State('oid', 'children')]
 )(partial(set_table, catalog='GCVS'))
+
+
+app.callback(
+    Output('vsx-table', 'children'),
+    [Input('vsx-radius', 'value')],
+    state=[State('oid', 'children')]
+)(partial(set_table, catalog='VSX'))
 
 
 app.callback(

@@ -67,6 +67,9 @@ class SimbadQuery(_CatalogQuery):
         return f'//simbad.u-strasbg.fr/simbad/sim-id?Ident={qid}'
 
 
+SIMBAD_QUERY = SimbadQuery()
+
+
 class GCVSQuery(_CatalogQuery):
     id_column = 'GCVS'
     _table_ra = 'RAJ2000'
@@ -91,9 +94,41 @@ class GCVSQuery(_CatalogQuery):
         return f'http://www.sai.msu.su/gcvs/cgi-bin/search.cgi?search={qid}'
 
 
+GCVS_QUERY = GCVSQuery()
+
+
+class VSXQuery(_CatalogQuery):
+    id_column = 'OID'
+    _table_ra = 'RAJ2000'
+    _table_dec = 'DEJ2000'
+    columns = {
+        'url': 'Designation',
+        'separation': 'Separation, arcsec',
+        'Name': 'Name',
+        'Period': 'Period, days',
+        'Type': '<a href="https://aavso.org/vsx/help/VariableStarTypeDesignationsInVSX.pdf">Variability type</a>',
+        'max': 'Maximum mag',
+        'n_max': 'Band of max mag',
+        'min': 'Minimum mag',
+        'n_min': 'Band of min mag',
+    }
+    
+    def __init__(self):
+        self._query = Vizier()
+        self._query_region = partial(self._query.query_region, catalog='B/vsx/vsx')
+
+    def get_url(self, id):
+        return f'//www.aavso.org/vsx/index.php?view=detail.top&oid={id}'
+
+
+VSX_QUERY = VSXQuery()
+
+
 def get_catalog_query(catalog):
     if catalog.lower() == 'simbad':
-        return SimbadQuery()
+        return SIMBAD_QUERY
     if catalog.lower() == 'gcvs':
-        return GCVSQuery()
+        return GCVS_QUERY
+    if catalog.lower() == 'vsx':
+        return VSX_QUERY
     raise

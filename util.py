@@ -73,9 +73,11 @@ def html_from_astropy_table(table: astropy.table.Table, columns: dict):
     return html
 
 
-def decode(s):
+def to_str(s):
     if isinstance(s, bytes):
         return s.decode()
     if isinstance(s, str):
         return s
-    raise ValueError('Argument should be str or bytes')
+    if isinstance(s, np.integer):
+        return str(s)
+    raise ValueError(f'Argument should be str, bytes or int, not {type(s)}')
