@@ -93,6 +93,19 @@ def get_layout(pathname):
         ),
         html.Div(
             [
+                html.H2('OGLE-III'),
+                dcc.Input(
+                    value='10',
+                    id='ogle-radius',
+                    placeholder='Search radius, arcsec',
+                    type='number',
+                ),
+                ' search radius, arcsec',
+                html.Div(id='ogle-table'),
+            ],
+        ),
+        html.Div(
+            [
                 html.H2('Simbad'),
                 dcc.Input(
                     value='300',
@@ -184,7 +197,6 @@ def set_table(radius, oid, catalog):
     if table is None:
         return html.P(f'No {catalog} objects within {radius} arcsec from {ra:.5f}, {dec:.5f}')
     table = table.copy()
-    table['url'] = [f'<a href="{query.get_url(to_str(x))}">{to_str(x)}</a>' for x in table[query.id_column]]
     div = html.Div(
         [
             ddsih.DangerouslySetInnerHTML(html_from_astropy_table(table, query.columns)),
@@ -205,6 +217,13 @@ app.callback(
     [Input('vsx-radius', 'value')],
     state=[State('oid', 'children')]
 )(partial(set_table, catalog='VSX'))
+
+
+app.callback(
+    Output('ogle-table', 'children'),
+    [Input('ogle-radius', 'value')],
+    state=[State('oid', 'children')]
+)(partial(set_table, catalog='OGLE'))
 
 
 app.callback(

@@ -8,3 +8,4 @@ numpy
 astropy
 astroquery
 jinja2
+requests
