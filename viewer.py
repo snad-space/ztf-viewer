@@ -11,7 +11,7 @@ from dash_table import DataTable
 from app import app
 from cross import get_catalog_query
 from db import get_light_curve, get_meta
-from util import dict_to_bullet, coord_str_to_pair, html_from_astropy_table, to_str
+from util import dict_to_bullet, coord_str_to_pair, html_from_astropy_table
 
 
 LIGHT_CURVE_TABLE_COLUMNS = ('mjd', 'mag', 'magerr', 'clrcoeff')

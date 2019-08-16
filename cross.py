@@ -21,6 +21,8 @@ while True:
     except FileExistsError:
         sleep(np.random.uniform(0.05, 0.2))
 
+from util import to_str
+
 
 class _CatalogQuery:
     _cache_size = 1 << 5
@@ -45,7 +47,7 @@ class _CatalogQuery:
             return None
         catalog_coord = SkyCoord(table[self._table_ra], table[self._table_dec], unit=['hour', 'deg'], frame='icrs')
         table['separation'] = coord.separation(catalog_coord).to('arcsec')
-        table['link'] = [self.get_link(row[self.id_column], row[self.id_column]) for row in table]
+        table['link'] = [self.get_link(row[self.id_column], to_str(row[self.id_column])) for row in table]
         return table
 
     def get_url(self, id):
