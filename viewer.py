@@ -9,14 +9,17 @@ from dash.dependencies import Input, Output, State
 from dash_table import DataTable
 
 from app import app
-from cross import get_catalog_query
+from cross import get_catalog_query, find_vizier
 from db import get_light_curve, get_meta
-from util import dict_to_bullet, coord_str_to_pair, html_from_astropy_table
+from util import coord_str_to_pair, html_from_astropy_table
 
 
 LIGHT_CURVE_TABLE_COLUMNS = ('mjd', 'mag', 'magerr', 'clrcoeff')
 
 COLORS = {'zr': '#CC3344', 'zg': '#117733'}
+
+
+LIST_MAXSHOW = 4
 
 
 def oid_from_pathname(pathname):
@@ -119,6 +122,20 @@ def get_layout(pathname):
         ),
         html.Div(
             [
+                html.H2('Vizier'),
+                dcc.Input(
+                    value='1',
+                    id='vizier-radius',
+                    placeholder='Search radius, arcsec',
+                    type='number',
+                    step='0.1',
+                ),
+                ' search radius, arcsec',
+                html.Div(id='vizier-list'),
+            ]
+        ),
+        html.Div(
+            [
                 html.H2(html.A('Aladin', href=f'//aladin.u-strasbg.fr/AladinLite/?target={coord}')),
                 set_div_for_aladin(oid),
                 html.Div(
@@ -159,7 +176,7 @@ def set_title(oid):
 )
 def get_meta_markdown(oid):
     d = get_meta(oid)
-    text = dict_to_bullet(d)
+    text = '\n'.join(f'* **{k}**: {v}' for k, v in d.items())
     return text
 
 
@@ -231,3 +248,45 @@ app.callback(
     [Input('simbad-radius', 'value')],
     state=[State('oid', 'children')]
 )(partial(set_table, catalog='Simbad'))
+
+
+@app.callback(
+    Output('vizier-list', 'children'),
+    [Input('vizier-radius', 'value')],
+    state=[State('oid', 'children')]
+)
+def set_vizier_list(radius, oid):
+    coord = get_meta(oid)['coord']
+    ra, dec = coord_str_to_pair(coord)
+    if radius is None:
+        return html.P('No radius is specified')
+    radius = float(radius)
+    table_list = find_vizier.find(ra, dec, radius)
+    if len(table_list) == 0:
+        return html.P(f'No vizier catalogs found within {radius} arcsec from {ra:.5f}, {dec:.5f}')
+    records = []
+    lengths = []
+    for catalog, table in zip(table_list.keys(), table_list.values()):
+        n = len(table)
+        n_objects = str(n) if n < find_vizier.row_limit else f'≥{n}'
+        n_objects = f' ({n_objects} objects)' if n > LIST_MAXSHOW else ''
+        r = table['_r']
+        if n > LIST_MAXSHOW:
+            r = r[:LIST_MAXSHOW - 1]
+        sep = ', '.join(f'{x}″' for x in r)
+        if n > LIST_MAXSHOW:
+            sep += ', …'
+        url = find_vizier.get_catalog_url(catalog, ra, dec, radius)
+        records.append(f'[{catalog}]({url}){n_objects}: {sep}')
+        lengths.append(len(catalog) + len(n_objects) + 2 + len(sep))
+    ul_column_width = max(lengths)
+    div = html.Div(
+        [
+            html.Br(),
+            html.P(html.A(f'See all {len(table_list)} catalogs on Vizier',
+                          href=find_vizier.get_search_url(ra, dec, radius))),
+            html.Ul([html.Li(dcc.Markdown(record)) for record in records],
+                    style={'columns': f'{ul_column_width}ch'}),
+        ]
+    )
+    return div

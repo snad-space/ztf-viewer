@@ -7,10 +7,6 @@ from astropy import units
 from jinja2 import Template
 
 
-def dict_to_bullet(d):
-    return '\n'.join(f'* **{k}**: {v}' for k, v in d.items())
-
-
 def db_coord_to_degrees(coord):
     match = re.search(r'^\((\S+)\s*,\s*(\S+)\)$', coord)
     ra = math.degrees(float(match.group(1)))
@@ -81,3 +77,15 @@ def to_str(s):
     if isinstance(s, np.integer):
         return str(s)
     raise ValueError(f'Argument should be str, bytes or int, not {type(s)}')
+
+
+def anchor_form(url, data, title):
+    inputs = '\n'.join(f'<input type="hidden" name="{key}" value="{value}">' for key, value in data.items())
+    return f'''
+        <form method="post" action="{url}" class="inline">
+            {inputs}
+            <button type="submit" class="link-button">
+                {title}
+            </button>
+        </form>
+    '''

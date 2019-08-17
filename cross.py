@@ -1,6 +1,7 @@
 import logging
 import urllib.parse
 from base64 import b64encode
+from collections import namedtuple
 from functools import lru_cache, partial
 from io import BytesIO
 from time import sleep
@@ -9,7 +10,6 @@ import astropy.io.ascii
 import numpy as np
 import requests
 from astropy.coordinates import SkyCoord
-from astropy import units
 from astroquery.utils.commons import TableList
 
 # Dirty hack to overcome problem of simultaneous cache folder creation
@@ -21,7 +21,7 @@ while True:
     except FileExistsError:
         sleep(np.random.uniform(0.05, 0.2))
 
-from util import to_str
+from util import to_str, anchor_form
 
 
 class _CatalogQuery:
@@ -157,6 +157,31 @@ class OGLEQuery(_CatalogQuery):
     }
     _base_api_url = 'http://ogle3.snad.space/api/v1/circle'
     _base_light_curve_url = 'http://ogledb.astrouw.edu.pl/~ogle/CVS/images/'
+    _post_url = 'http://ogledb.astrouw.edu.pl/~ogle/CVS/query.php?first=1&qtype=catalog'
+    _post_data = {
+        'db_target': 'all',
+        'sort': 'id',
+        'use_id': 'on',
+        'disp_field': 'on',
+        'disp_starid': 'on',
+        'disp_type': '1',
+        'disp_subtype': '1',
+        'disp_ra': 'on',
+        'disp_decl': 'on',
+        'disp_i': 'on',
+        'disp_v': 'on',
+        'disp_p1': 'on',
+        'disp_a1': 'on',
+        'disp_id_ogle_ii': 'on',
+        'disp_id_macho': 'on',
+        'disp_id_asas': 'on',
+        'disp_id_gcvs': 'on',
+        'disp_id_other': 'on',
+        'disp_remarks': 'on',
+        'sorting': 'ASC',
+        'hexout': 'on',
+        'pagelen': '50',
+    }
 
     def __init__(self):
         self._api_session = requests.Session()
@@ -195,39 +220,58 @@ class OGLEQuery(_CatalogQuery):
         return table
 
     def get_link(self, id, name):
-        return f'''
-            <form method="post" action="http://ogledb.astrouw.edu.pl/~ogle/CVS/query.php?first=1&qtype=catalog" class="inline">
-                <input type="hidden" name="val_id" value="{id}">
-                <input type="hidden" name="db_target" value="all">
-                <input type="hidden" name="sort" value="id">
-                <input type="hidden" name="use_id" value="on">
-                <input type="hidden" name="disp_field" value="on">
-                <input type="hidden" name="disp_starid" value="on">
-                <input type="hidden" name="disp_type" value="1">
-                <input type="hidden" name="disp_subtype" value="1">
-                <input type="hidden" name="disp_ra" value="on">
-                <input type="hidden" name="disp_decl" value="on">
-                <input type="hidden" name="disp_i" value="on">
-                <input type="hidden" name="disp_v" value="on">
-                <input type="hidden" name="disp_p1" value="on">
-                <input type="hidden" name="disp_a1" value="on">
-                <input type="hidden" name="disp_id_ogle_ii" value="on">
-                <input type="hidden" name="disp_id_macho" value="on">
-                <input type="hidden" name="disp_id_asas" value="on">
-                <input type="hidden" name="disp_id_gcvs" value="on">
-                <input type="hidden" name="disp_id_other" value="on">
-                <input type="hidden" name="disp_remarks" value="on">
-                <input type="hidden" name="sorting" value="ASC">
-                <input type="hidden" name="hexout" value="on">
-                <input type="hidden" name="pagelen" value="50">
-                <button type="submit" name="val_id" value="{id}" class="link-button">
-                    {name}
-                </button>
-            </form>
-        '''
+        return anchor_form(self._post_url, dict(**self._post_data, val_id=id), name)
 
 
 OGLE_QUERY = OGLEQuery()
+
+
+#curl 'http://vizier.u-strasbg.fr/viz-bin/VizieR-4' \
+#-XPOST \
+#-H 'Content-Type: application/x-www-form-urlencoded' \
+#-H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' \
+#-H 'Host: vizier.u-strasbg.fr' \
+#-H 'Accept-Language: en-us' \
+#-H 'Accept-Encoding: gzip, deflate' \
+#-H 'Origin: http://vizier.u-strasbg.fr' \
+#-H 'Referer: http://vizier.u-strasbg.fr/viz-bin/VizieR' \
+#-H 'Content-Length: 306' \
+#-H 'Upgrade-Insecure-Requests: 1' \
+#-H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/12.1.2 Safari/605.1.15' \
+#-H 'Connection: keep-alive' \
+#-H 'Cookie: _pk_id.5.f41c=11034d0adfb3b628.1565010803.9.1565980506.1565980180.; _pk_ses.5.f41c=1' \
+#--data '-ref=VIZ5d56f7585b30&-to=2&-from=-1&-this=-1&-out.add=_r&-out.add=_RAJ%2C_DEJ&-sort=_r&-order=I&-oc.form=sexa&-meta.foot=1&-meta=1&-meta.ucd=2&-c=277.87862000000024%2C+-23.77108000000002&-c.r=++1&-c.geom=r&-meta.ucd=2&-usenav=1&-bmark=POST&-out.max=50&-out.form=HTML+Table&-c.eq=J2000&-c.u=arcsec&-4c=Go%21'
+
+# http://vizier.u-strasbg.fr/viz-bin/VizieR-3?-source=I/252/out&-c=277.87862000000024,%20-23.77108000000002&-c.u=arcsec&-c.r=1.33&-c.eq=J2000&-c.geom=r&-out.max=50&-out.form=HTML%20Table&-out.add=_r&-out.add=_RAJ,_DEJ&-sort=_r&-oc.form=sexa
+class FindVizier:
+    FindVizierResult = namedtuple('FindVizierResult', ('search_link', 'table_list',))
+
+    row_limit = 10
+    _cache_size = 1 << 5
+
+    _table_ra = '_RAJ2000'
+    _table_dec = '_DEJ2000'
+    _table_sep = '_r'
+
+    def __init__(self):
+        self._query = Vizier(columns=[self._table_ra, self._table_dec, self._table_sep])
+        self._query.ROW_LIMIT = self.row_limit
+
+    @lru_cache(maxsize=_cache_size)
+    def find(self, ra, dec, radius_arcsec):
+        coord = SkyCoord(ra, dec, unit='deg', frame='icrs')
+        radius = f'{radius_arcsec}s'
+        table_list = self._query.query_region(coord, radius=radius)
+        return table_list
+
+    def get_search_url(self, ra, dec, radius_arcsec):
+        return f'//vizier.u-strasbg.fr/viz-bin/VizieR-4?&-to=2&-from=-1&-this=-1&-out.add=_r&-out.add=_RAJ%2C_DEJ&-sort=_r&-order=I&-oc.form=sexa&-meta.foot=1&-meta=1&-meta.ucd=2&-c={ra}%2C+{dec}&-c.r=++{radius_arcsec}&-c.geom=r&-meta.ucd=2&-usenav=1&-bmark=POST&-out.max=50&-out.form=HTML+Table&-c.eq=J2000&-c.u=arcsec&-4c=Go%21'
+
+    def get_catalog_url(self, catalog, ra, dec, radius_arcsec):
+        return f'//vizier.u-strasbg.fr/viz-bin/VizieR-3?-source={catalog}&-c={ra},%20{dec}&-c.u=arcsec&-c.r={radius_arcsec}&-c.eq=J2000&-c.geom=r&-out.max=50&-out.form=HTML%20Table&-out.add=_r&-out.add=_RAJ,_DEJ&-sort=_r&-oc.form=sexa'
+
+
+find_vizier = FindVizier()
 
 
 def get_catalog_query(catalog):
