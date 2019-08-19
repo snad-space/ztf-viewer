@@ -306,7 +306,7 @@ class FindZTFOID(_BaseFindZTF):
             ra, dec = self.get_coord(oid)
         except TypeError:
             return None
-        return f'{ra}, {dec}'
+        return f'{ra:.5f}, {dec:.5f}'
 
     def get_meta(self, oid):
         j = self.find(oid)

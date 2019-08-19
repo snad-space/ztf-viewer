@@ -10,7 +10,7 @@ from dash.dependencies import Input, Output, State
 from dash_table import DataTable
 
 from app import app
-from cross import get_catalog_query, find_vizier, find_ztf_oid
+from cross import get_catalog_query, find_vizier, find_ztf_oid, find_ztf_circle
 from util import html_from_astropy_table
 
 
@@ -62,6 +62,41 @@ def get_layout(pathname):
         ),
         html.Div(
             [
+                html.H2('Neighbours'),
+                html.Div(
+                    [
+                        html.H4('Different field, same pathband'),
+                        dcc.Input(
+                            value='1',
+                            id='different_field_radius',
+                            placeholder='Search radius, arcsec',
+                            type='number',
+                            step='0.1',
+                            min='0.1',
+                            max='60',
+                        ),
+                        html.Div(id='different_field_neighbours'),
+                    ],
+                ),
+                html.Div(
+                    [
+                        html.H4('Different pathband, same field'),
+                        dcc.Input(
+                            value='1',
+                            id='different_filter_radius',
+                            placeholder='Search radius, arcsec',
+                            type='number',
+                            step='0.1',
+                            min='0.1',
+                            max='60',
+                        ),
+                        html.Div(id='different_filter_neighbours'),
+                    ],
+                ),
+            ],
+        ),
+        html.Div(
+            [
                 html.H2('Metadata'),
                 dcc.Markdown(id='metadata'),
             ],
@@ -101,6 +136,8 @@ def get_layout(pathname):
                     id='ogle-radius',
                     placeholder='Search radius, arcsec',
                     type='number',
+                    min='0.1',
+                    max='323999'
                 ),
                 ' search radius, arcsec',
                 html.Div(id='ogle-table'),
@@ -202,6 +239,40 @@ def set_figure(oid):
         color_discrete_sequence=[color],
     )
     return figure
+
+
+def find_neighbours(radius, oid, different):
+    if radius is None:
+        return html.P('No radius is specified')
+    ra, dec = find_ztf_oid.get_coord(oid)
+    kwargs = dict(ra=ra, dec=dec, radius_arcsec=radius)
+    fltr = find_ztf_oid.get_meta(oid)['filter']
+    fieldid = find_ztf_oid.get_meta(oid)['fieldid']
+    if different == 'filter':
+        kwargs['not_filters'] = (fltr,)
+        kwargs['fieldids'] = (fieldid,)
+    elif different == 'fieldid':
+        kwargs['filters'] = (fltr,)
+        kwargs['not_fieldids'] = (fieldid,)
+    else:
+        raise ValueError(f'Wrong "different" value {different}')
+    j = find_ztf_circle.find(**kwargs)
+    text = dcc.Markdown(', '.join(f'[{oid}](./{oid})' for oid in j))
+    return text
+
+
+app.callback(
+    Output('different_field_neighbours', 'children'),
+    [Input('different_field_radius', 'value')],
+    state=[State('oid', 'children')]
+)(partial(find_neighbours, different='fieldid'))
+
+
+app.callback(
+    Output('different_filter_neighbours', 'children'),
+    [Input('different_filter_radius', 'value')],
+    state=[State('oid', 'children')]
+)(partial(find_neighbours, different='filter'))
 
 
 def set_table(radius, oid, catalog):
