@@ -226,23 +226,18 @@ class OGLEQuery(_CatalogQuery):
 OGLE_QUERY = OGLEQuery()
 
 
-#curl 'http://vizier.u-strasbg.fr/viz-bin/VizieR-4' \
-#-XPOST \
-#-H 'Content-Type: application/x-www-form-urlencoded' \
-#-H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' \
-#-H 'Host: vizier.u-strasbg.fr' \
-#-H 'Accept-Language: en-us' \
-#-H 'Accept-Encoding: gzip, deflate' \
-#-H 'Origin: http://vizier.u-strasbg.fr' \
-#-H 'Referer: http://vizier.u-strasbg.fr/viz-bin/VizieR' \
-#-H 'Content-Length: 306' \
-#-H 'Upgrade-Insecure-Requests: 1' \
-#-H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/12.1.2 Safari/605.1.15' \
-#-H 'Connection: keep-alive' \
-#-H 'Cookie: _pk_id.5.f41c=11034d0adfb3b628.1565010803.9.1565980506.1565980180.; _pk_ses.5.f41c=1' \
-#--data '-ref=VIZ5d56f7585b30&-to=2&-from=-1&-this=-1&-out.add=_r&-out.add=_RAJ%2C_DEJ&-sort=_r&-order=I&-oc.form=sexa&-meta.foot=1&-meta=1&-meta.ucd=2&-c=277.87862000000024%2C+-23.77108000000002&-c.r=++1&-c.geom=r&-meta.ucd=2&-usenav=1&-bmark=POST&-out.max=50&-out.form=HTML+Table&-c.eq=J2000&-c.u=arcsec&-4c=Go%21'
+def get_catalog_query(catalog):
+    if catalog.lower() == 'simbad':
+        return SIMBAD_QUERY
+    if catalog.lower() == 'gcvs':
+        return GCVS_QUERY
+    if catalog.lower() == 'vsx':
+        return VSX_QUERY
+    if catalog.lower() == 'ogle':
+        return OGLE_QUERY
+    raise
 
-# http://vizier.u-strasbg.fr/viz-bin/VizieR-3?-source=I/252/out&-c=277.87862000000024,%20-23.77108000000002&-c.u=arcsec&-c.r=1.33&-c.eq=J2000&-c.geom=r&-out.max=50&-out.form=HTML%20Table&-out.add=_r&-out.add=_RAJ,_DEJ&-sort=_r&-oc.form=sexa
+
 class FindVizier:
     FindVizierResult = namedtuple('FindVizierResult', ('search_link', 'table_list',))
 
@@ -264,23 +259,89 @@ class FindVizier:
         table_list = self._query.query_region(coord, radius=radius)
         return table_list
 
-    def get_search_url(self, ra, dec, radius_arcsec):
+    @staticmethod
+    def get_search_url(ra, dec, radius_arcsec):
         return f'//vizier.u-strasbg.fr/viz-bin/VizieR-4?&-to=2&-from=-1&-this=-1&-out.add=_r&-out.add=_RAJ%2C_DEJ&-sort=_r&-order=I&-oc.form=sexa&-meta.foot=1&-meta=1&-meta.ucd=2&-c={ra}%2C+{dec}&-c.r=++{radius_arcsec}&-c.geom=r&-meta.ucd=2&-usenav=1&-bmark=POST&-out.max=50&-out.form=HTML+Table&-c.eq=J2000&-c.u=arcsec&-4c=Go%21'
 
-    def get_catalog_url(self, catalog, ra, dec, radius_arcsec):
+    @staticmethod
+    def get_catalog_url(catalog, ra, dec, radius_arcsec):
         return f'//vizier.u-strasbg.fr/viz-bin/VizieR-3?-source={catalog}&-c={ra},%20{dec}&-c.u=arcsec&-c.r={radius_arcsec}&-c.eq=J2000&-c.geom=r&-out.max=50&-out.form=HTML%20Table&-out.add=_r&-out.add=_RAJ,_DEJ&-sort=_r&-oc.form=sexa'
 
 
 find_vizier = FindVizier()
 
 
-def get_catalog_query(catalog):
-    if catalog.lower() == 'simbad':
-        return SIMBAD_QUERY
-    if catalog.lower() == 'gcvs':
-        return GCVS_QUERY
-    if catalog.lower() == 'vsx':
-        return VSX_QUERY
-    if catalog.lower() == 'ogle':
-        return OGLE_QUERY
-    raise
+class _BaseFindZTF:
+    def __init__(self):
+        self._base_api_url = 'http://db.ztf.snad.space/api/v1'
+        self._api_session = requests.Session()
+
+    def find(self, *args, **kwargs):
+        raise NotImplemented
+
+
+class FindZTFOID(_BaseFindZTF):
+    _cache_size = 1 << 5
+
+    def __init__(self):
+        super().__init__()
+        self._oid_api_url = f'{self._base_api_url}/oid/full/json'
+
+    @lru_cache(maxsize=_cache_size)
+    def find(self, oid):
+        resp = self._api_session.get(self._oid_api_url, params=dict(oid=oid))
+        if resp.status_code != 200:
+            return None
+        return resp.json()[str(oid)]
+
+    def get_coord(self, oid):
+        meta = self.get_meta(oid)
+        if meta is None:
+            return None
+        coord = meta['coord']
+        return coord['ra'], coord['dec']
+
+    def get_coord_string(self, oid):
+        try:
+            ra, dec = self.get_coord(oid)
+        except TypeError:
+            return None
+        return f'{ra}, {dec}'
+
+    def get_meta(self, oid):
+        j = self.find(oid)
+        if j is None:
+            return None
+        return j['meta']
+
+    def get_lc(self, oid):
+        j = self.find(oid)
+        if j is None:
+            return None
+        return j['lc']
+
+
+find_ztf_oid = FindZTFOID()
+
+
+class FindZTFCircle(_BaseFindZTF):
+    _cache_size = 1 << 5
+
+    def __init__(self):
+        super().__init__()
+        self._circle_api_url = f'{self._base_api_url}/circle/full/json'
+
+    @lru_cache(maxsize=_cache_size)
+    def find(self, ra, dec, radius_arcsec, filters=None, not_filters=None, fieldids=None, not_fieldids=None):
+        resp = self._api_session.get(
+            self._circle_api_url,
+            params=dict(ra=ra, dec=dec, radius_arcsec=radius_arcsec,
+                        filter=filters, not_filter=not_filters,
+                        fieldid=fieldids, not_fieldid=not_fieldids)
+        )
+        if resp.status_code != 200:
+            return None
+        return resp.json()
+
+
+find_ztf_circle = FindZTFCircle()

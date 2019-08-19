@@ -1,18 +1,20 @@
 from io import StringIO
 
 import dash
+import pandas as pd
 from flask import Response
 
 
-from db import get_light_curve
+from cross import find_ztf_oid
 
 
 def flask_csv(oid):
-    lc = get_light_curve(oid)
+    lc = find_ztf_oid.get_lc(oid)
     if lc is None:
-        return ''
+        return '', 404
+    df = pd.DataFrame.from_records(lc)
     string_io = StringIO()
-    lc.to_csv(string_io, index=False)
+    df.to_csv(string_io, index=False)
     return Response(
         string_io.getvalue(),
         mimetype='text/csv',

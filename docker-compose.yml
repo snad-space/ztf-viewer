@@ -9,8 +9,6 @@ services:
        DYNDNS_HOST: ztf.homb.it,ztf.snad.space
        LETSENCRYPT_HOST: ztf.homb.it,ztf.snad.space
        LETSENCRYPT_EMAIL: ztf@homb.it
-     volumes:
-       - /var/run/postgresql:/var/run/postgresql
      restart: always
 
 networks:

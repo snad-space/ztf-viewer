@@ -14,10 +14,6 @@ def db_coord_to_degrees(coord):
     return ra, dec
 
 
-def coord_str_to_pair(coord):
-    return tuple(float(x) for x in coord.split(', '))
-
-
 def hms_to_deg(hms: str):
     h, m, s = (float(x) for x in hms.split())
     angle = h * units.hourangle + m * units.arcmin + s * units.arcsec

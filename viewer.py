@@ -4,17 +4,21 @@ import dash_core_components as dcc
 import dash_dangerously_set_inner_html as ddsih
 import dash_defer_js_import as dji
 import dash_html_components as html
+import pandas as pd
 import plotly.express as px
 from dash.dependencies import Input, Output, State
 from dash_table import DataTable
 
 from app import app
-from cross import get_catalog_query, find_vizier
-from db import get_light_curve, get_meta
-from util import coord_str_to_pair, html_from_astropy_table
+from cross import get_catalog_query, find_vizier, find_ztf_oid
+from util import html_from_astropy_table
 
 
 LIGHT_CURVE_TABLE_COLUMNS = ('mjd', 'mag', 'magerr', 'clrcoeff')
+
+
+METADATA_FIELDS = ('nobs', 'ngoodobs', 'filter', 'coord_string', 'duration', 'fieldid', 'rcid')
+
 
 COLORS = {'zr': '#CC3344', 'zg': '#117733'}
 
@@ -28,13 +32,9 @@ def oid_from_pathname(pathname):
     return int(oid)
 
 
-def get_table(df):
-    return df[list(LIGHT_CURVE_TABLE_COLUMNS)].to_dict('records')
-
-
 def set_div_for_aladin(oid):
-    coord = get_meta(oid)['coord']
-    ra, dec = coord_str_to_pair(coord)
+    ra, dec = find_ztf_oid.get_coord(oid)
+    coord = find_ztf_oid.get_coord_string(oid)
     style = {'display': 'none'}
     return html.Div(
         [
@@ -50,10 +50,9 @@ def set_div_for_aladin(oid):
 @lru_cache(maxsize=128)
 def get_layout(pathname):
     oid = oid_from_pathname(pathname)
-    df = get_light_curve(oid)
-    if df is None:
+    if find_ztf_oid.find(oid) is None:
         return html.H1('404')
-    coord = get_meta(oid)['coord']
+    coord = find_ztf_oid.get_coord_string(oid)
     layout = html.Div([
         html.Div(f'{oid}', id='oid', style={'display': 'none'}),
         html.H2(id='title'),
@@ -153,7 +152,6 @@ def get_layout(pathname):
                 DataTable(
                     id='light-curve-table',
                     columns=[{'name': column, 'id': column} for column in LIGHT_CURVE_TABLE_COLUMNS],
-                    data=get_table(df),
                 ),
             ],
             style={'width': '75%'},
@@ -175,8 +173,9 @@ def set_title(oid):
     [Input('oid', 'children')],
 )
 def get_meta_markdown(oid):
-    d = get_meta(oid)
-    text = '\n'.join(f'* **{k}**: {v}' for k, v in d.items())
+    meta = find_ztf_oid.get_meta(oid).copy()
+    meta['coord_string'] = find_ztf_oid.get_coord_string(oid)
+    text = '\n'.join(f'* **{k}**: {meta[k]}' for k in METADATA_FIELDS)
     return text
 
 
@@ -185,14 +184,16 @@ def get_meta_markdown(oid):
     [Input('oid', 'children')],
 )
 def set_figure(oid):
-    df = get_light_curve(oid)
-    mag_min = (df['mag'] - df['magerr']).min()
-    mag_max = (df['mag'] + df['magerr']).max()
+    lc = find_ztf_oid.get_lc(oid).copy()
+    color = COLORS[find_ztf_oid.get_meta(oid)['filter']]
+    for obs in lc:
+        obs['mjd_58000'] = obs['mjd'] - 58000
+    mag_min = min(obs['mag'] - obs['magerr'] for obs in lc)
+    mag_max = max(obs['mag'] + obs['magerr'] for obs in lc)
     mag_ampl = mag_max - mag_min
     range_y = [mag_max + 0.1 * mag_ampl, mag_min - 0.1*mag_ampl]
-    color = COLORS[get_meta(oid)['filter']]
     figure = px.scatter(
-        df,
+        pd.DataFrame.from_records(lc),
         x='mjd_58000',
         y='mag',
         error_y='magerr',
@@ -204,8 +205,7 @@ def set_figure(oid):
 
 
 def set_table(radius, oid, catalog):
-    coord = get_meta(oid)['coord']
-    ra, dec = coord_str_to_pair(coord)
+    ra, dec = find_ztf_oid.get_coord(oid)
     if radius is None:
         return html.P('No radius is specified')
     radius = float(radius)
@@ -256,8 +256,7 @@ app.callback(
     state=[State('oid', 'children')]
 )
 def set_vizier_list(radius, oid):
-    coord = get_meta(oid)['coord']
-    ra, dec = coord_str_to_pair(coord)
+    ra, dec = find_ztf_oid.get_coord(oid)
     if radius is None:
         return html.P('No radius is specified')
     radius = float(radius)
@@ -290,3 +289,11 @@ def set_vizier_list(radius, oid):
         ]
     )
     return div
+
+
+@app.callback(
+    Output('light-curve-table', 'data'),
+    [Input('oid', 'children')]
+)
+def set_lc_table(oid):
+    return find_ztf_oid.get_lc(oid).copy()
