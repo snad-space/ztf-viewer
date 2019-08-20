@@ -341,7 +341,16 @@ class FindZTFCircle(_BaseFindZTF):
         )
         if resp.status_code != 200:
             return None
-        return resp.json()
+        j = resp.json()
+        coord = SkyCoord(ra, dec, unit='deg', frame='icrs')
+        cat_coord = SkyCoord(ra=[obj['meta']['coord']['ra'] for obj in j.values()],
+                             dec=[obj['meta']['coord']['dec'] for obj in j.values()],
+                             unit='deg',
+                             frame='icrs')
+        sep = coord.separation(cat_coord).to_value('arcsec')
+        for obj, r in zip(j.values(), sep):
+            obj['separation'] = r
+        return j
 
 
 find_ztf_circle = FindZTFCircle()
