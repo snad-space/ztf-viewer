@@ -67,7 +67,7 @@ def get_layout(pathname):
                 html.H2('Neighbours'),
                 html.Div(
                     [
-                        html.H4('Different pathband, same field'),
+                        html.H4('Different passband, same field'),
                         dcc.Input(
                             value='1',
                             id='different_filter_radius',
@@ -83,7 +83,7 @@ def get_layout(pathname):
                 ),
                 html.Div(
                     [
-                        html.H4('Different field, same pathband'),
+                        html.H4('Different field, same passband'),
                         dcc.Input(
                             value='1',
                             id='different_field_radius',
