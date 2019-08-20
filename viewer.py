@@ -83,7 +83,7 @@ def get_layout(pathname):
                 ),
                 html.Div(
                     [
-                        html.H4('Different field, same passband'),
+                        html.H4('Different field'),
                         dcc.Input(
                             value='1',
                             id='different_field_radius',
@@ -285,7 +285,6 @@ def find_neighbours(radius, center_oid, different):
         kwargs['not_filters'] = (fltr,)
         kwargs['fieldids'] = (fieldid,)
     elif different == 'fieldid':
-        kwargs['filters'] = (fltr,)
         kwargs['not_fieldids'] = (fieldid,)
     else:
         raise ValueError(f'Wrong "different" value {different}')
