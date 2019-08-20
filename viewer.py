@@ -12,7 +12,7 @@ from dash_table import DataTable
 
 from app import app
 from cross import get_catalog_query, find_vizier, find_ztf_oid, find_ztf_circle
-from util import html_from_astropy_table
+from util import html_from_astropy_table, to_str
 
 
 LIGHT_CURVE_TABLE_COLUMNS = ('mjd', 'mag', 'magerr', 'clrcoeff')
@@ -102,7 +102,7 @@ def get_layout(pathname):
         html.Div(
             [
                 html.H2('Metadata'),
-                dcc.Markdown(id='metadata'),
+                html.Div(id='metadata'),
             ],
             style={'width': '50%'},
         ),
@@ -213,11 +213,13 @@ def set_title(oid):
     Output('metadata', 'children'),
     [Input('oid', 'children')],
 )
-def get_meta_markdown(oid):
+def get_metadata(oid):
     meta = find_ztf_oid.get_meta(oid).copy()
     meta['coord_string'] = find_ztf_oid.get_coord_string(oid)
-    text = '\n'.join(f'* **{k}**: {meta[k]}' for k in METADATA_FIELDS)
-    return text
+    items = [f'**{k}**: {to_str(meta[k])}' for k in METADATA_FIELDS]
+    column_width = max(map(len, items)) - 2
+    div = html.Div(html.Ul([html.Li(dcc.Markdown(text)) for text in items]), style={'columns': f'{column_width}ch'})
+    return div
 
 
 @app.callback(
@@ -394,7 +396,7 @@ def set_vizier_list(radius, oid):
         url = find_vizier.get_catalog_url(catalog, ra, dec, radius)
         records.append(f'[{catalog}]({url}){n_objects}: {sep}')
         lengths.append(len(catalog) + len(n_objects) + 2 + len(sep))
-    ul_column_width = max(lengths)
+    ul_column_width = max(lengths) + 2  # for bullet symbol
     div = html.Div(
         [
             html.Br(),

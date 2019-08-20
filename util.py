@@ -70,8 +70,12 @@ def to_str(s):
         return s.decode()
     if isinstance(s, str):
         return s
-    if isinstance(s, np.integer):
+    if isinstance(s, np.integer) or isinstance(s, int):
         return str(s)
+    if isinstance(s, np.floating) or isinstance(s, float):
+        if np.isnan(s):
+            return ''
+        return f'{s:.3f}'
     raise ValueError(f'Argument should be str, bytes or int, not {type(s)}')
 
 
