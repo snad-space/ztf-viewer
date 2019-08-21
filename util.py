@@ -21,26 +21,6 @@ def hms_to_deg(hms: str):
     return deg
 
 
-def convert_to_json_friendly(values):
-    x = values[0]
-    if np.issubdtype(values.dtype, np.str_) or isinstance(x, str):
-        return values
-    if np.issubdtype(values.dtype, np.number) or isinstance(x, float):
-        return [float(x) for x in values]
-    if np.issubdtype(values.dtype, np.string_) or isinstance(x, bytes):
-        return [b.decode() for b in values]
-    return list(map(str, values))
-
-
-def astropy_table_to_records(table, columns=None):
-    if columns is None:
-        columns = table.colnames
-    length = len(table)
-    d = {c: convert_to_json_friendly(table[c]) for c in columns}
-    records = [{c: d[c][i] for c in columns} for i in range(length)]
-    return records
-
-
 def html_from_astropy_table(table: astropy.table.Table, columns: dict):
     template = Template('''
         <table id="simbad-table">
@@ -60,7 +40,7 @@ def html_from_astropy_table(table: astropy.table.Table, columns: dict):
     ''')
     table = table[list(columns.keys())].copy()
     for column in table.colnames:
-        table[column] = convert_to_json_friendly(table[column])
+        table[column] = [to_str(x) for x in table[column]]
     html = template.render(table=table, columns=columns)
     return html
 
@@ -76,6 +56,8 @@ def to_str(s):
         if np.isnan(s):
             return ''
         return f'{s:.3f}'
+    if np.ma.is_masked(s):
+        return ''
     raise ValueError(f'Argument should be str, bytes or int, not {type(s)}')
 
 

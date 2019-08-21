@@ -214,7 +214,10 @@ def get_metadata(oid):
     meta['coord_string'] = find_ztf_oid.get_coord_string(oid)
     items = [f'**{k}**: {to_str(meta[k])}' for k in METADATA_FIELDS]
     column_width = max(map(len, items)) - 2
-    div = html.Div(html.Ul([html.Li(dcc.Markdown(text)) for text in items]), style={'columns': f'{column_width}ch'})
+    div = html.Div(
+        html.Ul([html.Li(dcc.Markdown(text)) for text in items], style={'list-style-type': 'none'}),
+        style={'columns': f'{column_width}ch'},
+    )
     return div
 
 
@@ -392,10 +395,10 @@ def set_vizier_list(radius, oid):
     div = html.Div(
         [
             html.Br(),
-            html.P(html.A(f'See all {len(table_list)} catalogs on Vizier',
-                          href=find_vizier.get_search_url(ra, dec, radius))),
+            html.P(html.Big(html.A(f'See all {len(table_list)} catalogs on Vizier',
+                          href=find_vizier.get_search_url(ra, dec, radius)))),
             html.Ul([html.Li(dcc.Markdown(record)) for record in records],
-                    style={'columns': f'{ul_column_width}ch'}),
+                    style={'columns': f'{ul_column_width}ch', 'list-style-type': 'none'}),
         ]
     )
     return div
