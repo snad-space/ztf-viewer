@@ -11,19 +11,15 @@ from dash.dependencies import Input, Output, State
 from dash_table import DataTable
 
 from app import app
-from cross import get_catalog_query, find_vizier, find_ztf_oid, find_ztf_circle
+from cross import get_catalog_query, find_vizier, find_ztf_oid, find_ztf_circle, vizier_catalog_details
 from util import html_from_astropy_table, to_str
-
 
 LIGHT_CURVE_TABLE_COLUMNS = ('mjd', 'mag', 'magerr', 'clrcoeff')
 
-
 METADATA_FIELDS = ('nobs', 'ngoodobs', 'filter', 'coord_string', 'duration', 'fieldid', 'rcid')
-
 
 COLORS = {'zr': '#CC3344', 'zg': '#117733'}
 MARKER_SIZE = 10
-
 
 LIST_MAXSHOW = 4
 
@@ -231,12 +227,12 @@ def get_metadata(oid):
     ],
 )
 def set_figure(cur_oid, different_filter, different_field):
-    if different_filter is None:
+    if not isinstance(different_filter, list):
         different_filter = []
-    if different_field is None:
+    if not isinstance(different_field, list):
         different_field = []
     dif_oid = [div['props']['id'].rsplit('-', maxsplit=1)[-1]
-                      for div in different_filter + different_field if isinstance(div, dict)]
+               for div in different_filter + different_field if isinstance(div, dict)]
     oids = [cur_oid] + dif_oid
     lcs = []
     for oid in oids:
@@ -311,7 +307,6 @@ app.callback(
     state=[State('oid', 'children')]
 )(partial(find_neighbours, different='fieldid'))
 
-
 app.callback(
     Output('different_filter_neighbours', 'children'),
     [Input('different_filter_radius', 'value')],
@@ -345,20 +340,17 @@ app.callback(
     state=[State('oid', 'children')]
 )(partial(set_table, catalog='GCVS'))
 
-
 app.callback(
     Output('vsx-table', 'children'),
     [Input('vsx-radius', 'value')],
     state=[State('oid', 'children')]
 )(partial(set_table, catalog='VSX'))
 
-
 app.callback(
     Output('ogle-table', 'children'),
     [Input('ogle-radius', 'value')],
     state=[State('oid', 'children')]
 )(partial(set_table, catalog='OGLE'))
-
 
 app.callback(
     Output('simbad-table', 'children'),
@@ -383,6 +375,7 @@ def set_vizier_list(radius, oid):
     records = []
     lengths = []
     for catalog, table in zip(table_list.keys(), table_list.values()):
+        description = vizier_catalog_details.description(catalog) or catalog
         n = len(table)
         n_objects = str(n) if n < find_vizier.row_limit else f'≥{n}'
         n_objects = f' ({n_objects} objects)' if n > LIST_MAXSHOW else ''
@@ -393,8 +386,8 @@ def set_vizier_list(radius, oid):
         if n > LIST_MAXSHOW:
             sep += ', …'
         url = find_vizier.get_catalog_url(catalog, ra, dec, radius)
-        records.append(f'[{catalog}]({url}){n_objects}: {sep}')
-        lengths.append(len(catalog) + len(n_objects) + 2 + len(sep))
+        records.append(f'[{description}]({url}){n_objects}: {sep}')
+        lengths.append(len(description) + len(n_objects) + 2 + len(sep))
     ul_column_width = max(lengths) + 2  # for bullet symbol
     div = html.Div(
         [

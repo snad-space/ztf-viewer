@@ -15,6 +15,7 @@ from astroquery.utils.commons import TableList
 # Dirty hack to overcome problem of simultaneous cache folder creation
 while True:
     try:
+        from astroquery.cds import cds
         from astroquery.simbad import Simbad
         from astroquery.vizier import Vizier
         break
@@ -236,6 +237,26 @@ def get_catalog_query(catalog):
     if catalog.lower() == 'ogle':
         return OGLE_QUERY
     raise
+
+
+class VizierCatalogDetails:
+    _cache_size = 1 << 5
+
+    @staticmethod
+    @lru_cache(maxsize=_cache_size)
+    def _query_cds(catalog_id):
+        table = cds.find_datasets(f'ID=*{catalog_id}*')
+        if len(table) == 0:
+            return None
+        return table[0]
+
+    @staticmethod
+    def description(catalog_id):
+        result = VizierCatalogDetails._query_cds(catalog_id)
+        return None if result is None else result['obs_description']
+
+
+vizier_catalog_details = VizierCatalogDetails()
 
 
 class FindVizier:
