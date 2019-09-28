@@ -375,3 +375,25 @@ class FindZTFCircle(_BaseFindZTF):
 
 
 find_ztf_circle = FindZTFCircle()
+
+
+class LightCurveFeatures:
+    _base_api_url = 'http://features.lc.snad.space'
+    _cache_size = 1 << 5
+
+    def __init__(self):
+        self._api_session = requests.Session()
+        self._find_ztf_oid = find_ztf_oid
+
+    @lru_cache(maxsize=_cache_size)
+    def __call__(self, oid):
+        lc = find_ztf_oid.get_lc(oid).copy()
+        light_curve = [dict(t=obs['mjd'], m=obs['mag'], err=obs['magerr']) for obs in lc]
+        j = dict(light_curve=light_curve)
+        resp = self._api_session.post(self._base_api_url, json=j)
+        if resp.status_code != 200:
+            return None
+        return resp.json()
+
+
+light_curve_features = LightCurveFeatures()

@@ -11,7 +11,7 @@ from dash.dependencies import Input, Output, State
 from dash_table import DataTable
 
 from app import app
-from cross import get_catalog_query, find_vizier, find_ztf_oid, find_ztf_circle, vizier_catalog_details
+from cross import get_catalog_query, find_vizier, find_ztf_oid, find_ztf_circle, vizier_catalog_details, light_curve_features
 from util import html_from_astropy_table, to_str
 
 LIGHT_CURVE_TABLE_COLUMNS = ('mjd', 'mag', 'magerr', 'clrcoeff')
@@ -182,7 +182,20 @@ def get_layout(pathname):
         ),
         html.Script(src="/static/js/aladin_helper.js"),
         dji.Import(src="/static/js/aladin_helper.js"),
-        html.H2(html.A('Download light curve CSV', href=f'/csv/{oid}')),
+        html.Div(
+            [
+                html.H2('Features'),
+                html.Div(id='features-list'),
+            ]
+        ),
+        html.H2(
+            [
+                'Download light curve: ',
+                html.A('CSV', href=f'/csv/{oid}'),
+                ', ',
+                html.A('JSON', href=f'{find_ztf_oid._oid_api_url}?oid={oid}'),
+            ]
+        ),
         html.Div(
             [
                 html.H2('Light curve'),
@@ -400,6 +413,23 @@ def set_vizier_list(radius, oid):
             html.Ul([html.Li(dcc.Markdown(record)) for record in records],
                     style={'columns': f'{ul_column_width}ch', 'list-style-type': 'none'}),
         ]
+    )
+    return div
+
+
+@app.callback(
+    Output('features-list', 'children'),
+    [Input('oid', 'children')]
+)
+def set_features_list(oid):
+    features = light_curve_features(oid)
+    if features is None:
+        return 'Not available'
+    items = [f'**{k}**: {v:.4g}' for k, v in sorted(features.items(), key=lambda item: item[0])]
+    column_width = max(map(len, items)) - 2
+    div = html.Div(
+        html.Ul([html.Li(dcc.Markdown(text)) for text in items], style={'list-style-type': 'none'}),
+        style={'columns': f'{column_width}ch'},
     )
     return div
 

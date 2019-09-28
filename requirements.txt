@@ -2,8 +2,6 @@ dash
 dash_defer_js_import
 dash-dangerously-set-inner-html
 pandas
-SQLAlchemy
-psycopg2
 numpy
 astropy
 astroquery
