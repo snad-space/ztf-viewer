@@ -7,3 +7,5 @@ astropy
 astroquery
 jinja2
 requests
+redis
+redis-lru

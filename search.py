@@ -25,7 +25,7 @@ def get_layout(coordinates, radius_arcsec):
     if not j:
         return html.Div('404')
     table = Table([dict(oid=f'<a href="/view/{oid}">{oid}</a>', separation=obj['separation'], **obj['meta'])
-                   for oid, obj in j.items()])
+                   for oid, obj in sorted(j.items(), key=lambda x: x[1]['separation'])])
     layout = html.Div(
         [
             html.H1(f'Objects inside cone ({ra:.5f} deg, {dec:.5f} deg), r = {radius_arcsec:.1f}″'),

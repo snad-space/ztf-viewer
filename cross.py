@@ -2,7 +2,7 @@ import logging
 import urllib.parse
 from base64 import b64encode
 from collections import namedtuple
-from functools import lru_cache, partial
+from functools import partial
 from io import BytesIO
 from time import sleep
 
@@ -22,18 +22,18 @@ while True:
     except FileExistsError:
         sleep(np.random.uniform(0.05, 0.2))
 
+from cache import cache
 from util import to_str, anchor_form
 
 
 class _CatalogQuery:
-    _cache_size = 1 << 5
     id_column = None
     _query_region = None
     _table_ra = None
     _table_dec = None
     columns = None
 
-    @lru_cache(maxsize=_cache_size)
+    @cache()
     def find(self, ra, dec, radius_arcsec):
         coord = SkyCoord(ra, dec, unit='deg', frame='icrs')
         radius = f'{radius_arcsec}s'
@@ -241,10 +241,8 @@ def get_catalog_query(catalog):
 
 
 class VizierCatalogDetails:
-    _cache_size = 1 << 5
-
     @staticmethod
-    @lru_cache(maxsize=_cache_size)
+    @cache()
     def _query_cds(catalog_id):
         table = cds.find_datasets(f'ID=*{catalog_id}*')
         if len(table) == 0:
@@ -264,7 +262,6 @@ class FindVizier:
     FindVizierResult = namedtuple('FindVizierResult', ('search_link', 'table_list',))
 
     row_limit = 10
-    _cache_size = 1 << 5
 
     _table_ra = '_RAJ2000'
     _table_dec = '_DEJ2000'
@@ -274,7 +271,7 @@ class FindVizier:
         self._query = Vizier(columns=[self._table_ra, self._table_dec, self._table_sep])
         self._query.ROW_LIMIT = self.row_limit
 
-    @lru_cache(maxsize=_cache_size)
+    @cache()
     def find(self, ra, dec, radius_arcsec):
         coord = SkyCoord(ra, dec, unit='deg', frame='icrs')
         radius = f'{radius_arcsec}s'
@@ -304,13 +301,11 @@ class _BaseFindZTF:
 
 
 class FindZTFOID(_BaseFindZTF):
-    _cache_size = 1 << 5
-
     def __init__(self):
         super().__init__()
         self._oid_api_url = f'{self._base_api_url}/oid/full/json'
 
-    @lru_cache(maxsize=_cache_size)
+    @cache()
     def find(self, oid):
         resp = self._api_session.get(self._oid_api_url, params=dict(oid=oid))
         if resp.status_code != 200:
@@ -348,13 +343,11 @@ find_ztf_oid = FindZTFOID()
 
 
 class FindZTFCircle(_BaseFindZTF):
-    _cache_size = 1 << 5
-
     def __init__(self):
         super().__init__()
         self._circle_api_url = f'{self._base_api_url}/circle/full/json'
 
-    @lru_cache(maxsize=_cache_size)
+    @cache()
     def find(self, ra, dec, radius_arcsec, filters=None, not_filters=None, fieldids=None, not_fieldids=None):
         resp = self._api_session.get(
             self._circle_api_url,
@@ -381,13 +374,12 @@ find_ztf_circle = FindZTFCircle()
 
 class LightCurveFeatures:
     _base_api_url = 'http://features.lc.snad.space'
-    _cache_size = 1 << 5
 
     def __init__(self):
         self._api_session = requests.Session()
         self._find_ztf_oid = find_ztf_oid
 
-    @lru_cache(maxsize=_cache_size)
+    @cache()
     def __call__(self, oid):
         lc = find_ztf_oid.get_lc(oid).copy()
         light_curve = [dict(t=obs['mjd'], m=obs['mag'], err=obs['magerr']) for obs in lc]

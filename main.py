@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import logging
 import re
 import urllib.parse
 
@@ -12,6 +13,9 @@ from dash.dependencies import Input, Output, State
 from app import app
 from search import get_layout as get_search_layout
 from viewer import get_layout as get_viewer_layout
+
+
+logging.basicConfig(level=logging.INFO)
 
 
 app.layout = html.Div([

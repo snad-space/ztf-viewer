@@ -1,17 +1,26 @@
 version: '2'
 services:
+   redis:
+     image: redis
+     networks:
+       - app
+     restart: always
    web:
      build: .
      networks:
+       - app
        - proxy
      environment:
        VIRTUAL_HOST: ztf.homb.it,ztf.snad.space
        DYNDNS_HOST: ztf.homb.it,ztf.snad.space
        LETSENCRYPT_HOST: ztf.homb.it,ztf.snad.space
        LETSENCRYPT_EMAIL: ztf@homb.it
+     depends_on:
+       - redis
      restart: always
 
 networks:
+  app:
   proxy:
     external:
       name: proxy
