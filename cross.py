@@ -37,6 +37,7 @@ class _CatalogQuery:
     def find(self, ra, dec, radius_arcsec):
         coord = SkyCoord(ra, dec, unit='deg', frame='icrs')
         radius = f'{radius_arcsec}s'
+        logging.info(f'Querying ra={ra}, dec={dec}, r={radius_arcsec}')
         table = self._query_region(coord, radius=radius)
         if table is None:
             return None
@@ -277,6 +278,7 @@ class FindVizier:
     def find(self, ra, dec, radius_arcsec):
         coord = SkyCoord(ra, dec, unit='deg', frame='icrs')
         radius = f'{radius_arcsec}s'
+        logging.info(f'Querying Vizier ra={ra}, dec={dec}, r={radius_arcsec}')
         table_list = self._query.query_region(coord, radius=radius)
         return table_list
 
