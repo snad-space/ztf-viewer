@@ -9,3 +9,4 @@ jinja2
 requests
 redis
 redis-lru
+ipywidgets

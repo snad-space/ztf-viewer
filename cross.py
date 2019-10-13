@@ -244,7 +244,11 @@ class VizierCatalogDetails:
     @staticmethod
     @cache()
     def _query_cds(catalog_id):
-        table = cds.find_datasets(f'ID=*{catalog_id}*')
+        try:
+            table = cds.find_datasets(f'ID=*{catalog_id}*')
+        except np.ma.MaskError as e:
+            logging.error(str(e))
+            return None
         if len(table) == 0:
             return None
         return table[0]

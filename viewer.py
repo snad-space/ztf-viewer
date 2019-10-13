@@ -7,6 +7,7 @@ import dash_defer_js_import as dji
 import dash_html_components as html
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 from dash.dependencies import Input, Output, State
 from dash_table import DataTable
 
@@ -281,7 +282,12 @@ def set_figure(cur_oid, different_filter, different_field):
         size='mark_size',
         size_max=MARKER_SIZE,
     )
-    return figure
+    fw = go.FigureWidget(figure)
+    #fw.layout.hovermode = 'closest'
+    #logging.warning(f'{fw.data}')
+    #for scatter in fw.data:
+    #    scatter.on_click(lambda *args, **kwargs: logging.warning('#'*80 + f'\n{args}\n{kwargs}'))
+    return fw
 
 
 def find_neighbours(radius, center_oid, different):
