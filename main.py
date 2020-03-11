@@ -138,5 +138,10 @@ def app_select_by_url(pathname):
     return html.H1('404')
 
 
+def server():
+    """Entrypoint for Gunicorn"""
+    return app.server
+
+
 if __name__ == '__main__':
     app.run_server(debug=True)

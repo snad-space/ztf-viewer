@@ -1,4 +1,4 @@
-FROM python
+FROM python:3.7-buster
 
 ENV TZ=Europe/Moscow
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
@@ -17,4 +17,4 @@ COPY ./assets/* /app/assets/
 COPY ./static/js/* /app/static/js/
 COPY *.py /app/
 
-ENTRYPOINT ["gunicorn", "-w4", "-b0.0.0.0:80", "main:app.server"]
+ENTRYPOINT ["gunicorn", "-w4", "-b0.0.0.0:80", "main:server()"]
