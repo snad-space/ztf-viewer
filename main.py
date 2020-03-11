@@ -22,7 +22,7 @@ app.layout = html.Div([
     dcc.Location(id='url', refresh=True),
     html.Div(
         [
-            html.H1('ZTF object viewer'),
+            html.H1(html.A('ZTF object viewer', href='/')),
             dcc.Input(
                 id='input-oid',
                 placeholder='oid',
@@ -104,12 +104,20 @@ def go_to_url(n_clicks_oid, n_submit_oid, n_clicks_search,
 )
 def app_select_by_url(pathname):
     if re.search(r'^/+$', pathname):
-        return html.Div(
-            [
-                'Example: ',
-                html.A('HZ Her, zg passband', href='/view/680113300005170'),
-            ]
-        )
+        return [
+            html.Div(
+                [
+                    'Example: ',
+                    html.A('HZ Her, zg passband', href='/view/680113300005170'),
+                ]
+            ),
+            html.Footer(
+                [
+                    'See source code ',
+                    html.A('on GitHub', href='//github.com/hombit/ztf-viewer'),
+                ]
+            )
+        ]
     if re.search(r'^/+view/+\d{15}/*$', pathname):
         return get_viewer_layout(pathname)
     search_match = re.search(r'^/+search/(?P<coord_or_name>[^/]+)/(?P<radius_arcsec>[^/]+)/*$', pathname)
