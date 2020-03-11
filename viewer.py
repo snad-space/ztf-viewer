@@ -396,10 +396,13 @@ app.callback(
 @app.callback(
     Output('search-on-vizier', 'href'),
     [Input('vizier-radius', 'value')],
-    state=[State('oid', 'children')]
+    state=[
+        State('oid', 'children'),
+        State('api-version', 'children'),
+    ],
 )
-def set_vizier_url(radius, oid):
-    ra, dec = find_ztf_oid.get_coord(oid)
+def set_vizier_url(radius, oid, version):
+    ra, dec = find_ztf_oid.get_coord(oid, version)
     if radius is None:
         radius = 0
     return find_vizier.get_search_url(ra, dec, radius)
@@ -421,7 +424,7 @@ def set_vizier_list(n_clicks, radius, oid):
         return html.P('No radius is specified')
 
     radius = float(radius)
-    ra, dec = find_ztf_oid.get_coord(oid)
+    ra, dec = find_ztf_oid.get_coord(oid, version)
 
     table_list = find_vizier.find(ra, dec, radius)
     if len(table_list) == 0:

@@ -5,6 +5,7 @@ from collections import namedtuple
 from functools import partial
 from io import BytesIO
 from time import sleep
+from urllib.parse import urljoin
 
 import astropy.io.ascii
 import numpy as np
@@ -296,9 +297,13 @@ find_vizier = FindVizier()
 
 
 class _BaseFindZTF:
+    _base_api_url = 'http://db.ztf.snad.space/api/'
+
     def __init__(self):
-        self._base_api_url = 'http://db.ztf.snad.space/api/v1'
         self._api_session = requests.Session()
+
+    def _api_url(self, version):
+        return urljoin(self._base_api_url, f'{version}/')
 
     def find(self, *args, **kwargs):
         raise NotImplemented
@@ -307,11 +312,13 @@ class _BaseFindZTF:
 class FindZTFOID(_BaseFindZTF):
     def __init__(self):
         super().__init__()
-        self._oid_api_url = f'{self._base_api_url}/oid/full/json'
+
+    def _oid_api_url(self, version):
+        return urljoin(self._api_url(version), 'oid/full/json')
 
     @cache()
-    def find(self, oid):
-        resp = self._api_session.get(self._oid_api_url, params=dict(oid=oid))
+    def find(self, oid, version='v1'):
+        resp = self._api_session.get(self._oid_api_url(version), params=dict(oid=oid))
         if resp.status_code != 200:
             return None
         return resp.json()[str(oid)]
@@ -349,12 +356,15 @@ find_ztf_oid = FindZTFOID()
 class FindZTFCircle(_BaseFindZTF):
     def __init__(self):
         super().__init__()
-        self._circle_api_url = f'{self._base_api_url}/circle/full/json'
+
+    def _circle_api_url(self, version):
+        return urljoin(self._api_url(version), 'circle/full/json')
 
     @cache()
-    def find(self, ra, dec, radius_arcsec, filters=None, not_filters=None, fieldids=None, not_fieldids=None):
+    def find(self, ra, dec, radius_arcsec, filters=None, not_filters=None, fieldids=None, not_fieldids=None,
+             version='v1'):
         resp = self._api_session.get(
-            self._circle_api_url,
+            self._circle_api_url(version),
             params=dict(ra=ra, dec=dec, radius_arcsec=radius_arcsec,
                         filter=filters, not_filter=not_filters,
                         fieldid=fieldids, not_fieldid=not_fieldids)
