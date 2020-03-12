@@ -371,12 +371,10 @@ class FindZTFCircle(_BaseFindZTF):
         return urljoin(self._api_url(version), 'circle/full/json')
 
     @cache()
-    def find(self, ra, dec, radius_arcsec, version, filters=None, not_filters=None, fieldids=None, not_fieldids=None):
+    def find(self, ra, dec, radius_arcsec, version):
         resp = self._api_session.get(
             self._circle_api_url(version),
-            params=dict(ra=ra, dec=dec, radius_arcsec=radius_arcsec,
-                        filter=filters, not_filter=not_filters,
-                        fieldid=fieldids, not_fieldid=not_fieldids)
+            params=dict(ra=ra, dec=dec, radius_arcsec=radius_arcsec),
         )
         if resp.status_code != 200:
             return None

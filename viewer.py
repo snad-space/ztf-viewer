@@ -317,14 +317,14 @@ def find_neighbours(radius, center_oid, version, different):
     kwargs = dict(ra=ra, dec=dec, radius_arcsec=radius, version=version)
     fltr = find_ztf_oid.get_meta(center_oid, version)['filter']
     fieldid = find_ztf_oid.get_meta(center_oid, version)['fieldid']
+    j = find_ztf_circle.find(**kwargs)
     if different == 'filter':
-        kwargs['not_filters'] = (fltr,)
-        kwargs['fieldids'] = (fieldid,)
+        j = {oid: value for oid, value in j.items()
+             if value['meta']['filter'] != fltr and value['meta']['fieldid'] == fieldid}
     elif different == 'fieldid':
-        kwargs['not_fieldids'] = (fieldid,)
+        j = {oid: value for oid, value in j.items() if value['meta']['fieldid'] != fieldid}
     else:
         raise ValueError(f'Wrong "different" value {different}')
-    j = find_ztf_circle.find(**kwargs)
     children = []
     for i, (oid, obj) in enumerate(sorted(j.items(), key=lambda kv: kv[1]['separation'])):
         div = html.Div(
