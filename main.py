@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
 import logging
+import pathlib
 import re
 import urllib.parse
+from functools import partial
 
 from astropy.coordinates.name_resolve import get_icrs_coordinates, NameResolveError
 
@@ -23,7 +25,16 @@ app.layout = html.Div([
     dcc.Location(id='url', refresh=True),
     html.Div(
         [
-            html.H1(html.A('ZTF object viewer', href='/')),
+            html.H1(
+                [
+                    html.A('SNAD ZTF', href='/'),
+                    ' ',
+                    html.Div('DR1', id='dr1-switch', style={'display': 'inline-block'}),
+                    ' / ',
+                    html.Div('DR2', id='dr2-switch', style={'display': 'inline-block'}),
+                    ' object viewer',
+                ],
+            ),
             dcc.Input(
                 id='input-oid',
                 placeholder='oid',
@@ -31,6 +42,11 @@ app.layout = html.Div([
                 minLength=15,
                 maxLength=15,
                 n_submit=0,
+            ),
+            html.Div(
+                default_dr,
+                id='data-release',
+                style={'display': 'none'},
             ),
             html.Button(
                 'Go',
@@ -71,6 +87,42 @@ app.layout = html.Div([
 
 
 @app.callback(
+    Output('data-release', 'children'),
+    [Input('url', 'pathname')],
+)
+def dr_from_url(url):
+    parts = pathlib.Path(url).parts
+    if len(parts) < 2:
+        return default_dr
+    if parts[1].lower().startswith('dr'):
+        return parts[1]
+    return default_dr
+
+
+def dr_switch(current_dr, current_url, switch_dr):
+    if switch_dr == current_dr:
+        return current_dr.upper()
+    if current_dr in current_url:
+        switch_url = current_url.replace(current_dr, switch_dr)
+    else:
+        switch_url = f'/{switch_dr}{current_url}'
+    return html.A(switch_dr.upper(), href=switch_url, style={'text-decoration-style': 'dashed'})
+
+
+app.callback(
+    Output('dr1-switch', 'children'),
+    [Input('data-release', 'children')],
+    state=[State('url', 'pathname')]
+)(partial(dr_switch, switch_dr='dr1'))
+
+app.callback(
+    Output('dr2-switch', 'children'),
+    [Input('data-release', 'children')],
+    state=[State('url', 'pathname')]
+)(partial(dr_switch, switch_dr='dr2'))
+
+
+@app.callback(
     Output('url', 'pathname'),
     [
         Input('button-oid', 'n_clicks'),
@@ -83,33 +135,35 @@ app.layout = html.Div([
         State('input-oid', 'value'),
         State('input-coord-or-name', 'value'),
         State('input-search-radius', 'value'),
-        State('url', 'pathanme'),
+        State('url', 'pathname'),
+        State('data-release', 'children'),
     ]
 )
 def go_to_url(n_clicks_oid, n_submit_oid, n_clicks_search,
               n_submit_coord_or_name, n_submit_radius,
               oid,
               coord_or_name, radius_arcsec,
-              current_pathaname):
+              current_pathaname,
+              dr):
     if (n_submit_oid != 0 or n_clicks_oid != 0) and oid is not None:
-        return f'/{default_dr}/view/{oid}'
+        return f'/{dr}/view/{oid}'
     if n_clicks_search != 0 or n_submit_coord_or_name != 0 or n_submit_radius != 0:
         coord_or_name = urllib.parse.quote(coord_or_name)
-        return f'/{default_dr}/search/{coord_or_name}/{radius_arcsec}'
+        return f'/{dr}/search/{coord_or_name}/{radius_arcsec}'
     return current_pathaname
 
 
 @app.callback(
     Output('page-content', 'children'),
-    [Input('url', 'pathname')]
+    [Input('url', 'pathname')],
 )
 def app_select_by_url(pathname):
-    if re.search(r'^/+$', pathname):
+    if re.search(r'^/+(?:dr\d/+)?$', pathname):
         return [
             html.Div(
                 [
                     'Example: ',
-                    html.A('HZ Her, zg passband', href=f'/{default_dr}/view/680113300005170'),
+                    html.A(f'HZ Her, zg passband, {default_dr.upper()}', href=f'/{default_dr}/view/680113300005170'),
                 ]
             ),
             html.Footer(
