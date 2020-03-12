@@ -323,28 +323,28 @@ class FindZTFOID(_BaseFindZTF):
             return None
         return resp.json()[str(oid)]
 
-    def get_coord(self, oid):
-        meta = self.get_meta(oid)
+    def get_coord(self, oid, version='v1'):
+        meta = self.get_meta(oid, version)
         if meta is None:
             return None
         coord = meta['coord']
         return coord['ra'], coord['dec']
 
-    def get_coord_string(self, oid):
+    def get_coord_string(self, oid, version='v1'):
         try:
-            ra, dec = self.get_coord(oid)
+            ra, dec = self.get_coord(oid, version)
         except TypeError:
             return None
         return f'{ra:.5f}, {dec:.5f}'
 
-    def get_meta(self, oid):
-        j = self.find(oid)
+    def get_meta(self, oid, version='v1'):
+        j = self.find(oid, version)
         if j is None:
             return None
         return j['meta']
 
-    def get_lc(self, oid):
-        j = self.find(oid)
+    def get_lc(self, oid, version='v1'):
+        j = self.find(oid, version)
         if j is None:
             return None
         return j['lc']
