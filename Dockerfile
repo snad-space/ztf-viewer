@@ -1,4 +1,4 @@
-FROM python:3.7-buster
+FROM python:3.8-buster
 
 ENV TZ=Europe/Moscow
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone

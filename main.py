@@ -12,6 +12,7 @@ from dash.dependencies import Input, Output, State
 
 from app import app
 from search import get_layout as get_search_layout
+from util import default_dr, get_db_api_version_from_dr
 from viewer import get_layout as get_viewer_layout
 
 
@@ -118,10 +119,19 @@ def app_select_by_url(pathname):
                 ]
             )
         ]
-    if re.search(r'^/+view/+\d{15}/*$', pathname):
+    if match := re.search(r'^/+view/+(\d+)/*$', pathname):
+        return get_viewer_layout(f'/{default_dr}/view/{match.group(1)}')
+    if re.search(r'^/+dr[12]/+view/+\d+$', pathname):
         return get_viewer_layout(pathname)
-    search_match = re.search(r'^/+search/(?P<coord_or_name>[^/]+)/(?P<radius_arcsec>[^/]+)/*$', pathname)
-    if search_match:
+    if search_match := re.search(r"""^
+                                     (?:/+(?P<dr>dr\d))?
+                                     /+search
+                                     /+(?P<coord_or_name>[^/]+)
+                                     /+(?P<radius_arcsec>[^/]+)
+                                     /*
+                                     $""",
+                                 pathname,
+                                 flags=re.VERBOSE):
         try:
             coord_or_name = urllib.parse.unquote(search_match['coord_or_name'])
             coordinates = get_icrs_coordinates(coord_or_name)
@@ -141,8 +151,8 @@ def app_select_by_url(pathname):
                     html.P('Wrong radius format'),
                 ]
             )
-
-        return get_search_layout(coordinates, radius_arcsec)
+        version = get_db_api_version_from_dr(search_match.group('dr'))
+        return get_search_layout(coordinates, radius_arcsec, version)
     return html.H1('404')
 
 
