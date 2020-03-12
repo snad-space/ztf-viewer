@@ -92,10 +92,10 @@ def go_to_url(n_clicks_oid, n_submit_oid, n_clicks_search,
               coord_or_name, radius_arcsec,
               current_pathaname):
     if (n_submit_oid != 0 or n_clicks_oid != 0) and oid is not None:
-        return f'/view/{oid}'
+        return f'/{default_dr}/view/{oid}'
     if n_clicks_search != 0 or n_submit_coord_or_name != 0 or n_submit_radius != 0:
         coord_or_name = urllib.parse.quote(coord_or_name)
-        return f'/search/{coord_or_name}/{radius_arcsec}'
+        return f'/{default_dr}/search/{coord_or_name}/{radius_arcsec}'
     return current_pathaname
 
 
@@ -109,7 +109,7 @@ def app_select_by_url(pathname):
             html.Div(
                 [
                     'Example: ',
-                    html.A('HZ Her, zg passband', href='/view/680113300005170'),
+                    html.A('HZ Her, zg passband', href=f'/{default_dr}/view/680113300005170'),
                 ]
             ),
             html.Footer(
