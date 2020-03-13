@@ -6,10 +6,12 @@ from flask import Response
 
 
 from cross import find_ztf_oid
+from util import get_db_api_version_from_dr
 
 
-def flask_csv(oid):
-    lc = find_ztf_oid.get_lc(oid)
+def flask_csv(dr, oid):
+    api_version = get_db_api_version_from_dr(dr)
+    lc = find_ztf_oid.get_lc(oid, api_version)
     if lc is None:
         return '', 404
     df = pd.DataFrame.from_records(lc)
@@ -28,4 +30,4 @@ app = dash.Dash(
     external_scripts=[],
 )
 app.config.suppress_callback_exceptions = True
-app.server.route("/csv/<int:oid>")(flask_csv)
+app.server.route("/<dr>/csv/<int:oid>")(flask_csv)

@@ -13,7 +13,7 @@ from dash_table import DataTable
 
 from app import app
 from cross import get_catalog_query, find_vizier, find_ztf_oid, find_ztf_circle, vizier_catalog_details, light_curve_features
-from util import html_from_astropy_table, to_str, get_db_api_version_from_dr
+from util import html_from_astropy_table, to_str, get_db_api_version_from_dr, get_dr_from_db_api_version
 
 LIGHT_CURVE_TABLE_COLUMNS = ('mjd', 'mag', 'magerr', 'clrcoeff')
 
@@ -50,6 +50,7 @@ def set_div_for_aladin(oid, version):
 @lru_cache(maxsize=128)
 def get_layout(pathname):
     version, oid = version_oid_from_pathname(pathname)
+    dr = get_dr_from_db_api_version(version)
     if find_ztf_oid.find(oid, version) is None:
         return html.H1('404')
     ra, dec = find_ztf_oid.get_coord(oid, version)
@@ -206,7 +207,7 @@ def get_layout(pathname):
         html.H2(
             [
                 'Download light curve: ',
-                html.A('CSV', href=f'/csv/{oid}'),
+                html.A('CSV', href=f'/{dr}/csv/{oid}'),
                 ', ',
                 html.A('JSON', href=find_ztf_oid.json_url(oid, version)),
             ]
