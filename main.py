@@ -30,7 +30,7 @@ app.layout = html.Div([
                     html.A('SNAD ZTF', href='/'),
                     ' ',
                     html.Div('DR1', id='dr1-switch', style={'display': 'inline-block'}),
-                    ' / ',
+                    ' / β',
                     html.Div('DR2', id='dr2-switch', style={'display': 'inline-block'}),
                     ' object viewer',
                 ],
