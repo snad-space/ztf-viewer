@@ -407,13 +407,13 @@ def set_vizier_url(radius, oid):
 
 @app.callback(
     Output('vizier-list', 'children'),
-    [
-        Input('vizier-radius', 'value'),
-        Input('vizier-button', 'n_clicks'),
-    ],
-    state=[State('oid', 'children')]
+    [Input('vizier-button', 'n_clicks')],
+    state=[
+        State('vizier-radius', 'value'),
+        State('oid', 'children')
+    ]
 )
-def set_vizier_list(radius, n_clicks, oid):
+def set_vizier_list(n_clicks, radius, oid):
     if n_clicks == 0:
         return ''
 
