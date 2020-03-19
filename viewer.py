@@ -175,7 +175,11 @@ def get_layout(pathname):
                     n_clicks=0,
                 ),
                 html.Br(),
-                html.A('See all results on Vizier website', id='search-on-vizier', href=find_vizier.get_search_url(ra, dec, 0)),
+                html.Big(html.A(
+                    'See all results on Vizier website',
+                    id='search-on-vizier',
+                    href=find_vizier.get_search_url(ra, dec, 0))
+                ),
                 html.Div(id='vizier-list'),
             ]
         ),
@@ -443,9 +447,6 @@ def set_vizier_list(radius, n_clicks, oid):
     ul_column_width = max(lengths) + 2  # for bullet symbol
     div = html.Div(
         [
-            html.Br(),
-            html.P(html.Big(html.A(f'See all {len(table_list)} catalogs on Vizier',
-                          href=find_vizier.get_search_url(ra, dec, radius)))),
             html.Ul([html.Li(dcc.Markdown(record)) for record in records],
                     style={'columns': f'{ul_column_width}ch', 'list-style-type': 'none'}),
         ]
