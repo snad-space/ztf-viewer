@@ -5,6 +5,7 @@ from collections import namedtuple
 from functools import partial
 from io import BytesIO
 from time import sleep
+from urllib.parse import urljoin, urlsplit, urlunsplit, urlencode
 
 import astropy.io.ascii
 import numpy as np
@@ -296,9 +297,13 @@ find_vizier = FindVizier()
 
 
 class _BaseFindZTF:
+    _base_api_url = 'http://db.ztf.snad.space/api/'
+
     def __init__(self):
-        self._base_api_url = 'http://db.ztf.snad.space/api/v1'
         self._api_session = requests.Session()
+
+    def _api_url(self, version):
+        return urljoin(self._base_api_url, f'{version}/')
 
     def find(self, *args, **kwargs):
         raise NotImplemented
@@ -307,37 +312,49 @@ class _BaseFindZTF:
 class FindZTFOID(_BaseFindZTF):
     def __init__(self):
         super().__init__()
-        self._oid_api_url = f'{self._base_api_url}/oid/full/json'
+
+    def _oid_api_url(self, version):
+        return urljoin(self._api_url(version), 'oid/full/json')
+
+    def json_url(self, oid, version):
+        parts = list(urlsplit(self._oid_api_url(version)))
+        parts[3] = urlencode(self._query_dict(oid))
+        return urlunsplit(parts)
+
+    @staticmethod
+    def _query_dict(oid):
+        return dict(oid=oid)
 
     @cache()
-    def find(self, oid):
-        resp = self._api_session.get(self._oid_api_url, params=dict(oid=oid))
+    def find(self, oid, version):
+        resp = self._api_session.get(self._oid_api_url(version), params=self._query_dict(oid))
         if resp.status_code != 200:
+            logging.info(f'{resp.url} returned {resp.status_code}: {resp.text}')
             return None
         return resp.json()[str(oid)]
 
-    def get_coord(self, oid):
-        meta = self.get_meta(oid)
+    def get_coord(self, oid, version):
+        meta = self.get_meta(oid, version)
         if meta is None:
             return None
         coord = meta['coord']
         return coord['ra'], coord['dec']
 
-    def get_coord_string(self, oid):
+    def get_coord_string(self, oid, version):
         try:
-            ra, dec = self.get_coord(oid)
+            ra, dec = self.get_coord(oid, version)
         except TypeError:
             return None
         return f'{ra:.5f}, {dec:.5f}'
 
-    def get_meta(self, oid):
-        j = self.find(oid)
+    def get_meta(self, oid, version):
+        j = self.find(oid, version)
         if j is None:
             return None
         return j['meta']
 
-    def get_lc(self, oid):
-        j = self.find(oid)
+    def get_lc(self, oid, version):
+        j = self.find(oid, version)
         if j is None:
             return None
         return j['lc']
@@ -349,15 +366,15 @@ find_ztf_oid = FindZTFOID()
 class FindZTFCircle(_BaseFindZTF):
     def __init__(self):
         super().__init__()
-        self._circle_api_url = f'{self._base_api_url}/circle/full/json'
+
+    def _circle_api_url(self, version):
+        return urljoin(self._api_url(version), 'circle/full/json')
 
     @cache()
-    def find(self, ra, dec, radius_arcsec, filters=None, not_filters=None, fieldids=None, not_fieldids=None):
+    def find(self, ra, dec, radius_arcsec, version):
         resp = self._api_session.get(
-            self._circle_api_url,
-            params=dict(ra=ra, dec=dec, radius_arcsec=radius_arcsec,
-                        filter=filters, not_filter=not_filters,
-                        fieldid=fieldids, not_fieldid=not_fieldids)
+            self._circle_api_url(version),
+            params=dict(ra=ra, dec=dec, radius_arcsec=radius_arcsec),
         )
         if resp.status_code != 200:
             return None
@@ -384,8 +401,8 @@ class LightCurveFeatures:
         self._find_ztf_oid = find_ztf_oid
 
     @cache()
-    def __call__(self, oid):
-        lc = find_ztf_oid.get_lc(oid).copy()
+    def __call__(self, oid, version):
+        lc = find_ztf_oid.get_lc(oid, version).copy()
         light_curve = [dict(t=obs['mjd'], m=obs['mag'], err=obs['magerr']) for obs in lc]
         j = dict(light_curve=light_curve)
         resp = self._api_session.post(self._base_api_url, json=j)
