@@ -51,6 +51,7 @@ def get_layout(pathname):
     oid = oid_from_pathname(pathname)
     if find_ztf_oid.find(oid) is None:
         return html.H1('404')
+    ra, dec = find_ztf_oid.get_coord(oid)
     coord = find_ztf_oid.get_coord_string(oid)
     layout = html.Div([
         html.Div(f'{oid}', id='oid', style={'display': 'none'}),
@@ -167,7 +168,14 @@ def get_layout(pathname):
                     type='number',
                     step='0.1',
                 ),
-                ' search radius, arcsec',
+                ' search radius, arcsec ',
+                html.Button(
+                    'Show',
+                    id='vizier-button',
+                    n_clicks=0,
+                ),
+                html.Br(),
+                html.A('See all results on Vizier website', id='search-on-vizier', href=find_vizier.get_search_url(ra, dec, 0)),
                 html.Div(id='vizier-list'),
             ]
         ),
@@ -382,18 +390,39 @@ app.callback(
 
 
 @app.callback(
-    Output('vizier-list', 'children'),
+    Output('search-on-vizier', 'href'),
     [Input('vizier-radius', 'value')],
     state=[State('oid', 'children')]
 )
-def set_vizier_list(radius, oid):
+def set_vizier_url(radius, oid):
     ra, dec = find_ztf_oid.get_coord(oid)
     if radius is None:
+        radius = 0
+    return find_vizier.get_search_url(ra, dec, radius)
+
+
+@app.callback(
+    Output('vizier-list', 'children'),
+    [
+        Input('vizier-radius', 'value'),
+        Input('vizier-button', 'n_clicks'),
+    ],
+    state=[State('oid', 'children')]
+)
+def set_vizier_list(radius, n_clicks, oid):
+    if n_clicks == 0:
+        return ''
+
+    if radius is None:
         return html.P('No radius is specified')
+
     radius = float(radius)
+    ra, dec = find_ztf_oid.get_coord(oid)
+
     table_list = find_vizier.find(ra, dec, radius)
     if len(table_list) == 0:
         return html.P(f'No vizier catalogs found within {radius} arcsec from {ra:.5f}, {dec:.5f}')
+
     records = []
     lengths = []
     for catalog, table in zip(table_list.keys(), table_list.values()):
@@ -410,6 +439,7 @@ def set_vizier_list(radius, oid):
         url = find_vizier.get_catalog_url(catalog, ra, dec, radius)
         records.append(f'[{description}]({url}){n_objects}: {sep}')
         lengths.append(len(description) + len(n_objects) + 2 + len(sep))
+
     ul_column_width = max(lengths) + 2  # for bullet symbol
     div = html.Div(
         [
