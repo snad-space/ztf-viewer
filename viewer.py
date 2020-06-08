@@ -19,7 +19,7 @@ LIGHT_CURVE_TABLE_COLUMNS = ('mjd', 'mag', 'magerr', 'clrcoeff')
 
 METADATA_FIELDS = ('nobs', 'ngoodobs', 'filter', 'coord_string', 'duration', 'fieldid', 'rcid')
 
-COLORS = {'zr': '#CC3344', 'zg': '#117733'}
+COLORS = {'zr': '#CC3344', 'zg': '#117733', 'zi': '#1c1309'}
 MARKER_SIZE = 10
 
 LIST_MAXSHOW = 4
