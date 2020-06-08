@@ -12,7 +12,7 @@ from dash.dependencies import Input, Output, State
 from dash_table import DataTable
 
 from app import app
-from cross import get_catalog_query, find_vizier, find_ztf_oid, find_ztf_circle, vizier_catalog_details, light_curve_features
+from cross import get_catalog_query, find_vizier, find_ztf_oid, find_ztf_circle, vizier_catalog_details, light_curve_features, NotFound
 from util import html_from_astropy_table, to_str, get_db_api_version_from_dr, get_dr_from_db_api_version
 
 LIGHT_CURVE_TABLE_COLUMNS = ('mjd', 'mag', 'magerr', 'clrcoeff')
@@ -51,7 +51,9 @@ def set_div_for_aladin(oid, version):
 def get_layout(pathname):
     version, oid = version_oid_from_pathname(pathname)
     dr = get_dr_from_db_api_version(version)
-    if find_ztf_oid.find(oid, version) is None:
+    try:
+        find_ztf_oid.find(oid, version)
+    except NotFound:
         return html.H1('404')
     ra, dec = find_ztf_oid.get_coord(oid, version)
     coord = find_ztf_oid.get_coord_string(oid, version)
@@ -369,8 +371,9 @@ def set_table(radius, oid, version, catalog):
     if radius <= 0:
         return html.P('Radius should be positive')
     query = get_catalog_query(catalog)
-    table = query.find(ra, dec, radius)
-    if table is None:
+    try:
+        table = query.find(ra, dec, radius)
+    except NotFound:
         return html.P(f'No {catalog} objects within {radius} arcsec from {ra:.5f}, {dec:.5f}')
     table = table.copy()
     div = html.Div(
@@ -491,8 +494,9 @@ def set_vizier_list(n_clicks, radius, oid, version):
     ]
 )
 def set_features_list(oid, version):
-    features = light_curve_features(oid, version)
-    if features is None:
+    try:
+        features = light_curve_features(oid, version)
+    except NotFound:
         return 'Not available'
     items = [f'**{k}**: {v:.4g}' for k, v in sorted(features.items(), key=lambda item: item[0])]
     column_width = max(map(len, items)) - 2

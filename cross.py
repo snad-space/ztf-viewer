@@ -27,6 +27,10 @@ from cache import cache
 from util import to_str, anchor_form
 
 
+class NotFound(RuntimeError):
+    pass
+
+
 class _CatalogQuery:
     id_column = None
     _query_region = None
@@ -41,13 +45,13 @@ class _CatalogQuery:
         logging.info(f'Querying ra={ra}, dec={dec}, r={radius_arcsec}')
         table = self._query_region(coord, radius=radius)
         if table is None:
-            return None
+            raise NotFound
         if isinstance(table, TableList):
             if len(table) == 0:
-                return None
+                raise NotFound
             table = table[0]
         if len(table) == 0:
-            return None
+            raise NotFound
         catalog_coord = SkyCoord(table[self._table_ra], table[self._table_dec], unit=['hour', 'deg'], frame='icrs')
         table['separation'] = coord.separation(catalog_coord).to('arcsec')
         table['link'] = [self.get_link(row[self.id_column], to_str(row[self.id_column])) for row in table]
@@ -217,7 +221,7 @@ class OGLEQuery(_CatalogQuery):
         response = self._api_session.get(self._get_api_url(query))
         if response.status_code != 200:
             logging.warning(response.text)
-            return None
+            raise NotFound(response.text)
         table = astropy.io.ascii.read(BytesIO(response.content), format='tab', guess=False)
         table['light_curve'] = [self._download_light_curve(row[self.id_column]) for row in table]
         return table
@@ -249,15 +253,17 @@ class VizierCatalogDetails:
             table = cds.find_datasets(f'ID=*{catalog_id}*')
         except np.ma.MaskError as e:
             logging.error(str(e))
-            return None
+            raise NotFound from e
         if len(table) == 0:
-            return None
+            raise NotFound
         return table[0]
 
     @staticmethod
     def description(catalog_id):
         result = VizierCatalogDetails._query_cds(catalog_id)
-        return None if result is None else result['obs_description']
+        if result is None:
+            raise NotFound
+        return result['obs_description']
 
 
 vizier_catalog_details = VizierCatalogDetails()
@@ -329,34 +335,31 @@ class FindZTFOID(_BaseFindZTF):
     def find(self, oid, version):
         resp = self._api_session.get(self._oid_api_url(version), params=self._query_dict(oid))
         if resp.status_code != 200:
-            logging.info(f'{resp.url} returned {resp.status_code}: {resp.text}')
-            return None
+            message = f'{resp.url} returned {resp.status_code}: {resp.text}'
+            logging.info(message)
+            raise NotFound(message)
         return resp.json()[str(oid)]
 
     def get_coord(self, oid, version):
         meta = self.get_meta(oid, version)
         if meta is None:
-            return None
+            raise NotFound
         coord = meta['coord']
         return coord['ra'], coord['dec']
 
     def get_coord_string(self, oid, version):
         try:
             ra, dec = self.get_coord(oid, version)
-        except TypeError:
-            return None
+        except TypeError as e:
+            raise NotFound from e
         return f'{ra:.5f}, {dec:.5f}'
 
     def get_meta(self, oid, version):
         j = self.find(oid, version)
-        if j is None:
-            return None
         return j['meta']
 
     def get_lc(self, oid, version):
         j = self.find(oid, version)
-        if j is None:
-            return None
         return j['lc']
 
 
@@ -377,7 +380,7 @@ class FindZTFCircle(_BaseFindZTF):
             params=dict(ra=ra, dec=dec, radius_arcsec=radius_arcsec),
         )
         if resp.status_code != 200:
-            return None
+            raise NotFound
         j = resp.json()
         coord = SkyCoord(ra, dec, unit='deg', frame='icrs')
         cat_coord = SkyCoord(ra=[obj['meta']['coord']['ra'] for obj in j.values()],
@@ -407,7 +410,7 @@ class LightCurveFeatures:
         j = dict(light_curve=light_curve)
         resp = self._api_session.post(self._base_api_url, json=j)
         if resp.status_code != 200:
-            return None
+            raise NotFound
         return resp.json()
 
 
