@@ -303,13 +303,13 @@ find_vizier = FindVizier()
 
 
 class _BaseFindZTF:
-    _base_api_url = 'http://db.ztf.snad.space/api/'
+    _base_api_url = 'http://db-dev.ztf.snad.space/api/v3/'
 
     def __init__(self):
         self._api_session = requests.Session()
 
-    def _api_url(self, version):
-        return urljoin(self._base_api_url, f'{version}/')
+    def _api_url(self, dr):
+        return urljoin(self._base_api_url, f'data/{dr}/')
 
     def find(self, *args, **kwargs):
         raise NotImplemented
@@ -319,11 +319,11 @@ class FindZTFOID(_BaseFindZTF):
     def __init__(self):
         super().__init__()
 
-    def _oid_api_url(self, version):
-        return urljoin(self._api_url(version), 'oid/full/json')
+    def _oid_api_url(self, dr):
+        return urljoin(self._api_url(dr), 'oid/full/json')
 
-    def json_url(self, oid, version):
-        parts = list(urlsplit(self._oid_api_url(version)))
+    def json_url(self, oid, dr):
+        parts = list(urlsplit(self._oid_api_url(dr)))
         parts[3] = urlencode(self._query_dict(oid))
         return urlunsplit(parts)
 
@@ -332,34 +332,34 @@ class FindZTFOID(_BaseFindZTF):
         return dict(oid=oid)
 
     @cache()
-    def find(self, oid, version):
-        resp = self._api_session.get(self._oid_api_url(version), params=self._query_dict(oid))
+    def find(self, oid, dr):
+        resp = self._api_session.get(self._oid_api_url(dr), params=self._query_dict(oid))
         if resp.status_code != 200:
             message = f'{resp.url} returned {resp.status_code}: {resp.text}'
             logging.info(message)
             raise NotFound(message)
         return resp.json()[str(oid)]
 
-    def get_coord(self, oid, version):
-        meta = self.get_meta(oid, version)
+    def get_coord(self, oid, dr):
+        meta = self.get_meta(oid, dr)
         if meta is None:
             raise NotFound
         coord = meta['coord']
         return coord['ra'], coord['dec']
 
-    def get_coord_string(self, oid, version):
+    def get_coord_string(self, oid, dr):
         try:
-            ra, dec = self.get_coord(oid, version)
+            ra, dec = self.get_coord(oid, dr)
         except TypeError as e:
             raise NotFound from e
         return f'{ra:.5f}, {dec:.5f}'
 
-    def get_meta(self, oid, version):
-        j = self.find(oid, version)
+    def get_meta(self, oid, dr):
+        j = self.find(oid, dr)
         return j['meta']
 
-    def get_lc(self, oid, version):
-        j = self.find(oid, version)
+    def get_lc(self, oid, dr):
+        j = self.find(oid, dr)
         return j['lc']
 
 
@@ -370,13 +370,13 @@ class FindZTFCircle(_BaseFindZTF):
     def __init__(self):
         super().__init__()
 
-    def _circle_api_url(self, version):
-        return urljoin(self._api_url(version), 'circle/full/json')
+    def _circle_api_url(self, dr):
+        return urljoin(self._api_url(dr), 'circle/full/json')
 
     @cache()
-    def find(self, ra, dec, radius_arcsec, version):
+    def find(self, ra, dec, radius_arcsec, dr):
         resp = self._api_session.get(
-            self._circle_api_url(version),
+            self._circle_api_url(dr),
             params=dict(ra=ra, dec=dec, radius_arcsec=radius_arcsec),
         )
         if resp.status_code != 200:
@@ -404,8 +404,8 @@ class LightCurveFeatures:
         self._find_ztf_oid = find_ztf_oid
 
     @cache()
-    def __call__(self, oid, version):
-        lc = find_ztf_oid.get_lc(oid, version).copy()
+    def __call__(self, oid, dr):
+        lc = find_ztf_oid.get_lc(oid, dr).copy()
         light_curve = [dict(t=obs['mjd'], m=obs['mag'], err=obs['magerr']) for obs in lc]
         j = dict(light_curve=light_curve)
         resp = self._api_session.post(self._base_api_url, json=j)

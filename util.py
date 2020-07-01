@@ -1,6 +1,5 @@
 import math
 import re
-from typing import Optional
 
 import astropy.table
 import numpy as np
@@ -8,28 +7,7 @@ from astropy import units
 from jinja2 import Template
 
 
-default_db_ztf_api_version = 'v1'
-
-
-def get_db_api_version_from_dr(dr: Optional[str]) -> str:
-    if dr is None:
-        return default_db_ztf_api_version
-    if dr.lower() == 'dr1':
-        return 'v1'
-    if dr.lower() == 'dr2':
-        return 'v2'
-    raise ValueError(f'dr {dr} is unsupported')
-
-
-def get_dr_from_db_api_version(version: str) -> str:
-    if version == 'v1':
-        return 'dr1'
-    if version == 'v2':
-        return 'dr2'
-    raise ValueError(f'version {version} is unsupported')
-
-
-default_dr = get_dr_from_db_api_version(default_db_ztf_api_version)
+default_dr = 'dr2'
 
 
 def db_coord_to_degrees(coord):
