@@ -13,11 +13,12 @@ from dash_table import DataTable
 
 from app import app
 from cross import get_catalog_query, find_vizier, find_ztf_oid, find_ztf_circle, vizier_catalog_details, light_curve_features, NotFound
-from util import html_from_astropy_table, to_str, get_db_api_version_from_dr, get_dr_from_db_api_version
+from util import html_from_astropy_table, to_str
 
 LIGHT_CURVE_TABLE_COLUMNS = ('mjd', 'mag', 'magerr', 'clrcoeff')
 
-METADATA_FIELDS = ('nobs', 'ngoodobs', 'filter', 'coord_string', 'duration', 'fieldid', 'rcid')
+METADATA_FIELDS = ('nobs', 'ngoodobs', 'ngoodobs_short', 'filter', 'coord_string', 'duration', 'duration_short',
+                   'fieldid', 'rcid')
 
 COLORS = {'zr': '#CC3344', 'zg': '#117733', 'zi': '#1c1309'}
 MARKER_SIZE = 10
@@ -25,11 +26,10 @@ MARKER_SIZE = 10
 LIST_MAXSHOW = 4
 
 
-def version_oid_from_pathname(pathname):
+def dr_oid_from_pathname(pathname):
     path = pathlib.Path(pathname)
     *_, dr, _, oid = path.parts
-    version = get_db_api_version_from_dr(dr)
-    return version, int(oid)
+    return dr, int(oid)
 
 
 def set_div_for_aladin(oid, version):
@@ -49,17 +49,16 @@ def set_div_for_aladin(oid, version):
 
 @lru_cache(maxsize=128)
 def get_layout(pathname):
-    version, oid = version_oid_from_pathname(pathname)
-    dr = get_dr_from_db_api_version(version)
+    dr, oid = dr_oid_from_pathname(pathname)
     try:
-        find_ztf_oid.find(oid, version)
+        find_ztf_oid.find(oid, dr)
     except NotFound:
         return html.H1('404')
-    ra, dec = find_ztf_oid.get_coord(oid, version)
-    coord = find_ztf_oid.get_coord_string(oid, version)
+    ra, dec = find_ztf_oid.get_coord(oid, dr)
+    coord = find_ztf_oid.get_coord_string(oid, dr)
     layout = html.Div([
         html.Div(f'{oid}', id='oid', style={'display': 'none'}),
-        html.Div(f'{version}', id='api-version', style={'display': 'none'}),
+        html.Div(f'{dr}', id='dr', style={'display': 'none'}),
         html.H2(id='title'),
         dcc.Graph(
             id='graph',
@@ -191,7 +190,7 @@ def get_layout(pathname):
         html.Div(
             [
                 html.H2(html.A('Aladin', href=f'//aladin.u-strasbg.fr/AladinLite/?target={coord}')),
-                set_div_for_aladin(oid, version),
+                set_div_for_aladin(oid, dr),
                 html.Div(
                     id='aladin-lite-div',
                     style={'width': '600px', 'height': '400px', },
@@ -211,7 +210,7 @@ def get_layout(pathname):
                 'Download light curve: ',
                 html.A('CSV', href=f'/{dr}/csv/{oid}'),
                 ', ',
-                html.A('JSON', href=find_ztf_oid.json_url(oid, version)),
+                html.A('JSON', href=find_ztf_oid.json_url(oid, dr)),
             ]
         ),
         html.Div(
@@ -240,13 +239,13 @@ def set_title(oid):
     Output('metadata', 'children'),
     [
         Input('oid', 'children'),
-        Input('api-version', 'children')
+        Input('dr', 'children')
     ],
 )
-def get_metadata(oid, version):
-    meta = find_ztf_oid.get_meta(oid, version).copy()
-    meta['coord_string'] = find_ztf_oid.get_coord_string(oid, version)
-    items = [f'**{k}**: {to_str(meta[k])}' for k in METADATA_FIELDS]
+def get_metadata(oid, dr):
+    meta = find_ztf_oid.get_meta(oid, dr).copy()
+    meta['coord_string'] = find_ztf_oid.get_coord_string(oid, dr)
+    items = [f'**{k}**: {to_str(meta[k])}' for k in METADATA_FIELDS if k in meta]
     column_width = max(map(len, items)) - 2
     div = html.Div(
         html.Ul([html.Li(dcc.Markdown(text)) for text in items], style={'list-style-type': 'none'}),
@@ -259,12 +258,12 @@ def get_metadata(oid, version):
     Output('graph', 'figure'),
     [
         Input('oid', 'children'),
-        Input('api-version', 'children'),
+        Input('dr', 'children'),
         Input('different_filter_neighbours', 'children'),
         Input('different_field_neighbours', 'children'),
     ],
 )
-def set_figure(cur_oid, version, different_filter, different_field):
+def set_figure(cur_oid, dr, different_filter, different_field):
     if not isinstance(different_filter, list):
         different_filter = []
     if not isinstance(different_field, list):
@@ -278,9 +277,9 @@ def set_figure(cur_oid, version, different_filter, different_field):
             size = 3
         else:
             size = 1
-        lc = find_ztf_oid.get_lc(oid, version).copy()
+        lc = find_ztf_oid.get_lc(oid, dr).copy()
         lcs.extend(lc)
-        fltr = find_ztf_oid.get_meta(oid, version)['filter']
+        fltr = find_ztf_oid.get_meta(oid, dr)['filter']
         for obs in lc:
             obs['mjd_58000'] = obs['mjd'] - 58000
             obs['oid'] = oid
@@ -311,15 +310,15 @@ def set_figure(cur_oid, version, different_filter, different_field):
     return fw
 
 
-def find_neighbours(radius, center_oid, version, different):
+def find_neighbours(radius, center_oid, dr, different):
     if radius is None:
         return html.P('No radius is specified')
     if float(radius) <= 0:
         return html.P('Radius should be positive')
-    ra, dec = find_ztf_oid.get_coord(center_oid, version)
-    kwargs = dict(ra=ra, dec=dec, radius_arcsec=radius, version=version)
-    fltr = find_ztf_oid.get_meta(center_oid, version)['filter']
-    fieldid = find_ztf_oid.get_meta(center_oid, version)['fieldid']
+    ra, dec = find_ztf_oid.get_coord(center_oid, dr)
+    kwargs = dict(ra=ra, dec=dec, radius_arcsec=radius, dr=dr)
+    fltr = find_ztf_oid.get_meta(center_oid, dr)['filter']
+    fieldid = find_ztf_oid.get_meta(center_oid, dr)['fieldid']
     j = find_ztf_circle.find(**kwargs)
     if different == 'filter':
         j = {oid: value for oid, value in j.items()
@@ -349,7 +348,7 @@ app.callback(
     [Input('different_field_radius', 'value')],
     state=[
         State('oid', 'children'),
-        State('api-version', 'children'),
+        State('dr', 'children'),
     ]
 )(partial(find_neighbours, different='fieldid'))
 
@@ -358,13 +357,13 @@ app.callback(
     [Input('different_filter_radius', 'value')],
     state=[
         State('oid', 'children'),
-        State('api-version', 'children'),
+        State('dr', 'children'),
     ]
 )(partial(find_neighbours, different='filter'))
 
 
-def set_table(radius, oid, version, catalog):
-    ra, dec = find_ztf_oid.get_coord(oid, version)
+def set_table(radius, oid, dr, catalog):
+    ra, dec = find_ztf_oid.get_coord(oid, dr)
     if radius is None:
         return html.P('No radius is specified')
     radius = float(radius)
@@ -389,7 +388,7 @@ app.callback(
     [Input('gcvs-radius', 'value')],
     state=[
         State('oid', 'children'),
-        State('api-version', 'children'),
+        State('dr', 'children'),
     ]
 )(partial(set_table, catalog='GCVS'))
 
@@ -398,7 +397,7 @@ app.callback(
     [Input('vsx-radius', 'value')],
     state=[
         State('oid', 'children'),
-        State('api-version', 'children'),
+        State('dr', 'children'),
     ]
 )(partial(set_table, catalog='VSX'))
 
@@ -407,7 +406,7 @@ app.callback(
     [Input('ogle-radius', 'value')],
     state=[
         State('oid', 'children'),
-        State('api-version', 'children'),
+        State('dr', 'children'),
     ]
 )(partial(set_table, catalog='OGLE'))
 
@@ -416,7 +415,7 @@ app.callback(
     [Input('simbad-radius', 'value')],
     state=[
         State('oid', 'children'),
-        State('api-version', 'children'),
+        State('dr', 'children'),
     ]
 )(partial(set_table, catalog='Simbad'))
 
@@ -426,11 +425,11 @@ app.callback(
     [Input('vizier-radius', 'value')],
     state=[
         State('oid', 'children'),
-        State('api-version', 'children'),
+        State('dr', 'children'),
     ],
 )
-def set_vizier_url(radius, oid, version):
-    ra, dec = find_ztf_oid.get_coord(oid, version)
+def set_vizier_url(radius, oid, dr):
+    ra, dec = find_ztf_oid.get_coord(oid, dr)
     if radius is None:
         radius = 0
     return find_vizier.get_search_url(ra, dec, radius)
@@ -442,10 +441,10 @@ def set_vizier_url(radius, oid, version):
     state=[
         State('vizier-radius', 'value'),
         State('oid', 'children'),
-        State('api-version', 'children'),
+        State('dr', 'children'),
     ],
 )
-def set_vizier_list(n_clicks, radius, oid, version):
+def set_vizier_list(n_clicks, radius, oid, dr):
     if n_clicks == 0:
         return ''
 
@@ -453,7 +452,7 @@ def set_vizier_list(n_clicks, radius, oid, version):
         return html.P('No radius is specified')
 
     radius = float(radius)
-    ra, dec = find_ztf_oid.get_coord(oid, version)
+    ra, dec = find_ztf_oid.get_coord(oid, dr)
 
     table_list = find_vizier.find(ra, dec, radius)
     if len(table_list) == 0:
@@ -490,12 +489,12 @@ def set_vizier_list(n_clicks, radius, oid, version):
     Output('features-list', 'children'),
     [
         Input('oid', 'children'),
-        Input('api-version', 'children'),
+        Input('dr', 'children'),
     ]
 )
-def set_features_list(oid, version):
+def set_features_list(oid, dr):
     try:
-        features = light_curve_features(oid, version)
+        features = light_curve_features(oid, dr)
     except NotFound:
         return 'Not available'
     items = [f'**{k}**: {v:.4g}' for k, v in sorted(features.items(), key=lambda item: item[0])]
@@ -511,8 +510,8 @@ def set_features_list(oid, version):
     Output('light-curve-table', 'data'),
     [
         Input('oid', 'children'),
-        Input('api-version', 'children'),
+        Input('dr', 'children'),
     ]
 )
-def set_lc_table(oid, version):
-    return find_ztf_oid.get_lc(oid, version).copy()
+def set_lc_table(oid, dr):
+    return find_ztf_oid.get_lc(oid, dr).copy()

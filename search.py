@@ -5,7 +5,7 @@ import dash_dangerously_set_inner_html as ddsih
 from astropy.table import Table
 
 from cross import find_ztf_circle
-from util import html_from_astropy_table, get_dr_from_db_api_version
+from util import html_from_astropy_table
 
 
 COLUMNS = {
@@ -18,11 +18,10 @@ COLUMNS = {
 
 
 @lru_cache(maxsize=128)
-def get_layout(coordinates, radius_arcsec, version):
+def get_layout(coordinates, radius_arcsec, dr):
     ra = coordinates.ra.to_value('deg')
     dec = coordinates.dec.to_value('deg')
-    dr = get_dr_from_db_api_version(version)
-    j = find_ztf_circle.find(ra, dec, radius_arcsec, version)
+    j = find_ztf_circle.find(ra, dec, radius_arcsec, dr)
     if not j:
         return html.Div('404')
     table = Table([dict(oid=f'<a href="/{dr}/view/{oid}">{oid}</a>', separation=obj['separation'], **obj['meta'])

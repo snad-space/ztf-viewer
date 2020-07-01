@@ -14,7 +14,7 @@ from dash.dependencies import Input, Output, State
 
 from app import app
 from search import get_layout as get_search_layout
-from util import default_dr, get_db_api_version_from_dr
+from util import default_dr
 from viewer import get_layout as get_viewer_layout
 
 
@@ -29,9 +29,11 @@ app.layout = html.Div([
                 [
                     html.A('SNAD ZTF', href='/'),
                     ' ',
-                    html.Div('DR1', id='dr1-switch', style={'display': 'inline-block'}),
-                    ' / β',
+                    # html.Div('DR1', id='dr1-switch', style={'display': 'inline-block'}),
+                    # ' / ',
                     html.Div('DR2', id='dr2-switch', style={'display': 'inline-block'}),
+                    ' / β',
+                    html.Div('DR3', id='dr3-switch', style={'display': 'inline-block'}),
                     ' object viewer',
                 ],
             ),
@@ -122,6 +124,13 @@ app.callback(
 )(partial(dr_switch, switch_dr='dr2'))
 
 
+app.callback(
+    Output('dr3-switch', 'children'),
+    [Input('data-release', 'children')],
+    state=[State('url', 'pathname')]
+)(partial(dr_switch, switch_dr='dr3'))
+
+
 @app.callback(
     Output('url', 'pathname'),
     [
@@ -205,8 +214,8 @@ def app_select_by_url(pathname):
                     html.P('Wrong radius format'),
                 ]
             )
-        version = get_db_api_version_from_dr(search_match.group('dr'))
-        return get_search_layout(coordinates, radius_arcsec, version)
+        dr = search_match.group('dr')
+        return get_search_layout(coordinates, radius_arcsec, dr)
     return html.H1('404')
 
 
