@@ -6,8 +6,7 @@ import numpy as np
 from astropy import units
 from jinja2 import Template
 
-
-default_dr = 'dr2'
+default_dr = 'dr3'
 
 
 def db_coord_to_degrees(coord):

@@ -1,5 +1,5 @@
-from functools import lru_cache, partial
 import pathlib
+from functools import lru_cache, partial
 
 import dash_core_components as dcc
 import dash_dangerously_set_inner_html as ddsih
@@ -9,10 +9,12 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from dash.dependencies import Input, Output, State
+from dash.exceptions import PreventUpdate
 from dash_table import DataTable
 
 from app import app
 from cross import get_catalog_query, find_vizier, find_ztf_oid, find_ztf_circle, vizier_catalog_details, light_curve_features, NotFound
+from products import DateWithFrac, correct_date
 from util import html_from_astropy_table, to_str
 
 LIGHT_CURVE_TABLE_COLUMNS = ('mjd', 'mag', 'magerr', 'clrcoeff')
@@ -57,12 +59,22 @@ def get_layout(pathname):
     ra, dec = find_ztf_oid.get_coord(oid, dr)
     coord = find_ztf_oid.get_coord_string(oid, dr)
     layout = html.Div([
+        html.Div('', id='placeholder', style={'display': 'none'}),
         html.Div(f'{oid}', id='oid', style={'display': 'none'}),
         html.Div(f'{dr}', id='dr', style={'display': 'none'}),
         html.H2(id='title'),
         dcc.Graph(
-            id='graph',
-            style={'width': '90%'},
+                id='graph',
+                style={'width': '70%', 'display': 'inline-block'},
+        ),
+        html.Div(
+            [
+                # html.Div(className="JS9Toolbar", id="JS9Toolbar"),
+                html.Div(className='JS9', id='JS9'),
+                dji.Import(src="/static/js/js9_helper.js"),
+                html.Div(id='fits-to-show', style={'display': 'none'}),
+            ],
+            style={'width': '20%', 'display': 'inline-block', 'vertical-align': 'top'},
         ),
         html.Div(
             [
@@ -197,7 +209,6 @@ def get_layout(pathname):
                 ),
             ],
         ),
-        html.Script(src="/static/js/aladin_helper.js"),
         dji.Import(src="/static/js/aladin_helper.js"),
         html.Div(
             [
@@ -279,11 +290,13 @@ def set_figure(cur_oid, dr, different_filter, different_field):
             size = 1
         lc = find_ztf_oid.get_lc(oid, dr).copy()
         lcs.extend(lc)
-        fltr = find_ztf_oid.get_meta(oid, dr)['filter']
+        meta = find_ztf_oid.get_meta(oid, dr)
         for obs in lc:
             obs['mjd_58000'] = obs['mjd'] - 58000
             obs['oid'] = oid
-            obs['filter'] = fltr
+            obs['fieldid'] = meta['fieldid']
+            obs['rcid'] = meta['rcid']
+            obs['filter'] = meta['filter']
             obs['mark_size'] = size
     mag_min = min(obs['mag'] - obs['magerr'] for obs in lcs)
     mag_max = max(obs['mag'] + obs['magerr'] for obs in lcs)
@@ -301,12 +314,17 @@ def set_figure(cur_oid, dr, different_filter, different_field):
         symbol='oid',
         size='mark_size',
         size_max=MARKER_SIZE,
+        custom_data=['mjd', 'oid', 'fieldid', 'rcid', 'filter'],
     )
     fw = go.FigureWidget(figure)
-    #fw.layout.hovermode = 'closest'
-    #logging.warning(f'{fw.data}')
-    #for scatter in fw.data:
-    #    scatter.on_click(lambda *args, **kwargs: logging.warning('#'*80 + f'\n{args}\n{kwargs}'))
+    fw.layout.hovermode = 'closest'
+    # fw.layout.clickmode = 'select'
+    import logging
+    for scatter in fw.data:
+        # scatter.on_click(lambda *args, **kwargs: logging.warning('#'*80 + f'\n{args}\n{kwargs}'))
+        def f(*args, **kwargs):
+            scatter.marker.size = [20] * len(scatter.marker.size)
+        scatter.on_click(f)
     return fw
 
 
@@ -341,6 +359,55 @@ def find_neighbours(radius, center_oid, dr, different):
             div.children.insert(0, ', ')
         children.append(div)
     return children
+
+
+app.clientside_callback(
+    """
+    function(divs) {
+        console.log(divs);
+        if (divs) {
+            let fits = divs[0].props.children;
+            console.log(fits);
+            let ra = divs[1].props.children;
+            console.log(ra);
+            let dec = divs[2].props.children;
+            console.log(dec);
+            JS9.Load(fits, {onload: function(im) {
+                JS9.SetPan({ra: ra, dec: dec}, {display: im});
+                JS9.AddRegions({shape: 'point', ra: ra, dec: dec}, {display: im});
+            }});
+        }
+        return '';
+    }
+    """,
+    Output('placeholder', 'children'),
+    [Input('fits-to-show', 'children')],
+)
+
+
+@app.callback(
+    Output('fits-to-show', 'children'),
+    [Input('graph', 'clickData')],
+    state=[
+        State('dr', 'children')
+    ]
+)
+def graph_clicked(data, dr):
+    if data is None:
+        raise PreventUpdate
+    if not (points := data.get('points')):
+        raise PreventUpdate
+    point = points[0]
+    mjd, oid, fieldid, rcid, filter = point['customdata']
+    ra, dec = find_ztf_oid.get_coord(oid, dr)
+    date = DateWithFrac.from_mjd(mjd, coord=dict(ra=ra, dec=dec))
+    correct_date(date)
+    url = date.sciimg_path(fieldid=fieldid, rcid=rcid, filter=filter)
+    return [
+        html.Div(url, id='fits-to-show-url'),
+        html.Div(ra, id='fits-to-show-ra'),
+        html.Div(dec, id='fits-to-show-dec'),
+    ]
 
 
 app.callback(

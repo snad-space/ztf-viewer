@@ -5,8 +5,17 @@ services:
      networks:
        - app
      restart: always
-   web:
+   app:
      build: .
+     networks:
+       - app
+     depends_on:
+       - redis
+     restart: always
+   proxy:
+     build: proxy
+     volumes:
+       - /srv/pgsql/cache/ztf-products:/cache
      networks:
        - app
        - proxy
@@ -17,8 +26,15 @@ services:
        LETSENCRYPT_HOST: ztf-dev.snad.space
        LETSENCRYPT_EMAIL: ztf-dev@homb.it
      depends_on:
-       - redis
+       - app
      restart: always
+   proxy-cache-filler:
+     build: proxy-cache-filler
+     networks:
+       - app
+     depends_on:
+       - app
+     restart: on-failure
 
 networks:
   app:

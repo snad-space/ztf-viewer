@@ -32,7 +32,7 @@ app.layout = html.Div([
                     # html.Div('DR1', id='dr1-switch', style={'display': 'inline-block'}),
                     # ' / ',
                     html.Div('DR2', id='dr2-switch', style={'display': 'inline-block'}),
-                    ' / β',
+                    ' / ',
                     html.Div('DR3', id='dr3-switch', style={'display': 'inline-block'}),
                     ' object viewer',
                 ],
