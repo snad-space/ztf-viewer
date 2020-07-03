@@ -1,5 +1,5 @@
-from functools import lru_cache, partial
 import pathlib
+from functools import lru_cache, partial
 
 import dash_core_components as dcc
 import dash_dangerously_set_inner_html as ddsih
@@ -13,7 +13,7 @@ from dash_table import DataTable
 
 from app import app
 from cross import get_catalog_query, find_vizier, find_ztf_oid, find_ztf_circle, vizier_catalog_details, light_curve_features, NotFound
-from util import html_from_astropy_table, to_str
+from util import html_from_astropy_table, to_str, DateWithFrac, correct_date
 
 LIGHT_CURVE_TABLE_COLUMNS = ('mjd', 'mag', 'magerr', 'clrcoeff')
 
@@ -57,13 +57,16 @@ def get_layout(pathname):
     ra, dec = find_ztf_oid.get_coord(oid, dr)
     coord = find_ztf_oid.get_coord_string(oid, dr)
     layout = html.Div([
+        html.Div(id='placeholder', style = {'display':'none'}),
         html.Div(f'{oid}', id='oid', style={'display': 'none'}),
         html.Div(f'{dr}', id='dr', style={'display': 'none'}),
         html.H2(id='title'),
-        dcc.Graph(
-            id='graph',
-            style={'width': '90%'},
-        ),
+        html.Div(id='figure'),
+        html.Div([
+            html.Div(className="JS9Toolbar", id="JS9Toolbar"),
+            html.Div(className='JS9', id='JS9'),
+            dji.Import(src="/static/js/js9_helper.js"),
+        ]),
         html.Div(
             [
                 html.H2('Neighbours'),
@@ -197,7 +200,6 @@ def get_layout(pathname):
                 ),
             ],
         ),
-        html.Script(src="/static/js/aladin_helper.js"),
         dji.Import(src="/static/js/aladin_helper.js"),
         html.Div(
             [
@@ -254,8 +256,33 @@ def get_metadata(oid, dr):
     return div
 
 
+app.clientside_callback(
+    """
+    function(graph) {
+        console.log(figure);
+        setTimeout(function(){
+            let js_plotly_plot = document.getElementsByClassName('js-plotly-plot')[0];
+            console.log(js_plotly_plot);
+            if (js_plotly_plot) {
+                js_plotly_plot.on('plotly_click', function(data){
+                    let point = data.points[0];
+                    if (point) {
+                        let fits = point.customdata[0];
+                        console.log(fits);
+                    }
+                });
+            }
+        }, 1000);
+        return '';
+    }
+    """,
+    Output('placeholder', 'children'),
+    [Input('graph', 'figure')],
+)
+
+
 @app.callback(
-    Output('graph', 'figure'),
+    Output('figure', 'children'),
     [
         Input('oid', 'children'),
         Input('dr', 'children'),
@@ -279,12 +306,15 @@ def set_figure(cur_oid, dr, different_filter, different_field):
             size = 1
         lc = find_ztf_oid.get_lc(oid, dr).copy()
         lcs.extend(lc)
-        fltr = find_ztf_oid.get_meta(oid, dr)['filter']
+        meta = find_ztf_oid.get_meta(oid, dr)
         for obs in lc:
             obs['mjd_58000'] = obs['mjd'] - 58000
             obs['oid'] = oid
-            obs['filter'] = fltr
+            obs['filter'] = meta['filter']
             obs['mark_size'] = size
+            date = DateWithFrac.from_mjd(obs['mjd'], coord=meta['coord'])
+            # correct_date(date)
+            obs['fits'] = date.sciimg_path(fieldid=meta['fieldid'], filter=meta['filter'], rcid=meta['rcid'])
     mag_min = min(obs['mag'] - obs['magerr'] for obs in lcs)
     mag_max = max(obs['mag'] + obs['magerr'] for obs in lcs)
     mag_ampl = mag_max - mag_min
@@ -301,13 +331,25 @@ def set_figure(cur_oid, dr, different_filter, different_field):
         symbol='oid',
         size='mark_size',
         size_max=MARKER_SIZE,
+        custom_data=['fits'],
     )
     fw = go.FigureWidget(figure)
-    #fw.layout.hovermode = 'closest'
-    #logging.warning(f'{fw.data}')
-    #for scatter in fw.data:
-    #    scatter.on_click(lambda *args, **kwargs: logging.warning('#'*80 + f'\n{args}\n{kwargs}'))
-    return fw
+    fw.layout.hovermode = 'closest'
+    # fw.layout.clickmode = 'select'
+    import logging
+    for scatter in fw.data:
+        # scatter.on_click(lambda *args, **kwargs: logging.warning('#'*80 + f'\n{args}\n{kwargs}'))
+        def f(*args, **kwargs):
+            scatter.marker.size = [20] * len(scatter.marker.size)
+        scatter.on_click(f)
+    return html.Div([
+        dcc.Graph(
+            id='graph',
+            style={'width': '90%'},
+            figure=fw,
+        ),
+        dji.Import(src="/static/js/point_click.js"),
+    ])
 
 
 def find_neighbours(radius, center_oid, dr, different):
