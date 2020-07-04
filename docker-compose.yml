@@ -1,23 +1,39 @@
 version: '2'
 services:
-   redis:
-     image: redis
-     networks:
-       - app
-     restart: always
-   web:
-     build: .
-     networks:
-       - app
-       - proxy
-     environment:
-       VIRTUAL_HOST: ztf.homb.it,ztf.snad.space
-       DYNDNS_HOST: ztf.homb.it,ztf.snad.space
-       LETSENCRYPT_HOST: ztf.homb.it,ztf.snad.space
-       LETSENCRYPT_EMAIL: ztf@homb.it
-     depends_on:
-       - redis
-     restart: always
+  redis:
+    image: redis
+    networks:
+      - app
+    restart: always
+  app:
+    build: .
+    networks:
+      - app
+    depends_on:
+      - redis
+    restart: always
+  proxy:
+    build: proxy
+    volumes:
+      - /srv/pgsql/cache/ztf-products:/cache
+    networks:
+      - app
+      - proxy
+    environment:
+      VIRTUAL_HOST: ztf.snad.space
+      DYNDNS_HOST: ztf.snad.space
+      LETSENCRYPT_HOST: ztf.snad.space
+      LETSENCRYPT_EMAIL: ztf@snad.space
+    depends_on:
+      - app
+    restart: always
+  proxy-cache-filler:
+    build: proxy-cache-filler
+    networks:
+      - app
+    depends_on:
+      - app
+    restart: on-failure
 
 networks:
   app:
