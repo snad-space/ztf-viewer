@@ -72,7 +72,7 @@ def get_layout(pathname):
                 # html.Div(className="JS9Toolbar", id="JS9Toolbar"),
                 html.Div(className='JS9', id='JS9'),
                 dji.Import(src="/static/js/js9_helper.js"),
-                html.Div(id='fits-to-show', style={'display': 'none'}),
+                html.Div(id='fits-to-show'),
             ],
             style={'width': '20%', 'display': 'inline-block', 'vertical-align': 'top'},
         ),
@@ -366,7 +366,7 @@ app.clientside_callback(
     function(divs) {
         console.log(divs);
         if (divs) {
-            let fits = divs[0].props.children;
+            let fits = divs[0].props.href;
             console.log(fits);
             let ra = divs[1].props.children;
             console.log(ra);
@@ -404,9 +404,9 @@ def graph_clicked(data, dr):
     correct_date(date)
     url = date.sciimg_path(fieldid=fieldid, rcid=rcid, filter=filter)
     return [
-        html.Div(url, id='fits-to-show-url'),
-        html.Div(ra, id='fits-to-show-ra'),
-        html.Div(dec, id='fits-to-show-dec'),
+        html.A('Download FITS', href=url, id='fits-to-show-url'),
+        html.Div(ra, id='fits-to-show-ra', style={'display': 'none'}),
+        html.Div(dec, id='fits-to-show-dec', style={'display': 'none'}),
     ]
 
 
