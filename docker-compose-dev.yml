@@ -33,7 +33,7 @@ services:
     networks:
       - app
     depends_on:
-      - app
+      - proxy
     restart: on-failure
 
 networks:

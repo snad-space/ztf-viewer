@@ -5,14 +5,14 @@ services:
     networks:
       - app
     restart: always
-  app:
+  ztf-web-viewer-app:
     build: .
     networks:
       - app
     depends_on:
       - redis
     restart: always
-  proxy:
+  ztf-web-viewer-proxy:
     build: proxy
     volumes:
       - /srv/pgsql/cache/ztf-products:/cache
@@ -25,14 +25,14 @@ services:
       LETSENCRYPT_HOST: ztf.snad.space
       LETSENCRYPT_EMAIL: ztf@snad.space
     depends_on:
-      - app
+      - ztf-web-viewer-app
     restart: always
   proxy-cache-filler:
     build: proxy-cache-filler
     networks:
       - app
     depends_on:
-      - app
+      - ztf-web-viewer-proxy
     restart: on-failure
 
 networks:

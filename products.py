@@ -60,7 +60,7 @@ class DateWithFrac:
 
 @cache()
 def _fracs(products_root):
-    url = urljoin('http://proxy', products_root)
+    url = urljoin('http://ztf-web-viewer-proxy', products_root)
     body = requests.get(url).text
     fracs = re.findall(r'<a href="(\d{6})/">\1/</a>', body)
     return sorted(int(f) for f in fracs)
