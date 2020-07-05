@@ -303,7 +303,7 @@ find_vizier = FindVizier()
 
 
 class _BaseFindZTF:
-    _base_api_url = 'http://db-dev.ztf.snad.space/api/v3/'
+    _base_api_url = 'http://db.ztf.snad.space/api/v3/'
 
     def __init__(self):
         self._api_session = requests.Session()
