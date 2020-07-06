@@ -1,4 +1,5 @@
 import pathlib
+from collections import defaultdict
 from functools import lru_cache, partial
 
 import dash_core_components as dcc
@@ -15,7 +16,7 @@ from dash_table import DataTable
 from app import app
 from cross import get_catalog_query, find_vizier, find_ztf_oid, find_ztf_circle, vizier_catalog_details, light_curve_features, NotFound
 from products import DateWithFrac, correct_date
-from util import html_from_astropy_table, to_str
+from util import html_from_astropy_table, to_str, INF, min_max_mjd_short
 
 LIGHT_CURVE_TABLE_COLUMNS = ('mjd', 'mag', 'magerr', 'clrcoeff')
 
@@ -28,10 +29,14 @@ MARKER_SIZE = 10
 LIST_MAXSHOW = 4
 
 
-def dr_oid_from_pathname(pathname):
+def parse_pathname(pathname):
     path = pathlib.Path(pathname)
+    is_short = False
+    if path.name == 'short':
+        is_short = True
+        path = path.parent
     *_, dr, _, oid = path.parts
-    return dr, int(oid)
+    return dr, int(oid), is_short
 
 
 def set_div_for_aladin(oid, version):
@@ -51,17 +56,28 @@ def set_div_for_aladin(oid, version):
 
 @lru_cache(maxsize=128)
 def get_layout(pathname):
-    dr, oid = dr_oid_from_pathname(pathname)
+    dr, oid, is_short = parse_pathname(pathname)
     try:
         find_ztf_oid.find(oid, dr)
     except NotFound:
         return html.H1('404')
     ra, dec = find_ztf_oid.get_coord(oid, dr)
     coord = find_ztf_oid.get_coord_string(oid, dr)
+    short_min_mjd, short_max_mjd = min_max_mjd_short(dr)
+    min_mjd, max_mjd = (short_min_mjd, short_max_mjd) if is_short else (-INF, INF)
     layout = html.Div([
         html.Div('', id='placeholder', style={'display': 'none'}),
         html.Div(f'{oid}', id='oid', style={'display': 'none'}),
         html.Div(f'{dr}', id='dr', style={'display': 'none'}),
+        html.Div(min_mjd, id='min-mjd', style={'display': 'none'}),
+        html.Div(max_mjd, id='max-mjd', style={'display': 'none'}),
+        dcc.Checklist(
+            id='light-curve-time-interval',
+            options=[
+                {'label': f'"Short" light curve: {short_min_mjd} ≤ MJD ≤ {short_max_mjd}', 'value': 'short'}
+            ],
+            value=['short'] if is_short else [],
+        ),
         html.H2(id='title'),
         dcc.Graph(
                 id='graph',
@@ -247,6 +263,22 @@ def set_title(oid):
 
 
 @app.callback(
+    [
+        Output('min-mjd', 'children'),
+        Output('max-mjd', 'children'),
+    ],
+    [Input('light-curve-time-interval', 'value')],
+    state=[State('dr', 'children')],
+)
+def set_min_max_mjd(values, dr):
+    if values is None:
+        raise PreventUpdate
+    if 'short' in values:
+        return min_max_mjd_short(dr)
+    return -INF, INF
+
+
+@app.callback(
     Output('metadata', 'children'),
     [
         Input('oid', 'children'),
@@ -272,9 +304,11 @@ def get_metadata(oid, dr):
         Input('dr', 'children'),
         Input('different_filter_neighbours', 'children'),
         Input('different_field_neighbours', 'children'),
+        Input('min-mjd', 'children'),
+        Input('max-mjd', 'children'),
     ],
 )
-def set_figure(cur_oid, dr, different_filter, different_field):
+def set_figure(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd):
     if not isinstance(different_filter, list):
         different_filter = []
     if not isinstance(different_field, list):
@@ -288,7 +322,7 @@ def set_figure(cur_oid, dr, different_filter, different_field):
             size = 3
         else:
             size = 1
-        lc = find_ztf_oid.get_lc(oid, dr).copy()
+        lc = find_ztf_oid.get_lc(oid, dr, min_mjd=min_mjd, max_mjd=max_mjd)
         lcs.extend(lc)
         meta = find_ztf_oid.get_meta(oid, dr)
         for obs in lc:
@@ -557,11 +591,13 @@ def set_vizier_list(n_clicks, radius, oid, dr):
     [
         Input('oid', 'children'),
         Input('dr', 'children'),
+        Input('min-mjd', 'children'),
+        Input('max-mjd', 'children'),
     ]
 )
-def set_features_list(oid, dr):
+def set_features_list(oid, dr, min_mjd, max_mjd):
     try:
-        features = light_curve_features(oid, dr)
+        features = light_curve_features(oid, dr, min_mjd=min_mjd, max_mjd=max_mjd)
     except NotFound:
         return 'Not available'
     items = [f'**{k}**: {v:.4g}' for k, v in sorted(features.items(), key=lambda item: item[0])]
@@ -578,7 +614,9 @@ def set_features_list(oid, dr):
     [
         Input('oid', 'children'),
         Input('dr', 'children'),
+        Input('min-mjd', 'children'),
+        Input('max-mjd', 'children'),
     ]
 )
-def set_lc_table(oid, dr):
-    return find_ztf_oid.get_lc(oid, dr).copy()
+def set_lc_table(oid, dr, min_mjd, max_mjd):
+    return find_ztf_oid.get_lc(oid, dr, min_mjd=min_mjd, max_mjd=max_mjd)

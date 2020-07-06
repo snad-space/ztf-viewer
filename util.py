@@ -6,6 +6,10 @@ import numpy as np
 from astropy import units
 from jinja2 import Template
 
+
+INF = float('inf')
+
+
 default_dr = 'dr3'
 
 
@@ -73,3 +77,11 @@ def anchor_form(url, data, title):
             </button>
         </form>
     '''
+
+
+def min_max_mjd_short(dr):
+    if dr == 'dr2':
+        return 58194.0, 58299.0
+    if dr == 'dr3':
+        return 58194.0, 58483.0
+    return -INF, INF

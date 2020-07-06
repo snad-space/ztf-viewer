@@ -24,7 +24,7 @@ while True:
         sleep(np.random.uniform(0.05, 0.2))
 
 from cache import cache
-from util import to_str, anchor_form
+from util import to_str, anchor_form, INF
 
 
 class NotFound(RuntimeError):
@@ -358,9 +358,14 @@ class FindZTFOID(_BaseFindZTF):
         j = self.find(oid, dr)
         return j['meta']
 
-    def get_lc(self, oid, dr):
+    def get_lc(self, oid, dr, min_mjd=None, max_mjd=None):
+        if min_mjd is None:
+            min_mjd = -INF
+        if max_mjd is None:
+            max_mjd = INF
         j = self.find(oid, dr)
-        return j['lc']
+        lc = [obs.copy() for obs in j['lc'] if min_mjd <= obs['mjd'] <= max_mjd]
+        return lc
 
 
 find_ztf_oid = FindZTFOID()
@@ -404,8 +409,8 @@ class LightCurveFeatures:
         self._find_ztf_oid = find_ztf_oid
 
     @cache()
-    def __call__(self, oid, dr):
-        lc = find_ztf_oid.get_lc(oid, dr).copy()
+    def __call__(self, oid, dr, min_mjd=None, max_mjd=None):
+        lc = find_ztf_oid.get_lc(oid, dr, min_mjd=min_mjd, max_mjd=max_mjd)
         light_curve = [dict(t=obs['mjd'], m=obs['mag'], err=obs['magerr']) for obs in lc]
         j = dict(light_curve=light_curve)
         resp = self._api_session.post(self._base_api_url, json=j)

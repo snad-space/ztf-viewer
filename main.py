@@ -182,9 +182,9 @@ def app_select_by_url(pathname):
                 ]
             )
         ]
-    if match := re.search(r'^/+view/+(\d+)/*$', pathname):
+    if match := re.search(r'^/+view/+(\d+)', pathname):
         return get_viewer_layout(f'/{default_dr}/view/{match.group(1)}')
-    if re.search(r'^/+dr\d/+view/+\d+$', pathname):
+    if re.search(r'^/+dr\d/+view/+(\d+)', pathname):
         return get_viewer_layout(pathname)
     if search_match := re.search(r"""^
                                      (?:/+(?P<dr>dr\d))?
