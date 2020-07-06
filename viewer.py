@@ -352,8 +352,7 @@ def set_figure(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd)
     )
     fw = go.FigureWidget(figure)
     fw.layout.hovermode = 'closest'
-    # fw.layout.clickmode = 'select'
-    import logging
+    fw.layout.legend.orientation = 'h'
     for scatter in fw.data:
         # scatter.on_click(lambda *args, **kwargs: logging.warning('#'*80 + f'\n{args}\n{kwargs}'))
         def f(*args, **kwargs):
