@@ -15,6 +15,8 @@ services:
       - secret.env # TNS_API_KEY
     networks:
       - app
+    env_file:
+      - secret.env
     depends_on:
       - redis
     restart: always
@@ -27,7 +29,7 @@ services:
       - proxy
     environment:
       VIRTUAL_HOST: ztf-dev.snad.space
-      HTTPS_METHOD: noredirect
+#      HTTPS_METHOD: noredirect
       DYNDNS_HOST: ztf-dev.snad.space
       LETSENCRYPT_HOST: ztf-dev.snad.space
       LETSENCRYPT_EMAIL: ztf-dev@homb.it

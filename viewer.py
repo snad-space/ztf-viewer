@@ -7,6 +7,7 @@ import dash_core_components as dcc
 import dash_dangerously_set_inner_html as ddsih
 import dash_defer_js_import as dji
 import dash_html_components as html
+import flask
 import numpy as np
 import pandas as pd
 import plotly.express as px
@@ -21,6 +22,7 @@ from cross import (get_catalog_query, find_vizier, find_ztf_oid, find_ztf_circle
                    light_curve_features, catalog_query_objects,)
 from data import get_plot_data, get_folded_plot_data, MJD_OFFSET
 from products import DateWithFrac, correct_date
+from secret import is_user_token_valid
 from util import (html_from_astropy_table, to_str, INF, min_max_mjd_short, FILTER_COLORS, FILTERS, ZTF_FILTERS,
                   NotFound, CatalogUnavailable, joiner)
 
@@ -90,7 +92,7 @@ def get_layout(pathname):
                 dcc.Checklist(
                     id='light-curve-time-interval',
                     options=[
-                        {'label': f'"Short" light curve: {short_min_mjd} ≤ MJD ≤ {short_max_mjd}', 'value': 'short'}
+                        {'label': f'"Short" light curve: {short_min_mjd} ≤ MJD ≤ {short_max_mjd}', 'value': 'short'},
                     ],
                     value=['short'] if is_short else [],
                     style={'display': 'none' if short_min_mjd == -INF and short_max_mjd == INF else 'block'},
@@ -427,6 +429,52 @@ def get_layout(pathname):
 )
 def set_title(oid):
     return f'{oid}'
+
+
+@app.callback(
+    Output('expert-info', 'children'),
+    [Input('oid', 'children')],
+)
+def set_expert_info(oid):
+    if not is_user_token_valid(flask.request.cookies.get('login_token')):
+        return None
+    return [
+        dcc.RadioItems(
+            id='expert-is-anomaly',
+            options=[
+                {'label': 'No label', 'value': 'nolabel', 'disabled': False},
+                {'label': 'Anomaly', 'value': 'anomaly', 'disabled': False},
+                {'label': 'Normal', 'value': 'normal', 'disabled': False},
+            ],
+            value=None,
+            labelStyle={'display': 'inline-block'},
+        ),
+        dcc.Input(
+            id='expert-object-type',
+            placeholder='Object type',
+            type='text',
+            minLength=0,
+            maxLength=127,
+            n_submit=0,
+            disabled=False,
+            value=None,
+        ),
+        html.Br(),
+        dcc.Textarea(
+            id='expert-object-description',
+            placeholder='Description',
+            disabled=False,
+            cols=80,
+            rows=5,
+            value=None,
+        ),
+        html.Br(),
+        html.Button(
+            'Submit',
+            id='expert-object-submit',
+            n_clicks=0,
+        ),
+    ]
 
 
 @app.callback(
