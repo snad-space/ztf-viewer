@@ -16,6 +16,8 @@ def get_layout(pathname):
             columns=[
                 {'name': 'OID', 'id': 'oid'},
                 {'name': 'Anomaly?', 'id': 'is_anomaly'},
+                {'name': 'Field ID', 'id': 'fieldid'},
+                {'name': 'Filter', 'id': 'filter'},
                 {'name': 'Object type', 'id': 'object_type'},
                 {'name': 'Description', 'id': 'description'},
             ]

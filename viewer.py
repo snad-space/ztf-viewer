@@ -17,6 +17,7 @@ from dash.exceptions import PreventUpdate
 from dash_table import DataTable
 from requests import ConnectionError
 
+from akb import akb
 from app import app
 from cross import (get_catalog_query, find_vizier, find_ztf_oid, find_ztf_circle, vizier_catalog_details,
                    light_curve_features, catalog_query_objects,)
@@ -87,6 +88,7 @@ def get_layout(pathname):
         html.Div(min_mjd, id='min-mjd', style={'display': 'none'}),
         html.Div(max_mjd, id='max-mjd', style={'display': 'none'}),
         html.H2(id='title'),
+        html.Div(id='akb-info'),
         html.Div(
             [
                 dcc.Checklist(
@@ -432,49 +434,65 @@ def set_title(oid):
 
 
 @app.callback(
-    Output('expert-info', 'children'),
+    Output('akb-info', 'children'),
     [Input('oid', 'children')],
 )
-def set_expert_info(oid):
+def set_akb_info(oid):
     if not is_user_token_valid(flask.request.cookies.get('login_token')):
         return None
+    available_tags = akb.get_tags()
+    try:
+        akb_item = akb.get_by_oid(oid)
+        tags_enabled = akb_item['tags']
+        description = akb_item['description']
+    except NotFound:
+        tags_enabled = []
+        description = ''
     return [
-        dcc.RadioItems(
-            id='expert-is-anomaly',
-            options=[
-                {'label': 'No label', 'value': 'nolabel', 'disabled': False},
-                {'label': 'Anomaly', 'value': 'anomaly', 'disabled': False},
-                {'label': 'Normal', 'value': 'normal', 'disabled': False},
-            ],
-            value=None,
+        dcc.Checklist(
+            id='akb-tags',
+            options=[{'label': tag, 'value': tag} for tag in available_tags],
+            value=tags_enabled,
             labelStyle={'display': 'inline-block'},
         ),
-        dcc.Input(
-            id='expert-object-type',
-            placeholder='Object type',
-            type='text',
-            minLength=0,
-            maxLength=127,
-            n_submit=0,
-            disabled=False,
-            value=None,
-        ),
-        html.Br(),
         dcc.Textarea(
-            id='expert-object-description',
+            id='akb-description',
             placeholder='Description',
             disabled=False,
             cols=80,
             rows=5,
-            value=None,
+            value=description,
         ),
         html.Br(),
         html.Button(
             'Submit',
-            id='expert-object-submit',
+            id='akb-submit',
             n_clicks=0,
         ),
+        ' ',
+        html.Div('', id='akb-submitted', style={'display': 'inline-block'}),
     ]
+
+
+@app.callback(
+    Output('akb-submitted', 'children'),
+    [Input('akb-submit', 'n_clicks')],
+    state=[
+        State('oid', 'children'),
+        State('akb-tags', 'value'),
+        State('akb-description', 'value'),
+    ]
+)
+def update_akb(n_clicks, oid, tags, description):
+    if n_clicks == 0 or n_clicks is None or tags is None:
+        raise PreventUpdate
+    if description is None:
+        description = ''
+    try:
+        akb.post_object(oid, tags, description)
+        return 'Submitted'
+    except RuntimeError:
+        return 'Error occurred'
 
 
 @app.callback(

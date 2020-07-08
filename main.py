@@ -8,6 +8,7 @@ import urllib.parse
 import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output, State
+from dash.exceptions import PreventUpdate
 
 from anomalies import get_layout as get_anomalies_layout
 from app import app
@@ -170,8 +171,8 @@ def go_to_url(n_clicks_oid, n_submit_oid, n_clicks_search,
     [Input('url', 'pathname')],
 )
 def app_select_by_url(pathname):
-    if re.search(r'^/+login/*', pathname):
-        return get_login_layout(pathname)
+    if not isinstance(pathname, str):
+        raise PreventUpdate
     if m := re.search(r'^/+(?:(dr\d)/+)?$', pathname):
         dr = m.group(1) or default_dr
         other_drs = [other_dr for other_dr in available_drs if other_dr != dr]
@@ -266,6 +267,8 @@ def app_select_by_url(pathname):
             )
         dr = search_match.group('dr')
         return get_search_layout(coordinates, radius_arcsec, dr)
+    if re.search(r'^/+login/*$', pathname):
+        return get_login_layout(pathname)
     if re.search('^/+anomalies/*$', pathname):
         return get_anomalies_layout(pathname)
     return html.H1('404')
