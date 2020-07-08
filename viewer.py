@@ -150,7 +150,7 @@ def get_layout(pathname):
                         set_div_for_aladin(oid, dr),
                         html.Div(
                             id='aladin-lite-div',
-                            style={'width': '600px', 'height': '400px'},
+                            style={'width': '450px', 'height': '450px'},
                         ),
                         dji.Import(src="/static/js/aladin_helper.js"),
                     ],
