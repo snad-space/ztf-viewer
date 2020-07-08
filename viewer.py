@@ -432,7 +432,7 @@ def graph_clicked(data, dr):
     if not (points := data.get('points')):
         raise PreventUpdate
     point = points[0]
-    mjd, oid, fieldid, rcid, filter = point['customdata']
+    mjd, oid, fieldid, rcid, filter, _ = point['customdata']
     ra, dec = find_ztf_oid.get_coord(oid, dr)
     date = DateWithFrac.from_mjd(mjd, coord=dict(ra=ra, dec=dec))
     correct_date(date)
