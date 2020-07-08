@@ -1,5 +1,4 @@
 import pathlib
-from collections import defaultdict
 from functools import lru_cache, partial
 
 import dash_core_components as dcc
@@ -16,7 +15,7 @@ from dash_table import DataTable
 from app import app
 from cross import get_catalog_query, find_vizier, find_ztf_oid, find_ztf_circle, vizier_catalog_details, light_curve_features, NotFound
 from products import DateWithFrac, correct_date
-from util import html_from_astropy_table, to_str, INF, min_max_mjd_short
+from util import html_from_astropy_table, to_str, INF, min_max_mjd_short, mjd_to_datetime
 
 LIGHT_CURVE_TABLE_COLUMNS = ('mjd', 'mag', 'magerr', 'clrcoeff')
 
@@ -327,6 +326,7 @@ def set_figure(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd)
         meta = find_ztf_oid.get_meta(oid, dr)
         for obs in lc:
             obs['mjd_58000'] = obs['mjd'] - 58000
+            obs['Heliodate'] = mjd_to_datetime(obs['mjd']).strftime('%Y-%m-%d %H:%m:%S')
             obs['oid'] = oid
             obs['fieldid'] = meta['fieldid']
             obs['rcid'] = meta['rcid']
@@ -348,6 +348,7 @@ def set_figure(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd)
         symbol='oid',
         size='mark_size',
         size_max=MARKER_SIZE,
+        hover_data=['Heliodate'],
         custom_data=['mjd', 'oid', 'fieldid', 'rcid', 'filter'],
     )
     fw = go.FigureWidget(figure)

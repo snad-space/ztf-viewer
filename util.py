@@ -2,8 +2,10 @@ import math
 import re
 
 import astropy.table
+import datetime
 import numpy as np
 from astropy import units
+from astropy.time import Time
 from jinja2 import Template
 
 
@@ -85,3 +87,9 @@ def min_max_mjd_short(dr):
     if dr == 'dr3':
         return 58194.0, 58483.0
     return -INF, INF
+
+
+def mjd_to_datetime(mjd):
+    t = Time(mjd, format='mjd')
+    dt = t.to_datetime(datetime.timezone.utc)
+    return dt
