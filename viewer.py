@@ -93,48 +93,74 @@ def get_layout(pathname):
         ),
         html.Div(
             [
-                html.H2('Neighbours'),
                 html.Div(
                     [
-                        html.H4('Different passband, same field'),
-                        dcc.Input(
-                            value='1',
-                            id='different_filter_radius',
-                            placeholder='Search radius, arcsec',
-                            type='number',
-                            step='0.1',
-                            min='0',
-                            max='60',
+                        html.Div(
+                            [
+                                html.H2('Neighbours'),
+                                html.Div(
+                                    [
+                                        html.H4('Different passband, same field'),
+                                        dcc.Input(
+                                            value='1',
+                                            id='different_filter_radius',
+                                            placeholder='Search radius, arcsec',
+                                            type='number',
+                                            step='0.1',
+                                            min='0',
+                                            max='60',
+                                        ),
+                                        ' search radius, arcsec',
+                                        html.Div(id='different_filter_neighbours'),
+                                    ],
+                                ),
+                                html.Div(
+                                    [
+                                        html.H4('Different field'),
+                                        dcc.Input(
+                                            value='1',
+                                            id='different_field_radius',
+                                            placeholder='Search radius, arcsec',
+                                            type='number',
+                                            step='0.1',
+                                            min='0',
+                                            max='60',
+                                        ),
+                                        ' search radius, arcsec',
+                                        html.Div(id='different_field_neighbours'),
+                                    ],
+                                ),
+                            ],
+                            id='neighbours-layout',
                         ),
-                        ' search radius, arcsec',
-                        html.Div(id='different_filter_neighbours'),
+                        html.Div(
+                            [
+                                html.H2('Metadata'),
+                                html.Div(id='metadata'),
+                            ],
+                            id='metadata-layout',
+                        ),
                     ],
+                    id='neighbours-metadata-layout',
+                    style={'width': '70%', 'display': 'inline-block'},
                 ),
                 html.Div(
                     [
-                        html.H4('Different field'),
-                        dcc.Input(
-                            value='1',
-                            id='different_field_radius',
-                            placeholder='Search radius, arcsec',
-                            type='number',
-                            step='0.1',
-                            min='0',
-                            max='60',
+                        html.H2(html.A('Aladin', href=f'//aladin.u-strasbg.fr/AladinLite/?target={coord}')),
+                        set_div_for_aladin(oid, dr),
+                        html.Div(
+                            id='aladin-lite-div',
+                            style={'width': '600px', 'height': '400px'},
                         ),
-                        ' search radius, arcsec',
-                        html.Div(id='different_field_neighbours'),
+                        dji.Import(src="/static/js/aladin_helper.js"),
                     ],
+                    style = {'width': '20%', 'display': 'inline-block', 'vertical-align': 'top'},
+                    id='aladin-layout',
                 ),
             ],
+            id='neighbours-metadata-aladin-layout',
         ),
-        html.Div(
-            [
-                html.H2('Metadata'),
-                html.Div(id='metadata'),
-            ],
-            style={'width': '50%'},
-        ),
+
         html.Div(
             [
                 html.H2('GCVS'),
@@ -214,17 +240,6 @@ def get_layout(pathname):
                 html.Div(id='vizier-list'),
             ]
         ),
-        html.Div(
-            [
-                html.H2(html.A('Aladin', href=f'//aladin.u-strasbg.fr/AladinLite/?target={coord}')),
-                set_div_for_aladin(oid, dr),
-                html.Div(
-                    id='aladin-lite-div',
-                    style={'width': '600px', 'height': '400px', },
-                ),
-            ],
-        ),
-        dji.Import(src="/static/js/aladin_helper.js"),
         html.Div(
             [
                 html.H2('Features'),
