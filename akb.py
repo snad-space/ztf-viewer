@@ -22,6 +22,9 @@ class AKB:
             raise NotFound(message)
         return resp.json()
 
+    def _object_url(self, oid):
+        return urljoin(self._objects_api_url, f'{oid}/')
+
     def get_tags(self):
         tags = self._get(self._tags_api_url)
         names = [tag['name'] for tag in sorted(tags, key=lambda tag: tag['id'])]
@@ -31,12 +34,13 @@ class AKB:
         return self._get(self._objects_api_url)
 
     def get_by_oid(self, oid):
-        url = urljoin(self._objects_api_url, f'{oid}/')
-        return self._get(url)
+        return self._get(self._object_url(oid))
 
     def post_object(self, oid, tags, description):
-        resp = self.session.post(self._objects_api_url,
-                                 json=dict(oid=oid, tags=tags, description=description))
+        data = dict(oid=oid, tags=tags, description=description)
+        resp = self.session.put(self._object_url(oid), json=data)
+        if resp.status_code == 404:
+            resp = self.session.post(self._objects_api_url, json=data)
         try:
             resp.raise_for_status()
         except requests.HTTPError as e:
