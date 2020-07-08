@@ -49,12 +49,12 @@ class DateWithFrac:
 
     @property
     def products_path(self):
-        return f'{self.products_root}{self.frac_digits(6)}/'
+        return f'{self.products_root}{self.frac_digits(6):06d}/'
 
     def sciimg_path(self, *, fieldid, filter, rcid):
         ccdid = rcid // 4 + 1
         qid = rcid % 4 + 1
-        filename = f'ztf_{self.year}{self.monthday}{self.frac_digits(6)}_{fieldid:06d}_{filter}_c{ccdid:02d}_o_q{qid}_sciimg.fits'
+        filename = f'ztf_{self.year}{self.monthday}{self.frac_digits(6):06d}_{fieldid:06d}_{filter}_c{ccdid:02d}_o_q{qid}_sciimg.fits'
         return os.path.join(self.products_path, filename)
 
 
