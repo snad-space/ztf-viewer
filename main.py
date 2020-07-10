@@ -178,7 +178,7 @@ def app_select_by_url(pathname):
             html.Footer(
                 [
                     'See source code ',
-                    html.A('on GitHub', href='//github.com/hombit/ztf-viewer'),
+                    html.A('on GitHub', href='//github.com/snad-space/ztf-viewer'),
                 ]
             )
         ]
