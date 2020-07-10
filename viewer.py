@@ -79,8 +79,9 @@ def get_layout(pathname):
         ),
         html.H2(id='title'),
         dcc.Graph(
-                id='graph',
-                style={'width': '70%', 'display': 'inline-block'},
+            id='graph',
+            config={'toImageButtonOptions': {'filename': str(oid)}},
+            style={'width': '70%', 'display': 'inline-block'},
         ),
         html.Div(
             [
