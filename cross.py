@@ -11,17 +11,10 @@ import astropy.io.ascii
 import numpy as np
 import requests
 from astropy.coordinates import SkyCoord
+from astroquery.cds import cds
+from astroquery.simbad import Simbad
+from astroquery.vizier import Vizier
 from astroquery.utils.commons import TableList
-
-# Dirty hack to overcome problem of simultaneous cache folder creation
-while True:
-    try:
-        from astroquery.cds import cds
-        from astroquery.simbad import Simbad
-        from astroquery.vizier import Vizier
-        break
-    except FileExistsError:
-        sleep(np.random.uniform(0.05, 0.2))
 
 from cache import cache
 from config import LC_API_URL

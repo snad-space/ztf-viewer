@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import importer
+
 import logging
 import pathlib
 import re

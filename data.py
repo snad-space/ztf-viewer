@@ -10,13 +10,6 @@ from cross import find_ztf_oid
 from util import mjd_to_datetime, NotFound, FILTER_COLORS
 
 
-matplotlib.use('pgf')
-matplotlib.rcParams['pdf.fonttype'] = 42
-matplotlib.rcParams['ps.fonttype'] = 42
-matplotlib.rcParams['font.family'] = 'serif'
-matplotlib.rcParams['pgf.rcfonts'] = False
-matplotlib.rcParams['pgf.preamble'] = [r'\usepackage{hyperref}', r'\hypersetup{colorlinks=true, urlcolor=black}']
-
 
 @cache()
 def get_plot_data(cur_oid, dr, other_oids=frozenset(), min_mjd=None, max_mjd=None):
