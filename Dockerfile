@@ -15,6 +15,10 @@ RUN curl -LJ -o js9.tar.gz https://github.com/ericmandel/js9/archive/v${JS9_VERS
     && cd - \
     && rm -rf js9.tar.gz js9-${JS9_VERSION}
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends texlive-latex-extra cm-super-minimal dvipng texlive-xetex texlive-fonts-recommended \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt /app/
 RUN pip install -r /app/requirements.txt
 

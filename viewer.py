@@ -1,5 +1,6 @@
 import pathlib
 from functools import lru_cache, partial
+from urllib.parse import urlencode
 
 import dash_core_components as dcc
 import dash_dangerously_set_inner_html as ddsih
@@ -13,16 +14,16 @@ from dash.exceptions import PreventUpdate
 from dash_table import DataTable
 
 from app import app
-from cross import get_catalog_query, find_vizier, find_ztf_oid, find_ztf_circle, vizier_catalog_details, light_curve_features, NotFound
+from cross import get_catalog_query, find_vizier, find_ztf_oid, find_ztf_circle, vizier_catalog_details, light_curve_features
+from data import get_plot_data
 from products import DateWithFrac, correct_date
-from util import html_from_astropy_table, to_str, INF, min_max_mjd_short, mjd_to_datetime
+from util import html_from_astropy_table, to_str, INF, min_max_mjd_short, FILTER_COLORS, NotFound
 
 LIGHT_CURVE_TABLE_COLUMNS = ('mjd', 'mag', 'magerr', 'clrcoeff')
 
 METADATA_FIELDS = ('nobs', 'ngoodobs', 'ngoodobs_short', 'filter', 'coord_string', 'duration', 'duration_short',
                    'fieldid', 'rcid')
 
-COLORS = {'zr': '#CC3344', 'zg': '#117733', 'zi': '#1c1309'}
 MARKER_SIZE = 10
 
 LIST_MAXSHOW = 4
@@ -78,9 +79,25 @@ def get_layout(pathname):
             value=['short'] if is_short else [],
         ),
         html.H2(id='title'),
-        dcc.Graph(
-            id='graph',
-            config={'toImageButtonOptions': {'filename': str(oid)}},
+        html.Div(
+            [
+                dcc.Graph(
+                    id='graph',
+                    config={
+                        'toImageButtonOptions': {'filename': str(oid)},
+                        'displaylogo': False,
+                    },
+                ),
+                html.Div(
+                    [
+                        'Download ',
+                        html.A('PNG', href=f'/{dr}/figure/{oid}?format=png', id='figure-png-link'),
+                        ', ',
+                        html.A('PDF', href=f'/{dr}/figure/{oid}?format=pdf', id='figure-pdf-link'),
+                    ]
+                )
+            ],
+            id='graph-layout',
             style={'width': '70%', 'display': 'inline-block'},
         ),
         html.Div(
@@ -312,6 +329,16 @@ def get_metadata(oid, dr):
     return div
 
 
+def neighbour_oids(different_filter, different_field):
+    if not isinstance(different_filter, list):
+        different_filter = []
+    if not isinstance(different_field, list):
+        different_field = []
+    oids = frozenset(div['props']['id'].rsplit('-', maxsplit=1)[-1]
+                     for div in different_filter + different_field if isinstance(div, dict))
+    return oids
+
+
 @app.callback(
     Output('graph', 'figure'),
     [
@@ -324,30 +351,8 @@ def get_metadata(oid, dr):
     ],
 )
 def set_figure(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd):
-    if not isinstance(different_filter, list):
-        different_filter = []
-    if not isinstance(different_field, list):
-        different_field = []
-    dif_oid = [div['props']['id'].rsplit('-', maxsplit=1)[-1]
-               for div in different_filter + different_field if isinstance(div, dict)]
-    oids = [cur_oid] + dif_oid
-    lcs = []
-    for oid in oids:
-        if oid == cur_oid:
-            size = 3
-        else:
-            size = 1
-        lc = find_ztf_oid.get_lc(oid, dr, min_mjd=min_mjd, max_mjd=max_mjd)
-        lcs.extend(lc)
-        meta = find_ztf_oid.get_meta(oid, dr)
-        for obs in lc:
-            obs['mjd_58000'] = obs['mjd'] - 58000
-            obs['Heliodate'] = mjd_to_datetime(obs['mjd']).strftime('%Y-%m-%d %H:%m:%S')
-            obs['oid'] = oid
-            obs['fieldid'] = meta['fieldid']
-            obs['rcid'] = meta['rcid']
-            obs['filter'] = meta['filter']
-            obs['mark_size'] = size
+    other_oids = neighbour_oids(different_filter, different_field)
+    lcs = get_plot_data(cur_oid, dr, other_oids=other_oids, min_mjd=min_mjd, max_mjd=max_mjd)
     mag_min = min(obs['mag'] - obs['magerr'] for obs in lcs)
     mag_max = max(obs['mag'] + obs['magerr'] for obs in lcs)
     mag_ampl = mag_max - mag_min
@@ -360,7 +365,7 @@ def set_figure(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd)
         color='filter',
         range_y=range_y,
         labels={'mjd_58000': 'mjd − 58000'},
-        color_discrete_map=COLORS,
+        color_discrete_map=FILTER_COLORS,
         symbol='oid',
         size='mark_size',
         size_max=MARKER_SIZE,
@@ -376,6 +381,44 @@ def set_figure(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd)
             scatter.marker.size = [20] * len(scatter.marker.size)
         scatter.on_click(f)
     return fw
+
+
+def set_figure_link(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd, fmt):
+    other_oids = neighbour_oids(different_filter, different_field)
+    data = [('other_oid', oid) for oid in other_oids]
+    if min_mjd is not None:
+        data.append(('min_mjd', min_mjd))
+    if max_mjd is not None:
+        data.append(('max_mjd', max_mjd))
+    data.append(('format', fmt))
+    query = urlencode(data)
+    return f'/{dr}/figure/{cur_oid}?{query}'
+
+
+app.callback(
+    Output('figure-png-link', 'href'),
+    [
+        Input('oid', 'children'),
+        Input('dr', 'children'),
+        Input('different_filter_neighbours', 'children'),
+        Input('different_field_neighbours', 'children'),
+        Input('min-mjd', 'children'),
+        Input('max-mjd', 'children'),
+    ],
+)(partial(set_figure_link, fmt='png'))
+
+
+app.callback(
+    Output('figure-pdf-link', 'href'),
+    [
+        Input('oid', 'children'),
+        Input('dr', 'children'),
+        Input('different_filter_neighbours', 'children'),
+        Input('different_field_neighbours', 'children'),
+        Input('min-mjd', 'children'),
+        Input('max-mjd', 'children'),
+    ],
+)(partial(set_figure_link, fmt='pdf'))
 
 
 def find_neighbours(radius, center_oid, dr, different):

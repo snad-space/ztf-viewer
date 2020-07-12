@@ -7,6 +7,9 @@ services:
     restart: always
   ztf-web-viewer-app:
     build: .
+    environment:
+      - PRODUCTS_URL=http://ztf-web-viewer-proxy
+      - LC_API_URL=http://db.ztf.snad.space
     networks:
       - app
     depends_on:

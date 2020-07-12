@@ -11,6 +11,8 @@ from jinja2 import Template
 
 INF = float('inf')
 
+FILTER_COLORS = {'zr': '#CC3344', 'zg': '#117733', 'zi': '#1c1309'}
+
 
 default_dr = 'dr3'
 
@@ -93,3 +95,7 @@ def mjd_to_datetime(mjd):
     t = Time(mjd, format='mjd')
     dt = t.to_datetime(datetime.timezone.utc)
     return dt
+
+
+class NotFound(RuntimeError):
+    pass

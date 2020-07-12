@@ -24,11 +24,8 @@ while True:
         sleep(np.random.uniform(0.05, 0.2))
 
 from cache import cache
-from util import to_str, anchor_form, INF
-
-
-class NotFound(RuntimeError):
-    pass
+from config import LC_API_URL
+from util import to_str, anchor_form, INF, NotFound
 
 
 class _CatalogQuery:
@@ -303,7 +300,7 @@ find_vizier = FindVizier()
 
 
 class _BaseFindZTF:
-    _base_api_url = 'http://db.ztf.snad.space/api/v3/'
+    _base_api_url = urljoin(LC_API_URL, '/api/v3/')
 
     def __init__(self):
         self._api_session = requests.Session()

@@ -7,15 +7,18 @@ services:
     restart: always
   ztf-web-viewer-app:
     build: .
+    environment:
+      - PRODUCTS_URL=http://ztf-web-viewer-proxy-dev
+      - LC_API_URL=http://db.ztf.snad.space
     networks:
       - app
     depends_on:
       - redis
     restart: always
-  ztf-web-viewer-proxy:
+  ztf-web-viewer-proxy-dev:
     build: proxy
     volumes:
-      - /srv/pgsql/cache/ztf-products-dev:/cache
+      - proxy-cache:/cache
     networks:
       - app
       - proxy
@@ -28,6 +31,9 @@ services:
     depends_on:
       - ztf-web-viewer-app
     restart: always
+
+volumes:
+  proxy-cache:
 
 networks:
   app:
