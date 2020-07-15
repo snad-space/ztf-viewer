@@ -223,6 +223,20 @@ def get_layout(pathname):
         ),
         html.Div(
             [
+                html.H2('Astrocats'),
+                dcc.Input(
+                    value='5',
+                    id='astrocats-radius',
+                    placeholder='Search radius, arcsec',
+                    type='number',
+                    step='1',
+                ),
+                ' search radius, arcsec',
+                html.Div(id='astrocats-table'),
+            ]
+        ),
+        html.Div(
+            [
                 html.H2('OGLE-III'),
                 dcc.Input(
                     value='10',
@@ -585,6 +599,15 @@ app.callback(
         State('dr', 'children'),
     ]
 )(partial(set_table, catalog='ZTF-periodic'))
+
+app.callback(
+    Output('astrocats-table', 'children'),
+    [Input('astrocats-radius', 'value')],
+    state=[
+        State('oid', 'children'),
+        State('dr', 'children'),
+    ]
+)(partial(set_table, catalog='Astrocats'))
 
 app.callback(
     Output('ogle-table', 'children'),

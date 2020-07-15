@@ -199,6 +199,65 @@ class ZtfPeriodicQuery(_CatalogQuery):
 ZTF_PERIODIC_QUERY = ZtfPeriodicQuery()
 
 
+class AstrocatsQuery(_CatalogQuery):
+    id_column = 'event'
+    _table_ra = 'ra'
+    _ra_unit = 'hour'
+    _table_dec = 'dec'
+    columns = {
+        'link': 'Event name',
+        'separation': 'Separation, arcsec',
+        'claimedtype': 'Claimed type',
+        'stellarclass': 'Stellar class',
+        'spectraltype': 'Spectral type',
+        'redshift': 'Redshift',
+        'host': 'Host',
+        'references': 'References',
+    }
+    _base_api_url = 'https://api.astrocats.space/all'
+    _base_astrocats_urls = {
+        'SNE': 'https://sne.space/sne/',
+        'TDE': 'https://tde.space/tde/',
+        'KNE': 'https://kilonova.space/kne/',
+        'HVS': 'https://faststars.space/hvs/',
+    }
+
+    def __init__(self):
+        self._api_session = requests.Session()
+
+    def _get_api_url(self, query):
+        query_string = urllib.parse.urlencode(query)
+        return f'{self._base_api_url}?{query_string}'
+
+    def _query_region(self, coord, radius):
+        ra = coord.ra.to_value('deg')
+        dec = coord.dec.to_value('deg')
+        if not (isinstance(radius, str) and radius.endswith('s')):
+            raise ValueError('radius argument should be strings that ends with "s" letter')
+        radius_arcsec = float(radius[:-1])
+        query = {'ra': ra, 'dec': dec, 'radius': radius_arcsec, 'format': 'csv', 'item': 0}
+        response = self._api_session.get(self._get_api_url(query))
+        if response.status_code != 200:
+            logging.warning(response.text)
+            raise NotFound(response.text)
+        table = astropy.io.ascii.read(BytesIO(response.content), format='csv', guess=False)
+        table['references'] = [', '.join(f'<a href=//adsabs.harvard.edu/abs/{r}>{r}</a>'
+                                         for r in row['references'].split(','))
+                               for row in table]
+        return table
+
+    def get_link(self, id, name):
+        urls = {}
+        for cat, base_url in self._base_astrocats_urls.items():
+            url = urllib.parse.urljoin(base_url, id)
+            urls[cat] = url
+        link_list = ', '.join(f'<a href="{url}">{cat}</a>' for cat, url in urls.items())
+        return f'{name}<br>{link_list}'
+
+
+ASTROCATS_QUERY = AstrocatsQuery()
+
+
 class OGLEQuery(_CatalogQuery):
     id_column = 'ID'
     _table_ra = 'RA'
@@ -296,6 +355,8 @@ def get_catalog_query(catalog):
         return VSX_QUERY
     if catalog.lower() == 'ztf-periodic':
         return ZTF_PERIODIC_QUERY
+    if catalog.lower() == 'astrocats':
+        return ASTROCATS_QUERY
     if catalog.lower() == 'ogle':
         return OGLE_QUERY
     raise
