@@ -207,6 +207,19 @@ def get_layout(pathname):
         ),
         html.Div(
             [
+                html.H2('ATLAS catalog of variable stars'),
+                dcc.Input(
+                    value='10',
+                    id='atlas-radius',
+                    placeholder='Search radius, arcsec',
+                    type='number',
+                ),
+                ' search radius, arcsec',
+                html.Div(id='atlas-table'),
+            ],
+        ),
+        html.Div(
+            [
                 html.H2('ZTF Catalog of Periodic Variable Stars'),
                 dcc.Input(
                     value='1',
@@ -591,6 +604,15 @@ app.callback(
         State('dr', 'children'),
     ]
 )(partial(set_table, catalog='VSX'))
+
+app.callback(
+    Output('atlas-table', 'children'),
+    [Input('atlas-radius', 'value')],
+    state=[
+        State('oid', 'children'),
+        State('dr', 'children'),
+    ]
+)(partial(set_table, catalog='ATLAS'))
 
 app.callback(
     Output('ztf-periodic-table', 'children'),

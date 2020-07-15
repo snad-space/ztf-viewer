@@ -152,6 +152,31 @@ class VSXQuery(_CatalogQuery):
 VSX_QUERY = VSXQuery()
 
 
+class AtlasQuery(_CatalogQuery):
+    id_column = 'ATOID'
+    _table_ra = 'RAJ2000'
+    _ra_unit = 'hour'
+    _table_dec = 'DEJ2000'
+    columns = {
+        'link': 'Name',
+        'separation': 'Separation, arcsec',
+        'fp-LSper': 'Period, days',
+        'Class': 'Class',
+    }
+
+    def __init__(self):
+        self._query = Vizier(
+            columns=['ATOID', 'RAJ2000', 'DEJ2000', 'fp-LSper', 'Class'],
+        )
+        self._query_region = partial(self._query.query_region, catalog='J/AJ/156/241/table4')
+
+    def get_link(self, id, name):
+        return name
+
+
+ATLAS_QUERY = AtlasQuery()
+
+
 class ZtfPeriodicQuery(_CatalogQuery):
     id_column = 'SourceID'
     _name_column = 'ID'
@@ -353,6 +378,8 @@ def get_catalog_query(catalog):
         return GCVS_QUERY
     if catalog.lower() == 'vsx':
         return VSX_QUERY
+    if catalog.lower() == 'atlas':
+        return ATLAS_QUERY
     if catalog.lower() == 'ztf-periodic':
         return ZTF_PERIODIC_QUERY
     if catalog.lower() == 'astrocats':
