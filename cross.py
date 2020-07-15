@@ -4,13 +4,14 @@ from base64 import b64encode
 from collections import namedtuple
 from functools import partial
 from io import BytesIO
-from time import sleep
 from urllib.parse import urljoin, urlsplit, urlunsplit, urlencode
 
 import astropy.io.ascii
 import numpy as np
+import pandas as pd
 import requests
 from astropy.coordinates import SkyCoord
+from astropy.table import Table
 from astroquery.cds import cds
 from astroquery.simbad import Simbad
 from astroquery.vizier import Vizier
@@ -23,10 +24,18 @@ from util import to_str, anchor_form, INF, NotFound
 
 class _CatalogQuery:
     id_column = None
+    _name_column = None
     _query_region = None
     _table_ra = None
+    _ra_unit = None
     _table_dec = None
     columns = None
+
+    @property
+    def name_column(self):
+        if self._name_column is not None:
+            return self._name_column
+        return self.id_column
 
     @cache()
     def find(self, ra, dec, radius_arcsec):
@@ -42,9 +51,13 @@ class _CatalogQuery:
             table = table[0]
         if len(table) == 0:
             raise NotFound
-        catalog_coord = SkyCoord(table[self._table_ra], table[self._table_dec], unit=['hour', 'deg'], frame='icrs')
+        catalog_coord = SkyCoord(
+            table[self._table_ra], table[self._table_dec],
+            unit=[self._ra_unit, 'deg'],
+            frame='icrs'
+        )
         table['separation'] = coord.separation(catalog_coord).to('arcsec')
-        table['link'] = [self.get_link(row[self.id_column], to_str(row[self.id_column])) for row in table]
+        table['link'] = [self.get_link(row[self.id_column], to_str(row[self.name_column])) for row in table]
         return table
 
     def get_url(self, id):
@@ -57,6 +70,7 @@ class _CatalogQuery:
 class SimbadQuery(_CatalogQuery):
     id_column = 'MAIN_ID'
     _table_ra = 'RA'
+    _ra_unit = 'hour'
     _table_dec = 'DEC'
     columns = {
         'link': 'MAIN_ID',
@@ -85,6 +99,7 @@ SIMBAD_QUERY = SimbadQuery()
 class GCVSQuery(_CatalogQuery):
     id_column = 'GCVS'
     _table_ra = 'RAJ2000'
+    _ra_unit = 'hour'
     _table_dec = 'DEJ2000'
     columns = {
         'link': 'Designation',
@@ -112,6 +127,7 @@ GCVS_QUERY = GCVSQuery()
 class VSXQuery(_CatalogQuery):
     id_column = 'OID'
     _table_ra = 'RAJ2000'
+    _ra_unit = 'hour'
     _table_dec = 'DEJ2000'
     columns = {
         'link': 'Designation',
@@ -136,9 +152,57 @@ class VSXQuery(_CatalogQuery):
 VSX_QUERY = VSXQuery()
 
 
+class ZtfPeriodicQuery(_CatalogQuery):
+    id_column = 'SourceID'
+    _name_column = 'ID'
+    _table_ra = 'RAdeg'
+    _ra_unit = 'deg'
+    _table_dec = 'DEdeg'
+    columns = {
+        'link': 'ZTF ID',
+        'separation': 'Separation, arcsec',
+        'Type': 'Type',
+        'Per': 'Period, days',
+        'Per_g': 'zg period, days',
+        'Per_r': 'zr period, days',
+        'Amp_g': 'zg amplitude',
+        'Amp_r': 'zr amplitude',
+    }
+    _base_api_url = 'http://periodic.ztf.snad.space/api/v1/circle'
+
+    def __init__(self):
+        self._api_session = requests.Session()
+
+    def _get_api_url(self, query):
+        query_string = urllib.parse.urlencode(query)
+        return f'{self._base_api_url}?{query_string}'
+
+    def _query_region(self, coord, radius):
+        ra = coord.ra.to_value('deg')
+        dec = coord.dec.to_value('deg')
+        if not (isinstance(radius, str) and radius.endswith('s')):
+            raise ValueError('radius argument should be strings that ends with "s" letter')
+        radius_arcsec = float(radius[:-1])
+        query = {'ra': ra, 'dec': dec, 'radius_arcsec': radius_arcsec}
+        response = self._api_session.get(self._get_api_url(query))
+        if response.status_code != 200:
+            logging.warning(response.text)
+            raise NotFound(response.text)
+        j = response.json()
+        table = Table.from_pandas(pd.DataFrame.from_records(j))
+        return table
+
+    def get_url(self, id):
+        return f'http://variables.cn:88/lcz.php?SourceID={id}'
+
+
+ZTF_PERIODIC_QUERY = ZtfPeriodicQuery()
+
+
 class OGLEQuery(_CatalogQuery):
     id_column = 'ID'
     _table_ra = 'RA'
+    _ra_unit = 'hour'
     _table_dec = 'Decl'
     columns = {
         'link': 'Designation',
@@ -230,6 +294,8 @@ def get_catalog_query(catalog):
         return GCVS_QUERY
     if catalog.lower() == 'vsx':
         return VSX_QUERY
+    if catalog.lower() == 'ztf-periodic':
+        return ZTF_PERIODIC_QUERY
     if catalog.lower() == 'ogle':
         return OGLE_QUERY
     raise

@@ -207,6 +207,22 @@ def get_layout(pathname):
         ),
         html.Div(
             [
+                html.H2('ZTF Catalog of Periodic Variable Stars'),
+                dcc.Input(
+                    value='1',
+                    id='ztf-periodic-radius',
+                    placeholder='Search radius, arcsec',
+                    type='number',
+                    min='0.1',
+                    max='3600',
+                    step='0.1',
+                ),
+                ' search radius, arcsec',
+                html.Div(id='ztf-periodic-table'),
+            ]
+        ),
+        html.Div(
+            [
                 html.H2('OGLE-III'),
                 dcc.Input(
                     value='10',
@@ -560,6 +576,15 @@ app.callback(
         State('dr', 'children'),
     ]
 )(partial(set_table, catalog='VSX'))
+
+app.callback(
+    Output('ztf-periodic-table', 'children'),
+    [Input('ztf-periodic-radius', 'value')],
+    state=[
+        State('oid', 'children'),
+        State('dr', 'children'),
+    ]
+)(partial(set_table, catalog='ZTF-periodic'))
 
 app.callback(
     Output('ogle-table', 'children'),
