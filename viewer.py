@@ -224,7 +224,7 @@ def get_layout(pathname):
             [
                 html.H2('Simbad'),
                 dcc.Input(
-                    value='300',
+                    value='50',
                     id='simbad-radius',
                     placeholder='Search radius, arcsec',
                     type='number',
