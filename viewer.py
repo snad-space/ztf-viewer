@@ -404,12 +404,11 @@ def set_figure(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd)
     )
     fw = go.FigureWidget(figure)
     fw.layout.hovermode = 'closest'
+    fw.layout.xaxis.title.standoff = 0
+    fw.layout.yaxis.title.standoff = 0
     fw.layout.legend.orientation = 'h'
-    for scatter in fw.data:
-        # scatter.on_click(lambda *args, **kwargs: logging.warning('#'*80 + f'\n{args}\n{kwargs}'))
-        def f(*args, **kwargs):
-            scatter.marker.size = [20] * len(scatter.marker.size)
-        scatter.on_click(f)
+    fw.layout.legend.xanchor = 'left'
+    fw.layout.legend.y = -0.1
     return fw
 
 
