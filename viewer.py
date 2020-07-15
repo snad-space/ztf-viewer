@@ -266,24 +266,26 @@ def get_layout(pathname):
         html.Div(
             [
                 html.H2('Vizier'),
+                html.A(
+                    'Search on Vizier website within',
+                    id='search-on-vizier',
+                    href=find_vizier.get_search_url(ra, dec, 0)
+                ),
+                ' ',
                 dcc.Input(
                     value='1',
                     id='vizier-radius',
                     placeholder='Search radius, arcsec',
                     type='number',
                     step='0.1',
+                    size='3',
                 ),
-                ' search radius, arcsec ',
+                ' arcsec',
                 html.Button(
                     'Show',
                     id='vizier-button',
                     n_clicks=0,
-                ),
-                html.Br(),
-                html.Big(html.A(
-                    'See all results on Vizier website',
-                    id='search-on-vizier',
-                    href=find_vizier.get_search_url(ra, dec, 0))
+                    style={'display': 'none'},
                 ),
                 html.Div(id='vizier-list'),
             ]
@@ -668,7 +670,10 @@ def set_vizier_list(n_clicks, radius, oid, dr):
     records = []
     lengths = []
     for catalog, table in zip(table_list.keys(), table_list.values()):
-        description = vizier_catalog_details.description(catalog) or catalog
+        try:
+            description = vizier_catalog_details.description(catalog)
+        except NotFound:
+            description = catalog
         n = len(table)
         n_objects = str(n) if n < find_vizier.row_limit else f'≥{n}'
         n_objects = f' ({n_objects} objects)' if n > LIST_MAXSHOW else ''
