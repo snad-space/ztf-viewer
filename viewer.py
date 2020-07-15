@@ -454,6 +454,25 @@ def find_neighbours(radius, center_oid, dr, different):
     return children
 
 
+app.callback(
+    Output('different_field_neighbours', 'children'),
+    [Input('different_field_radius', 'value')],
+    state=[
+        State('oid', 'children'),
+        State('dr', 'children'),
+    ]
+)(partial(find_neighbours, different='fieldid'))
+
+app.callback(
+    Output('different_filter_neighbours', 'children'),
+    [Input('different_filter_radius', 'value')],
+    state=[
+        State('oid', 'children'),
+        State('dr', 'children'),
+    ]
+)(partial(find_neighbours, different='filter'))
+
+
 app.clientside_callback(
     """
     function(divs) {
@@ -501,25 +520,6 @@ def graph_clicked(data, dr):
         html.Div(ra, id='fits-to-show-ra', style={'display': 'none'}),
         html.Div(dec, id='fits-to-show-dec', style={'display': 'none'}),
     ]
-
-
-app.callback(
-    Output('different_field_neighbours', 'children'),
-    [Input('different_field_radius', 'value')],
-    state=[
-        State('oid', 'children'),
-        State('dr', 'children'),
-    ]
-)(partial(find_neighbours, different='fieldid'))
-
-app.callback(
-    Output('different_filter_neighbours', 'children'),
-    [Input('different_filter_radius', 'value')],
-    state=[
-        State('oid', 'children'),
-        State('dr', 'children'),
-    ]
-)(partial(find_neighbours, different='filter'))
 
 
 def set_table(radius, oid, dr, catalog):
