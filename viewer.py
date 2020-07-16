@@ -17,7 +17,7 @@ from app import app
 from cross import get_catalog_query, find_vizier, find_ztf_oid, find_ztf_circle, vizier_catalog_details, light_curve_features
 from data import get_plot_data
 from products import DateWithFrac, correct_date
-from util import html_from_astropy_table, to_str, INF, min_max_mjd_short, FILTER_COLORS, NotFound
+from util import html_from_astropy_table, to_str, INF, min_max_mjd_short, FILTER_COLORS, NotFound, CatalogUnavailable
 
 LIGHT_CURVE_TABLE_COLUMNS = ('mjd', 'mag', 'magerr', 'clrcoeff')
 
@@ -230,6 +230,20 @@ def get_layout(pathname):
                 ),
                 ' search radius, arcsec',
                 html.Div(id='ztf-periodic-table'),
+            ]
+        ),
+        html.Div(
+            [
+                html.H2('Transient Name Server'),
+                dcc.Input(
+                    value='5',
+                    id='tns-radius',
+                    placeholder='Search radius, arcsec',
+                    type='number',
+                    step='1',
+                ),
+                ' search radius, arcsec',
+                html.Div(id='tns-table'),
             ]
         ),
         html.Div(
@@ -576,6 +590,8 @@ def set_table(radius, oid, dr, catalog):
         table = query.find(ra, dec, radius)
     except NotFound:
         return html.P(f'No {catalog} objects within {radius} arcsec from {ra:.5f}, {dec:.5f}')
+    except CatalogUnavailable:
+        return html.P('Catalog data is temporarily unavailable')
     table = table.copy()
     div = html.Div(
         [
@@ -620,6 +636,15 @@ app.callback(
         State('dr', 'children'),
     ]
 )(partial(set_table, catalog='ZTF Periodic'))
+
+app.callback(
+    Output('tns-table', 'children'),
+    [Input('tns-radius', 'value')],
+    state=[
+        State('oid', 'children'),
+        State('dr', 'children'),
+    ]
+)(partial(set_table, catalog='Transient Name Server'))
 
 app.callback(
     Output('astrocats-table', 'children'),

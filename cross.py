@@ -1,3 +1,4 @@
+import json
 import logging
 import urllib.parse
 from base64 import b64encode
@@ -18,8 +19,8 @@ from astroquery.vizier import Vizier
 from astroquery.utils.commons import TableList
 
 from cache import cache
-from config import LC_API_URL
-from util import to_str, anchor_form, INF, NotFound
+from config import LC_API_URL, TNS_API_URL, TNS_API_KEY
+from util import to_str, anchor_form, INF, NotFound, CatalogUnavailable
 
 
 class _CatalogQuery:
@@ -186,6 +187,12 @@ class _ApiQuery(_CatalogQuery):
         super().__init__()
         self._api_session = requests.Session()
 
+    @staticmethod
+    def _raise_if_not_ok(response):
+        if response.status_code != 200:
+            logging.warning(response.text)
+            raise CatalogUnavailable(response.text)
+
     def _api_query_region(self, ra, dec, radius_arcsec):
         raise NotImplemented
 
@@ -223,9 +230,7 @@ class ZtfPeriodicQuery(_ApiQuery):
     def _api_query_region(self, ra, dec, radius_arcsec):
         query = {'ra': ra, 'dec': dec, 'radius_arcsec': radius_arcsec}
         response = self._api_session.get(self._get_api_url(query))
-        if response.status_code != 200:
-            logging.warning(response.text)
-            raise NotFound(response.text)
+        self._raise_if_not_ok(response)
         j = response.json()
         table = Table.from_pandas(pd.DataFrame.from_records(j))
         return table
@@ -235,6 +240,85 @@ class ZtfPeriodicQuery(_ApiQuery):
 
 
 ZTF_PERIODIC_QUERY = ZtfPeriodicQuery()
+
+
+class TnsQuery(_ApiQuery):
+    id_column = 'name'
+    _name_column = 'fullname'
+    _table_ra = 'radeg'
+    _ra_unit = 'deg'
+    _table_dec = 'decdeg'
+    columns = {
+        'link': 'Name',
+        'separation': 'Separation, arcsec',
+        'discoverydate': 'Discovery date',
+        'discoverymag': 'Discovery mag',
+        'object_type': 'Type',
+        'redshift': 'Redshift',
+        'hostname': 'Host',
+        'host_redshift': 'Host redshift',
+        'internal_names': 'Internal names',
+    }
+
+    def __init__(self):
+        super().__init__()
+        self._search_api_url = urllib.parse.urljoin(TNS_API_URL, '/api/get/search')
+        self._object_api_url = urllib.parse.urljoin(TNS_API_URL, '/api/get/object')
+
+    @staticmethod
+    def _prepare_request_data(data=None):
+        if TNS_API_KEY is None:
+            raise CatalogUnavailable('TNS_API_KEY is not specified')
+        prep = dict(api_key=(None, TNS_API_KEY))
+        if data is not None:
+            prep['data'] = (None, json.dumps(data))
+        return prep
+
+    def _reply(self, response):
+        self._raise_if_not_ok(response)
+        j = response.json()
+        if j['id_code'] != 200:
+            logging.warning(j['id_message'])
+            raise CatalogUnavailable(j['id_message'])
+        return j['data']['reply']
+
+    def _get_search(self, ra, dec, radius_arcsec):
+        data = dict(ra=ra, dec=dec, radius=radius_arcsec, units='arcsec')
+        response = self._api_session.post(self._search_api_url, files=self._prepare_request_data(data))
+        reply = self._reply(response)
+        return [obj['objname'] for obj in reply]
+
+    def _get_object(self, objname):
+        data = dict(objname=objname, photometry=0, spectra=0)
+        response = self._api_session.post(self._object_api_url, files=self._prepare_request_data(data))
+
+        reply = self._reply(response)
+        if not reply['public']:
+            return None
+
+        if isinstance(reply['object_type'], dict):
+            reply['object_type'] = reply['object_type']['name']
+
+        def flat(x):
+            if isinstance(x, list) or isinstance(x, dict):
+                return str(x)
+            return x
+        reply = {k: flat(v) for k, v in reply.items()}
+
+        return reply
+
+    def _api_query_region(self, ra, dec, radius_arcsec):
+        objnames = self._get_search(ra, dec, radius_arcsec)
+        objs = [obj for name in objnames if (obj := self._get_object(name))]
+        table = Table.from_pandas(pd.DataFrame.from_records(objs))
+        table['fullname'] = [f'{row["name_prefix"] or ""}{row["name"]}' for row in table]
+        return table
+
+    def get_url(self, id):
+        return f'//wis-tns.weizmann.ac.il/object/{id}'
+
+
+TNS_QUERY = TnsQuery()
 
 
 class AstrocatsQuery(_ApiQuery):
@@ -263,9 +347,7 @@ class AstrocatsQuery(_ApiQuery):
     def _api_query_region(self, ra, dec, radius_arcsec):
         query = {'ra': ra, 'dec': dec, 'radius': radius_arcsec, 'format': 'csv', 'item': 0}
         response = self._api_session.get(self._get_api_url(query))
-        if response.status_code != 200:
-            logging.warning(response.text)
-            raise NotFound(response.text)
+        self._raise_if_not_ok(response)
         table = astropy.io.ascii.read(BytesIO(response.content), format='csv', guess=False)
         table['references'] = [', '.join(f'<a href=//adsabs.harvard.edu/abs/{r}>{r}</a>'
                                          for r in row['references'].split(','))
@@ -347,9 +429,7 @@ class OGLEQuery(_ApiQuery):
     def _api_query_region(self, ra, dec, radius_arcsec):
         query = {'ra': ra, 'dec': dec, 'radius_arcsec': radius_arcsec, 'format': 'tsv'}
         response = self._api_session.get(self._get_api_url(query))
-        if response.status_code != 200:
-            logging.warning(response.text)
-            raise NotFound(response.text)
+        self._raise_if_not_ok(response)
         table = astropy.io.ascii.read(BytesIO(response.content), format='tab', guess=False)
         table['light_curve'] = [self._download_light_curve(row[self.id_column]) for row in table]
         return table
@@ -372,6 +452,8 @@ def get_catalog_query(catalog):
         return ATLAS_QUERY
     if catalog.lower() == 'ztf periodic':
         return ZTF_PERIODIC_QUERY
+    if catalog.lower() == 'transient name server':
+        return TNS_QUERY
     if catalog.lower() == 'astrocats':
         return ASTROCATS_QUERY
     if catalog.lower() == 'ogle':

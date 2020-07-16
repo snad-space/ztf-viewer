@@ -1,5 +1,6 @@
 import math
 import re
+from functools import wraps
 
 import astropy.table
 import datetime
@@ -97,5 +98,20 @@ def mjd_to_datetime(mjd):
     return dt
 
 
+def raise_if(condition, exception):
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            if condition:
+                raise exception
+            return f(*args, **kwargs)
+        return wrapper
+    return decorator
+
+
 class NotFound(RuntimeError):
+    pass
+
+
+class CatalogUnavailable(RuntimeError):
     pass
