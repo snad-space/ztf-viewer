@@ -102,7 +102,6 @@ def get_layout(pathname):
         ),
         html.Div(
             [
-                # html.Div(className="JS9Toolbar", id="JS9Toolbar"),
                 html.Div(className='JS9', id='JS9'),
                 dji.Import(src="/static/js/js9_helper.js"),
                 html.Div(id='fits-to-show'),
@@ -178,7 +177,6 @@ def get_layout(pathname):
             ],
             id='neighbours-metadata-aladin-layout',
         ),
-
         html.Div(
             [
                 html.H2('GCVS'),
@@ -621,7 +619,7 @@ app.callback(
         State('oid', 'children'),
         State('dr', 'children'),
     ]
-)(partial(set_table, catalog='ZTF-periodic'))
+)(partial(set_table, catalog='ZTF Periodic'))
 
 app.callback(
     Output('astrocats-table', 'children'),

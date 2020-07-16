@@ -177,7 +177,32 @@ class AtlasQuery(_CatalogQuery):
 ATLAS_QUERY = AtlasQuery()
 
 
-class ZtfPeriodicQuery(_CatalogQuery):
+class _ApiQuery(_CatalogQuery):
+    @property
+    def _base_api_url(self):
+        raise NotImplemented
+
+    def __init__(self):
+        super().__init__()
+        self._api_session = requests.Session()
+
+    def _api_query_region(self, ra, dec, radius_arcsec):
+        raise NotImplemented
+
+    def _query_region(self, coord, radius):
+        ra = coord.ra.to_value('deg')
+        dec = coord.dec.to_value('deg')
+        if not (isinstance(radius, str) and radius.endswith('s')):
+            raise ValueError('radius argument should be strings that ends with "s" letter')
+        radius_arcsec = float(radius[:-1])
+        return self._api_query_region(ra, dec, radius_arcsec)
+
+    def _get_api_url(self, query):
+        query_string = urllib.parse.urlencode(query)
+        return f'{self._base_api_url}?{query_string}'
+
+
+class ZtfPeriodicQuery(_ApiQuery):
     id_column = 'SourceID'
     _name_column = 'ID'
     _table_ra = 'RAdeg'
@@ -195,19 +220,7 @@ class ZtfPeriodicQuery(_CatalogQuery):
     }
     _base_api_url = 'http://periodic.ztf.snad.space/api/v1/circle'
 
-    def __init__(self):
-        self._api_session = requests.Session()
-
-    def _get_api_url(self, query):
-        query_string = urllib.parse.urlencode(query)
-        return f'{self._base_api_url}?{query_string}'
-
-    def _query_region(self, coord, radius):
-        ra = coord.ra.to_value('deg')
-        dec = coord.dec.to_value('deg')
-        if not (isinstance(radius, str) and radius.endswith('s')):
-            raise ValueError('radius argument should be strings that ends with "s" letter')
-        radius_arcsec = float(radius[:-1])
+    def _api_query_region(self, ra, dec, radius_arcsec):
         query = {'ra': ra, 'dec': dec, 'radius_arcsec': radius_arcsec}
         response = self._api_session.get(self._get_api_url(query))
         if response.status_code != 200:
@@ -224,7 +237,7 @@ class ZtfPeriodicQuery(_CatalogQuery):
 ZTF_PERIODIC_QUERY = ZtfPeriodicQuery()
 
 
-class AstrocatsQuery(_CatalogQuery):
+class AstrocatsQuery(_ApiQuery):
     id_column = 'event'
     _table_ra = 'ra'
     _ra_unit = 'hour'
@@ -247,19 +260,7 @@ class AstrocatsQuery(_CatalogQuery):
         'HVS': 'https://faststars.space/hvs/',
     }
 
-    def __init__(self):
-        self._api_session = requests.Session()
-
-    def _get_api_url(self, query):
-        query_string = urllib.parse.urlencode(query)
-        return f'{self._base_api_url}?{query_string}'
-
-    def _query_region(self, coord, radius):
-        ra = coord.ra.to_value('deg')
-        dec = coord.dec.to_value('deg')
-        if not (isinstance(radius, str) and radius.endswith('s')):
-            raise ValueError('radius argument should be strings that ends with "s" letter')
-        radius_arcsec = float(radius[:-1])
+    def _api_query_region(self, ra, dec, radius_arcsec):
         query = {'ra': ra, 'dec': dec, 'radius': radius_arcsec, 'format': 'csv', 'item': 0}
         response = self._api_session.get(self._get_api_url(query))
         if response.status_code != 200:
@@ -283,7 +284,7 @@ class AstrocatsQuery(_CatalogQuery):
 ASTROCATS_QUERY = AstrocatsQuery()
 
 
-class OGLEQuery(_CatalogQuery):
+class OGLEQuery(_ApiQuery):
     id_column = 'ID'
     _table_ra = 'RA'
     _ra_unit = 'hour'
@@ -329,14 +330,8 @@ class OGLEQuery(_CatalogQuery):
     }
 
     def __init__(self):
-        self._api_session = requests.Session()
+        super().__init__()
         self._light_curve_session = requests.Session()
-
-    def _get_api_url(self, query):
-        parts = list(urllib.parse.urlparse(self._base_api_url))
-        query = dict(urllib.parse.parse_qsl(parts[4]), **query)
-        parts[4] = urllib.parse.urlencode(query)
-        return urllib.parse.urlunparse(parts)
 
     def _download_light_curve(self, id):
         basepath = f'{id[-2:]}/{id}'
@@ -349,12 +344,7 @@ class OGLEQuery(_CatalogQuery):
                 return f'<a href="{url}"><img src="data:image/png;base64,{data}" width=200px /></a>'
         return ''
 
-    def _query_region(self, coord, radius):
-        ra = coord.ra.to_value('deg')
-        dec = coord.dec.to_value('deg')
-        if not (isinstance(radius, str) and radius.endswith('s')):
-            raise ValueError('radius argument should be strings that ends with "s" letter')
-        radius_arcsec = float(radius[:-1])
+    def _api_query_region(self, ra, dec, radius_arcsec):
         query = {'ra': ra, 'dec': dec, 'radius_arcsec': radius_arcsec, 'format': 'tsv'}
         response = self._api_session.get(self._get_api_url(query))
         if response.status_code != 200:
@@ -380,13 +370,13 @@ def get_catalog_query(catalog):
         return VSX_QUERY
     if catalog.lower() == 'atlas':
         return ATLAS_QUERY
-    if catalog.lower() == 'ztf-periodic':
+    if catalog.lower() == 'ztf periodic':
         return ZTF_PERIODIC_QUERY
     if catalog.lower() == 'astrocats':
         return ASTROCATS_QUERY
     if catalog.lower() == 'ogle':
         return OGLE_QUERY
-    raise
+    raise ValueError(f'No catalog query engine for catalog type "{catalog}"')
 
 
 class VizierCatalogDetails:
