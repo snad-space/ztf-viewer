@@ -44,7 +44,7 @@ app.layout = html.Div([
                 placeholder='oid',
                 type='text',
                 minLength=15,
-                maxLength=15,
+                maxLength=16,
                 n_submit=0,
             ),
             html.Div(
