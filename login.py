@@ -5,7 +5,7 @@ from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 
 from app import app
-from secret import is_user_token_valid
+from config import is_user_token_valid
 
 
 def get_layout(pathname):
@@ -16,7 +16,7 @@ def get_layout(pathname):
             dcc.Input(
                 id='token',
                 type='text',
-                minLength=16,
+                minLength=8,
                 maxLength=16,
                 n_submit=0,
             ),

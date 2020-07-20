@@ -7,7 +7,7 @@ from dash_table import DataTable
 
 from akb import akb
 from app import app
-from secret import is_user_token_valid
+from config import is_user_token_valid
 
 
 def get_layout(pathname):

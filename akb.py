@@ -27,7 +27,7 @@ class AKB:
 
     def get_tags(self):
         tags = self._get(self._tags_api_url)
-        names = [tag['name'] for tag in sorted(tags, key=lambda tag: tag['id'])]
+        names = [tag['name'] for tag in sorted(tags, key=lambda tag: tag['priority'])]
         return names
 
     def get_objects(self):
