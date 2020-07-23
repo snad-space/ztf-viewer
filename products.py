@@ -13,7 +13,7 @@ from cache import cache
 from config import PRODUCTS_URL
 
 
-PALOMAR = EarthLocation.of_site('palomar')
+PALOMAR = EarthLocation(lon=-116.863, lat=33.356, height=1706)  # EarthLocation.of_site('Palomar')
 
 
 @dataclass

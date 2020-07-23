@@ -1,6 +1,5 @@
 import dash_html_components as html
 import flask
-import pandas as pd
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 from dash_table import DataTable

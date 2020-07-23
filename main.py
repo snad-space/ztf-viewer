@@ -14,7 +14,8 @@ from anomalies import get_layout as get_anomalies_layout
 from app import app
 from login import get_layout as get_login_layout
 from search import get_layout as get_search_layout
-from util import available_drs, default_dr, joiner, sky_coord_from_str, YEAR
+from tags import get_layout as get_tags_layout
+from util import available_drs, joiner, sky_coord_from_str, YEAR, DEFAULT_DR
 from viewer import get_layout as get_viewer_layout
 
 
@@ -49,7 +50,7 @@ app.layout = html.Div([
                 n_submit=0,
             ),
             html.Div(
-                default_dr,
+                DEFAULT_DR,
                 id='data-release',
                 style={'display': 'none'},
             ),
@@ -109,12 +110,15 @@ app.layout = html.Div([
     [Input('url', 'pathname')],
 )
 def dr_from_url(url):
-    parts = pathlib.Path(url).parts
+    try:
+        parts = pathlib.Path(url).parts
+    except TypeError:
+        return DEFAULT_DR
     if len(parts) < 2:
-        return default_dr
+        return DEFAULT_DR
     if parts[1].lower().startswith('dr'):
         return parts[1]
-    return default_dr
+    return DEFAULT_DR
 
 
 def dr_switch(current_dr, current_url, switch_dr):
@@ -174,7 +178,7 @@ def app_select_by_url(pathname):
     if not isinstance(pathname, str):
         raise PreventUpdate
     if m := re.search(r'^/+(?:(dr\d)/+)?$', pathname):
-        dr = m.group(1) or default_dr
+        dr = m.group(1) or DEFAULT_DR
         other_drs = [other_dr for other_dr in available_drs if other_dr != dr]
         return [
             html.Div(
@@ -232,7 +236,7 @@ def app_select_by_url(pathname):
             ),
         ]
     if match := re.search(r'^/+view/+(\d+)', pathname):
-        return get_viewer_layout(f'/{default_dr}/view/{match.group(1)}')
+        return get_viewer_layout(f'/{DEFAULT_DR}/view/{match.group(1)}')
     if re.search(r'^/+dr\d/+view/+(\d+)', pathname):
         return get_viewer_layout(pathname)
     if search_match := re.search(r"""^
@@ -271,6 +275,8 @@ def app_select_by_url(pathname):
         return get_login_layout(pathname)
     if re.search('^/+anomalies/*$', pathname):
         return get_anomalies_layout(pathname)
+    if re.search('^/+tags/*$', pathname):
+        return get_tags_layout(pathname)
     return html.H1('404')
 
 
