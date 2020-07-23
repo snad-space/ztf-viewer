@@ -16,6 +16,7 @@ def get_layout(pathname):
         html.Div(
             [
                 html.Div(id='tags-list'),
+                html.Br(),
                 html.Div(
                     [
                         html.Button(
@@ -27,6 +28,7 @@ def get_layout(pathname):
                     ],
                     id='tags-list-save',
                 ),
+                html.Br(),
                 html.Div(
                     [
                         html.Button(
