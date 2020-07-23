@@ -152,6 +152,14 @@ def raise_if(condition, exception):
     return decorator
 
 
+def joiner(value, iterator):
+    iterator = iter(iterator)
+    yield next(iterator)
+    for item in iterator:
+        yield value
+        yield item
+
+
 class NotFound(RuntimeError):
     pass
 

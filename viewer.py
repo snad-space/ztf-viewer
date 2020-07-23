@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from dash.dependencies import Input, Output, State, ALL
+from dash.dependencies import Input, Output, State, ALL, MATCH
 from dash.exceptions import PreventUpdate
 from dash_table import DataTable
 from requests import ConnectionError
@@ -436,21 +436,34 @@ def set_title(oid):
 def set_akb_info(_, oid):
     if not is_user_token_valid(flask.request.cookies.get('login_token')):
         return None
-    available_tags = akb.get_tag_names()
+    available_tags = akb.get_tags()
     try:
         akb_item = akb.get_by_oid(oid)
-        tags_enabled = akb_item['tags']
+        tags_enabled = frozenset(akb_item['tags'])
         description = akb_item['description']
     except NotFound:
-        tags_enabled = []
+        tags_enabled = frozenset()
         description = ''
-    return [
+
+    def checklist_index(tag):
+        return tag['priority'] // 10
+
+    checklist_tag_names = {}
+    for tag in available_tags:
+        tag_names = checklist_tag_names.setdefault(checklist_index(tag), [])
+        tag_names.append(tag['name'])
+
+    checklists = [
         dcc.Checklist(
-            id='akb-tags',
-            options=[{'label': tag, 'value': tag} for tag in available_tags],
-            value=tags_enabled,
-            labelStyle={'display': 'inline-block'},
-        ),
+            id=dict(type='akb-tags', index=index),
+            options=[{'label': name, 'value': name} for name in tag_names],
+            value=list(tags_enabled.intersection(tag_names)),
+            labelStyle={'display': 'inline-block'}
+        )
+        for index, tag_names in checklist_tag_names.items()
+    ]
+
+    children = checklists + [
         dcc.Textarea(
             id='akb-description',
             placeholder='Description',
@@ -475,6 +488,8 @@ def set_akb_info(_, oid):
         ),
     ]
 
+    return children
+
 
 app.callback(
     Output('akb-info', 'children'),
@@ -488,7 +503,7 @@ app.callback(
     [Input('akb-submit', 'n_clicks')],
     state=[
         State('oid', 'children'),
-        State('akb-tags', 'value'),
+        State(dict(type='akb-tags', index=ALL), 'value'),
         State('akb-description', 'value'),
     ]
 )
@@ -497,6 +512,7 @@ def update_akb(n_clicks, oid, tags, description):
         raise PreventUpdate
     if description is None:
         description = ''
+    tags = list(chain.from_iterable(tags))
     try:
         akb.post_object(oid, tags, description)
         return 'Submitted'
