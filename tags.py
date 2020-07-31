@@ -7,7 +7,6 @@ from dash.exceptions import PreventUpdate
 
 from akb import akb
 from app import app
-from config import is_user_token_valid
 
 
 def get_layout(pathname):
@@ -54,7 +53,7 @@ def get_layout(pathname):
     ],
 )
 def show_tags(*_):
-    if not is_user_token_valid(flask.request.cookies.get('login_token')):
+    if not akb.is_token_valid():
         raise PreventUpdate
     tags = akb.get_tags()
     children = [
@@ -100,6 +99,10 @@ def is_tag_name_correct(name):
     return bool(re.match(r'^[0-9a-zA-Z_\-]+$', name))
 
 
+def are_tags_priorities_unique(priorities):
+    return len(priorities) == len(set(priorities))
+
+
 @app.callback(
     Output('tags-list-save-status', 'children'),
     [Input('tags-list-save-button', 'n_clicks')],
@@ -113,14 +116,14 @@ def is_tag_name_correct(name):
 def set_save_status(n_clicks, tags, priorities, new_priority, new_name):
     if not n_clicks:
         raise PreventUpdate
-    if not is_user_token_valid(flask.request.cookies.get('login_token')):
+    if not akb.is_token_valid():
         return 'Error: unauthorised'
-    if priorities == list(range(len(priorities))):
-        raise PreventUpdate
     tags = [dict(name=tag_id['index'], priority=priority) for tag_id, priority in zip(tags, priorities)]
     if new_name:
         if not is_tag_name_correct(new_name):
             return 'Error: tag name should consist of letters, digits, underscores and hyphens only'
         tags.append(dict(name=new_name, priority=new_priority))
+    if not are_tags_priorities_unique([tag['priority'] for tag in tags]):
+        return 'Error: tag priorities should be unique'
     akb.post_tags(tags)
     return 'saved'

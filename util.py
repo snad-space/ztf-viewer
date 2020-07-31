@@ -168,6 +168,10 @@ class CatalogUnavailable(RuntimeError):
     pass
 
 
+class UnAuthorized(ValueError):
+    pass
+
+
 def joiner(value, iterator):
     iterator = iter(iterator)
     yield next(iterator)

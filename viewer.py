@@ -19,7 +19,6 @@ from requests import ConnectionError
 
 from akb import akb
 from app import app
-from config import is_user_token_valid
 from cross import (get_catalog_query, find_vizier, find_ztf_oid, find_ztf_circle, vizier_catalog_details,
                    light_curve_features, catalog_query_objects,)
 from data import get_plot_data, get_folded_plot_data, MJD_OFFSET
@@ -434,7 +433,7 @@ def set_title(oid):
 
 
 def set_akb_info(_, oid):
-    if not is_user_token_valid(flask.request.cookies.get('login_token')):
+    if not akb.is_token_valid():
         return None
     available_tags = akb.get_tags()
     try:

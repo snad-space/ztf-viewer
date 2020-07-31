@@ -6,7 +6,6 @@ from dash_table import DataTable
 
 from akb import akb
 from app import app
-from config import is_user_token_valid
 
 
 def get_layout(pathname):
@@ -28,7 +27,7 @@ def get_layout(pathname):
     [Input('url', 'pathname')],
 )
 def set_table_data(pathname):
-    if not is_user_token_valid(flask.request.cookies.get('login_token')):
+    if not akb.is_token_valid():
         raise PreventUpdate
     objs = akb.get_objects()
     objs = sorted(objs, key=lambda obj: obj['id'])

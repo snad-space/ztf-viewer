@@ -4,8 +4,8 @@ import dash_html_components as html
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 
+from akb import akb
 from app import app
-from config import is_user_token_valid
 
 
 def get_layout(pathname):
@@ -17,7 +17,7 @@ def get_layout(pathname):
                 id='token',
                 type='text',
                 minLength=8,
-                maxLength=16,
+                maxLength=40,
                 n_submit=0,
             ),
             html.Div('', id='login-status')
@@ -34,7 +34,7 @@ def get_layout(pathname):
 def do_login(n_submit, token):
     if n_submit == 0 or token is None:
         raise PreventUpdate
-    if not is_user_token_valid(token):
+    if not akb.is_token_valid(token):
         return 'Login failed: wrong token'
-    dash.callback_context.response.set_cookie('login_token', token, secure=True, samesite='Strict', max_age=31 * 86400)
+    dash.callback_context.response.set_cookie('akb_token', token, secure=True, samesite='Strict', max_age=31 * 86400)
     return 'Login successful'
