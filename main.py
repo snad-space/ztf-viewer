@@ -10,12 +10,13 @@ import dash_html_components as html
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 
+from akb import akb
 from anomalies import get_layout as get_anomalies_layout
 from app import app
 from login import get_layout as get_login_layout
 from search import get_layout as get_search_layout
 from tags import get_layout as get_tags_layout
-from util import available_drs, joiner, sky_coord_from_str, YEAR, DEFAULT_DR
+from util import available_drs, joiner, sky_coord_from_str, YEAR, DEFAULT_DR, UnAuthorized
 from viewer import get_layout as get_viewer_layout
 
 
@@ -39,6 +40,10 @@ app.layout = html.Div([
                     html.Div('DR4', id='dr-title', style={'display': 'inline-block'}),
                     ' object viewer',
                 ],
+            ),
+            html.Div(
+                id='username',
+                style={'position': 'absolute', 'top': 0, 'right': '1em'}
             ),
             'OID ',
             dcc.Input(
@@ -137,6 +142,17 @@ def dr_switch(current_dr, current_url, switch_dr):
 )
 def set_dr_title(dr):
     return dr.upper()
+
+
+@app.callback(
+    Output('username', 'children'),
+    [Input('url', 'pathname')],
+)
+def set_username(_):
+    try:
+        return akb.username()
+    except UnAuthorized:
+        return html.A('login', href='/login')
 
 
 @app.callback(

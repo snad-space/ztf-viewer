@@ -12,6 +12,7 @@ class AKB:
     _base_api_url = 'https://akb.ztf.snad.space/'
     _tags_api_url = urljoin(_base_api_url, '/tags/')
     _objects_api_url = urljoin(_base_api_url, '/objects/')
+    _whoami_api_url = urljoin(_base_api_url, '/whoami/')
 
     def __init__(self):
         self.session = requests.Session()
@@ -85,26 +86,35 @@ class AKB:
         self._put_or_post(self._object_url(oid), self._objects_api_url, data, token=token)
 
     @cachetools.cached(cachetools.TTLCache(maxsize=1024, ttl=3600))
-    def _is_token_valid(self, token):
+    def whoami(self, token):
         if not isinstance(token, str):
             raise ValueError(f'token must be a str, not {type(token)}')
-        resp = self.session.post(self._base_api_url, headers=self._token_header(token))
-        if resp.status_code == 405:
-            return True
+        resp = self.session.get(self._whoami_api_url, headers=self._token_header(token))
         if resp.status_code == 401:
-            return False
+            raise UnAuthorized
         resp.raise_for_status()
-        message = f'Unexpected answer from AKB server: {resp.status_code}: {resp.text}'
-        logging.warning(message)
-        raise RuntimeError(message)
+        return resp.json()
+
+    def username(self, token=None):
+        if token is None:
+            token = self._token_from_cookies()
+        json = self.whoami(token=token)
+        if json['first_name'] or json['last_name']:
+            return f"{json['first_name']} {json['last_name']}"
+        return json['username']
+
+    @cachetools.cached(cachetools.TTLCache(maxsize=1024, ttl=3600))
+    def _is_token_valid(self, token):
+        try:
+            self.whoami(token)
+            return True
+        except UnAuthorized:
+            return False
 
     def is_token_valid(self, token=None):
         if token is None:
-            try:
-                token = self._token_from_cookies()
-            except UnAuthorized:
-                return False
-        return self._is_token_valid(token)
+            token = self._token_from_cookies()
+        return self._is_token_valid(token=token)
 
 
 akb = AKB()

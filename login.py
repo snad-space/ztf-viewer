@@ -6,6 +6,7 @@ from dash.exceptions import PreventUpdate
 
 from akb import akb
 from app import app
+from util import UnAuthorized
 
 
 def get_layout(pathname):
@@ -32,9 +33,11 @@ def get_layout(pathname):
     state=[State('token', 'value')]
 )
 def do_login(n_submit, token):
-    if n_submit == 0 or token is None:
-        raise PreventUpdate
-    if not akb.is_token_valid(token):
+    try:
+        username = akb.username(token)
+    except UnAuthorized:
         return 'Login failed: wrong token'
-    dash.callback_context.response.set_cookie('akb_token', token, secure=True, samesite='Strict', max_age=31 * 86400)
-    return 'Login successful'
+    if token:
+        dash.callback_context.response.set_cookie('akb_token', token, secure=True, samesite='Strict',
+                                                  max_age=31 * 86400)
+    return ['You are authorised as ', html.B(username)]
