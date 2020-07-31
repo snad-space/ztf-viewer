@@ -152,7 +152,7 @@ def raise_if(condition, exception):
     return decorator
 
 
-def joiner(value, iterator):
+def join(value, iterator):
     iterator = iter(iterator)
     yield next(iterator)
     for item in iterator:

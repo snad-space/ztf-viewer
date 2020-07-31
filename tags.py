@@ -68,7 +68,9 @@ def show_tags(*_):
                 style={'display': 'inline-block'},
             ),
             ' ',
-            html.Div(tag['name'], style={'display': 'inline-block'}),
+            html.B(tag['name'], style={'display': 'inline-block'}),
+            ' ',
+            html.Div(tag['description'], style={'display': 'inline-block'}),
         ])
         for tag in tags
     ]
@@ -87,8 +89,17 @@ def show_tags(*_):
             value='',
             id='new-tag-name-input',
             type='text',
-            size=80,
+            size=20,
             placeholder='Name of new tag',
+            style={'display': 'inline-block'},
+        ),
+        ' ',
+        dcc.Input(
+            value='',
+            id='new-tag-description-input',
+            type='text',
+            size=80,
+            placeholder='Description of new tag',
             style={'display': 'inline-block'},
         ),
     ]))
@@ -111,9 +122,10 @@ def are_tags_priorities_unique(priorities):
         State(dict(type='tag-priority-input', index=ALL), 'value'),
         State('new-tag-priority-input', 'value'),
         State('new-tag-name-input', 'value'),
+        State('new-tag-description-input', 'value'),
     ],
 )
-def set_save_status(n_clicks, tags, priorities, new_priority, new_name):
+def set_save_status(n_clicks, tags, priorities, new_priority, new_name, new_description):
     if not n_clicks:
         raise PreventUpdate
     if not akb.is_token_valid():
@@ -122,7 +134,7 @@ def set_save_status(n_clicks, tags, priorities, new_priority, new_name):
     if new_name:
         if not is_tag_name_correct(new_name):
             return 'Error: tag name should consist of letters, digits, underscores and hyphens only'
-        tags.append(dict(name=new_name, priority=new_priority))
+        tags.append(dict(name=new_name, priority=new_priority, description=new_description))
     if not are_tags_priorities_unique([tag['priority'] for tag in tags]):
         return 'Error: tag priorities should be unique'
     akb.post_tags(tags)

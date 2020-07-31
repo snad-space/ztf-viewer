@@ -65,15 +65,17 @@ class AKB:
         names = [tag['name'] for tag in sorted(tags, key=lambda tag: tag['priority'])]
         return names
 
-    def post_tag(self, name, priority=None, token=None):
+    def post_tag(self, name, priority=None, description=None, token=None):
         if priority is None:
             priority = max((tag['priority'] for tag in self.get_tags()), default=-1) + 1
         data = dict(name=name, priority=priority)
+        if description is not None:
+            data['description'] = description
         self._put_or_post(self._tag_url(name), self._tags_api_url, data, token=token)
 
     def post_tags(self, tags, token=None):
         for tag in tags:
-            self.post_tag(tag['name'], tag['priority'], token=token)
+            self.post_tag(tag['name'], tag['priority'], tag.get('description'), token=token)
 
     def get_objects(self, token=None):
         return self._get(self._objects_api_url, token=token)
