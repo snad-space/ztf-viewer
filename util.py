@@ -115,3 +115,11 @@ class NotFound(RuntimeError):
 
 class CatalogUnavailable(RuntimeError):
     pass
+
+
+def joiner(value, iterator):
+    iterator = iter(iterator)
+    yield next(iterator)
+    for item in iterator:
+        yield value
+        yield item

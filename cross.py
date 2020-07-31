@@ -24,9 +24,11 @@ from util import to_str, anchor_form, INF, NotFound, CatalogUnavailable
 
 
 class _CatalogQuery:
-    objects = {}
+    __objects = {}
 
     id_column = None
+    type_column = None
+    period_column = None
     _name_column = None
     _query_region = None
     _table_ra = None
@@ -35,18 +37,36 @@ class _CatalogQuery:
     columns = None
 
     def __new__(cls, query_name):
-        if query_name in cls.objects:
+        name = cls._normalize_name(query_name)
+        if name in cls.__objects:
             raise ValueError(f'Query name "{query_name}" already exists')
         obj = super().__new__(cls)
-        cls.objects[query_name] = obj
+        cls.__objects[name] = obj
         return obj
 
     def __init__(self, query_name):
         self.__query_name = query_name
 
+    @classmethod
+    def get_objects(self):
+        return self.__objects.copy()
+
+    @staticmethod
+    def _normalize_name(name):
+        return name.replace(' ', '-').lower()
+
+    @classmethod
+    def get_object(cls, name):
+        normalized_name = cls._normalize_name(name)
+        return cls.__objects[normalized_name]
+
     @property
     def query_name(self):
         return self.__query_name
+
+    @property
+    def normalized_query_name(self):
+        return self._normalize_name(self.query_name)
 
     @property
     def name_column(self):
@@ -74,7 +94,11 @@ class _CatalogQuery:
             frame='icrs'
         )
         table['separation'] = coord.separation(catalog_coord).to('arcsec')
-        table['link'] = [self.get_link(row[self.id_column], to_str(row[self.name_column])) for row in table]
+        table['__objname'] = [to_str(row[self.name_column]) for row in table]
+        table['__link'] = [self.get_link(row[self.id_column], row['__objname']) for row in table]
+        table['__type'] = [to_str(row[self.type_column]) for row in table]
+        if self.period_column is not None:
+            table['__period'] = [row[self.period_column] for row in table]
         return table
 
     def get_url(self, id):
@@ -84,17 +108,18 @@ class _CatalogQuery:
         return f'<a href="{self.get_url(id)}">{name}</a>'
 
 
-def catalog_query_objects():
-    return _CatalogQuery.objects
+catalog_query_objects = _CatalogQuery.get_objects
 
 
 class SimbadQuery(_CatalogQuery):
     id_column = 'MAIN_ID'
+    type_column = 'OTYPE'
+    period_column = 'V__period'
     _table_ra = 'RA'
     _ra_unit = 'hour'
     _table_dec = 'DEC'
     columns = {
-        'link': 'MAIN_ID',
+        '__link': 'MAIN_ID',
         'separation': 'Separation, arcsec',
         'OTYPE': 'Main type',
         'OTYPES': 'Other types',
@@ -115,16 +140,18 @@ class SimbadQuery(_CatalogQuery):
         return f'//simbad.u-strasbg.fr/simbad/sim-id?Ident={qid}'
 
 
-SIMBAD_QUERY = SimbadQuery('simbad')
+SIMBAD_QUERY = SimbadQuery('Simbad')
 
 
 class GCVSQuery(_CatalogQuery):
     id_column = 'GCVS'
+    type_column = 'VarType'
+    period_column = 'Period'
     _table_ra = 'RAJ2000'
     _ra_unit = 'hour'
     _table_dec = 'DEJ2000'
     columns = {
-        'link': 'Designation',
+        '__link': 'Designation',
         'separation': 'Separation, arcsec',
         'Period': 'Period, days',
         'VarType': '<a href="http://cdsarc.u-strasbg.fr/viz-bin/getCatFile_Redirect/?-plus=-%2b&B/gcvs/./vartype.txt">Type of variability</a>',
@@ -144,16 +171,18 @@ class GCVSQuery(_CatalogQuery):
         return f'http://www.sai.msu.su/gcvs/cgi-bin/search.cgi?search={qid}'
 
 
-GCVS_QUERY = GCVSQuery('gcvs')
+GCVS_QUERY = GCVSQuery('GCVS')
 
 
 class VSXQuery(_CatalogQuery):
     id_column = 'OID'
+    type_column = 'Type'
+    period_column = 'Period'
     _table_ra = 'RAJ2000'
     _ra_unit = 'hour'
     _table_dec = 'DEJ2000'
     columns = {
-        'link': 'Designation',
+        '__link': 'Designation',
         'separation': 'Separation, arcsec',
         'Name': 'Name',
         'Period': 'Period, days',
@@ -173,16 +202,18 @@ class VSXQuery(_CatalogQuery):
         return f'//www.aavso.org/vsx/index.php?view=detail.top&oid={id}'
 
 
-VSX_QUERY = VSXQuery('vsx')
+VSX_QUERY = VSXQuery('VSX')
 
 
 class AtlasQuery(_CatalogQuery):
     id_column = 'ATOID'
+    type_column = 'Class'
+    period_column = 'fp-LSper'
     _table_ra = 'RAJ2000'
     _ra_unit = 'hour'
     _table_dec = 'DEJ2000'
     columns = {
-        'link': 'Name',
+        '__link': 'Name',
         'separation': 'Separation, arcsec',
         'fp-LSper': 'Period, days',
         'Class': 'Class',
@@ -199,7 +230,7 @@ class AtlasQuery(_CatalogQuery):
         return name
 
 
-ATLAS_QUERY = AtlasQuery('atlas')
+ATLAS_QUERY = AtlasQuery('ATLAS')
 
 
 class _ApiQuery(_CatalogQuery):
@@ -235,12 +266,14 @@ class _ApiQuery(_CatalogQuery):
 
 class ZtfPeriodicQuery(_ApiQuery):
     id_column = 'SourceID'
+    type_column = 'Type'
+    period_column = 'Per'
     _name_column = 'ID'
     _table_ra = 'RAdeg'
     _ra_unit = 'deg'
     _table_dec = 'DEdeg'
     columns = {
-        'link': 'ZTF ID',
+        '__link': 'ZTF ID',
         'separation': 'Separation, arcsec',
         'Type': 'Type',
         'Per': 'Period, days',
@@ -263,17 +296,18 @@ class ZtfPeriodicQuery(_ApiQuery):
         return f'http://variables.cn:88/lcz.php?SourceID={id}'
 
 
-ZTF_PERIODIC_QUERY = ZtfPeriodicQuery('ztf-periodic')
+ZTF_PERIODIC_QUERY = ZtfPeriodicQuery('ZTF Periodic')
 
 
 class TnsQuery(_ApiQuery):
     id_column = 'name'
+    type_column = 'object_type'
     _name_column = 'fullname'
     _table_ra = 'radeg'
     _ra_unit = 'deg'
     _table_dec = 'decdeg'
     columns = {
-        'link': 'Name',
+        '__link': 'Name',
         'separation': 'Separation, arcsec',
         'discoverydate': 'Discovery date',
         'discoverymag': 'Discovery mag',
@@ -342,16 +376,17 @@ class TnsQuery(_ApiQuery):
         return f'//wis-tns.weizmann.ac.il/object/{id}'
 
 
-TNS_QUERY = TnsQuery('transient-name-server')
+TNS_QUERY = TnsQuery('Transient Name Server')
 
 
 class AstrocatsQuery(_ApiQuery):
     id_column = 'event'
+    type_column = 'claimedtype'
     _table_ra = 'ra'
     _ra_unit = 'hour'
     _table_dec = 'dec'
     columns = {
-        'link': 'Event name',
+        '__link': 'Event name',
         'separation': 'Separation, arcsec',
         'claimedtype': 'Claimed type',
         'stellarclass': 'Stellar class',
@@ -387,16 +422,18 @@ class AstrocatsQuery(_ApiQuery):
         return f'{name}<br>{link_list}'
 
 
-ASTROCATS_QUERY = AstrocatsQuery('astrocats')
+ASTROCATS_QUERY = AstrocatsQuery('Astrocats')
 
 
 class OGLEQuery(_ApiQuery):
     id_column = 'ID'
+    type_column = 'Type'
+    period_column = 'P_1'
     _table_ra = 'RA'
     _ra_unit = 'hour'
     _table_dec = 'Decl'
     columns = {
-        'link': 'Designation',
+        '__link': 'Designation',
         'separation': 'Separation, arcsec',
         'light_curve': 'Light curve',
         'Type': 'Type',
@@ -462,13 +499,12 @@ class OGLEQuery(_ApiQuery):
         return anchor_form(self._post_url, dict(**self._post_data, val_id=id), name)
 
 
-OGLE_QUERY = OGLEQuery('ogle')
+OGLE_QUERY = OGLEQuery('OGLE')
 
 
 def get_catalog_query(catalog):
-    objects = catalog_query_objects()
     try:
-        return objects[catalog.lower()]
+        return _CatalogQuery.get_object(catalog)
     except KeyError as e:
         raise ValueError(f'No catalog query engine for catalog type "{catalog}"') from e
 

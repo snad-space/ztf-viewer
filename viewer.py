@@ -6,24 +6,32 @@ import dash_core_components as dcc
 import dash_dangerously_set_inner_html as ddsih
 import dash_defer_js_import as dji
 import dash_html_components as html
+import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from dash.dependencies import Input, Output, State
+from dash.dependencies import Input, Output, State, ALL
 from dash.exceptions import PreventUpdate
 from dash_table import DataTable
+from requests import ConnectionError
 
 from app import app
 from cross import (get_catalog_query, find_vizier, find_ztf_oid, find_ztf_circle, vizier_catalog_details,
                    light_curve_features, catalog_query_objects,)
 from data import get_plot_data
 from products import DateWithFrac, correct_date
-from util import html_from_astropy_table, to_str, INF, min_max_mjd_short, FILTER_COLORS, NotFound, CatalogUnavailable
+from util import (html_from_astropy_table, to_str, INF, min_max_mjd_short, FILTER_COLORS, NotFound, CatalogUnavailable,
+                  joiner)
 
 LIGHT_CURVE_TABLE_COLUMNS = ('mjd', 'mag', 'magerr', 'clrcoeff')
 
 METADATA_FIELDS = ('nobs', 'ngoodobs', 'ngoodobs_short', 'filter', 'coord_string', 'duration', 'duration_short',
                    'fieldid', 'rcid')
+SUMMARY_FIELDS = {
+    '__objname': 'Name',
+    '__type': 'Type',
+    '__period': 'Period, days',
+}
 
 MARKER_SIZE = 10
 
@@ -113,6 +121,13 @@ def get_layout(pathname):
             [
                 html.Div(
                     [
+                        html.Div(
+                            [
+                                html.H2('Summary'),
+                                html.Div(id='summary'),
+                            ],
+                            id='summary-layout',
+                        ),
                         html.Div(
                             [
                                 html.H2('Neighbours'),
@@ -381,6 +396,76 @@ def set_min_max_mjd(values, dr):
 
 
 @app.callback(
+    Output('summary', 'children'),
+    [
+        Input('oid', 'children'),
+        Input('dr', 'children'),
+        Input(dict(type='search-radius', index=ALL), 'id'),
+        Input(dict(type='search-radius', index=ALL), 'value'),
+    ],
+)
+def get_summary(oid, dr, radius_ids, radius_values):
+    if None in radius_values:
+        raise PreventUpdate
+    radii = {id['index']: float(value) for id, value in zip(radius_ids, radius_values)}
+    ra, dec = find_ztf_oid.get_coord(oid, dr)
+
+    elements = {}
+    for catalog, query in catalog_query_objects().items():
+        try:
+            table = query.find(ra, dec, radii[catalog])
+        except NotFound:
+            continue
+        row = table[np.argmin(table['separation'])]
+        for table_field, display_name in SUMMARY_FIELDS.items():
+            try:
+                value = to_str(row[table_field])
+            except KeyError:
+                continue
+            values = elements.setdefault(display_name, [])
+            values.append(html.Div(
+                [
+                    f'{value} ({row["separation"]:.3f}″ ',
+                    html.A(
+                        query.query_name,
+                        href=f'#{catalog}',
+                        style={'border-bottom': '1px dashed', 'text-decoration': 'none'},
+                    ),
+                    ')',
+                ],
+                style={'display': 'inline'},
+            ))
+    try:
+        features = light_curve_features(oid, dr)
+        el = elements.setdefault('Period, days', [])
+        el.append(html.Div(
+            [
+                f'{features["period_0"]:.3f} (',
+                html.A(
+                    'periodogram',
+                    href='#features',
+                    style={'border-bottom': '1px dashed', 'text-decoration': 'none'},
+                ),
+                f' S/N={features["period_s_to_n_0"]:.3f})'
+            ],
+            style={'display': 'inline'},
+        ))
+    except NotFound:
+        pass
+
+    for name in SUMMARY_FIELDS.values():
+        if name not in elements:
+            elements[name] = '—'
+        else:
+            elements[name] = list(joiner(', ', elements[name]))
+
+    div = html.Div(
+        html.Ul([html.Li([html.B(k), ': '] + v) for k, v in elements.items()], style={'list-style-type': 'none'}),
+    )
+    return div
+
+
+@app.callback(
     Output('metadata', 'children'),
     [
         Input('oid', 'children'),
@@ -603,7 +688,7 @@ def set_table(radius, oid, dr, catalog):
         table = query.find(ra, dec, radius)
     except NotFound:
         return html.P(f'No {catalog.replace("-", " ")} objects within {radius} arcsec from {ra:.5f}, {dec:.5f}')
-    except CatalogUnavailable:
+    except (CatalogUnavailable, ConnectionError):
         return html.P('Catalog data is temporarily unavailable')
     table = table.copy()
     div = html.Div(
