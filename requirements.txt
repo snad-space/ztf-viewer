@@ -11,3 +11,4 @@ redis
 redis-lru
 ipywidgets
 matplotlib
+cachetools
