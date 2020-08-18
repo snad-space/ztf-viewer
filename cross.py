@@ -24,6 +24,8 @@ from util import to_str, anchor_form, INF, NotFound, CatalogUnavailable
 
 
 class _CatalogQuery:
+    objects = {}
+
     id_column = None
     _name_column = None
     _query_region = None
@@ -31,6 +33,20 @@ class _CatalogQuery:
     _ra_unit = None
     _table_dec = None
     columns = None
+
+    def __new__(cls, query_name):
+        if query_name in cls.objects:
+            raise ValueError(f'Query name "{query_name}" already exists')
+        obj = super().__new__(cls)
+        cls.objects[query_name] = obj
+        return obj
+
+    def __init__(self, query_name):
+        self.__query_name = query_name
+
+    @property
+    def query_name(self):
+        return self.__query_name
 
     @property
     def name_column(self):
@@ -68,6 +84,10 @@ class _CatalogQuery:
         return f'<a href="{self.get_url(id)}">{name}</a>'
 
 
+def catalog_query_objects():
+    return _CatalogQuery.objects
+
+
 class SimbadQuery(_CatalogQuery):
     id_column = 'MAIN_ID'
     _table_ra = 'RA'
@@ -84,7 +104,8 @@ class SimbadQuery(_CatalogQuery):
         'Distance_unit': 'Distance unit',
     }
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self._query = Simbad()
         self._query.add_votable_fields('distance', 'fluxdata(R)', 'fluxdata(V)', 'otype', 'otypes', 'v*')
         self._query_region = self._query.query_region
@@ -94,7 +115,7 @@ class SimbadQuery(_CatalogQuery):
         return f'//simbad.u-strasbg.fr/simbad/sim-id?Ident={qid}'
 
 
-SIMBAD_QUERY = SimbadQuery()
+SIMBAD_QUERY = SimbadQuery('simbad')
 
 
 class GCVSQuery(_CatalogQuery):
@@ -110,7 +131,8 @@ class GCVSQuery(_CatalogQuery):
         'SpType': 'Spectral type',
     }
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self._query = Vizier(
             columns=['GCVS', 'RAJ2000', 'DEJ2000', 'VarType', 'magMax', 'Period', 'SpType', 'VarTypeII', 'VarName',
                      'Simbad'],
@@ -122,7 +144,7 @@ class GCVSQuery(_CatalogQuery):
         return f'http://www.sai.msu.su/gcvs/cgi-bin/search.cgi?search={qid}'
 
 
-GCVS_QUERY = GCVSQuery()
+GCVS_QUERY = GCVSQuery('gcvs')
 
 
 class VSXQuery(_CatalogQuery):
@@ -141,8 +163,9 @@ class VSXQuery(_CatalogQuery):
         'min': 'Minimum mag',
         'n_min': 'Band of min mag',
     }
-    
-    def __init__(self):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self._query = Vizier()
         self._query_region = partial(self._query.query_region, catalog='B/vsx/vsx')
 
@@ -150,7 +173,7 @@ class VSXQuery(_CatalogQuery):
         return f'//www.aavso.org/vsx/index.php?view=detail.top&oid={id}'
 
 
-VSX_QUERY = VSXQuery()
+VSX_QUERY = VSXQuery('vsx')
 
 
 class AtlasQuery(_CatalogQuery):
@@ -165,7 +188,8 @@ class AtlasQuery(_CatalogQuery):
         'Class': 'Class',
     }
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self._query = Vizier(
             columns=['ATOID', 'RAJ2000', 'DEJ2000', 'fp-LSper', 'Class'],
         )
@@ -175,7 +199,7 @@ class AtlasQuery(_CatalogQuery):
         return name
 
 
-ATLAS_QUERY = AtlasQuery()
+ATLAS_QUERY = AtlasQuery('atlas')
 
 
 class _ApiQuery(_CatalogQuery):
@@ -183,8 +207,8 @@ class _ApiQuery(_CatalogQuery):
     def _base_api_url(self):
         raise NotImplemented
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self._api_session = requests.Session()
 
     @staticmethod
@@ -239,7 +263,7 @@ class ZtfPeriodicQuery(_ApiQuery):
         return f'http://variables.cn:88/lcz.php?SourceID={id}'
 
 
-ZTF_PERIODIC_QUERY = ZtfPeriodicQuery()
+ZTF_PERIODIC_QUERY = ZtfPeriodicQuery('ztf-periodic')
 
 
 class TnsQuery(_ApiQuery):
@@ -260,8 +284,8 @@ class TnsQuery(_ApiQuery):
         'internal_names': 'Internal names',
     }
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self._search_api_url = urllib.parse.urljoin(TNS_API_URL, '/api/get/search')
         self._object_api_url = urllib.parse.urljoin(TNS_API_URL, '/api/get/object')
 
@@ -318,7 +342,7 @@ class TnsQuery(_ApiQuery):
         return f'//wis-tns.weizmann.ac.il/object/{id}'
 
 
-TNS_QUERY = TnsQuery()
+TNS_QUERY = TnsQuery('transient-name-server')
 
 
 class AstrocatsQuery(_ApiQuery):
@@ -363,7 +387,7 @@ class AstrocatsQuery(_ApiQuery):
         return f'{name}<br>{link_list}'
 
 
-ASTROCATS_QUERY = AstrocatsQuery()
+ASTROCATS_QUERY = AstrocatsQuery('astrocats')
 
 
 class OGLEQuery(_ApiQuery):
@@ -411,8 +435,8 @@ class OGLEQuery(_ApiQuery):
         'pagelen': '50',
     }
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self._light_curve_session = requests.Session()
 
     def _download_light_curve(self, id):
@@ -438,27 +462,15 @@ class OGLEQuery(_ApiQuery):
         return anchor_form(self._post_url, dict(**self._post_data, val_id=id), name)
 
 
-OGLE_QUERY = OGLEQuery()
+OGLE_QUERY = OGLEQuery('ogle')
 
 
 def get_catalog_query(catalog):
-    if catalog.lower() == 'simbad':
-        return SIMBAD_QUERY
-    if catalog.lower() == 'gcvs':
-        return GCVS_QUERY
-    if catalog.lower() == 'vsx':
-        return VSX_QUERY
-    if catalog.lower() == 'atlas':
-        return ATLAS_QUERY
-    if catalog.lower() == 'ztf periodic':
-        return ZTF_PERIODIC_QUERY
-    if catalog.lower() == 'transient name server':
-        return TNS_QUERY
-    if catalog.lower() == 'astrocats':
-        return ASTROCATS_QUERY
-    if catalog.lower() == 'ogle':
-        return OGLE_QUERY
-    raise ValueError(f'No catalog query engine for catalog type "{catalog}"')
+    objects = catalog_query_objects()
+    try:
+        return objects[catalog.lower()]
+    except KeyError as e:
+        raise ValueError(f'No catalog query engine for catalog type "{catalog}"') from e
 
 
 class VizierCatalogDetails:

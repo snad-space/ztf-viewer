@@ -14,7 +14,8 @@ from dash.exceptions import PreventUpdate
 from dash_table import DataTable
 
 from app import app
-from cross import get_catalog_query, find_vizier, find_ztf_oid, find_ztf_circle, vizier_catalog_details, light_curve_features
+from cross import (get_catalog_query, find_vizier, find_ztf_oid, find_ztf_circle, vizier_catalog_details,
+                   light_curve_features, catalog_query_objects,)
 from data import get_plot_data
 from products import DateWithFrac, correct_date
 from util import html_from_astropy_table, to_str, INF, min_max_mjd_short, FILTER_COLORS, NotFound, CatalogUnavailable
@@ -182,7 +183,7 @@ def get_layout(pathname):
                 html.H2('GCVS'),
                 dcc.Input(
                     value='10',
-                    id='gcvs-radius',
+                    id=dict(type='search-radius', index='gcvs'),
                     placeholder='Search radius, arcsec',
                     type='number',
                 ),
@@ -196,7 +197,7 @@ def get_layout(pathname):
                 html.H2('AAVSO VSX'),
                 dcc.Input(
                     value='10',
-                    id='vsx-radius',
+                    id=dict(type='search-radius', index='vsx'),
                     placeholder='Search radius, arcsec',
                     type='number',
                 ),
@@ -210,7 +211,7 @@ def get_layout(pathname):
                 html.H2('ATLAS catalog of variable stars'),
                 dcc.Input(
                     value='10',
-                    id='atlas-radius',
+                    id=dict(type='search-radius', index='atlas'),
                     placeholder='Search radius, arcsec',
                     type='number',
                 ),
@@ -224,7 +225,7 @@ def get_layout(pathname):
                 html.H2('ZTF Catalog of Periodic Variable Stars'),
                 dcc.Input(
                     value='1',
-                    id='ztf-periodic-radius',
+                    id=dict(type='search-radius', index='ztf-periodic'),
                     placeholder='Search radius, arcsec',
                     type='number',
                     min='0.1',
@@ -241,22 +242,22 @@ def get_layout(pathname):
                 html.H2('Transient Name Server'),
                 dcc.Input(
                     value='5',
-                    id='tns-radius',
+                    id=dict(type='search-radius', index='transient-name-server'),
                     placeholder='Search radius, arcsec',
                     type='number',
                     step='1',
                 ),
                 ' search radius, arcsec',
-                html.Div(id='tns-table'),
+                html.Div(id='transient-name-server-table'),
             ],
-            id='tns',
+            id='transient-name-server',
         ),
         html.Div(
             [
                 html.H2('Astrocats'),
                 dcc.Input(
                     value='5',
-                    id='astrocats-radius',
+                    id=dict(type='search-radius', index='astrocats'),
                     placeholder='Search radius, arcsec',
                     type='number',
                     step='1',
@@ -271,7 +272,7 @@ def get_layout(pathname):
                 html.H2('OGLE-III'),
                 dcc.Input(
                     value='10',
-                    id='ogle-radius',
+                    id=dict(type='search-radius', index='ogle'),
                     placeholder='Search radius, arcsec',
                     type='number',
                     min='0.1',
@@ -287,7 +288,7 @@ def get_layout(pathname):
                 html.H2('Simbad'),
                 dcc.Input(
                     value='50',
-                    id='simbad-radius',
+                    id=dict(type='search-radius', index='simbad'),
                     placeholder='Search radius, arcsec',
                     type='number',
                 ),
@@ -601,7 +602,7 @@ def set_table(radius, oid, dr, catalog):
     try:
         table = query.find(ra, dec, radius)
     except NotFound:
-        return html.P(f'No {catalog} objects within {radius} arcsec from {ra:.5f}, {dec:.5f}')
+        return html.P(f'No {catalog.replace("-", " ")} objects within {radius} arcsec from {ra:.5f}, {dec:.5f}')
     except CatalogUnavailable:
         return html.P('Catalog data is temporarily unavailable')
     table = table.copy()
@@ -613,77 +614,15 @@ def set_table(radius, oid, dr, catalog):
     return div
 
 
-app.callback(
-    Output('gcvs-table', 'children'),
-    [Input('gcvs-radius', 'value')],
-    state=[
-        State('oid', 'children'),
-        State('dr', 'children'),
-    ]
-)(partial(set_table, catalog='GCVS'))
-
-app.callback(
-    Output('vsx-table', 'children'),
-    [Input('vsx-radius', 'value')],
-    state=[
-        State('oid', 'children'),
-        State('dr', 'children'),
-    ]
-)(partial(set_table, catalog='VSX'))
-
-app.callback(
-    Output('atlas-table', 'children'),
-    [Input('atlas-radius', 'value')],
-    state=[
-        State('oid', 'children'),
-        State('dr', 'children'),
-    ]
-)(partial(set_table, catalog='ATLAS'))
-
-app.callback(
-    Output('ztf-periodic-table', 'children'),
-    [Input('ztf-periodic-radius', 'value')],
-    state=[
-        State('oid', 'children'),
-        State('dr', 'children'),
-    ]
-)(partial(set_table, catalog='ZTF Periodic'))
-
-app.callback(
-    Output('tns-table', 'children'),
-    [Input('tns-radius', 'value')],
-    state=[
-        State('oid', 'children'),
-        State('dr', 'children'),
-    ]
-)(partial(set_table, catalog='Transient Name Server'))
-
-app.callback(
-    Output('astrocats-table', 'children'),
-    [Input('astrocats-radius', 'value')],
-    state=[
-        State('oid', 'children'),
-        State('dr', 'children'),
-    ]
-)(partial(set_table, catalog='Astrocats'))
-
-app.callback(
-    Output('ogle-table', 'children'),
-    [Input('ogle-radius', 'value')],
-    state=[
-        State('oid', 'children'),
-        State('dr', 'children'),
-    ]
-)(partial(set_table, catalog='OGLE'))
-
-app.callback(
-    Output('simbad-table', 'children'),
-    [Input('simbad-radius', 'value')],
-    state=[
-        State('oid', 'children'),
-        State('dr', 'children'),
-    ]
-)(partial(set_table, catalog='Simbad'))
+for catalog in catalog_query_objects():
+    app.callback(
+        Output(f'{catalog}-table', 'children'),
+        [Input(dict(type='search-radius', index=catalog), 'value')],
+        state=[
+            State('oid', 'children'),
+            State('dr', 'children'),
+        ]
+    )(partial(set_table, catalog=catalog))
 
 
 @app.callback(
