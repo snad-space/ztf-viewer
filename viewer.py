@@ -614,15 +614,19 @@ def set_table(radius, oid, dr, catalog):
     return div
 
 
-for catalog in catalog_query_objects():
-    app.callback(
-        Output(f'{catalog}-table', 'children'),
-        [Input(dict(type='search-radius', index=catalog), 'value')],
-        state=[
-            State('oid', 'children'),
-            State('dr', 'children'),
-        ]
-    )(partial(set_table, catalog=catalog))
+def set_tables():
+    for catalog in catalog_query_objects():
+        app.callback(
+            Output(f'{catalog}-table', 'children'),
+            [Input(dict(type='search-radius', index=catalog), 'value')],
+            state=[
+                State('oid', 'children'),
+                State('dr', 'children'),
+            ]
+        )(partial(set_table, catalog=catalog))
+
+
+set_tables()
 
 
 @app.callback(
