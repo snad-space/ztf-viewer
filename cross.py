@@ -311,7 +311,7 @@ class TnsQuery(_ApiQuery):
         objnames = self._get_search(ra, dec, radius_arcsec)
         objs = [obj for name in objnames if (obj := self._get_object(name))]
         table = Table.from_pandas(pd.DataFrame.from_records(objs))
-        table['fullname'] = [f'{row["name_prefix"] or ""}{row["name"]}' for row in table]
+        table['fullname'] = [f'{row["name_prefix"] or ""}{row["objname"]}' for row in table]
         return table
 
     def get_url(self, id):
