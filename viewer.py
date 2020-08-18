@@ -189,6 +189,7 @@ def get_layout(pathname):
                 ' search radius, arcsec',
                 html.Div(id='gcvs-table'),
             ],
+            id='gcvs',
         ),
         html.Div(
             [
@@ -202,6 +203,7 @@ def get_layout(pathname):
                 ' search radius, arcsec',
                 html.Div(id='vsx-table'),
             ],
+            id='vsx',
         ),
         html.Div(
             [
@@ -215,6 +217,7 @@ def get_layout(pathname):
                 ' search radius, arcsec',
                 html.Div(id='atlas-table'),
             ],
+            id='atlas',
         ),
         html.Div(
             [
@@ -230,7 +233,8 @@ def get_layout(pathname):
                 ),
                 ' search radius, arcsec',
                 html.Div(id='ztf-periodic-table'),
-            ]
+            ],
+            id='ztf-periodic',
         ),
         html.Div(
             [
@@ -244,7 +248,8 @@ def get_layout(pathname):
                 ),
                 ' search radius, arcsec',
                 html.Div(id='tns-table'),
-            ]
+            ],
+            id='tns',
         ),
         html.Div(
             [
@@ -258,7 +263,8 @@ def get_layout(pathname):
                 ),
                 ' search radius, arcsec',
                 html.Div(id='astrocats-table'),
-            ]
+            ],
+            id='astrocats',
         ),
         html.Div(
             [
@@ -274,6 +280,7 @@ def get_layout(pathname):
                 ' search radius, arcsec',
                 html.Div(id='ogle-table'),
             ],
+            id='ogle',
         ),
         html.Div(
             [
@@ -287,6 +294,7 @@ def get_layout(pathname):
                 ' search radius, arcsec',
                 html.Div(id='simbad-table'),
             ],
+            id='simbad',
         ),
         html.Div(
             [
@@ -313,13 +321,15 @@ def get_layout(pathname):
                     style={'display': 'none'},
                 ),
                 html.Div(id='vizier-list'),
-            ]
+            ],
+            id='vizier',
         ),
         html.Div(
             [
                 html.H2('Features'),
                 html.Div(id='features-list'),
-            ]
+            ],
+            id='features',
         ),
         html.H2(
             [
@@ -327,7 +337,8 @@ def get_layout(pathname):
                 html.A('CSV', href=f'/{dr}/csv/{oid}'),
                 ', ',
                 html.A('JSON', href=find_ztf_oid.json_url(oid, dr)),
-            ]
+            ],
+            id='download-lc',
         ),
         html.Div(
             [
@@ -337,6 +348,7 @@ def get_layout(pathname):
                     columns=[{'name': column, 'id': column} for column in LIGHT_CURVE_TABLE_COLUMNS],
                 ),
             ],
+            id='light-curve',
             style={'width': '75%'},
         ),
     ])
