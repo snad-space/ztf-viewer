@@ -37,7 +37,7 @@ def _get_cache():
     try:
         return CACHE_CREATORS[CACHE_TYPE.lower().strip()]()
     except KeyError as e:
-        raise ValueError(f'CACHE_TYPE must be one of: {",".join(CACHE_CREATORS)}') from e
+        raise ValueError(f'CACHE_TYPE must be one of: {", ".join(CACHE_CREATORS)}') from e
 
 
 cache = _get_cache()
