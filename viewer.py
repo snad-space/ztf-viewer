@@ -315,6 +315,20 @@ def get_layout(pathname):
         ),
         html.Div(
             [
+                html.H2('Gaia DR2 Distances'),
+                dcc.Input(
+                    value='1',
+                    id=dict(type='search-radius', index='gaia-dr2-distances'),
+                    placeholder='Search radius, arcsec',
+                    type='number',
+                ),
+                ' search radius, arcsec',
+                html.Div(id='gaia-dr2-distances-table'),
+            ],
+            id='gaia-dr2-distances',
+        ),
+        html.Div(
+            [
                 html.H2('Vizier'),
                 html.A(
                     'Search on Vizier website within',
