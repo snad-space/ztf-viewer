@@ -1,3 +1,4 @@
+import logging
 import math
 import re
 from functools import wraps
@@ -67,9 +68,17 @@ def to_str(s):
         if np.isnan(s):
             return ''
         return f'{s:.3f}'
+    if isinstance(s, units.Quantity):
+        if s.unit.is_equivalent('cm'):
+            for unit in (units.pc, units.kpc, units.Mpc, units.Gpc):
+                if 1e-1 < (distance := s.to(unit)).value < 3e3:
+                    return f'{distance:.2f}'
+            else:
+                logging.warning(f'Value {s} is too large or too small')
+                return str(s)
     if np.ma.is_masked(s):
         return ''
-    raise ValueError(f'Argument should be str, bytes or int, not {type(s)}')
+    raise ValueError(f'Argument should be str, bytes, int, float or unit.Quantity (distance), not {type(s)}')
 
 
 def anchor_form(url, data, title):

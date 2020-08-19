@@ -30,6 +30,7 @@ METADATA_FIELDS = ('nobs', 'ngoodobs', 'ngoodobs_short', 'filter', 'coord_string
 SUMMARY_FIELDS = {
     '__objname': 'Name',
     '__type': 'Type',
+    '__distance': 'Distance',
     '__period': 'Period, days',
 }
 
@@ -424,16 +425,22 @@ def get_summary(oid, dr, radius_ids, radius_values):
                 continue
             if value == '':
                 continue
+
+            bra = ''
+            cket = ''
+            if table_field == '__distance' and '__redshift' in row.columns:
+                cket = f' z={to_str(row["__redshift"])}'
+
             values = elements.setdefault(display_name, [])
             values.append(html.Div(
                 [
-                    f'{value} ({row["separation"]:.3f}″ ',
+                    f'{value} ({bra}{row["separation"]:.3f}″ ',
                     html.A(
                         query.query_name,
                         href=f'#{catalog}',
                         style={'border-bottom': '1px dashed', 'text-decoration': 'none'},
                     ),
-                    ')',
+                    f'{cket})',
                 ],
                 style={'display': 'inline'},
             ))
@@ -455,14 +462,11 @@ def get_summary(oid, dr, radius_ids, radius_values):
     except NotFound:
         pass
 
-    for name in SUMMARY_FIELDS.values():
-        if name not in elements:
-            elements[name] = '—'
-        else:
-            elements[name] = list(joiner(', ', elements[name]))
-
     div = html.Div(
-        html.Ul([html.Li([html.B(k), ': '] + v) for k, v in elements.items()], style={'list-style-type': 'none'}),
+        html.Ul(
+            [html.Li([html.B(k), ': '] + list(joiner(', ', v))) for k, v in elements.items()],
+            style={'list-style-type': 'none'},
+        ),
     )
     return div
 

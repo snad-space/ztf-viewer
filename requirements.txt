@@ -12,3 +12,4 @@ redis-lru
 ipywidgets
 matplotlib
 cachetools
+scipy

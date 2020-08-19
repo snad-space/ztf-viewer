@@ -11,7 +11,9 @@ import astropy.io.ascii
 import numpy as np
 import pandas as pd
 import requests
+from astropy import units
 from astropy.coordinates import SkyCoord
+from astropy.cosmology import Planck15 as cosmo  # requires scipy
 from astropy.table import Table
 from astroquery.cds import cds
 from astroquery.simbad import Simbad
@@ -29,6 +31,7 @@ class _CatalogQuery:
     id_column = None
     type_column = None
     period_column = None
+    redshift_column = None
     _name_column = None
     _query_region = None
     _table_ra = None
@@ -94,12 +97,37 @@ class _CatalogQuery:
             frame='icrs'
         )
         table['separation'] = coord.separation(catalog_coord).to('arcsec')
-        table['__objname'] = [to_str(row[self.name_column]) for row in table]
-        table['__link'] = [self.get_link(row[self.id_column], row['__objname']) for row in table]
-        table['__type'] = [to_str(row[self.type_column]) for row in table]
-        if self.period_column is not None:
-            table['__period'] = [row[self.period_column] for row in table]
+        self.add_additional_columns(table)
         return table
+
+    def add_additional_columns(self, table):
+        self.add_objname_column(table)
+        self.add_link_column(table)
+        self.add_type_column(table)
+        self.add_redshift_column(table)
+        self.add_distance_column(table)
+
+    def add_objname_column(self, table):
+        table['__objname'] = [to_str(row[self.name_column]) for row in table]
+
+    def add_link_column(self, table):
+        table['__link'] = [self.get_link(row[self.id_column], row['__objname']) for row in table]
+
+    def add_type_column(self, table):
+        if self.type_column is not None:
+            table['__type'] = [to_str(row[self.type_column]) for row in table]
+
+    def add_period_column(self, table):
+        if self.period_column is not None:
+            table['__period'] = table[self.period_column]
+
+    def add_redshift_column(self, table):
+        if self.redshift_column is not None:
+            table['__redshift'] = table[self.redshift_column]
+
+    def add_distance_column(self, table):
+        if '__redshift' in table.columns:
+            table['__distance'] = [None if z is None else cosmo.luminosity_distance(z) for z in table['__redshift']]
 
     def get_url(self, id):
         raise NotImplemented
@@ -138,6 +166,9 @@ class SimbadQuery(_CatalogQuery):
     def get_url(self, id):
         qid = urllib.parse.quote(id)
         return f'//simbad.u-strasbg.fr/simbad/sim-id?Ident={qid}'
+
+    def add_distance_column(self, table):
+        table['__distance'] = table['Distance_distance'] * [units.Unit(u) for u in table['Distance_unit']]
 
 
 SIMBAD_QUERY = SimbadQuery('Simbad')
@@ -375,6 +406,9 @@ class TnsQuery(_ApiQuery):
     def get_url(self, id):
         return f'//wis-tns.weizmann.ac.il/object/{id}'
 
+    def add_redshift_column(self, table):
+        table['__redshift'] = [row['redshift'] if row['redshift'] else row['host_redshift'] for row in table]
+
 
 TNS_QUERY = TnsQuery('Transient Name Server')
 
@@ -382,6 +416,7 @@ TNS_QUERY = TnsQuery('Transient Name Server')
 class AstrocatsQuery(_ApiQuery):
     id_column = 'event'
     type_column = 'claimedtype'
+    redshift_column = 'redshift'
     _table_ra = 'ra'
     _ra_unit = 'hour'
     _table_dec = 'dec'
