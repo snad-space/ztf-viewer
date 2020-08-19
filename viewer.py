@@ -419,8 +419,10 @@ def get_summary(oid, dr, radius_ids, radius_values):
         row = table[np.argmin(table['separation'])]
         for table_field, display_name in SUMMARY_FIELDS.items():
             try:
-                value = to_str(row[table_field])
+                value = to_str(row[table_field]).strip()
             except KeyError:
+                continue
+            if value == '':
                 continue
             values = elements.setdefault(display_name, [])
             values.append(html.Div(
