@@ -260,8 +260,8 @@ class AtlasQuery(_CatalogQuery):
         )
         self._query_region = partial(self._query.query_region, catalog='J/AJ/156/241/table4')
 
-    def get_link(self, id, name):
-        return name
+    def get_url(self, id):
+        return f'//vizier.u-strasbg.fr/viz-bin/VizieR-6?-out.form=%2bH&-source=J/AJ/156/241/table4&Source={id}'
 
 
 ATLAS_QUERY = AtlasQuery('ATLAS')
