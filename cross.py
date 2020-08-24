@@ -490,7 +490,7 @@ class AstrocatsQuery(_ApiQuery):
     def get_link(self, id, name):
         urls = {}
         for cat, base_url in self._base_astrocats_urls.items():
-            url = urllib.parse.urljoin(base_url, id)
+            url = urllib.parse.urljoin(base_url, urllib.parse.quote(id))
             urls[cat] = url
         link_list = ', '.join(f'<a href="{url}">{cat}</a>' for cat, url in urls.items())
         return f'{name}<br>{link_list}'
