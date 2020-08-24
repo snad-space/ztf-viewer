@@ -484,11 +484,11 @@ def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_v
     for obs in lcs:
         mags.setdefault(obs['filter'], []).append(obs['mag'])
     mean_mag = {fltr: np.mean(m) for fltr, m in mags.items()}
-    elements['Average mag (including neighbourhood)'] = [f'{fltr}={mean_mag[fltr]: .2f}'
+    elements['Average mag (including neighbourhood)'] = [f'{fltr} {mean_mag[fltr]: .2f}'
                                                          for fltr in FILTER_COLORS
                                                          if fltr in mean_mag]
     if 'zg' in mean_mag and 'zr' in mean_mag:
-        elements['Average mag (including neighbourhood)'].append(f'(zg–zr)={mean_mag["zg"] - mean_mag["zr"]: .2f}')
+        elements['Average mag (including neighbourhood)'].append(f'(zg–zr) {mean_mag["zg"] - mean_mag["zr"]: .2f}')
 
     elements['Coordinates'] = [
         f'Eq {find_ztf_oid.get_coord_string(oid, dr, frame=None)}',
