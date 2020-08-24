@@ -20,8 +20,8 @@ from cross import (get_catalog_query, find_vizier, find_ztf_oid, find_ztf_circle
                    light_curve_features, catalog_query_objects,)
 from data import get_plot_data
 from products import DateWithFrac, correct_date
-from util import (html_from_astropy_table, to_str, INF, min_max_mjd_short, FILTER_COLORS, NotFound, CatalogUnavailable,
-                  joiner)
+from util import (html_from_astropy_table, to_str, INF, min_max_mjd_short, FILTER_COLORS, FILTERS, NotFound,
+                  CatalogUnavailable, joiner)
 
 LIGHT_CURVE_TABLE_COLUMNS = ('mjd', 'mag', 'magerr', 'clrcoeff')
 
@@ -485,7 +485,7 @@ def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_v
         mags.setdefault(obs['filter'], []).append(obs['mag'])
     mean_mag = {fltr: np.mean(m) for fltr, m in mags.items()}
     elements['Average mag (including neighbourhood)'] = [f'{fltr} {mean_mag[fltr]: .2f}'
-                                                         for fltr in FILTER_COLORS
+                                                         for fltr in FILTERS
                                                          if fltr in mean_mag]
     if 'zg' in mean_mag and 'zr' in mean_mag:
         elements['Average mag (including neighbourhood)'].append(f'(zg–zr) {mean_mag["zg"] - mean_mag["zr"]: .2f}')

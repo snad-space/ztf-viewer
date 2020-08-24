@@ -13,7 +13,8 @@ from jinja2 import Template
 
 INF = float('inf')
 
-FILTER_COLORS = {'zr': '#CC3344', 'zg': '#117733', 'zi': '#1c1309'}
+FILTER_COLORS = {'zg': '#117733', 'zr': '#CC3344', 'zi': '#1c1309'}
+FILTERS = tuple(FILTER_COLORS)
 
 
 default_dr = 'dr3'
