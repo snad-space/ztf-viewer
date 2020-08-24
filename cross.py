@@ -13,7 +13,7 @@ import pandas as pd
 import requests
 from astropy import units
 from astropy.coordinates import SkyCoord
-from astropy.cosmology import Planck15 as cosmo  # requires scipy
+from astropy.cosmology import FlatLambdaCDM
 from astropy.table import Table
 from astroquery.cds import cds
 from astroquery.simbad import Simbad
@@ -23,6 +23,9 @@ from astroquery.utils.commons import TableList
 from cache import cache
 from config import LC_API_URL, TNS_API_URL, TNS_API_KEY
 from util import to_str, anchor_form, INF, NotFound, CatalogUnavailable
+
+
+COSMO = FlatLambdaCDM(H0=70, Om0=0.3)
 
 
 class _CatalogQuery:
@@ -127,7 +130,7 @@ class _CatalogQuery:
 
     def add_distance_column(self, table):
         if '__redshift' in table.columns:
-            table['__distance'] = [None if z is None else cosmo.luminosity_distance(z) for z in table['__redshift']]
+            table['__distance'] = [None if z is None else COSMO.luminosity_distance(z) for z in table['__redshift']]
 
     def get_url(self, id):
         raise NotImplemented
