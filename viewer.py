@@ -415,11 +415,13 @@ def set_min_max_mjd(values, dr):
     [
         Input('oid', 'children'),
         Input('dr', 'children'),
+        Input('different_filter_neighbours', 'children'),
+        Input('different_field_neighbours', 'children'),
         Input(dict(type='search-radius', index=ALL), 'id'),
         Input(dict(type='search-radius', index=ALL), 'value'),
     ],
 )
-def get_summary(oid, dr, radius_ids, radius_values):
+def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_values):
     if None in radius_values:
         raise PreventUpdate
     radii = {id['index']: float(value) for id, value in zip(radius_ids, radius_values)}
@@ -475,6 +477,23 @@ def get_summary(oid, dr, radius_ids, radius_values):
         ))
     except NotFound:
         pass
+
+    other_oids = neighbour_oids(different_filter, different_field)
+    lcs = get_plot_data(oid, dr, other_oids=other_oids)
+    mags = {}
+    for obs in lcs:
+        mags.setdefault(obs['filter'], []).append(obs['mag'])
+    mean_mag = {fltr: np.mean(m) for fltr, m in mags.items()}
+    elements['Average mag (including neighbourhood)'] = [f'{fltr}={mean_mag[fltr]: .2f}'
+                                                         for fltr in FILTER_COLORS
+                                                         if fltr in mean_mag]
+    if 'zg' in mean_mag and 'zr' in mean_mag:
+        elements['Average mag (including neighbourhood)'].append(f'(zg–zr)={mean_mag["zg"] - mean_mag["zr"]: .2f}')
+
+    elements['Coordinates'] = [
+        f'Eq {find_ztf_oid.get_coord_string(oid, dr, frame=None)}',
+        f'Gal {find_ztf_oid.get_coord_string(oid, dr, frame="galactic")}',
+    ]
 
     div = html.Div(
         html.Ul(

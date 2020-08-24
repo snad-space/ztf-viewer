@@ -685,12 +685,16 @@ class FindZTFOID(_BaseFindZTF):
         coord = meta['coord']
         return coord['ra'], coord['dec']
 
-    def get_coord_string(self, oid, dr):
+    def get_coord_string(self, oid, dr, frame=None):
         try:
             ra, dec = self.get_coord(oid, dr)
         except TypeError as e:
             raise NotFound from e
-        return f'{ra:.5f} {dec:.5f}'
+        if frame is None:
+            return f'{ra:.5f} {dec:.5f}'
+        sky_coord = SkyCoord(ra=ra, dec=dec, unit='deg')
+        frame_coord = sky_coord.transform_to(frame)
+        return frame_coord.to_string()
 
     def get_meta(self, oid, dr):
         j = self.find(oid, dr)

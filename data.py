@@ -10,7 +10,6 @@ from cross import find_ztf_oid
 from util import mjd_to_datetime, NotFound, FILTER_COLORS
 
 
-
 @cache()
 def get_plot_data(cur_oid, dr, other_oids=frozenset(), min_mjd=None, max_mjd=None):
     oids = [cur_oid]
@@ -22,7 +21,6 @@ def get_plot_data(cur_oid, dr, other_oids=frozenset(), min_mjd=None, max_mjd=Non
         else:
             size = 1
         lc = find_ztf_oid.get_lc(oid, dr, min_mjd=min_mjd, max_mjd=max_mjd)
-        lcs.extend(lc)
         meta = find_ztf_oid.get_meta(oid, dr)
         for obs in lc:
             obs['mjd_58000'] = obs['mjd'] - 58000
@@ -32,6 +30,7 @@ def get_plot_data(cur_oid, dr, other_oids=frozenset(), min_mjd=None, max_mjd=Non
             obs['rcid'] = meta['rcid']
             obs['filter'] = meta['filter']
             obs['mark_size'] = size
+        lcs.extend(lc)
     return lcs
 
 
