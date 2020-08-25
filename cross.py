@@ -370,7 +370,7 @@ ZTF_PERIODIC_QUERY = ZtfPeriodicQuery('ZTF Periodic')
 
 
 class TnsQuery(_ApiQuery):
-    id_column = 'name'
+    id_column = 'objname'
     type_column = 'object_type'
     _name_column = 'fullname'
     _table_ra = 'radeg'
