@@ -431,7 +431,7 @@ def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_v
     for catalog, query in catalog_query_objects().items():
         try:
             table = query.find(ra, dec, radii[catalog])
-        except NotFound:
+        except (NotFound, CatalogUnavailable):
             continue
         row = table[np.argmin(table['separation'])]
         for table_field, display_name in SUMMARY_FIELDS.items():
