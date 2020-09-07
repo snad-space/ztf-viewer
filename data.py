@@ -4,7 +4,9 @@ import matplotlib
 import matplotlib.backends.backend_pgf
 import matplotlib.figure
 import pandas as pd
+import matplotlib.patches as mpatches
 from flask import Response, request, send_file
+from matplotlib.ticker import AutoMinorLocator, MultipleLocator
 
 from app import app
 from cache import cache
@@ -20,8 +22,10 @@ def get_plot_data(cur_oid, dr, other_oids=frozenset(), min_mjd=None, max_mjd=Non
     for oid in oids:
         if oid == cur_oid:
             size = 3
+            size_load = 4
         else:
             size = 1
+            size_load = 2
         lc = find_ztf_oid.get_lc(oid, dr, min_mjd=min_mjd, max_mjd=max_mjd)
         meta = find_ztf_oid.get_meta(oid, dr)
         for obs in lc:
@@ -32,6 +36,8 @@ def get_plot_data(cur_oid, dr, other_oids=frozenset(), min_mjd=None, max_mjd=Non
             obs['rcid'] = meta['rcid']
             obs['filter'] = meta['filter']
             obs['mark_size'] = size
+            obs['mark_size_load'] = size_load
+            obs['cur_oid'] = cur_oid
         lcs.extend(lc)
     return lcs
 
@@ -63,8 +69,9 @@ def plot_data(oid, dr, data, fmt='png'):
         err = lc.setdefault('err', [])
         err.append(d['magerr'])
         lc['color'] = FILTER_COLORS[d['filter']]
+        lc['cur_oid'] = d['cur_oid'] # masha
 
-    fig = matplotlib.figure.Figure()
+    fig = matplotlib.figure.Figure(dpi=300)
     ax = fig.subplots()
     ax.invert_yaxis()
     if fmt == 'pdf':
@@ -72,13 +79,28 @@ def plot_data(oid, dr, data, fmt='png'):
     else:
         ax.set_title(str(oid))
     ax.set_xlabel('MJD')
-    ax.set_ylabel(r'$m$')
-    ax.scatter(
-        [d['mjd'] for d in data],
-        [d['mag'] for d in data],
-        s=[4 * d['mark_size'] for d in data],
-        color=[FILTER_COLORS[d['filter']] for d in data],
-    )
+    ax.set_ylabel('magnitude')
+    for d in data:
+        if d['mark_size_load']==4:
+            scatter1 = ax.scatter(d['mjd'], d['mag'],
+                s=6 * d['mark_size_load'],
+                color=FILTER_COLORS[d['filter']],
+                marker='o', linewidth=0.5, edgecolors='black', alpha=0.7, zorder=2)
+        else:
+            scatter2 = ax.scatter(d['mjd'], d['mag'],
+                s=6 * d['mark_size_load'],
+                color=FILTER_COLORS[d['filter']],
+                marker='s', linewidth=0.5, edgecolors='black', alpha=0.7, zorder=1)
+    # scatter = ax.scatter(
+    #     [d['mjd'] for d in data],
+    #     [d['mag'] for d in data],
+    #     s=[4 * d['mark_size_load'] for d in data],
+    #     color=[FILTER_COLORS[d['filter']] for d in data],
+    # )
+    ax.xaxis.set_minor_locator(AutoMinorLocator(2))
+    ax.yaxis.set_minor_locator(AutoMinorLocator(2))
+    ax.tick_params(which='major', direction='in', length=6, width=1.5)
+    ax.tick_params(which='minor', direction='in', length=4, width=1)
     for oid, lc in lcs.items():
         ax.errorbar(
             lc['t'],
@@ -87,9 +109,15 @@ def plot_data(oid, dr, data, fmt='png'):
             c=lc['color'],
             ms=0,
             ls='',
-            label=str(oid),
+            alpha=0.7,
+            label='%s, %s' %(list(FILTER_COLORS.keys())[list(FILTER_COLORS.values()).index(lc['color'])], str(oid)),
+            # label=lc['cur_oid'],
+            zorder=0
         )
-
+    ax.legend()
+    # red_patch = mpatches.Patch(color='red', label='The red data')
+    # ax.legend(handles=[red_patch])
+    # ax.legend(('ko','k--'), ('label1', 'label2'))
     bytes_io = save_fig(fig, fmt)
     return bytes_io.getvalue()
 
