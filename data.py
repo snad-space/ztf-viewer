@@ -127,7 +127,7 @@ def get_csv(dr, oid):
     return string_io.getvalue()
 
 
-@app.server.route("/<dr>/csv/<int:oid>")
+@app.server.route('/<dr>/csv/<int:oid>')
 def response_csv(dr, oid):
     try:
         csv = get_csv(dr, oid)
@@ -138,4 +138,3 @@ def response_csv(dr, oid):
         mimetype='text/csv',
         headers={'Content-disposition': f'attachment; filename={oid}.csv'},
     )
-
