@@ -29,7 +29,13 @@ app.layout = html.Div([
         [
             html.H1(
                 [
-                    html.A('SNAD ZTF', href='/'),
+                    html.A(
+                        [
+                            html.Img(src='/static/img/logo.svg', alt='logo', id='header-logo'),
+                            'SNAD ZTF',
+                        ],
+                        href='/',
+                    ),
                     ' ',
                     # html.Div('DR1', id='dr1-switch', style={'display': 'inline-block'}),
                     # ' / ',
@@ -179,7 +185,11 @@ def app_select_by_url(pathname):
             ),
             html.Footer(
                 [
-                    'See source code ',
+                    'Created by ',
+                    html.A('the SNAD team', href='//snad.space'),
+                    ' based on ',
+                    html.A('the ZTF Caltech data.', href='//ztf.caltech.edu'),
+                    ' See the source code ',
                     html.A('on GitHub', href='//github.com/snad-space/ztf-viewer'),
                 ]
             )

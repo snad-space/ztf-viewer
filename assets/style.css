@@ -26,3 +26,10 @@
 .link-button:active {
   color:red;
 }
+
+#header-logo {
+    height: 1em;
+    width: auto;
+    top: .125em;
+    position: relative;
+}
