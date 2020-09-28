@@ -1,6 +1,7 @@
 from io import BytesIO, StringIO
 
 import matplotlib
+import matplotlib.backends.backend_pgf
 import matplotlib.figure
 import pandas as pd
 from flask import Response, request
