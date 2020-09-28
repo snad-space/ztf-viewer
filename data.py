@@ -4,7 +4,7 @@ import matplotlib
 import matplotlib.backends.backend_pgf
 import matplotlib.figure
 import pandas as pd
-from flask import Response, request
+from flask import Response, request, send_file
 
 from app import app
 from cache import cache
@@ -139,3 +139,8 @@ def response_csv(dr, oid):
         mimetype='text/csv',
         headers={'Content-disposition': f'attachment; filename={oid}.csv'},
     )
+
+
+@app.server.route('/favicon.ico')
+def favicon():
+    return send_file('static/img/logo.svg', mimetype='image/svg+xml')
