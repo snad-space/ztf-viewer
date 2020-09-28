@@ -22,7 +22,7 @@ This projects contains a source of [ZTF](http://ztf.caltech.edu) Data Releases l
 The server can be run locally without Docker in debug mode.
 
 ```sh
-# Configure Python vertual environment
+# Configure Python virtual environment
 python3 -m venv ~/.venv/ztf-viewer
 source ~/.venv/ztf-viewer/bin/activate
 
