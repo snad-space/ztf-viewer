@@ -80,7 +80,7 @@ input[type="url"]:focus,
 input[type="password"]:focus,
 textarea:focus,
 select:focus {
-  border: 1px solid #FCBD43;
+  border: 1px solid #22114C;
 }
 
 #header-logo {
