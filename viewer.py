@@ -1,5 +1,6 @@
 import pathlib
 from functools import lru_cache, partial
+from itertools import chain
 from urllib.parse import urlencode
 
 import dash_core_components as dcc
@@ -481,7 +482,7 @@ def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_v
     other_oids = neighbour_oids(different_filter, different_field)
     lcs = get_plot_data(oid, dr, other_oids=other_oids)
     mags = {}
-    for obs in lcs:
+    for obs in chain.from_iterable(lcs.values()):
         mags.setdefault(obs['filter'], []).append(obs['mag'])
     mean_mag = {fltr: np.mean(m) for fltr, m in mags.items()}
     elements['Average mag (including neighbourhood)'] = [f'{fltr} {mean_mag[fltr]: .2f}'
@@ -547,6 +548,7 @@ def neighbour_oids(different_filter, different_field):
 def set_figure(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd):
     other_oids = neighbour_oids(different_filter, different_field)
     lcs = get_plot_data(cur_oid, dr, other_oids=other_oids, min_mjd=min_mjd, max_mjd=max_mjd)
+    lcs = list(chain.from_iterable(lcs.values()))
     mag_min = min(obs['mag'] - obs['magerr'] for obs in lcs)
     mag_max = max(obs['mag'] + obs['magerr'] for obs in lcs)
     mag_ampl = mag_max - mag_min
