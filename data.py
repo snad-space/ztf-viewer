@@ -16,7 +16,7 @@ from util import mjd_to_datetime, NotFound, FILTER_COLORS
 @cache()
 def get_plot_data(cur_oid, dr, other_oids=frozenset(), min_mjd=None, max_mjd=None):
     oids = [cur_oid]
-    oids.extend(other_oids)
+    oids.extend(sorted(other_oids, key=int))
     lcs = {}
     for oid in oids:
         if oid == cur_oid:
@@ -55,6 +55,8 @@ def save_fig(fig, fmt):
 
 
 def plot_data(oid, dr, data, fmt='png'):
+    usetex = fmt == 'pdf'
+
     lcs = {}
     for lc_oid, lc in data.items():
         first_obs = lc[0]
@@ -64,8 +66,8 @@ def plot_data(oid, dr, data, fmt='png'):
             'm': [obs['mag'] for obs in lc],
             'err': [obs['magerr'] for obs in lc],
             'color': FILTER_COLORS[fltr],
-            'marker_size': 24 if lc_oid == oid else 12,
-            'label': f'{fltr}, {lc_oid}',
+            'marker_size': 5 if lc_oid == oid else 3.5,
+            'label': rf'{fltr}, \texttt{{{lc_oid}}}' if usetex else f'{fltr}, {lc_oid}',
             'marker': 'o' if lc_oid == oid else 's',
             'zorder': 2 if lc_oid == oid else 1,
         }
@@ -73,22 +75,16 @@ def plot_data(oid, dr, data, fmt='png'):
     fig = matplotlib.figure.Figure(dpi=300)
     ax = fig.subplots()
     ax.invert_yaxis()
-    if fmt == 'pdf':
-        ax.set_title(rf'\underline{{\href{{https://ztf.snad.space/{dr}/view/{oid}}}{{{oid}}}}}', usetex=True)
+    if usetex:
+        ax.set_title(rf'\underline{{\href{{https://ztf.snad.space/{dr}/view/{oid}}}{{\texttt{{{oid}}}}}}}', usetex=True)
     else:
         ax.set_title(str(oid))
-    ax.set_xlabel('MJD')
-    ax.set_ylabel('magnitude')
+    ax.set_xlabel('MJD', usetex=usetex)
+    ax.set_ylabel('magnitude', usetex=usetex)
     ax.xaxis.set_minor_locator(AutoMinorLocator(2))
     ax.yaxis.set_minor_locator(AutoMinorLocator(2))
     ax.tick_params(which='major', direction='in', length=6, width=1.5)
     ax.tick_params(which='minor', direction='in', length=4, width=1)
-    for lc_oid, lc in lcs.items():
-        scatter = ax.scatter(
-            lc['t'], lc['m'],
-            s=lc['marker_size'], color=lc['color'], marker=lc['marker'], zorder=lc['zorder'],
-            linewidth=0.5, edgecolors='black', alpha=0.7,
-        )
     for lc_oid, lc in lcs.items():
         ax.errorbar(
             lc['t'],
@@ -96,12 +92,15 @@ def plot_data(oid, dr, data, fmt='png'):
             lc['err'],
             c=lc['color'],
             label=lc['label'],
-            ms=0,
+            marker=lc['marker'],
+            markersize=lc['marker_size'],
+            markeredgewidth=0.5,
+            markeredgecolor='black',
+            zorder=lc['zorder'],
             ls='',
             alpha=0.7,
-            zorder=0,
         )
-    ax.legend()
+    ax.legend(loc='upper right')
     bytes_io = save_fig(fig, fmt)
     return bytes_io.getvalue()
 
