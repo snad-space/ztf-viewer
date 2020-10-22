@@ -113,7 +113,7 @@ def plot_data(oid, dr, data, fmt='png'):
             zorder=lc['zorder'],
             alpha=0.7,
         )
-    ax.legend(loc='upper right')
+    ax.legend(loc='upper right', ncol=min(5, len(seen_filters)))
     bytes_io = save_fig(fig, fmt)
     return bytes_io.getvalue()
 
