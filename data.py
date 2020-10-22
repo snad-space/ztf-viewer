@@ -58,6 +58,7 @@ def plot_data(oid, dr, data, fmt='png'):
     usetex = fmt == 'pdf'
 
     lcs = {}
+    seen_filters = set()
     for lc_oid, lc in data.items():
         first_obs = lc[0]
         fltr = first_obs['filter']
@@ -66,11 +67,12 @@ def plot_data(oid, dr, data, fmt='png'):
             'm': [obs['mag'] for obs in lc],
             'err': [obs['magerr'] for obs in lc],
             'color': FILTER_COLORS[fltr],
-            'marker_size': 5 if lc_oid == oid else 3.5,
-            'label': rf'{fltr}, \texttt{{{lc_oid}}}' if usetex else f'{fltr}, {lc_oid}',
+            'marker_size': 24 if lc_oid == oid else 12,
+            'label': '' if fltr in seen_filters else fltr,
             'marker': 'o' if lc_oid == oid else 's',
             'zorder': 2 if lc_oid == oid else 1,
         }
+        seen_filters.add(fltr)
 
     fig = matplotlib.figure.Figure(dpi=300)
     ax = fig.subplots()
@@ -92,12 +94,21 @@ def plot_data(oid, dr, data, fmt='png'):
             lc['err'],
             c=lc['color'],
             label=lc['label'],
-            marker=lc['marker'],
-            markersize=lc['marker_size'],
-            markeredgewidth=0.5,
-            markeredgecolor='black',
+            marker='',
             zorder=lc['zorder'],
             ls='',
+            alpha=0.7,
+        )
+        ax.scatter(
+            lc['t'],
+            lc['m'],
+            c=lc['color'],
+            label='',
+            marker=lc['marker'],
+            s=lc['marker_size'],
+            linewidths=0.5,
+            edgecolors='black',
+            zorder=lc['zorder'],
             alpha=0.7,
         )
     ax.legend(loc='upper right')
