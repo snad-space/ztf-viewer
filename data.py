@@ -10,7 +10,7 @@ from matplotlib.ticker import AutoMinorLocator
 from app import app
 from cache import cache
 from cross import find_ztf_oid
-from util import mjd_to_datetime, NotFound, FILTER_COLORS
+from util import mjd_to_datetime, NotFound, FILTER_COLORS, FILTERS_ORDER
 
 
 @cache()
@@ -65,6 +65,7 @@ def plot_data(oid, dr, data, fmt='png'):
         first_obs = lc[0]
         fltr = first_obs['filter']
         lcs[lc_oid] = {
+            'filter': fltr,
             't': [obs['mjd'] for obs in lc],
             'm': [obs['mag'] for obs in lc],
             'err': [obs['magerr'] for obs in lc],
@@ -89,7 +90,7 @@ def plot_data(oid, dr, data, fmt='png'):
     ax.yaxis.set_minor_locator(AutoMinorLocator(2))
     ax.tick_params(which='major', direction='in', length=6, width=1.5)
     ax.tick_params(which='minor', direction='in', length=4, width=1)
-    for lc_oid, lc in lcs.items():
+    for lc_oid, lc in sorted(lcs.items(), key=lambda item: FILTERS_ORDER[item[1]['filter']]):
         ax.errorbar(
             lc['t'],
             lc['m'],
