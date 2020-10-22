@@ -60,6 +60,8 @@ def plot_data(oid, dr, data, fmt='png'):
     lcs = {}
     seen_filters = set()
     for lc_oid, lc in data.items():
+        if len(lc) == 0:
+            continue
         first_obs = lc[0]
         fltr = first_obs['filter']
         lcs[lc_oid] = {
