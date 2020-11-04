@@ -15,6 +15,11 @@ INF = float('inf')
 
 FILTER_COLORS = {'zg': '#117733', 'zr': '#CC3344', 'zi': '#1c1309'}
 FILTERS = tuple(FILTER_COLORS)
+FILTERS_ORDER = {
+    'zg': 1,
+    'zr': 2,
+    'zi': 3,
+}
 
 
 default_dr = 'dr3'

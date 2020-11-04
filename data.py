@@ -5,18 +5,19 @@ import matplotlib.backends.backend_pgf
 import matplotlib.figure
 import pandas as pd
 from flask import Response, request, send_file
+from matplotlib.ticker import AutoMinorLocator
 
 from app import app
 from cache import cache
 from cross import find_ztf_oid
-from util import mjd_to_datetime, NotFound, FILTER_COLORS
+from util import mjd_to_datetime, NotFound, FILTER_COLORS, FILTERS_ORDER
 
 
 @cache()
 def get_plot_data(cur_oid, dr, other_oids=frozenset(), min_mjd=None, max_mjd=None):
     oids = [cur_oid]
-    oids.extend(other_oids)
-    lcs = []
+    oids.extend(sorted(other_oids, key=int))
+    lcs = {}
     for oid in oids:
         if oid == cur_oid:
             size = 3
@@ -32,7 +33,8 @@ def get_plot_data(cur_oid, dr, other_oids=frozenset(), min_mjd=None, max_mjd=Non
             obs['rcid'] = meta['rcid']
             obs['filter'] = meta['filter']
             obs['mark_size'] = size
-        lcs.extend(lc)
+            obs['cur_oid'] = cur_oid
+        lcs[oid] = lc
     return lcs
 
 
@@ -53,43 +55,66 @@ def save_fig(fig, fmt):
 
 
 def plot_data(oid, dr, data, fmt='png'):
-    lcs = {}
-    for d in data:
-        lc = lcs.setdefault(d['oid'], {})
-        t = lc.setdefault('t', [])
-        t.append(d['mjd'])
-        m = lc.setdefault('m', [])
-        m.append(d['mag'])
-        err = lc.setdefault('err', [])
-        err.append(d['magerr'])
-        lc['color'] = FILTER_COLORS[d['filter']]
+    usetex = fmt == 'pdf'
 
-    fig = matplotlib.figure.Figure()
+    lcs = {}
+    seen_filters = set()
+    for lc_oid, lc in data.items():
+        if len(lc) == 0:
+            continue
+        first_obs = lc[0]
+        fltr = first_obs['filter']
+        lcs[lc_oid] = {
+            'filter': fltr,
+            't': [obs['mjd'] for obs in lc],
+            'm': [obs['mag'] for obs in lc],
+            'err': [obs['magerr'] for obs in lc],
+            'color': FILTER_COLORS[fltr],
+            'marker_size': 24 if lc_oid == oid else 12,
+            'label': '' if fltr in seen_filters else fltr,
+            'marker': 'o' if lc_oid == oid else 's',
+            'zorder': 2 if lc_oid == oid else 1,
+        }
+        seen_filters.add(fltr)
+
+    fig = matplotlib.figure.Figure(dpi=300)
     ax = fig.subplots()
     ax.invert_yaxis()
-    if fmt == 'pdf':
-        ax.set_title(rf'\underline{{\href{{https://ztf.snad.space/{dr}/view/{oid}}}{{{oid}}}}}', usetex=True)
+    if usetex:
+        ax.set_title(rf'\underline{{\href{{https://ztf.snad.space/{dr}/view/{oid}}}{{\texttt{{{oid}}}}}}}', usetex=True)
     else:
         ax.set_title(str(oid))
-    ax.set_xlabel('MJD')
-    ax.set_ylabel(r'$m$')
-    ax.scatter(
-        [d['mjd'] for d in data],
-        [d['mag'] for d in data],
-        s=[4 * d['mark_size'] for d in data],
-        color=[FILTER_COLORS[d['filter']] for d in data],
-    )
-    for oid, lc in lcs.items():
+    ax.set_xlabel('MJD', usetex=usetex)
+    ax.set_ylabel('magnitude', usetex=usetex)
+    ax.xaxis.set_minor_locator(AutoMinorLocator(2))
+    ax.yaxis.set_minor_locator(AutoMinorLocator(2))
+    ax.tick_params(which='major', direction='in', length=6, width=1.5)
+    ax.tick_params(which='minor', direction='in', length=4, width=1)
+    for lc_oid, lc in sorted(lcs.items(), key=lambda item: FILTERS_ORDER[item[1]['filter']]):
         ax.errorbar(
             lc['t'],
             lc['m'],
             lc['err'],
             c=lc['color'],
-            ms=0,
+            label=lc['label'],
+            marker='',
+            zorder=lc['zorder'],
             ls='',
-            label=str(oid),
+            alpha=0.7,
         )
-
+        ax.scatter(
+            lc['t'],
+            lc['m'],
+            c=lc['color'],
+            label='',
+            marker=lc['marker'],
+            s=lc['marker_size'],
+            linewidths=0.5,
+            edgecolors='black',
+            zorder=lc['zorder'],
+            alpha=0.7,
+        )
+    ax.legend(loc='upper right', ncol=min(5, len(seen_filters)))
     bytes_io = save_fig(fig, fmt)
     return bytes_io.getvalue()
 
