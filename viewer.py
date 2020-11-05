@@ -39,6 +39,8 @@ MARKER_SIZE = 10
 
 LIST_MAXSHOW = 4
 
+PERIOD_S2N_THRESHOLD = 20.0
+
 
 def parse_pathname(pathname):
     path = pathlib.Path(pathname)
@@ -76,6 +78,7 @@ def get_layout(pathname):
     coord = find_ztf_oid.get_coord_string(oid, dr)
     short_min_mjd, short_max_mjd = min_max_mjd_short(dr)
     min_mjd, max_mjd = (short_min_mjd, short_max_mjd) if is_short else (-INF, INF)
+    features = light_curve_features(oid, dr, min_mjd=min_mjd, max_mjd=max_mjd)
     layout = html.Div([
         html.Div('', id='placeholder', style={'display': 'none'}),
         html.Div(f'{oid}', id='oid', style={'display': 'none'}),
@@ -98,14 +101,14 @@ def get_layout(pathname):
                         # {'label': 'Short light curve', 'value': 'short'},
                         {'label': 'Folded light curve', 'value': 'folded'},
                     ],
-                    value='full',
+                    value='folded' if features['period_s_to_n_0'] > PERIOD_S2N_THRESHOLD else 'full',
                     labelStyle={'display': 'inline-block', 'margin-right': '2em'},
                     id='light-curve-type',
                 ),
                 html.Div(
                     [
                         dcc.Input(
-                            value=light_curve_features(oid, dr)['period_0'],
+                            value=features['period_0'],
                             id='fold-period',
                             placeholder='Period, days',
                             type='number',
