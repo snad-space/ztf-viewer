@@ -100,6 +100,7 @@ class _CatalogQuery:
             frame='icrs'
         )
         table['separation'] = coord.separation(catalog_coord).to('arcsec')
+        table.sort('separation')
         self.add_additional_columns(table)
         return table
 
