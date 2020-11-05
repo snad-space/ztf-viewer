@@ -15,8 +15,6 @@ services:
       - secret.env # TNS_API_KEY
     networks:
       - app
-    env_file:
-      - secret.env
     depends_on:
       - redis
     restart: always

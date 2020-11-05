@@ -115,7 +115,10 @@ class AKB:
 
     def is_token_valid(self, token=None):
         if token is None:
-            token = self._token_from_cookies()
+            try:
+                token = self._token_from_cookies()
+            except UnAuthorized:
+                return False
         return self._is_token_valid(token=token)
 
 

@@ -7,7 +7,6 @@ import dash_core_components as dcc
 import dash_dangerously_set_inner_html as ddsih
 import dash_defer_js_import as dji
 import dash_html_components as html
-import flask
 import numpy as np
 import pandas as pd
 import plotly.express as px
@@ -435,6 +434,7 @@ def set_title(oid):
 def set_akb_info(_, oid):
     if not akb.is_token_valid():
         return None
+
     available_tags = akb.get_tags()
     try:
         akb_item = akb.get_by_oid(oid)
