@@ -19,7 +19,7 @@ from requests import ConnectionError
 from app import app
 from cross import (get_catalog_query, find_vizier, find_ztf_oid, find_ztf_circle, vizier_catalog_details,
                    light_curve_features, catalog_query_objects,)
-from data import get_plot_data
+from data import get_plot_data, MJD_OFFSET
 from products import DateWithFrac, correct_date
 from util import (html_from_astropy_table, to_str, INF, min_max_mjd_short, FILTER_COLORS, FILTERS, NotFound,
                   CatalogUnavailable, joiner)
@@ -555,12 +555,12 @@ def set_figure(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd)
     range_y = [mag_max + 0.1 * mag_ampl, mag_min - 0.1 * mag_ampl]
     figure = px.scatter(
         pd.DataFrame.from_records(lcs),
-        x='mjd_58000',
+        x=f'mjd_{MJD_OFFSET}',
         y='mag',
         error_y='magerr',
         color='filter',
         range_y=range_y,
-        labels={'mjd_58000': 'mjd − 58000'},
+        labels={f'mjd_{MJD_OFFSET}': f'mjd − {MJD_OFFSET}'},
         color_discrete_map=FILTER_COLORS,
         symbol='oid',
         size='mark_size',
