@@ -17,7 +17,6 @@ COLUMNS = {
 }
 
 
-@lru_cache(maxsize=128)
 def get_layout(coordinates, radius_arcsec, dr):
     ra = coordinates.ra.to_value('deg')
     dec = coordinates.dec.to_value('deg')
