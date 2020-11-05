@@ -107,6 +107,7 @@ class _CatalogQuery:
         self.add_objname_column(table)
         self.add_link_column(table)
         self.add_type_column(table)
+        self.add_period_column(table)
         self.add_redshift_column(table)
         self.add_distance_column(table)
 

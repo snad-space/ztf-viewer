@@ -501,7 +501,7 @@ def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_v
     try:
         features = light_curve_features(oid, dr)
         el = elements.setdefault('Period, days', [])
-        el.append(html.Div(
+        el.insert(0, html.Div(
             [
                 f'{features["period_0"]:.3f} (',
                 html.A(
