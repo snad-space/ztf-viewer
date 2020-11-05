@@ -613,7 +613,7 @@ def set_figure(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd,
             symbol='oid',
             size='mark_size',
             size_max=MARKER_SIZE,
-            hover_data=['Heliodate'],
+            hover_data=['Heliodate', 'magerr'],
             custom_data=['mjd', 'oid', 'fieldid', 'rcid', 'filter'],
         )
     elif lc_type == 'folded':
@@ -628,7 +628,7 @@ def set_figure(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd,
             symbol='oid',
             size='mark_size',
             size_max=MARKER_SIZE,
-            hover_data=['folded_time', 'mjd', 'Heliodate'],
+            hover_data=['folded_time', 'mjd', 'Heliodate', 'magerr'],
             custom_data=['mjd', 'oid', 'fieldid', 'rcid', 'filter'],
         )
     else:
