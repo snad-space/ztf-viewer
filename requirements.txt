@@ -10,7 +10,7 @@ jinja2
 requests
 redis
 redis-lru
-ipywidgets
+ipywidgets>=7.0.0
 matplotlib
 cachetools
 scipy

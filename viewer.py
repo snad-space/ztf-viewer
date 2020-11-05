@@ -19,7 +19,7 @@ from requests import ConnectionError
 from app import app
 from cross import (get_catalog_query, find_vizier, find_ztf_oid, find_ztf_circle, vizier_catalog_details,
                    light_curve_features, catalog_query_objects,)
-from data import get_plot_data, MJD_OFFSET
+from data import get_plot_data, get_folded_plot_data, MJD_OFFSET
 from products import DateWithFrac, correct_date
 from util import (html_from_astropy_table, to_str, INF, min_max_mjd_short, FILTER_COLORS, FILTERS, NotFound,
                   CatalogUnavailable, joiner)
@@ -82,16 +82,39 @@ def get_layout(pathname):
         html.Div(f'{dr}', id='dr', style={'display': 'none'}),
         html.Div(min_mjd, id='min-mjd', style={'display': 'none'}),
         html.Div(max_mjd, id='max-mjd', style={'display': 'none'}),
-        dcc.Checklist(
-            id='light-curve-time-interval',
-            options=[
-                {'label': f'"Short" light curve: {short_min_mjd} ≤ MJD ≤ {short_max_mjd}', 'value': 'short'}
-            ],
-            value=['short'] if is_short else [],
-        ),
         html.H2(id='title'),
         html.Div(
             [
+                dcc.Checklist(
+                    id='light-curve-time-interval',
+                    options=[
+                        {'label': f'"Short" light curve: {short_min_mjd} ≤ MJD ≤ {short_max_mjd}', 'value': 'short'}
+                    ],
+                    value=['short'] if is_short else [],
+                ),
+                dcc.RadioItems(
+                    options=[
+                        {'label': 'Full light curve', 'value': 'full'},
+                        # {'label': 'Short light curve', 'value': 'short'},
+                        {'label': 'Folded light curve', 'value': 'folded'},
+                    ],
+                    value='full',
+                    labelStyle={'display': 'inline-block', 'margin-right': '2em'},
+                    id='light-curve-type',
+                ),
+                html.Div(
+                    [
+                        dcc.Input(
+                            value=light_curve_features(oid, dr)['period_0'],
+                            id='fold-period',
+                            placeholder='Period, days',
+                            type='number',
+                        ),
+                        ' period, days',
+                    ],
+                    id='fold-period-layout',
+                    style={'display': 'none',}
+                ),
                 dcc.Graph(
                     id='graph',
                     config={
@@ -412,6 +435,20 @@ def set_min_max_mjd(values, dr):
 
 
 @app.callback(
+    Output('fold-period-layout', 'style'),
+    [Input('light-curve-type', 'value')],
+    state=[State('fold-period-layout', 'style')]
+)
+def show_fold_period_layout(light_curve_type, old_style):
+    style = old_style.copy()
+    if light_curve_type == 'folded':
+        style['display'] = 'inline'
+    else:
+        style['display'] = 'none'
+    return style
+
+
+@app.callback(
     Output('summary', 'children'),
     [
         Input('oid', 'children'),
@@ -543,31 +580,59 @@ def neighbour_oids(different_filter, different_field):
         Input('different_field_neighbours', 'children'),
         Input('min-mjd', 'children'),
         Input('max-mjd', 'children'),
+        Input('light-curve-type', 'value'),
+        Input('fold-period', 'value'),
     ],
 )
-def set_figure(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd):
+def set_figure(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd, lc_type, period):
+    if lc_type == 'folded' and not period:
+        raise PreventUpdate
+
     other_oids = neighbour_oids(different_filter, different_field)
-    lcs = get_plot_data(cur_oid, dr, other_oids=other_oids, min_mjd=min_mjd, max_mjd=max_mjd)
+    if lc_type == 'full':
+        lcs = get_plot_data(cur_oid, dr, other_oids=other_oids, min_mjd=min_mjd, max_mjd=max_mjd)
+    elif lc_type == 'folded':
+        lcs = get_folded_plot_data(cur_oid, dr, period=period, other_oids=other_oids, min_mjd=min_mjd, max_mjd=max_mjd)
+    else:
+        raise ValueError(f'{lc_type = } is unknown')
     lcs = list(chain.from_iterable(lcs.values()))
     mag_min = min(obs['mag'] - obs['magerr'] for obs in lcs)
     mag_max = max(obs['mag'] + obs['magerr'] for obs in lcs)
     mag_ampl = mag_max - mag_min
     range_y = [mag_max + 0.1 * mag_ampl, mag_min - 0.1 * mag_ampl]
-    figure = px.scatter(
-        pd.DataFrame.from_records(lcs),
-        x=f'mjd_{MJD_OFFSET}',
-        y='mag',
-        error_y='magerr',
-        color='filter',
-        range_y=range_y,
-        labels={f'mjd_{MJD_OFFSET}': f'mjd − {MJD_OFFSET}'},
-        color_discrete_map=FILTER_COLORS,
-        symbol='oid',
-        size='mark_size',
-        size_max=MARKER_SIZE,
-        hover_data=['Heliodate'],
-        custom_data=['mjd', 'oid', 'fieldid', 'rcid', 'filter'],
-    )
+    if lc_type == 'full':
+        figure = px.scatter(
+            pd.DataFrame.from_records(lcs),
+            x=f'mjd_{MJD_OFFSET}',
+            y='mag',
+            error_y='magerr',
+            color='filter',
+            range_y=range_y,
+            labels={f'mjd_{MJD_OFFSET}': f'mjd − {MJD_OFFSET}'},
+            color_discrete_map=FILTER_COLORS,
+            symbol='oid',
+            size='mark_size',
+            size_max=MARKER_SIZE,
+            hover_data=['Heliodate'],
+            custom_data=['mjd', 'oid', 'fieldid', 'rcid', 'filter'],
+        )
+    elif lc_type == 'folded':
+        figure = px.scatter(
+            pd.DataFrame.from_records(lcs),
+            x='phase',
+            y='mag',
+            error_y='magerr',
+            color='filter',
+            range_y=range_y,
+            color_discrete_map=FILTER_COLORS,
+            symbol='oid',
+            size='mark_size',
+            size_max=MARKER_SIZE,
+            hover_data=['folded_time', 'mjd', 'Heliodate'],
+            custom_data=['mjd', 'oid', 'fieldid', 'rcid', 'filter'],
+        )
+    else:
+        raise ValueError(f'{lc_type = } is unknown')
     fw = go.FigureWidget(figure)
     fw.layout.hovermode = 'closest'
     fw.layout.xaxis.title.standoff = 0
@@ -578,7 +643,9 @@ def set_figure(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd)
     return fw
 
 
-def set_figure_link(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd, fmt):
+def set_figure_link(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd, lc_type, period, fmt):
+    if lc_type == 'folded' and not period:
+        raise PreventUpdate
     other_oids = neighbour_oids(different_filter, different_field)
     data = [('other_oid', oid) for oid in other_oids]
     if min_mjd is not None:
@@ -587,7 +654,11 @@ def set_figure_link(cur_oid, dr, different_filter, different_field, min_mjd, max
         data.append(('max_mjd', max_mjd))
     data.append(('format', fmt))
     query = urlencode(data)
-    return f'/{dr}/figure/{cur_oid}?{query}'
+    if lc_type == 'full':
+        return f'/{dr}/figure/{cur_oid}?{query}'
+    elif lc_type == 'folded':
+        return f'/{dr}/figure/{cur_oid}/folded/{period}?{query}'
+    raise ValueError(f'{lc_type = } is unknown')
 
 
 app.callback(
@@ -599,6 +670,8 @@ app.callback(
         Input('different_field_neighbours', 'children'),
         Input('min-mjd', 'children'),
         Input('max-mjd', 'children'),
+        Input('light-curve-type', 'value'),
+        Input('fold-period', 'value'),
     ],
 )(partial(set_figure_link, fmt='png'))
 
@@ -612,6 +685,8 @@ app.callback(
         Input('different_field_neighbours', 'children'),
         Input('min-mjd', 'children'),
         Input('max-mjd', 'children'),
+        Input('light-curve-type', 'value'),
+        Input('fold-period', 'value'),
     ],
 )(partial(set_figure_link, fmt='pdf'))
 
