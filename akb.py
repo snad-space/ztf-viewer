@@ -43,6 +43,9 @@ class AKB:
     def _object_url(self, oid):
         return urljoin(self._objects_api_url, f'{oid}/')
 
+    def _object_log_url(self, oid):
+        return urljoin(self._objects_api_url, f'{oid}/log/')
+
     def _tag_url(self, tag_name):
         return urljoin(self._tags_api_url, f'{tag_name}/')
 
@@ -86,6 +89,12 @@ class AKB:
     def post_object(self, oid, tags, description, token=None):
         data = dict(oid=oid, tags=tags, description=description)
         self._put_or_post(self._object_url(oid), self._objects_api_url, data, token=token)
+
+    def get_object_log(self, oid, token=None):
+        try:
+            return self._get(self._object_log_url(oid), token=token)
+        except NotFound:
+            return []
 
     @cachetools.cached(cachetools.TTLCache(maxsize=1024, ttl=3600))
     def whoami(self, token):

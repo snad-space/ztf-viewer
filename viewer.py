@@ -471,7 +471,7 @@ def set_akb_info(_, oid):
         for row, tags in checklist_tags.items()
     ]
 
-    children = checklists + [
+    edit_layout = checklists + [
         dcc.Textarea(
             id='akb-description',
             placeholder='Description',
@@ -495,6 +495,34 @@ def set_akb_info(_, oid):
             n_clicks=0,
         ),
     ]
+
+    log = akb.get_object_log(oid)
+    for entry in log:
+        entry['tags_str'] = ', '.join(chain(*entry['tags']))
+        entry['changed_by_str'] = ', '.join(entry['changed_by'])
+    log_layout = DataTable(
+        data=log,
+        columns=[
+            {'id': 'tags_str', 'name': 'Tags'},
+            {'id': 'description', 'name': 'Description'},
+            {'id': 'changed_by_str', 'name': 'Changed by'},
+            {'id': 'changed_at', 'name': 'Changed at'},
+        ],
+        page_size=5,
+    )
+
+    children = html.Div(
+        [
+            html.Div(
+                edit_layout,
+                style={'width': '50%', 'display': 'inline-block', 'vertical_align': 'top'},
+            ),
+            html.Div(
+                log_layout,
+                style={'width': '40%', 'display': 'inline-block', 'vertical_align': 'top'},
+            ),
+        ]
+    )
 
     return children
 
