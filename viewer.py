@@ -783,11 +783,11 @@ def graph_clicked(data, dr):
     if not (points := data.get('points')):
         raise PreventUpdate
     point = points[0]
-    mjd, oid, fieldid, rcid, filter, _ = point['customdata']
+    mjd, oid, fieldid, rcid, fltr, *_ = point['customdata']
     ra, dec = find_ztf_oid.get_coord(oid, dr)
     date = DateWithFrac.from_mjd(mjd, coord=dict(ra=ra, dec=dec))
     correct_date(date)
-    url = date.sciimg_path(fieldid=fieldid, rcid=rcid, filter=filter)
+    url = date.sciimg_path(fieldid=fieldid, rcid=rcid, filter=fltr)
     return [
         html.A('Download FITS', href=url, id='fits-to-show-url'),
         html.Div(ra, id='fits-to-show-ra', style={'display': 'none'}),
