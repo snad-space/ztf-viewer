@@ -39,8 +39,6 @@ MARKER_SIZE = 10
 
 LIST_MAXSHOW = 4
 
-PERIOD_S2N_THRESHOLD = 20.0
-
 
 def parse_pathname(pathname):
     path = pathlib.Path(pathname)
@@ -101,7 +99,7 @@ def get_layout(pathname):
                         # {'label': 'Short light curve', 'value': 'short'},
                         {'label': 'Folded light curve', 'value': 'folded'},
                     ],
-                    value='folded' if features['period_s_to_n_0'] > PERIOD_S2N_THRESHOLD else 'full',
+                    value='full',
                     labelStyle={'display': 'inline-block', 'margin-right': '2em'},
                     id='light-curve-type',
                 ),
