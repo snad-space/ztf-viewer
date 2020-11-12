@@ -130,7 +130,15 @@ def plot_data(oid, dr, data, fmt='png'):
             zorder=lc['zorder'],
             alpha=0.7,
         )
-    ax.legend(loc='upper right', ncol=min(5, len(seen_filters)))
+    legend_anchor_y = -0.026 if usetex else -0.032
+    ax.legend(
+        bbox_to_anchor=(1, legend_anchor_y),
+        ncol=min(3, len(seen_filters)),
+        # edgecolor='white',
+        # facecolor=(0.95, 0.95, 0.95),
+        frameon=False,
+        handletextpad=0.0,
+    )
     bytes_io = save_fig(fig, fmt)
     return bytes_io.getvalue()
 
@@ -211,7 +219,17 @@ def plot_folded_data(oid, dr, data, period, offset=None, repeat=None, fmt='png')
     ax.set_xlim([-0.1, repeat + 0.1])
     secax = ax.secondary_xaxis('top', functions=(lambda x: x * period, lambda x: x / period))
     secax.set_xlabel('Folded time, days')
-    ax.legend(loc='upper right', ncol=min(5, len(seen_filters)))
+    secax.minorticks_on()
+    secax.tick_params(direction='in', which='both')
+    legend_anchor_y = -0.026 if usetex else -0.032
+    ax.legend(
+        bbox_to_anchor=(1, legend_anchor_y),
+        ncol=min(3, len(seen_filters)),
+        # edgecolor='white',
+        # facecolor=(0.95, 0.95, 0.95),
+        frameon=False,
+        handletextpad=0.0,
+    )
     bytes_io = save_fig(fig, fmt)
     return bytes_io.getvalue()
 

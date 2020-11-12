@@ -11,6 +11,6 @@ requests
 redis
 redis-lru
 ipywidgets>=7.0.0
-matplotlib
+matplotlib>=3.3,<4.0
 cachetools
 scipy
