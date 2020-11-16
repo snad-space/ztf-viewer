@@ -71,7 +71,7 @@ def save_fig(fig, fmt):
     return bytes_io
 
 
-def plot_data(oid, dr, data, fmt='png', copyright=True):
+def plot_data(oid, dr, data, fmt='png', caption=True):
     usetex = fmt == 'pdf'
 
     lcs = {}
@@ -95,7 +95,9 @@ def plot_data(oid, dr, data, fmt='png', copyright=True):
         seen_filters.add(fltr)
 
     fig = matplotlib.figure.Figure(dpi=300)
-    if copyright:
+    if caption:
+        fig.subplots_adjust(bottom=0.13)
+    if caption:
         fig.text(
             0.50,
             0.005,
@@ -152,7 +154,7 @@ def plot_data(oid, dr, data, fmt='png', copyright=True):
     return bytes_io.getvalue()
 
 
-def plot_folded_data(oid, dr, data, period, offset=None, repeat=None, fmt='png', copyright=True):
+def plot_folded_data(oid, dr, data, period, offset=None, repeat=None, fmt='png', caption=True):
     if repeat is None:
         repeat = 2
 
@@ -180,7 +182,7 @@ def plot_folded_data(oid, dr, data, period, offset=None, repeat=None, fmt='png',
         seen_filters.add(fltr)
 
     fig = matplotlib.figure.Figure(dpi=300)
-    if copyright:
+    if caption:
         fig.text(
             0.50,
             0.005,
@@ -190,6 +192,8 @@ def plot_folded_data(oid, dr, data, period, offset=None, repeat=None, fmt='png',
         )
     ax = fig.subplots()
     fig.subplots_adjust(top=0.85)
+    if caption:
+        fig.subplots_adjust(bottom=0.13)
     ax.invert_yaxis()
     if usetex:
         ax.set_title(
@@ -260,22 +264,22 @@ def parse_figure_args_helper(args):
     max_mjd = args.get('max_mjd', None)
     if max_mjd is not None:
         max_mjd = float(max_mjd)
-    copyright = args.get('copyright', 'no') != 'no'
+    caption = args.get('copyright', 'no') != 'no'
 
     if fmt not in MIMES:
         return '', 404
 
-    return dict(fmt=fmt, other_oids=other_oids, min_mjd=min_mjd, max_mjd=max_mjd, copyright=copyright)
+    return dict(fmt=fmt, other_oids=other_oids, min_mjd=min_mjd, max_mjd=max_mjd, caption=caption)
 
 
 @app.server.route('/<dr>/figure/<int:oid>')
 def response_figure(dr, oid):
     kwargs = parse_figure_args_helper(request.args)
     fmt = kwargs.pop('fmt')
-    copyright = kwargs.pop('copyright')
+    caption = kwargs.pop('caption')
 
     data = get_plot_data(oid, dr, **kwargs)
-    img = plot_data(oid, dr, data, fmt=fmt, copyright=copyright)
+    img = plot_data(oid, dr, data, fmt=fmt, caption=caption)
 
     return Response(
         img,
@@ -288,14 +292,14 @@ def response_figure(dr, oid):
 def response_figure_folded(dr, oid, period):
     kwargs = parse_figure_args_helper(request.args)
     fmt = kwargs.pop('fmt')
-    copyright = kwargs.pop('copyright')
+    caption = kwargs.pop('caption')
 
     repeat = request.args.get('repeat', None)
     if repeat is not None:
         repeat = int(repeat)
 
     data = get_folded_plot_data(oid, dr, period=period, **kwargs)
-    img = plot_folded_data(oid, dr, data, period=period, repeat=repeat, fmt=fmt, copyright=copyright)
+    img = plot_folded_data(oid, dr, data, period=period, repeat=repeat, fmt=fmt, caption=caption)
 
     return Response(
         img,
