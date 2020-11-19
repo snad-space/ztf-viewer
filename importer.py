@@ -12,7 +12,7 @@ def import_matplotlib():
     matplotlib.rcParams['ps.fonttype'] = 42
     matplotlib.rcParams['font.size'] = 14
     matplotlib.rcParams['font.family'] = 'serif'
-    matplotlib.rcParams['pgf.rcfonts'] = False
+    matplotlib.rcParams['pgf.rcfonts'] = True
     matplotlib.rcParams['pgf.preamble'] = r'''
         \usepackage{hyperref}
         \hypersetup{colorlinks=true, urlcolor=black}
