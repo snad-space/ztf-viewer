@@ -10,6 +10,7 @@ def import_matplotlib():
     matplotlib.use('pgf')
     matplotlib.rcParams['pdf.fonttype'] = 42
     matplotlib.rcParams['ps.fonttype'] = 42
+    matplotlib.rcParams['font.size'] = 14
     matplotlib.rcParams['font.family'] = 'serif'
     matplotlib.rcParams['pgf.rcfonts'] = False
     matplotlib.rcParams['pgf.preamble'] = r'''

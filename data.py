@@ -94,9 +94,7 @@ def plot_data(oid, dr, data, fmt='png', caption=True):
         }
         seen_filters.add(fltr)
 
-    fig = matplotlib.figure.Figure(dpi=300)
-    if caption:
-        fig.subplots_adjust(bottom=0.13)
+    fig = matplotlib.figure.Figure(dpi=300, figsize=(6.4, 4.8), constrained_layout=True)
     if caption:
         fig.text(
             0.50,
@@ -145,8 +143,7 @@ def plot_data(oid, dr, data, fmt='png', caption=True):
     ax.legend(
         bbox_to_anchor=(1, legend_anchor_y),
         ncol=min(3, len(seen_filters)),
-        # edgecolor='white',
-        # facecolor=(0.95, 0.95, 0.95),
+        columnspacing=0.5,
         frameon=False,
         handletextpad=0.0,
     )
@@ -181,7 +178,7 @@ def plot_folded_data(oid, dr, data, period, offset=None, repeat=None, fmt='png',
         }
         seen_filters.add(fltr)
 
-    fig = matplotlib.figure.Figure(dpi=300)
+    fig = matplotlib.figure.Figure(dpi=300, figsize=(6.4, 4.8), constrained_layout=True)
     if caption:
         fig.text(
             0.50,
@@ -191,9 +188,6 @@ def plot_folded_data(oid, dr, data, period, offset=None, repeat=None, fmt='png',
             fontdict=dict(size=8, color='grey', usetex=usetex),
         )
     ax = fig.subplots()
-    fig.subplots_adjust(top=0.85)
-    if caption:
-        fig.subplots_adjust(bottom=0.13)
     ax.invert_yaxis()
     if usetex:
         ax.set_title(
@@ -246,8 +240,7 @@ def plot_folded_data(oid, dr, data, period, offset=None, repeat=None, fmt='png',
     ax.legend(
         bbox_to_anchor=(1, legend_anchor_y),
         ncol=min(3, len(seen_filters)),
-        # edgecolor='white',
-        # facecolor=(0.95, 0.95, 0.95),
+        columnspacing=0.5,
         frameon=False,
         handletextpad=0.0,
     )
