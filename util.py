@@ -30,15 +30,15 @@ FILTER_COLORS = {
 FILTERS = tuple(FILTER_COLORS)
 ZTF_FILTERS = ('zg', 'zr', 'zi')
 FILTERS_ORDER = {
-    'zg': 1,
-    'zr': 2,
-    'zi': 3,
-    'g': 4,
-    'r': 5,
-    'i': 6,
-    "g'": 7,
-    "r'": 8,
-    "i'": 9,
+    'g': 1,
+    'r': 2,
+    'i': 3,
+    "g'": 4,
+    "r'": 5,
+    "i'": 6,
+    'zg': 7,
+    'zr': 8,
+    'zi': 9,
 }
 
 
