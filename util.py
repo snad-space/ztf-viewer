@@ -1,24 +1,44 @@
+import json
 import logging
 import math
 import re
 from functools import wraps
+from itertools import chain
 
 import astropy.table
 import datetime
 import numpy as np
 from astropy import units
 from astropy.time import Time
+from immutabledict import immutabledict
 from jinja2 import Template
 
 
 INF = float('inf')
 
-FILTER_COLORS = {'zg': '#117733', 'zr': '#CC3344', 'zi': '#1c1309'}
+FILTER_COLORS = {
+    'zg': '#117733',
+    'zr': '#CC3344',
+    'zi': '#1c1309',
+    'g': '#117733',
+    'r': '#CC3344',
+    'i': '#1c1309',
+    "g'": '#117733',
+    "r'": '#CC3344',
+    "i'": '#1c1309',
+}
 FILTERS = tuple(FILTER_COLORS)
+ZTF_FILTERS = ('zg', 'zr', 'zi')
 FILTERS_ORDER = {
     'zg': 1,
     'zr': 2,
     'zi': 3,
+    'g': 4,
+    'r': 5,
+    'i': 6,
+    "g'": 7,
+    "r'": 8,
+    "i'": 9,
 }
 
 
@@ -138,3 +158,20 @@ def joiner(value, iterator):
     for item in iterator:
         yield value
         yield item
+
+
+def _json_hook(d):
+    for k, v in d.items():
+        if isinstance(v, list):
+            d[k] = tuple(v)
+    return immutabledict(d)
+
+
+def parse_json_to_immutable(s):
+    return json.loads(s, object_hook=_json_hook)
+
+
+def flip(items, ncol):
+    """https://stackoverflow.com/a/10101532/5437597"""
+    return chain(*[items[i::ncol] for i in range(ncol)])
+

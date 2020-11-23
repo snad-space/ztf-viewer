@@ -524,7 +524,7 @@ def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_v
         mags.setdefault(obs['filter'], []).append(obs['mag'])
     mean_mag = {fltr: np.mean(m) for fltr, m in mags.items()}
     elements['Average mag (including neighbourhood)'] = [f'{fltr} {mean_mag[fltr]: .2f}'
-                                                         for fltr in FILTERS
+                                                         for fltr in ZTF_FILTERS
                                                          if fltr in mean_mag]
     if 'zg' in mean_mag and 'zr' in mean_mag:
         elements['Average mag (including neighbourhood)'].append(f'(zg–zr) {mean_mag["zg"] - mean_mag["zr"]: .2f}')

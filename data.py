@@ -12,14 +12,31 @@ from matplotlib.ticker import AutoMinorLocator
 from app import app
 from cache import cache
 from cross import find_ztf_oid
-from util import mjd_to_datetime, NotFound, FILTER_COLORS, FILTERS_ORDER
+from immutabledict import immutabledict
+from util import mjd_to_datetime, NotFound, FILTER_COLORS, FILTERS_ORDER, parse_json_to_immutable, ZTF_FILTERS, flip
 
 
 MJD_OFFSET = 58000
 
 
 @cache()
-def get_plot_data(cur_oid, dr, other_oids=frozenset(), min_mjd=None, max_mjd=None):
+def get_plot_data(cur_oid, dr, other_oids=frozenset(), min_mjd=None, max_mjd=None, additional_data=immutabledict()):
+    """Get plot data
+
+    additional_data format is:
+    {
+        'id1': [
+            {
+                'mjd': 58800.3,
+                'mag': 18.1,
+                'magerr': 0.34,
+                'filter': 'r',
+            },
+            ...
+        ],
+        ...
+    }
+    """
     oids = [cur_oid]
     oids.extend(sorted(other_oids, key=int))
     lcs = {}
@@ -31,23 +48,35 @@ def get_plot_data(cur_oid, dr, other_oids=frozenset(), min_mjd=None, max_mjd=Non
         lc = find_ztf_oid.get_lc(oid, dr, min_mjd=min_mjd, max_mjd=max_mjd)
         meta = find_ztf_oid.get_meta(oid, dr)
         for obs in lc:
-            obs[f'mjd_{MJD_OFFSET}'] = obs['mjd'] - MJD_OFFSET
-            obs['Heliodate'] = mjd_to_datetime(obs['mjd']).strftime('%Y-%m-%d %H:%m:%S')
             obs['oid'] = oid
             obs['fieldid'] = meta['fieldid']
             obs['rcid'] = meta['rcid']
             obs['filter'] = meta['filter']
             obs['mark_size'] = size
-            obs['cur_oid'] = cur_oid
         lcs[oid] = lc
+    for identifier, lc in additional_data.items():
+        list_lc = []
+        for obs in lc:
+            obs = dict(obs)
+            obs['oid'] = identifier
+            obs['mark_size'] = 3
+            list_lc.append(obs)
+        lcs[identifier] = list_lc
+    for lc in lcs.values():
+        for obs in lc:
+            obs[f'mjd_{MJD_OFFSET}'] = obs['mjd'] - MJD_OFFSET
+            obs['Heliodate'] = mjd_to_datetime(obs['mjd']).strftime('%Y-%m-%d %H:%m:%S')
+            obs['cur_oid'] = cur_oid
     return lcs
 
 
 @cache()
-def get_folded_plot_data(cur_oid, dr, period, offset=None, other_oids=frozenset(), min_mjd=None, max_mjd=None):
+def get_folded_plot_data(cur_oid, dr, period, offset=None, other_oids=frozenset(), min_mjd=None, max_mjd=None,
+                         additional_data=immutabledict()):
     if offset is None:
         offset = MJD_OFFSET
-    lcs = get_plot_data(cur_oid, dr, other_oids=other_oids, min_mjd=min_mjd, max_mjd=max_mjd)
+    lcs = get_plot_data(cur_oid, dr, other_oids=other_oids, min_mjd=min_mjd, max_mjd=max_mjd,
+                        additional_data=additional_data)
     for lc in lcs.values():
         for obs in lc:
             obs['folded_time'] = (obs['mjd'] - offset) % period
@@ -81,16 +110,36 @@ def plot_data(oid, dr, data, fmt='png', caption=True):
             continue
         first_obs = lc[0]
         fltr = first_obs['filter']
+
+        marker = 's'
+        if lc_oid == oid:
+            marker = 'o'
+        if fltr not in ZTF_FILTERS:
+            marker = 'd'
+
+        marker_size = 12
+        if lc_oid == oid:
+            marker_size = 24
+        if fltr not in ZTF_FILTERS:
+            marker_size = 36
+
+        zorder = 1
+        if lc_oid == oid:
+            zorder = 2
+        if fltr not in ZTF_FILTERS:
+            zorder = 3
+
         lcs[lc_oid] = {
             'filter': fltr,
             't': [obs['mjd'] for obs in lc],
             'm': [obs['mag'] for obs in lc],
             'err': [obs['magerr'] for obs in lc],
             'color': FILTER_COLORS[fltr],
-            'marker_size': 24 if lc_oid == oid else 12,
-            'label': '' if fltr in seen_filters else fltr,
-            'marker': 'o' if lc_oid == oid else 's',
-            'zorder': 2 if lc_oid == oid else 1,
+            'marker_size': marker_size,
+            'label_errorbar': '' if fltr in seen_filters or fltr not in ZTF_FILTERS else fltr,
+            'label_scatter': '' if fltr in seen_filters or fltr in ZTF_FILTERS else fltr,
+            'marker': marker,
+            'zorder': zorder,
         }
         seen_filters.add(fltr)
 
@@ -115,13 +164,13 @@ def plot_data(oid, dr, data, fmt='png', caption=True):
     ax.yaxis.set_minor_locator(AutoMinorLocator(2))
     ax.tick_params(which='major', direction='in', length=6, width=1.5)
     ax.tick_params(which='minor', direction='in', length=4, width=1)
-    for lc_oid, lc in sorted(lcs.items(), key=lambda item: FILTERS_ORDER[item[1]['filter']]):
+    for lc in lcs.values():
         ax.errorbar(
             lc['t'],
             lc['m'],
             lc['err'],
             c=lc['color'],
-            label=lc['label'],
+            label=lc['label_errorbar'],
             marker='',
             zorder=lc['zorder'],
             ls='',
@@ -131,7 +180,7 @@ def plot_data(oid, dr, data, fmt='png', caption=True):
             lc['t'],
             lc['m'],
             c=lc['color'],
-            label='',
+            label=lc['label_scatter'],
             marker=lc['marker'],
             s=lc['marker_size'],
             linewidths=0.5,
@@ -140,7 +189,9 @@ def plot_data(oid, dr, data, fmt='png', caption=True):
             alpha=0.7,
         )
     legend_anchor_y = -0.026 if usetex else -0.032
+    handles, labels = zip(*sorted(zip(*ax.get_legend_handles_labels()), key=lambda hl: FILTERS_ORDER[hl[1]]))
     ax.legend(
+        flip(handles, 3), flip(labels, 3),
         bbox_to_anchor=(1, legend_anchor_y),
         ncol=min(3, len(seen_filters)),
         columnspacing=0.5,
@@ -248,7 +299,7 @@ def plot_folded_data(oid, dr, data, period, offset=None, repeat=None, fmt='png',
     return bytes_io.getvalue()
 
 
-def parse_figure_args_helper(args):
+def parse_figure_args_helper(args, data=None):
     fmt = args.get('format', 'png')
     other_oids = frozenset(args.getlist('other_oid'))
     min_mjd = args.get('min_mjd', None)
@@ -262,12 +313,17 @@ def parse_figure_args_helper(args):
     if fmt not in MIMES:
         return '', 404
 
-    return dict(fmt=fmt, other_oids=other_oids, min_mjd=min_mjd, max_mjd=max_mjd, caption=caption)
+    if data:
+        data = parse_json_to_immutable(data)
+    else:
+        data = immutabledict()
+
+    return dict(fmt=fmt, other_oids=other_oids, min_mjd=min_mjd, max_mjd=max_mjd, caption=caption, additional_data=data)
 
 
-@app.server.route('/<dr>/figure/<int:oid>')
+@app.server.route('/<dr>/figure/<int:oid>', methods=['GET', 'POST'])
 def response_figure(dr, oid):
-    kwargs = parse_figure_args_helper(request.args)
+    kwargs = parse_figure_args_helper(request.args, request.get_data(cache=False))
     fmt = kwargs.pop('fmt')
     caption = kwargs.pop('caption')
 
