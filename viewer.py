@@ -172,6 +172,7 @@ def get_layout(pathname):
                                         ' search radius, arcsec',
                                         html.Div(id='different_filter_neighbours'),
                                     ],
+                                    style={'width': '45%', 'display': 'inline-block'},
                                 ),
                                 html.Div(
                                     [
@@ -188,6 +189,7 @@ def get_layout(pathname):
                                         ' search radius, arcsec',
                                         html.Div(id='different_field_neighbours'),
                                     ],
+                                    style={'width': '45%', 'display': 'inline-block'},
                                 ),
                             ],
                             id='neighbours-layout',
