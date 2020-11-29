@@ -92,6 +92,17 @@ app.layout = html.Div([
         ]
     ),
     html.Div(id='page-content'),
+    html.Footer(
+        [
+            'Created by ',
+            html.A('the SNAD team', href='//snad.space'),
+            ' based on ',
+            html.A('the ZTF Caltech data.', href='//ztf.caltech.edu'),
+            ' See the source code ',
+            html.A('on GitHub', href='//github.com/snad-space/ztf-viewer'),
+        ],
+        style={'margin-top': '5em',}
+    ),
 ])
 
 
@@ -170,16 +181,6 @@ def app_select_by_url(pathname):
                     html.A(f'HZ Her, zg passband, {default_dr.upper()}', href=f'/{default_dr}/view/680113300005170'),
                 ]
             ),
-            html.Footer(
-                [
-                    'Created by ',
-                    html.A('the SNAD team', href='//snad.space'),
-                    ' based on ',
-                    html.A('the ZTF Caltech data.', href='//ztf.caltech.edu'),
-                    ' See the source code ',
-                    html.A('on GitHub', href='//github.com/snad-space/ztf-viewer'),
-                ]
-            )
         ]
     if match := re.search(r'^/+view/+(\d+)', pathname):
         return get_viewer_layout(f'/{default_dr}/view/{match.group(1)}')
