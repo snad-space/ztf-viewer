@@ -177,6 +177,12 @@ def app_select_by_url(pathname):
         dr = m.group(1) or default_dr
         another_dr = 'dr2' if dr == 'dr3' else 'dr3'
         return [
+            html.Div(
+                [
+                    'For example see the page for ',
+                    html.A(f'HZ Her', href=f'/{default_dr}/view/680113300005170'),
+                ]
+            ),
             html.H2('Welcome to SNAD ZTF object viewer!'),
             html.Big(
                 [
@@ -220,13 +226,6 @@ def app_select_by_url(pathname):
                     'The viewer is also available for ',
                     html.A(f'ZTF {another_dr.upper()}', href=f'/{another_dr}'),
                 ],
-            ),
-            html.Br(),
-            html.Div(
-                [
-                    'For example see the page for ',
-                    html.A(f'HZ Her', href=f'/{default_dr}/view/680113300005170'),
-                ]
             ),
         ]
     if match := re.search(r'^/+view/+(\d+)', pathname):
