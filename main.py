@@ -16,7 +16,7 @@ from dash.dependencies import Input, Output, State
 
 from app import app
 from search import get_layout as get_search_layout
-from util import default_dr
+from util import default_dr, YEAR
 from viewer import get_layout as get_viewer_layout
 
 
@@ -94,9 +94,9 @@ app.layout = html.Div([
     html.Div(id='page-content'),
     html.Footer(
         [
-            'Created by ',
-            html.A('the SNAD team', href='//snad.space'),
-            ' based on ',
+            f'© {YEAR} ',
+            html.A('SИAD', href='//snad.space'),
+            '. Developed by Konstantin Malanchev, based on ',
             html.A('the ZTF Caltech data.', href='//ztf.caltech.edu'),
             ' See the source code ',
             html.A('on GitHub', href='//github.com/snad-space/ztf-viewer'),

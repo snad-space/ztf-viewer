@@ -14,6 +14,9 @@ from immutabledict import immutabledict
 from jinja2 import Template
 
 
+YEAR = datetime.datetime.now().year
+
+
 INF = float('inf')
 
 FILTER_COLORS = {
