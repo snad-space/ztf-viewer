@@ -41,7 +41,7 @@ app.layout = html.Div([
                     ' object viewer',
                 ],
             ),
-            'Search by OID: ',
+            'OID ',
             dcc.Input(
                 id='input-oid',
                 placeholder='680113300005170',
@@ -64,7 +64,7 @@ app.layout = html.Div([
     ),
     html.Div(
         [
-            'Cone search by Simbad identifier or coordinates ',
+            'Coordinates ',
             dcc.Input(
                 id='input-coord-or-name',
                 placeholder='16:23:29.20 +28:49:59.1',
