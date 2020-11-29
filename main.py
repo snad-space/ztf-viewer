@@ -173,12 +173,59 @@ def go_to_url(n_clicks_oid, n_submit_oid, n_clicks_search,
     [Input('url', 'pathname')],
 )
 def app_select_by_url(pathname):
-    if re.search(r'^/+(?:dr\d/+)?$', pathname):
+    if m := re.search(r'^/+(?:(dr\d)/+)?$', pathname):
+        dr = m.group(1) or default_dr
+        another_dr = 'dr2' if dr == 'dr3' else 'dr3'
         return [
+            html.H2('Welcome to SNAD ZTF object viewer!'),
+            html.Big(
+                [
+                    'This is a tool developed by the ',
+                    html.A('SИAD team', href='//snad.space'),
+                    ' in order to enable quick expert investigation of objects within the public ',
+                    html.A('Zwicky Transient Facility (ZTF)', href='//ztf.caltech.edu'),
+                    ' data releases.',
+                    html.Br(),
+                    'It was developed as part of the ',
+                    html.A('3rd SИAD Workshop', href='//snad.space/2020/'),
+                    ', held remotely in July, 2020.',
+                    html.Br(),
+                    'The viewer allows visualization of raw and folded light curves and metadata, as well as cross-match information with the ',
+                    html.A('the General Catalog of Variable Stars', href='http://www.sai.msu.ru/gcvs/intro.htm'),
+                    ', ',
+                    html.A('the International Variable Stars Index', href='//www.aavso.org/vsx/index.php?view=about.top'),
+                    ', ',
+                    html.A('the ATLAS Catalog of Variable Stars', href='//archive.stsci.edu/prepds/atlas-var/'),
+                    ', ',
+                    html.A('the ZTF Catalog of Periodic Variable Stars', href='//zenodo.org/record/3886372'),
+                    ', ',
+                    html.A('the Transient Name Server', href='//www.wis-tns.org'),
+                    ', ',
+                    html.A('the Open Astronomy Catalogs', href='//astrocats.space/'),
+                    ', ',
+                    html.A('the OGLE III Catalog of Variable Stars', href='http://ogledb.astrouw.edu.pl/~ogle/CVS/'),
+                    ', ',
+                    html.A('the Simbad Astronomical Data Base', href='//simbad.u-strasbg.fr/simbad/'),
+                    ', ',
+                    html.A('Gaia DR2 distances (Bailer-Jones+, 2018)', href='//vizier.u-strasbg.fr/viz-bin/VizieR?-source=I/347'),
+                    ', ',
+                    html.A('Vizier', href='//vizier.u-strasbg.fr/viz-bin/VizieR'),
+                    '.',
+                    html.Br(),
+                ],
+            ),
+            html.Br(),
             html.Div(
                 [
-                    'Example: ',
-                    html.A(f'HZ Her, zg passband in field 680', href=f'/{default_dr}/view/680113300005170'),
+                    'The viewer is also available for ',
+                    html.A(f'ZTF {another_dr.upper()}', href=f'/{another_dr}'),
+                ],
+            ),
+            html.Br(),
+            html.Div(
+                [
+                    'For example see the page for ',
+                    html.A(f'HZ Her', href=f'/{default_dr}/view/680113300005170'),
                 ]
             ),
         ]
