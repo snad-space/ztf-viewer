@@ -37,11 +37,7 @@ app.layout = html.Div([
                         href='/',
                     ),
                     ' ',
-                    # html.Div('DR1', id='dr1-switch', style={'display': 'inline-block'}),
-                    # ' / ',
-                    html.Div('DR2', id='dr2-switch', style={'display': 'inline-block'}),
-                    ' / ',
-                    html.Div('DR3', id='dr3-switch', style={'display': 'inline-block'}),
+                    html.Div('DR3', id='dr-title', style={'display': 'inline-block'}),
                     ' object viewer',
                 ],
             ),
@@ -122,24 +118,12 @@ def dr_switch(current_dr, current_url, switch_dr):
     return html.A(switch_dr.upper(), href=switch_url, style={'text-decoration-style': 'dashed'})
 
 
-app.callback(
-    Output('dr1-switch', 'children'),
+@app.callback(
+    Output('dr-title', 'children'),
     [Input('data-release', 'children')],
-    state=[State('url', 'pathname')]
-)(partial(dr_switch, switch_dr='dr1'))
-
-app.callback(
-    Output('dr2-switch', 'children'),
-    [Input('data-release', 'children')],
-    state=[State('url', 'pathname')]
-)(partial(dr_switch, switch_dr='dr2'))
-
-
-app.callback(
-    Output('dr3-switch', 'children'),
-    [Input('data-release', 'children')],
-    state=[State('url', 'pathname')]
-)(partial(dr_switch, switch_dr='dr3'))
+)
+def set_dr_title(dr):
+    return dr.upper()
 
 
 @app.callback(
