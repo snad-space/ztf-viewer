@@ -150,14 +150,14 @@ def get_layout(pathname):
                     [
                         html.Div(
                             [
-                                html.H3('Summary'),
+                                html.H2('Summary'),
                                 html.Div(id='summary'),
                             ],
                             id='summary-layout',
                         ),
                         html.Div(
                             [
-                                html.H3('Neighbours'),
+                                html.H2('Neighbours'),
                                 html.Div(
                                     [
                                         html.H4('Different passband, same field'),
@@ -197,7 +197,7 @@ def get_layout(pathname):
                         ),
                         html.Div(
                             [
-                                html.H3('Metadata'),
+                                html.H2('Metadata'),
                                 html.Div(id='metadata'),
                             ],
                             id='metadata-layout',
@@ -208,7 +208,7 @@ def get_layout(pathname):
                 ),
                 html.Div(
                     [
-                        html.H3(html.A('Aladin', href=f'//aladin.u-strasbg.fr/AladinLite/?target={coord}')),
+                        html.H2(html.A('Aladin', href=f'//aladin.u-strasbg.fr/AladinLite/?target={coord}')),
                         set_div_for_aladin(oid, dr),
                         html.Div(
                             id='aladin-lite-div',
@@ -230,20 +230,7 @@ def get_layout(pathname):
         ),
         html.Div(
             [
-                html.H2('External catalogs'),
-            ]
-            + list(joiner(', ', [
-                html.A(
-                    query.query_name,
-                    href=f'#{catalog}',
-                    style={'border-bottom': '1px dashed', 'text-decoration': 'none'},
-                )
-                for catalog, query in catalog_query_objects().items()
-            ])),
-        ),
-        html.Div(
-            [
-                html.H3('General Catalogue of Variable Stars (GCVS)'),
+                html.H2('GCVS'),
                 dcc.Input(
                     value='10',
                     id=dict(type='search-radius', index='gcvs'),
@@ -257,7 +244,7 @@ def get_layout(pathname):
         ),
         html.Div(
             [
-                html.H3('AAVSO Variable Star Index (VSX)'),
+                html.H2('AAVSO VSX'),
                 dcc.Input(
                     value='10',
                     id=dict(type='search-radius', index='vsx'),
@@ -271,7 +258,7 @@ def get_layout(pathname):
         ),
         html.Div(
             [
-                html.H3('ATLAS catalog of variable stars'),
+                html.H2('ATLAS catalog of variable stars'),
                 dcc.Input(
                     value='10',
                     id=dict(type='search-radius', index='atlas'),
@@ -285,7 +272,7 @@ def get_layout(pathname):
         ),
         html.Div(
             [
-                html.H3('ZTF Catalog of Periodic Variable Stars'),
+                html.H2('ZTF Catalog of Periodic Variable Stars'),
                 dcc.Input(
                     value='1',
                     id=dict(type='search-radius', index='ztf-periodic'),
@@ -302,7 +289,7 @@ def get_layout(pathname):
         ),
         html.Div(
             [
-                html.H3('Transient Name Server'),
+                html.H2('Transient Name Server'),
                 dcc.Input(
                     value='5',
                     id=dict(type='search-radius', index='transient-name-server'),
@@ -317,7 +304,7 @@ def get_layout(pathname):
         ),
         html.Div(
             [
-                html.H3('Astrocats'),
+                html.H2('Astrocats'),
                 dcc.Input(
                     value='5',
                     id=dict(type='search-radius', index='astrocats'),
@@ -332,7 +319,7 @@ def get_layout(pathname):
         ),
         html.Div(
             [
-                html.H3('Optical Gravitational Lensing Experiment III (OGLE-III)'),
+                html.H2('OGLE-III'),
                 dcc.Input(
                     value='10',
                     id=dict(type='search-radius', index='ogle'),
@@ -348,7 +335,7 @@ def get_layout(pathname):
         ),
         html.Div(
             [
-                html.H3('Simbad'),
+                html.H2('Simbad'),
                 dcc.Input(
                     value='50',
                     id=dict(type='search-radius', index='simbad'),
@@ -362,7 +349,7 @@ def get_layout(pathname):
         ),
         html.Div(
             [
-                html.H3('Gaia DR2 Distances (Bailer-Jones et al 2018)'),
+                html.H2('Gaia DR2 Distances'),
                 dcc.Input(
                     value='1',
                     id=dict(type='search-radius', index='gaia-dr2-distances'),
@@ -376,7 +363,7 @@ def get_layout(pathname):
         ),
         html.Div(
             [
-                html.H3('Vizier'),
+                html.H2('Vizier'),
                 html.A(
                     'Search on Vizier website within',
                     id='search-on-vizier',
@@ -409,8 +396,7 @@ def get_layout(pathname):
             ],
             id='features',
         ),
-        html.H2('Light curve'),
-        html.H3(
+        html.H2(
             [
                 'Download light curve: ',
                 html.A('CSV', href=f'/{dr}/csv/{oid}'),
@@ -420,10 +406,13 @@ def get_layout(pathname):
             id='download-lc',
         ),
         html.Div(
-            DataTable(
-                id='light-curve-table',
-                columns=[{'name': column, 'id': column} for column in LIGHT_CURVE_TABLE_COLUMNS],
-            ),
+            [
+                html.H2('Light curve'),
+                DataTable(
+                    id='light-curve-table',
+                    columns=[{'name': column, 'id': column} for column in LIGHT_CURVE_TABLE_COLUMNS],
+                ),
+            ],
             id='light-curve',
             style={'width': '75%'},
         ),
