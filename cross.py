@@ -141,9 +141,6 @@ class _CatalogQuery:
         return f'<a href="{self.get_url(id)}">{name}</a>'
 
 
-catalog_query_objects = _CatalogQuery.get_objects
-
-
 class SimbadQuery(_CatalogQuery):
     id_column = 'MAIN_ID'
     type_column = 'OTYPE'
@@ -764,3 +761,13 @@ class LightCurveFeatures:
 
 
 light_curve_features = LightCurveFeatures()
+
+
+CANONICAL_QUERY_ORDER = ('gcvs', 'vsx', 'atlas', 'ztf-periodic', 'transient-name-server', 'astrocats', 'ogle', 'simbad',
+                         'gaia-dr2-distances',)
+
+
+def catalog_query_objects():
+    objects = _CatalogQuery.get_objects()
+    objects = {k: objects[k] for k in CANONICAL_QUERY_ORDER}
+    return objects
