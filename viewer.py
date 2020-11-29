@@ -244,7 +244,7 @@ def get_layout(pathname):
         ),
         html.Div(
             [
-                html.H2('AAVSO VSX'),
+                html.H2('VSX'),
                 dcc.Input(
                     value='10',
                     id=dict(type='search-radius', index='vsx'),
@@ -258,7 +258,7 @@ def get_layout(pathname):
         ),
         html.Div(
             [
-                html.H2('ATLAS catalog of variable stars'),
+                html.H2('ATLAS'),
                 dcc.Input(
                     value='10',
                     id=dict(type='search-radius', index='atlas'),
