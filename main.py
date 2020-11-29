@@ -178,7 +178,7 @@ def app_select_by_url(pathname):
             html.Div(
                 [
                     'Example: ',
-                    html.A(f'HZ Her, zg passband, {default_dr.upper()}', href=f'/{default_dr}/view/680113300005170'),
+                    html.A(f'HZ Her, zg passband in field 680', href=f'/{default_dr}/view/680113300005170'),
                 ]
             ),
         ]

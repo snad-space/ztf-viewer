@@ -72,6 +72,7 @@ def get_layout(pathname):
         find_ztf_oid.find(oid, dr)
     except NotFound:
         return html.H1('404')
+    another_dr = 'dr2' if dr == 'dr3' else 'dr3'
     ra, dec = find_ztf_oid.get_coord(oid, dr)
     coord = find_ztf_oid.get_coord_string(oid, dr)
     short_min_mjd, short_max_mjd = min_max_mjd_short(dr)
@@ -220,6 +221,12 @@ def get_layout(pathname):
                 ),
             ],
             id='neighbours-metadata-aladin-layout',
+        ),
+        html.H3(
+            [
+                'Same object in ',
+                html.A(another_dr.upper(), href=f'/{another_dr}/view/{oid}'),
+            ],
         ),
         html.Div(
             [
