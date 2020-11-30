@@ -224,7 +224,7 @@ def app_select_by_url(pathname):
             html.Div(
                 [
                     'The viewer is also available for ',
-                    html.A(f'ZTF {another_dr.upper()}', href=f'/{another_dr}'),
+                    html.A(f'ZTF {another_dr.upper()}', href=f'/{another_dr}/'),
                 ],
             ),
         ]
