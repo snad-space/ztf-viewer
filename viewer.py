@@ -650,6 +650,7 @@ def set_figure(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd,
     fw.layout.legend.orientation = 'h'
     fw.layout.legend.xanchor = 'left'
     fw.layout.legend.y = -0.1
+    fw.layout.plot_bgcolor = '#E8E8E8'
     return fw
 
 
