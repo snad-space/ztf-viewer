@@ -20,14 +20,14 @@ YEAR = datetime.datetime.now().year
 INF = float('inf')
 
 FILTER_COLORS = {
-    'zg': '#B5E466',
-    'zr': '#D55B18',
+    'zg': '#62D03E',
+    'zr': '#CC3344',
     'zi': '#1c1309',
-    'g': '#B5E466',
-    'r': '#D55B18',
+    'g': '#62D03E',
+    'r': '#CC3344',
     'i': '#1c1309',
-    "g'": '#B5E466',
-    "r'": '#D55B18',
+    "g'": '#62D03E',
+    "r'": '#CC3344',
     "i'": '#1c1309',
 }
 FILTERS = tuple(FILTER_COLORS)

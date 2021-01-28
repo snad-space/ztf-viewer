@@ -643,6 +643,10 @@ def set_figure(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd,
         )
     else:
         raise ValueError(f'{lc_type = } is unknown')
+    figure.update_traces(
+        marker=dict(line=dict(width=0.5, color='black')),
+        selector=dict(mode='markers'),
+    )
     fw = go.FigureWidget(figure)
     fw.layout.hovermode = 'closest'
     fw.layout.xaxis.title.standoff = 0
