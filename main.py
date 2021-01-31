@@ -16,7 +16,7 @@ from dash.dependencies import Input, Output, State
 
 from app import app
 from search import get_layout as get_search_layout
-from util import default_dr, YEAR
+from util import available_drs, default_dr, joiner, YEAR
 from viewer import get_layout as get_viewer_layout
 
 
@@ -175,12 +175,12 @@ def go_to_url(n_clicks_oid, n_submit_oid, n_clicks_search,
 def app_select_by_url(pathname):
     if m := re.search(r'^/+(?:(dr\d)/+)?$', pathname):
         dr = m.group(1) or default_dr
-        another_dr = 'dr2' if dr == 'dr3' else 'dr3'
+        other_drs = [other_dr for other_dr in available_drs if other_dr != dr]
         return [
             html.Div(
                 [
                     'For example see the page for ',
-                    html.A(f'HZ Her', href=f'/{default_dr}/view/680113300005170'),
+                    html.A(f'HZ Her', href=f'/{dr}/view/680113300005170'),
                 ]
             ),
             html.H2('Welcome to SNAD ZTF object viewer!'),
@@ -224,8 +224,11 @@ def app_select_by_url(pathname):
             html.Div(
                 [
                     'The viewer is also available for ',
-                    html.A(f'ZTF {another_dr.upper()}', href=f'/{another_dr}/'),
-                ],
+                ]
+                + list(joiner(', ', (
+                    html.A(f'ZTF {dr.upper()}', href=f'/{dr}/')
+                    for dr in other_drs
+                ))),
             ),
         ]
     if match := re.search(r'^/+view/+(\d+)', pathname):

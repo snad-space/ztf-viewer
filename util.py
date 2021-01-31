@@ -45,7 +45,8 @@ FILTERS_ORDER = {
 }
 
 
-default_dr = 'dr3'
+default_dr = 'dr4'
+available_drs = ('dr2', 'dr3', 'dr4',)
 
 
 def db_coord_to_degrees(coord):
@@ -127,6 +128,8 @@ def min_max_mjd_short(dr):
         return 58194.0, 58299.0
     if dr == 'dr3':
         return 58194.0, 58483.0
+    if dr == 'dr4':
+        return 58194.0, 58664.0
     return -INF, INF
 
 

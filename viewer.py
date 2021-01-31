@@ -93,6 +93,7 @@ def get_layout(pathname):
                         {'label': f'"Short" light curve: {short_min_mjd} ≤ MJD ≤ {short_max_mjd}', 'value': 'short'}
                     ],
                     value=['short'] if is_short else [],
+                    style={'display': 'none' if short_min_mjd == -INF and short_max_mjd == INF else 'block'},
                 ),
                 dcc.RadioItems(
                     options=[
