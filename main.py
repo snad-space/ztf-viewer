@@ -1,14 +1,9 @@
 #!/usr/bin/env python3
 
-import importer
-
 import logging
 import pathlib
 import re
 import urllib.parse
-from functools import partial
-
-from astropy.coordinates.name_resolve import get_icrs_coordinates, NameResolveError
 
 import dash_core_components as dcc
 import dash_html_components as html
@@ -16,7 +11,7 @@ from dash.dependencies import Input, Output, State
 
 from app import app
 from search import get_layout as get_search_layout
-from util import available_drs, default_dr, joiner, YEAR
+from util import available_drs, default_dr, joiner, sky_coord_from_str, YEAR
 from viewer import get_layout as get_viewer_layout
 
 
@@ -244,16 +239,18 @@ def app_select_by_url(pathname):
                                      $""",
                                  pathname,
                                  flags=re.VERBOSE):
+
+        coord_or_name = urllib.parse.unquote(search_match['coord_or_name'])
         try:
-            coord_or_name = urllib.parse.unquote(search_match['coord_or_name'])
-            coordinates = get_icrs_coordinates(coord_or_name)
-        except NameResolveError:
+            coordinates = sky_coord_from_str(coord_or_name)
+        except ValueError:
             return html.Div(
                 [
                     html.H1('404'),
-                    html.P('Cannot find such coordinate or name'),
+                    html.P(f'Cannot parse coordinate or find an object name {coord_or_name}'),
                 ]
             )
+
         try:
             radius_arcsec = float(search_match['radius_arcsec'])
         except ValueError:

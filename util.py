@@ -9,6 +9,8 @@ import astropy.table
 import datetime
 import numpy as np
 from astropy import units
+from astropy.coordinates import SkyCoord
+from astropy.coordinates.name_resolve import get_icrs_coordinates, NameResolveError
 from astropy.time import Time
 from immutabledict import immutabledict
 from jinja2 import Template
@@ -181,3 +183,13 @@ def flip(items, ncol):
     """https://stackoverflow.com/a/10101532/5437597"""
     return chain(*[items[i::ncol] for i in range(ncol)])
 
+
+def sky_coord_from_str(s):
+    try:
+        return SkyCoord(s)
+    except ValueError:
+        pass
+    try:
+        return get_icrs_coordinates(s)
+    except NameResolveError:
+        raise ValueError(f'Cannot parse given coordinates or a name: "{s}"')
