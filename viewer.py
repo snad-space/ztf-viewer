@@ -515,13 +515,14 @@ def set_akb_info(_, oid):
         [
             html.Div(
                 edit_layout,
-                style={'width': '50%', 'display': 'inline-block', 'vertical_align': 'top'},
+                style={'width': '50%', 'display': 'table-cell', 'vertical_align': 'top'},
             ),
             html.Div(
                 log_layout,
-                style={'width': '40%', 'display': 'inline-block', 'vertical_align': 'top'},
+                style={'width': '50%', 'display': 'table-cell', 'vertical_align': 'top'},
             ),
-        ]
+        ],
+        style={'display': 'table',},
     )
 
     return children
