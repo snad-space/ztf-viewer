@@ -104,6 +104,11 @@ app.layout = html.Div([
             html.A('the ZTF Caltech data.', href='//ztf.caltech.edu'),
             ' See the source code ',
             html.A('on GitHub', href='//github.com/snad-space/ztf-viewer'),
+            '.',
+            html.Br(),
+            'If you use this web-site in your research, please cite ',
+            html.A('this paper', href='https://ui.adsabs.harvard.edu/abs/2021MNRAS.tmp..363M'),
+            ' as well as all relevant data source papers.',
         ],
         style={'margin-top': '5em',}
     ),
