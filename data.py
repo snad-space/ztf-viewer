@@ -65,7 +65,7 @@ def get_plot_data(cur_oid, dr, other_oids=frozenset(), min_mjd=None, max_mjd=Non
     for lc in lcs.values():
         for obs in lc:
             obs[f'mjd_{MJD_OFFSET}'] = obs['mjd'] - MJD_OFFSET
-            obs['Heliodate'] = mjd_to_datetime(obs['mjd']).strftime('%Y-%m-%d %H:%m:%S')
+            obs['Heliodate'] = mjd_to_datetime(obs['mjd']).strftime('%Y-%m-%d %H:%M:%S')
             obs['cur_oid'] = cur_oid
     return lcs
 
