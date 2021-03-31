@@ -14,7 +14,7 @@ def get_layout(pathname):
         DataTable(
             id='anomaly-table',
             columns=[
-                {'name': 'OID', 'oid': 'oid_link', 'presentation': 'markdown'},
+                {'name': 'OID', 'id': 'oid_link', 'presentation': 'markdown'},
                 {'name': 'Tags', 'id': 'tags_str'},
                 {'name': 'Description', 'id': 'description'},
                 {'name': 'Last change', 'id': 'last_change'},
