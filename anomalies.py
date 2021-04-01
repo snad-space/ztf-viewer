@@ -1,5 +1,6 @@
+from datetime import datetime
+
 import dash_html_components as html
-import flask
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 from dash_table import DataTable
@@ -17,9 +18,16 @@ def get_layout(pathname):
                 {'name': 'OID', 'id': 'oid_link', 'presentation': 'markdown'},
                 {'name': 'Tags', 'id': 'tags_str'},
                 {'name': 'Description', 'id': 'description'},
-                {'name': 'Last change', 'id': 'last_change'},
-            ]
+                {'name': 'Changed by', 'id': 'changed_by'},
+                {'name': 'Changed at', 'id': 'changed_at_datetime', 'type': 'datetime'},
+            ],
+            filter_action='native',
+            sort_action='native',
+            page_action='native',
         ),
+        html.Br(),
+        'See filtering syntax ',
+        html.A('here', href='https://dash.plotly.com/datatable/filtering'),
     ])
 
 
@@ -36,5 +44,5 @@ def set_table_data(pathname):
         oid = item['oid']
         item['oid_link'] = f'[{oid}](/view/{oid})'
         item['tags_str'] = ', '.join(item['tags'])
-        item['last_change'] = f'by {item["changed_by"]}'
+        item['changed_at_datetime'] = datetime.fromisoformat(item['changed_at'].replace('Z', '+00:00'))
     return objs
