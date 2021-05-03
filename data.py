@@ -154,10 +154,7 @@ def plot_data(oid, dr, data, fmt='png', caption=True):
         )
     ax = fig.subplots()
     ax.invert_yaxis()
-    if usetex:
-        ax.set_title(rf'\underline{{\href{{https://ztf.snad.space/{dr}/view/{oid}}}{{\texttt{{{oid}}}}}}}', usetex=True)
-    else:
-        ax.set_title(str(oid))
+    ax.set_title(str(oid), usetex=usetex)
     ax.set_xlabel('MJD', usetex=usetex)
     ax.set_ylabel('magnitude', usetex=usetex)
     ax.xaxis.set_minor_locator(AutoMinorLocator(2))
@@ -240,14 +237,7 @@ def plot_folded_data(oid, dr, data, period, offset=None, repeat=None, fmt='png',
         )
     ax = fig.subplots()
     ax.invert_yaxis()
-    if usetex:
-        ax.set_title(
-            rf'\underline{{\href{{https://ztf.snad.space/{dr}/view/{oid}}}{{\texttt{{{oid}}}}}}}, '
-            rf'$P = {period:.4g}$\,days',
-            usetex=True,
-        )
-    else:
-        ax.set_title(f'{oid}, P = {period:.4g} days')
+    ax.set_title(f'{oid}, P = {period:.4g} days', usetex=usetex)
     ax.set_xlabel('phase', usetex=usetex)
     ax.set_ylabel('magnitude', usetex=usetex)
     ax.xaxis.set_minor_locator(AutoMinorLocator(2))
