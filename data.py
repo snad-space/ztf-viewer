@@ -298,7 +298,7 @@ def parse_figure_args_helper(args, data=None):
     max_mjd = args.get('max_mjd', None)
     if max_mjd is not None:
         max_mjd = float(max_mjd)
-    caption = args.get('copyright', 'no') != 'no'
+    caption = args.get('copyright', 'yes') != 'no'
 
     if fmt not in MIMES:
         return '', 404
