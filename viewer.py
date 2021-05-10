@@ -78,7 +78,10 @@ def get_layout(pathname):
     coord = find_ztf_oid.get_coord_string(oid, dr)
     short_min_mjd, short_max_mjd = min_max_mjd_short(dr)
     min_mjd, max_mjd = (short_min_mjd, short_max_mjd) if is_short else (-INF, INF)
-    features = light_curve_features(oid, dr, min_mjd=min_mjd, max_mjd=max_mjd)
+    try:
+        features = light_curve_features(oid, dr, min_mjd=min_mjd, max_mjd=max_mjd)
+    except NotFound:
+        features = None
     layout = html.Div([
         html.Div('', id='placeholder', style={'display': 'none'}),
         html.Div(f'{oid}', id='oid', style={'display': 'none'}),
@@ -110,7 +113,7 @@ def get_layout(pathname):
                 html.Div(
                     [
                         dcc.Input(
-                            value=features['period_0'],
+                            value=features['period_0'] if features is not None else None,
                             id='fold-period',
                             placeholder='Period, days',
                             type='number',
