@@ -7,6 +7,7 @@ import urllib.parse
 
 import dash_core_components as dcc
 import dash_html_components as html
+from dash.dash import no_update
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 
@@ -192,7 +193,11 @@ def go_to_url(n_clicks_oid, n_submit_oid, n_clicks_search,
 
 
 @app.callback(
-    Output('page-content', 'children'),
+    [
+        Output('page-content', 'children'),
+        Output('input-coord-or-name', 'value'),
+        Output('input-search-radius', 'value'),
+    ],
     [Input('url', 'pathname')],
 )
 def app_select_by_url(pathname):
@@ -202,64 +207,76 @@ def app_select_by_url(pathname):
         dr = m.group(1) or DEFAULT_DR
         other_drs = [other_dr for other_dr in available_drs if other_dr != dr]
         return [
-            html.Div(
-                [
-                    'For example see the page for ',
-                    html.A(f'HZ Her', href=f'/{dr}/view/680113300005170'),
-                ]
-            ),
-            html.H2('Welcome to SNAD ZTF object viewer!'),
-            html.Big(
-                [
-                    'This is a tool developed by the ',
-                    html.A('SИAD team', href='//snad.space'),
-                    ' in order to enable quick expert investigation of objects within the public ',
-                    html.A('Zwicky Transient Facility (ZTF)', href='//ztf.caltech.edu'),
-                    ' data releases.',
-                    html.Br(), html.Br(),
-                    'It was developed as part of the ',
-                    html.A('3rd SИAD Workshop', href='//snad.space/2020/'),
-                    ', held remotely in July, 2020.',
-                    html.Br(), html.Br(),
-                    'The viewer allows visualization of raw and folded light curves and metadata, as well as cross-match information with the ',
-                    html.A('the General Catalog of Variable Stars', href='http://www.sai.msu.ru/gcvs/intro.htm'),
-                    ', ',
-                    html.A('the International Variable Stars Index', href='//www.aavso.org/vsx/index.php?view=about.top'),
-                    ', ',
-                    html.A('the ATLAS Catalog of Variable Stars', href='//archive.stsci.edu/prepds/atlas-var/'),
-                    ', ',
-                    html.A('the ZTF Catalog of Periodic Variable Stars', href='//zenodo.org/record/3886372'),
-                    ', ',
-                    html.A('the Transient Name Server', href='//www.wis-tns.org'),
-                    ', ',
-                    html.A('the Open Astronomy Catalogs', href='//astrocats.space/'),
-                    ', ',
-                    html.A('the OGLE III Catalog of Variable Stars', href='http://ogledb.astrouw.edu.pl/~ogle/CVS/'),
-                    ', ',
-                    html.A('the Simbad Astronomical Data Base', href='//simbad.u-strasbg.fr/simbad/'),
-                    ', ',
-                    html.A('Gaia DR2 distances (Bailer-Jones+, 2018)', href='//vizier.u-strasbg.fr/viz-bin/VizieR?-source=I/347'),
-                    ', ',
-                    html.A('Vizier', href='//vizier.u-strasbg.fr/viz-bin/VizieR'),
-                    '.',
-                    html.Br(),
-                ],
-            ),
-            html.Br(),
-            html.Div(
-                [
-                    'The viewer is also available for ',
-                ]
-                + list(joiner(', ', (
-                    html.A(f'ZTF {dr.upper()}', href=f'/{dr}/')
-                    for dr in other_drs
-                ))),
-            ),
+            [
+                html.Div(
+                    [
+                        'For example see the page for ',
+                        html.A(f'HZ Her', href=f'/{dr}/view/680113300005170'),
+                    ]
+                ),
+                html.H2('Welcome to SNAD ZTF object viewer!'),
+                html.Big(
+                    [
+                        'This is a tool developed by the ',
+                        html.A('SИAD team', href='//snad.space'),
+                        ' in order to enable quick expert investigation of objects within the public ',
+                        html.A('Zwicky Transient Facility (ZTF)', href='//ztf.caltech.edu'),
+                        ' data releases.',
+                        html.Br(), html.Br(),
+                        'It was developed as part of the ',
+                        html.A('3rd SИAD Workshop', href='//snad.space/2020/'),
+                        ', held remotely in July, 2020.',
+                        html.Br(), html.Br(),
+                        'The viewer allows visualization of raw and folded light curves and metadata, as well as cross-match information with the ',
+                        html.A('the General Catalog of Variable Stars', href='http://www.sai.msu.ru/gcvs/intro.htm'),
+                        ', ',
+                        html.A('the International Variable Stars Index', href='//www.aavso.org/vsx/index.php?view=about.top'),
+                        ', ',
+                        html.A('the ATLAS Catalog of Variable Stars', href='//archive.stsci.edu/prepds/atlas-var/'),
+                        ', ',
+                        html.A('the ZTF Catalog of Periodic Variable Stars', href='//zenodo.org/record/3886372'),
+                        ', ',
+                        html.A('the Transient Name Server', href='//www.wis-tns.org'),
+                        ', ',
+                        html.A('the Open Astronomy Catalogs', href='//astrocats.space/'),
+                        ', ',
+                        html.A('the OGLE III Catalog of Variable Stars', href='http://ogledb.astrouw.edu.pl/~ogle/CVS/'),
+                        ', ',
+                        html.A('the Simbad Astronomical Data Base', href='//simbad.u-strasbg.fr/simbad/'),
+                        ', ',
+                        html.A('Gaia DR2 distances (Bailer-Jones+, 2018)', href='//vizier.u-strasbg.fr/viz-bin/VizieR?-source=I/347'),
+                        ', ',
+                        html.A('Vizier', href='//vizier.u-strasbg.fr/viz-bin/VizieR'),
+                        '.',
+                        html.Br(),
+                    ],
+                ),
+                html.Br(),
+                html.Div(
+                    [
+                        'The viewer is also available for ',
+                    ]
+                    + list(joiner(', ', (
+                        html.A(f'ZTF {dr.upper()}', href=f'/{dr}/')
+                        for dr in other_drs
+                    ))),
+                ),
+            ],
+            no_update,
+            no_update,
         ]
     if match := re.search(r'^/+view/+(\d+)', pathname):
-        return get_viewer_layout(f'/{DEFAULT_DR}/view/{match.group(1)}')
+        return [
+            get_viewer_layout(f'/{DEFAULT_DR}/view/{match.group(1)}'),
+            no_update,
+            no_update,
+        ]
     if re.search(r'^/+dr\d/+view/+(\d+)', pathname):
-        return get_viewer_layout(pathname)
+        return [
+            get_viewer_layout(pathname),
+            no_update,
+            no_update,
+        ]
     if search_match := re.search(r"""^
                                      (?:/+(?P<dr>dr\d))?
                                      /+search
@@ -274,31 +291,59 @@ def app_select_by_url(pathname):
         try:
             coordinates = sky_coord_from_str(coord_or_name)
         except ValueError:
-            return html.Div(
-                [
-                    html.H1('404'),
-                    html.P(f'Cannot parse coordinate or find an object name {coord_or_name}'),
-                ]
-            )
+            return [
+                html.Div(
+                    [
+                        html.H1('404'),
+                        html.P(f'Cannot parse coordinate or find an object name {coord_or_name}'),
+                    ]
+                ),
+                coord_or_name,
+                no_update,
+            ]
 
         try:
             radius_arcsec = float(search_match['radius_arcsec'])
         except ValueError:
-            return html.Div(
-                [
-                    html.H1('404'),
-                    html.P('Wrong radius format'),
-                ]
-            )
+            return [
+                html.Div(
+                    [
+                        html.H1('404'),
+                        html.P('Wrong radius format'),
+                    ]
+                ),
+                coord_or_name,
+                search_match['radius_arcsec'],
+            ]
         dr = search_match.group('dr')
-        return get_search_layout(coordinates, radius_arcsec, dr)
+        return [
+            get_search_layout(coordinates, radius_arcsec, dr),
+            coord_or_name,
+            radius_arcsec,
+        ]
     if re.search(r'^/+login/*$', pathname):
-        return get_login_layout(pathname)
+        return [
+            get_login_layout(pathname),
+            no_update,
+            no_update,
+        ]
     if re.search('^/+anomalies/*$', pathname):
-        return get_anomalies_layout(pathname)
+        return [
+            get_anomalies_layout(pathname),
+            no_update,
+            no_update,
+        ]
     if re.search('^/+tags/*$', pathname):
-        return get_tags_layout(pathname)
-    return html.H1('404')
+        return [
+            get_tags_layout(pathname),
+            no_update,
+            no_update,
+        ]
+    return [
+        html.H1('404'),
+        no_update,
+        no_update,
+    ]
 
 
 def server():
