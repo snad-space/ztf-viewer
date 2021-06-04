@@ -21,7 +21,7 @@ from astroquery.vizier import Vizier
 from astroquery.utils.commons import TableList
 
 from cache import cache
-from config import LC_API_URL, TNS_API_URL, TNS_API_KEY
+from config import LC_API_URL, TNS_API_URL, TNS_API_KEY, TNS_BOT_ID, TNS_BOT_NAME
 from util import to_str, anchor_form, INF, NotFound, CatalogUnavailable
 
 
@@ -392,6 +392,8 @@ class TnsQuery(_ApiQuery):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # https://www.wis-tns.org/content/tns-newsfeed#comment-wrapper-23710
+        self._api_session.headers['User-Agent'] = f'tns_marker{{"tns_id":{TNS_BOT_ID}, "type": "bot", "name":"{TNS_BOT_NAME}"}}'
         self._search_api_url = urllib.parse.urljoin(TNS_API_URL, '/api/get/search')
         self._object_api_url = urllib.parse.urljoin(TNS_API_URL, '/api/get/object')
 
@@ -445,7 +447,7 @@ class TnsQuery(_ApiQuery):
         return table
 
     def get_url(self, id):
-        return f'//wis-tns.weizmann.ac.il/object/{id}'
+        return f'//wis-tns.org/object/{id}'
 
     def add_redshift_column(self, table):
         table['__redshift'] = [row['redshift'] if row['redshift'] else row['host_redshift'] for row in table]
