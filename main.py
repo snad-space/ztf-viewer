@@ -211,7 +211,7 @@ def app_select_by_url(pathname):
                 html.Div(
                     [
                         'For example see the page for ',
-                        html.A(f'HZ Her', href=f'/{dr}/view/680113300005170'),
+                        html.A(f'SNAD101', href=f'/{dr}/view/633207400004730'),
                     ]
                 ),
                 html.H2('Welcome to SNAD ZTF object viewer!'),
