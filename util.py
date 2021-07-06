@@ -212,3 +212,10 @@ def sky_coord_from_str(s):
         return get_icrs_coordinates(s)
     except NameResolveError:
         raise ValueError(f'Cannot parse given coordinates or a name: "{s}"')
+
+
+def oid_from_input(s: str):
+    s = s.strip()
+    if s.isnumeric() or s.upper().startswith('SNAD'):
+        return str(SnadCatalogSource(s).ztf_oid)
+    return s

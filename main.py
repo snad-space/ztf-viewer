@@ -17,7 +17,7 @@ from app import app
 from login import get_layout as get_login_layout
 from search import get_layout as get_search_layout
 from tags import get_layout as get_tags_layout
-from util import available_drs, joiner, sky_coord_from_str, YEAR, DEFAULT_DR, UnAuthorized
+from util import available_drs, joiner, sky_coord_from_str, YEAR, DEFAULT_DR, UnAuthorized, oid_from_input
 from viewer import get_layout as get_viewer_layout
 
 
@@ -49,9 +49,9 @@ app.layout = html.Div([
             'OID ',
             dcc.Input(
                 id='input-oid',
-                placeholder='E.g. 680113300005170',
+                placeholder='E.g. 633207400004730',
                 type='text',
-                minLength=15,
+                minLength=3,
                 maxLength=16,
                 n_submit=0,
             ),
@@ -185,6 +185,7 @@ def go_to_url(n_clicks_oid, n_submit_oid, n_clicks_search,
               current_pathaname,
               dr):
     if (n_submit_oid != 0 or n_clicks_oid != 0) and oid is not None:
+        oid = oid_from_input(oid)
         return f'/{dr}/view/{oid}'
     if n_clicks_search != 0 or n_submit_coord_or_name != 0 or n_submit_radius != 0:
         coord_or_name = urllib.parse.quote(coord_or_name)
