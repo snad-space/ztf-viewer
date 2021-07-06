@@ -371,6 +371,20 @@ def get_layout(pathname):
         ),
         html.Div(
             [
+                html.H2('ALeRCE'),
+                dcc.Input(
+                    value='1',
+                    id=dict(type='search-radius', index='alerce'),
+                    placeholder='Search radius, arcsec',
+                    type='number',
+                ),
+                ' search radius, arcsec',
+                html.Div(id='alerce-table'),
+            ],
+            id='alerce',
+        ),
+        html.Div(
+            [
                 html.H2('Vizier'),
                 html.A(
                     'Search on Vizier website within',
@@ -613,7 +627,7 @@ def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_v
     for catalog, query in catalog_query_objects().items():
         try:
             table = query.find(ra, dec, radii[catalog])
-        except (NotFound, CatalogUnavailable):
+        except (NotFound, CatalogUnavailable, KeyError):
             continue
         row = table[np.argmin(table['separation'])]
         for table_field, display_name in SUMMARY_FIELDS.items():

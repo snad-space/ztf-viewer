@@ -11,6 +11,7 @@ import astropy.io.ascii
 import numpy as np
 import pandas as pd
 import requests
+from alerce.core import Alerce
 from astropy import units
 from astropy.coordinates import SkyCoord
 from astropy.cosmology import FlatLambdaCDM
@@ -578,6 +579,41 @@ class OGLEQuery(_ApiQuery):
 
 
 OGLE_QUERY = OGLEQuery('OGLE')
+
+
+class AlerceQuery(_CatalogQuery):
+    id_column = 'oid'
+    type_column = 'class'
+    _table_ra = 'meanra'
+    _ra_unit = 'deg'
+    _table_dec = 'meandec'
+    columns = {
+        '__link': 'oid',
+        'separation': 'Separation, arcsec',
+        'class': 'Class',
+        'classifier': 'Classifier',
+        'probability': 'Class probability',
+    }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._client = Alerce()
+
+    def _query_region(self, coord, radius):
+        ra = coord.ra.deg
+        dec = coord.dec.deg
+        if not (isinstance(radius, str) and radius.endswith('s')):
+            raise ValueError('radius argument should be strings that ends with "s" letter')
+        radius_arcsec = float(radius[:-1])
+        df = self._client.query_objects(format='pandas', ra=ra, dec=dec, radius=radius_arcsec, page_size=128)
+        table = Table.from_pandas(df)
+        return table
+
+    def get_url(self, id):
+        return f'//alerce.online/object/{id}'
+
+
+ALERCE_QUERY = AlerceQuery('Alerce')
 
 
 def get_catalog_query(catalog):
