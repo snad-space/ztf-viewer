@@ -757,7 +757,7 @@ def set_figure(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd,
             symbol='oid',
             size='mark_size',
             size_max=MARKER_SIZE,
-            hover_data=['Heliodate', 'magerr'],
+            hover_data={f'mjd_{MJD_OFFSET}': ':.5f', 'Heliodate': True, 'magerr': True},
             custom_data=['mjd', 'oid', 'fieldid', 'rcid', 'filter'],
         )
     elif lc_type == 'folded':
@@ -768,11 +768,12 @@ def set_figure(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd,
             error_y='magerr',
             color='filter',
             range_y=range_y,
+            labels={f'mjd_{MJD_OFFSET}': f'mjd − {MJD_OFFSET}'},
             color_discrete_map=FILTER_COLORS,
             symbol='oid',
             size='mark_size',
             size_max=MARKER_SIZE,
-            hover_data=['folded_time', 'mjd', 'Heliodate', 'magerr'],
+            hover_data={'folded_time': True, f'mjd_{MJD_OFFSET}': ':.5f', 'Heliodate': True, 'magerr': True},
             custom_data=['mjd', 'oid', 'fieldid', 'rcid', 'filter'],
         )
     else:
