@@ -30,6 +30,7 @@ ENV PYTHONUNBUFFERED TRUE
 COPY ./assets/* /app/assets/
 COPY ./static/js/* /app/static/js/
 COPY ./static/img/* /app/static/img/
+COPY ./data/* /app/data/
 COPY *.py /app/
 
 ENTRYPOINT ["gunicorn", "-w4", "-b0.0.0.0:80", "main:server()"]

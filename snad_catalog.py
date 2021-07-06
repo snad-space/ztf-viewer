@@ -11,14 +11,9 @@ class _SnadCatalog:
     url = 'https://snad.space/catalog/snad_catalog.csv'
 
     def __init__(self, interval_seconds=600):
-        self.df = None
+        self.df = pd.read_csv('data/snad_catalog.csv', index_col='Name')
         self.updated_at = datetime(1900, 1, 1, 1, 1)
         self.check_interval = timedelta(seconds=interval_seconds)
-
-    def _get(self):
-        resp = requests.get(self.url, stream=True)
-        resp.raise_for_status()
-        return resp
 
     @staticmethod
     def _last_modified(resp):
@@ -29,13 +24,18 @@ class _SnadCatalog:
 
     def _update(self):
         now = datetime.now()
-        if self.df is not None and now - self.updated_at < self.check_interval:
+        if now - self.updated_at < self.check_interval:
             return
-        with self._get() as resp:
-            if self.updated_at > self._last_modified(resp):
-                return
-            self.updated_at = now
-            bio = BytesIO(resp.content)
+        try:
+            with requests.get(self.url, stream=True) as resp:
+                if resp.status_code != 200:
+                    return
+                if self.updated_at > self._last_modified(resp):
+                    return
+                self.updated_at = now
+                bio = BytesIO(resp.content)
+        except requests.exceptions.ConnectionError:
+            return
         self.df = pd.read_csv(bio, index_col='Name')
 
     def __call__(self):
