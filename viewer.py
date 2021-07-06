@@ -897,12 +897,12 @@ app.clientside_callback(
     function(divs) {
         console.log(divs);
         if (divs) {
-            let fits = divs[0].props.href;
-            console.log(fits);
-            let ra = divs[1].props.children;
+            let ra = divs[0].props.children;
             console.log(ra);
-            let dec = divs[2].props.children;
+            let dec = divs[1].props.children;
             console.log(dec);
+            let fits = divs[2].props.href;
+            console.log(fits);
             JS9.Load(fits, {onload: function(im) {
                 JS9.SetFlip("y");
                 JS9.SetPan({ra: ra, dec: dec}, {display: im});
@@ -934,11 +934,14 @@ def graph_clicked(data, dr):
     ra, dec = find_ztf_oid.get_coord(oid, dr)
     date = DateWithFrac.from_mjd(mjd, coord=dict(ra=ra, dec=dec))
     correct_date(date)
-    url = date.sciimg_path(fieldid=fieldid, rcid=rcid, filter=fltr)
+    fits_url = date.sciimg_path(fieldid=fieldid, rcid=rcid, filter=fltr)
+    prod_dir_url = date.products_path
     return [
-        html.A('Download FITS', href=url, id='fits-to-show-url'),
         html.Div(ra, id='fits-to-show-ra', style={'display': 'none'}),
         html.Div(dec, id='fits-to-show-dec', style={'display': 'none'}),
+        html.A('Download FITS', href=fits_url, id='fits-to-show-url'),
+        " ",
+        html.A('Product directory', href=prod_dir_url, id='fits-to-show-dir-url'),
     ]
 
 
