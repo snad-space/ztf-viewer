@@ -905,6 +905,7 @@ app.clientside_callback(
             let dec = divs[2].props.children;
             console.log(dec);
             JS9.Load(fits, {onload: function(im) {
+                JS9.SetFlip("y");
                 JS9.SetPan({ra: ra, dec: dec}, {display: im});
                 JS9.AddRegions({shape: 'point', ra: ra, dec: dec}, {display: im});
             }});
