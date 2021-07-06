@@ -103,7 +103,6 @@ def get_layout(pathname):
                 dcc.RadioItems(
                     options=[
                         {'label': 'Full light curve', 'value': 'full'},
-                        # {'label': 'Short light curve', 'value': 'short'},
                         {'label': 'Folded light curve', 'value': 'folded'},
                     ],
                     value='full',
