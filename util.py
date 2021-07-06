@@ -15,6 +15,7 @@ from astropy.time import Time
 from immutabledict import immutabledict
 from jinja2 import Template
 
+from snad_catalog import SnadCatalogSource
 
 YEAR = datetime.datetime.now().year
 
@@ -197,6 +198,12 @@ def flip(items, ncol):
 
 
 def sky_coord_from_str(s):
+    s = s.strip()
+    if s.upper().startswith('SNAD'):
+        try:
+            return SnadCatalogSource(s).coord
+        except KeyError:
+            raise ValueError(f"ID {s} isn't found in the SNAD catalog")
     try:
         return SkyCoord(s)
     except ValueError:
