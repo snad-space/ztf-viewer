@@ -216,6 +216,8 @@ def sky_coord_from_str(s):
 
 def oid_from_input(s: str):
     s = s.strip()
+    if s.isnumeric() and 15 <= len(s) <= 16:
+        return s
     if s.isnumeric() or s.upper().startswith('SNAD'):
         return str(SnadCatalogSource(s).ztf_oid)
     return s
