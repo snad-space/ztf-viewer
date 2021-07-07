@@ -12,6 +12,37 @@ from app import app
 def get_layout(pathname):
     return html.Div([
         html.H1('Anomaly knowledge database tags', id='header-tags'),
+        html.H2('Instruction for attaching the labels (tags)'),
+        html.H3('Artefacts'),
+        html.P(
+            '''In case of any kind of artefacts, tag «artefact». 
+            If type of artefact is known (e.g., «spike»), tag it as well.
+            If in doubt that it is an artefact, also tag «uncertain».'''
+        ),
+        html.H3('Variable stars and supernovae'),
+        html.P(
+            '''In case subtype (e.g., «CEP», «CCSN») is known, tag only it.
+            If subtype is not given (or not presented in tags), just tag the common type (e.g., «Eclipsing»).
+            If type/subtype is uncertain, the tag «uncertain» also has to be added.'''
+        ),
+        html.P(
+            '''If an object is not presented in any known catalogs and databases, tag «non-catalogued».
+            If an object is known to be variable without precise type, tag «VAR».'''
+        ),
+        html.P(
+            '''Any additional comments and classification put in «Description».
+            '''
+        ),
+        html.H3('Examples'),
+        html.Ul(
+            [
+                html.Li('You found a variable object that is not listed in any catalogs. The tags will be «VAR», «non-catalogued».'),
+                html.Li('You found a Type Ia supernova candidate that is not listed in any catalogs. The tags will be «SN Ia», «non-catalogued», «uncertain».'),
+                html.Li('You found a plane track on the image. The tags will be «artefact», «track».'),
+                html.Li('You found a known transient of unknown nature. The tags will be «transient».'),
+            ],
+        ),
+        html.H2('Tags'),
         html.Div(
             [
                 html.Div(id='tags-list'),

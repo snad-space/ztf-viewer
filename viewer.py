@@ -491,6 +491,9 @@ def set_akb_info(_, oid):
     ]
 
     edit_layout = checklists + [
+        'Point tag name to see its description. ',
+        'See instructions and tag editor ',
+        html.A('here', href='/tags'),
         dcc.Textarea(
             id='akb-description',
             placeholder='Description',
