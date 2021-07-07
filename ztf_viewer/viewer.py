@@ -170,8 +170,9 @@ def get_layout(pathname):
                                     list(joiner(
                                         ', ',
                                         [
-                                            html.A('ALeRE', href=brokers.alerce_conesearch_url(ra, dec)),
-                                            html.A('Antares', href=brokers.antares_conesearch_url(ra, dec, oid=oid)),
+                                            brokers.alerce_tag(ra, dec),
+                                            brokers.antares_tag(ra, dec, oid=oid),
+                                            brokers.fink_tag(ra, dec),
                                         ],
                                     )),
                                     id='brokers',

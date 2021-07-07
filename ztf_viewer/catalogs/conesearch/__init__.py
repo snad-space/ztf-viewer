@@ -2,6 +2,7 @@ from ._base import _BaseCatalogQuery
 from .alerce import AlerceQuery
 from .astrocats import AstrocatsQuery
 from .atlas import AtlasQuery
+from .fink import FinkQuery
 from .gaia2dis import Gaia2Dis
 from .gcvs import GcvsQuery
 from .ogle import OgleQuery
@@ -13,6 +14,7 @@ from .ztf_periodic import ZtfPeriodicQuery
 
 ALERCE_QUERY = AlerceQuery('Alerce')
 ASTROCATS_QUERY = AstrocatsQuery('Astrocats')
+FINK_QUERY = FinkQuery('Fink')
 ATLAS_QUERY = AtlasQuery('ATLAS')
 GAIA2_DIS = Gaia2Dis('Gaia DR2 Distances')
 GCVS_QUERY = GcvsQuery('GCVS')
