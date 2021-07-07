@@ -16,6 +16,7 @@ from dash.exceptions import PreventUpdate
 from dash_table import DataTable
 from requests import ConnectionError
 
+from ztf_viewer import brokers
 from ztf_viewer.akb import akb
 from ztf_viewer.app import app
 from ztf_viewer.catalogs.conesearch import get_catalog_query, catalog_query_objects
@@ -161,6 +162,21 @@ def get_layout(pathname):
                                 html.Div(id='summary'),
                             ],
                             id='summary-layout',
+                        ),
+                        html.Div(
+                            [
+                                html.H2('Brokers'),
+                                html.Div(
+                                    list(joiner(
+                                        ', ',
+                                        [
+                                            html.A('ALeRE', href=brokers.alerce_conesearch_url(ra, dec)),
+                                            html.A('Antares', href=brokers.antares_conesearch_url(ra, dec, oid=oid)),
+                                        ],
+                                    )),
+                                    id='brokers',
+                                ),
+                            ]
                         ),
                         html.Div(
                             [
