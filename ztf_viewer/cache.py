@@ -1,6 +1,6 @@
 import functools
 
-from config import CACHE_TYPE
+from ztf_viewer.config import CACHE_TYPE
 
 
 TTL = 7 * 86400
@@ -11,7 +11,7 @@ def _create_redis_cache():
     from redis import StrictRedis
     from redis_lru import RedisLRU
 
-    from config import REDIS_HOSTNAME
+    from ztf_viewer.config import REDIS_HOSTNAME
 
     redis_conn = StrictRedis(REDIS_HOSTNAME)
     redis_lru = RedisLRU(redis_conn, default_ttl=TTL, max_size=MAXSIZE)

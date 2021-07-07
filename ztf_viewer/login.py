@@ -2,11 +2,10 @@ import dash
 import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output, State
-from dash.exceptions import PreventUpdate
 
-from akb import akb
-from app import app
-from util import UnAuthorized
+from ztf_viewer.akb import akb
+from ztf_viewer.app import app
+from ztf_viewer.util import UnAuthorized
 
 
 def get_layout(pathname):

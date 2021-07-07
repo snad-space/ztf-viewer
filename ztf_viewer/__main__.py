@@ -11,14 +11,14 @@ from dash.dash import no_update
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 
-from akb import akb
-from anomalies import get_layout as get_anomalies_layout
-from app import app
-from login import get_layout as get_login_layout
-from search import get_layout as get_search_layout
-from tags import get_layout as get_tags_layout
-from util import available_drs, joiner, sky_coord_from_str, YEAR, DEFAULT_DR, UnAuthorized, oid_from_input
-from viewer import get_layout as get_viewer_layout
+from ztf_viewer.akb import akb
+from ztf_viewer.anomalies import get_layout as get_anomalies_layout
+from ztf_viewer.app import app
+from ztf_viewer.login import get_layout as get_login_layout
+from ztf_viewer.search import get_layout as get_search_layout
+from ztf_viewer.tags import get_layout as get_tags_layout
+from ztf_viewer.util import available_drs, joiner, sky_coord_from_str, YEAR, DEFAULT_DR, UnAuthorized, oid_from_input
+from ztf_viewer.viewer import get_layout as get_viewer_layout
 
 
 logging.basicConfig(level=logging.INFO)

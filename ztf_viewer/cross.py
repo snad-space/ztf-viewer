@@ -21,9 +21,9 @@ from astroquery.simbad import Simbad
 from astroquery.vizier import Vizier
 from astroquery.utils.commons import TableList
 
-from cache import cache
-from config import LC_API_URL, TNS_API_URL, TNS_API_KEY, TNS_BOT_ID, TNS_BOT_NAME
-from util import to_str, anchor_form, INF, NotFound, CatalogUnavailable
+from ztf_viewer.cache import cache
+from ztf_viewer.config import LC_API_URL, TNS_API_URL, TNS_API_KEY, TNS_BOT_ID, TNS_BOT_NAME
+from ztf_viewer.util import to_str, anchor_form, INF, NotFound, CatalogUnavailable
 
 
 COSMO = FlatLambdaCDM(H0=70, Om0=0.3)

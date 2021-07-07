@@ -1,0 +1,6 @@
+include ztf_viewer/data/snad_catalog.csv
+
+include ztf_viewer/assets/*
+
+include ztf_viewer/static/img/*
+include ztf_viewer/static/js/*

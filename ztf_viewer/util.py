@@ -15,7 +15,7 @@ from astropy.time import Time
 from immutabledict import immutabledict
 from jinja2 import Template
 
-from snad_catalog import SnadCatalogSource
+from ztf_viewer.snad_catalog import SnadCatalogSource
 
 YEAR = datetime.datetime.now().year
 

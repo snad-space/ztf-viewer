@@ -4,8 +4,8 @@ import dash_html_components as html
 import dash_dangerously_set_inner_html as ddsih
 from astropy.table import Table
 
-from cross import find_ztf_circle
-from util import html_from_astropy_table, NotFound
+from ztf_viewer.cross import find_ztf_circle
+from ztf_viewer.util import html_from_astropy_table, NotFound
 
 
 COLUMNS = {

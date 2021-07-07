@@ -22,15 +22,12 @@ RUN apt-get update \
 COPY requirements.txt /app/
 RUN pip install -r /app/requirements.txt
 
-WORKDIR /app
 EXPOSE 80
 
 ENV PYTHONUNBUFFERED TRUE
 
-COPY ./assets/* /app/assets/
-COPY ./static/js/* /app/static/js/
-COPY ./static/img/* /app/static/img/
-COPY ./data/* /app/data/
-COPY *.py /app/
+COPY setup.py setup.cfg MANIFEST.in /app/
+COPY ztf_viewer /app/ztf_viewer/
+RUN pip install /app
 
-ENTRYPOINT ["gunicorn", "-w4", "-b0.0.0.0:80", "main:server()"]
+ENTRYPOINT ["gunicorn", "-w4", "-b0.0.0.0:80", "ztf_viewer.__main__:server()"]

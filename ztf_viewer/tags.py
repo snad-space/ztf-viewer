@@ -5,8 +5,8 @@ import re
 from dash.dependencies import Input, Output, State, MATCH, ALL
 from dash.exceptions import PreventUpdate
 
-from akb import akb
-from app import app
+from ztf_viewer.akb import akb
+from ztf_viewer.app import app
 
 
 def get_layout(pathname):

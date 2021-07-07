@@ -5,8 +5,8 @@ from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 from dash_table import DataTable
 
-from akb import akb
-from app import app
+from ztf_viewer.akb import akb
+from ztf_viewer.app import app
 
 
 def get_layout(pathname):

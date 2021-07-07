@@ -9,8 +9,8 @@ from astropy import units
 from astropy.coordinates import SkyCoord, EarthLocation
 from astropy.time import Time
 
-from cache import cache
-from config import PRODUCTS_URL
+from ztf_viewer.cache import cache
+from ztf_viewer.config import PRODUCTS_URL
 
 
 PALOMAR = EarthLocation(lon=-116.863, lat=33.356, height=1706)  # EarthLocation.of_site('Palomar')

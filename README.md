@@ -23,14 +23,14 @@ The server can be run locally without Docker in debug mode.
 
 ```sh
 # Configure Python virtual environment
-python3 -m venv ~/.venv/ztf-viewer
-source ~/.venv/ztf-viewer/bin/activate
+python3 -m venv ~/.virtualenv/ztf-viewer
+source ~/.virtualenv/ztf-viewer/bin/activate
 
-# Install dependencies
-pip3 install -r requirements.txt
+# Install the package
+python -m pip install -e .
 
 # Run webserver
-CACHE_TYPE="memory" TNS_API_URL="" python3 main.py
+CACHE_TYPE="memory" TNS_API_URL="" python -m ztf_viewer
 ```
 
 Go to the url specified in the command line output, it should be something like http://localhost:8050/

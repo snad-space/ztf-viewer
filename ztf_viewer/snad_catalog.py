@@ -1,4 +1,5 @@
 import email.utils
+import importlib.resources
 from datetime import datetime, timedelta
 from io import BytesIO
 
@@ -6,12 +7,15 @@ import pandas as pd
 import requests
 from astropy.coordinates import SkyCoord
 
+from ztf_viewer import data
+
 
 class _SnadCatalog:
     url = 'https://snad.space/catalog/snad_catalog.csv'
 
     def __init__(self, interval_seconds=600):
-        self.df = pd.read_csv('data/snad_catalog.csv', index_col='Name')
+        with importlib.resources.open_binary(data, 'snad_catalog.csv') as fh:
+            self.df = pd.read_csv(fh, index_col='Name')
         self.updated_at = datetime(1900, 1, 1, 1, 1)
         self.check_interval = timedelta(seconds=interval_seconds)
 
