@@ -11,15 +11,15 @@ from app import app
 
 def get_layout(pathname):
     return html.Div([
-        html.H1('Anomaly knowledge database tags', id='header-tags'),
-        html.H2('Instruction for attaching the labels (tags)'),
-        html.H3('Artefacts'),
+        html.H2('Anomaly knowledge database tags', id='header-tags'),
+        html.H3('Instruction for attaching the labels (tags)'),
+        html.H4('Artefacts'),
         html.P(
             '''In case of any kind of artefacts, tag «artefact». 
             If type of artefact is known (e.g., «spike»), tag it as well.
             If in doubt that it is an artefact, also tag «uncertain».'''
         ),
-        html.H3('Variable stars and supernovae'),
+        html.H4('Variable stars and supernovae'),
         html.P(
             '''In case subtype (e.g., «CEP», «CCSN») is known, tag only it.
             If subtype is not given (or not presented in tags), just tag the common type (e.g., «Eclipsing»).
@@ -33,7 +33,7 @@ def get_layout(pathname):
             '''Any additional comments and classification put in «Description».
             '''
         ),
-        html.H3('Examples'),
+        html.H4('Examples'),
         html.Ul(
             [
                 html.Li('You found a variable object that is not listed in any catalogs. The tags will be «VAR», «non-catalogued».'),
@@ -42,10 +42,10 @@ def get_layout(pathname):
                 html.Li('You found a known transient of unknown nature. The tags will be «transient».'),
             ],
         ),
-        html.H2('Tags'),
+        html.H3('Tags'),
         html.Div(
             [
-                html.Div(id='tags-list'),
+                html.Div('Login to edit tags', id='tags-list'),
                 html.Br(),
                 html.Div(
                     [
