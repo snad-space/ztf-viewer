@@ -4,7 +4,7 @@ from urllib.parse import quote_plus
 import dash_html_components as html
 
 from ztf_viewer.catalogs.conesearch import get_catalog_query
-from ztf_viewer.util import NotFound
+from ztf_viewer.exceptions import NotFound
 
 
 def _a_tag(text, url):

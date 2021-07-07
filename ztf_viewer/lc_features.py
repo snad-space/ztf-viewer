@@ -2,7 +2,7 @@ import requests
 
 from ztf_viewer.cache import cache
 from ztf_viewer.catalogs.ztf import find_ztf_oid
-from ztf_viewer.util import NotFound
+from ztf_viewer.exceptions import NotFound
 
 
 class LightCurveFeatures:

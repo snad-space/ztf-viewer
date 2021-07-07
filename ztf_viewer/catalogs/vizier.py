@@ -7,7 +7,7 @@ from astroquery.cds import cds
 from astroquery.vizier import Vizier
 
 from ztf_viewer.cache import cache
-from ztf_viewer.util import NotFound
+from ztf_viewer.exceptions import NotFound
 
 
 class VizierCatalogDetails:

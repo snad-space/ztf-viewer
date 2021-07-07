@@ -5,8 +5,8 @@ import dash_dangerously_set_inner_html as ddsih
 from astropy.table import Table
 
 from ztf_viewer.catalogs import find_ztf_circle
-from ztf_viewer.util import html_from_astropy_table, NotFound
-
+from ztf_viewer.exceptions import NotFound
+from ztf_viewer.util import html_from_astropy_table
 
 COLUMNS = {
     'oid': 'OID',

@@ -5,7 +5,7 @@ from dash.dependencies import Input, Output, State
 
 from ztf_viewer.akb import akb
 from ztf_viewer.app import app
-from ztf_viewer.util import UnAuthorized
+from ztf_viewer.exceptions import UnAuthorized
 
 
 def get_layout(pathname):

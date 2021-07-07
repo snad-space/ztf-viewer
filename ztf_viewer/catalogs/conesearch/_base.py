@@ -7,8 +7,8 @@ from astropy.cosmology import FlatLambdaCDM
 from astroquery.utils.commons import TableList
 
 from ztf_viewer.cache import cache
-from ztf_viewer.util import NotFound, to_str, CatalogUnavailable
-
+from ztf_viewer.exceptions import NotFound, CatalogUnavailable
+from ztf_viewer.util import to_str
 
 COSMO = FlatLambdaCDM(H0=70, Om0=0.3)
 

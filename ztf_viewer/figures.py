@@ -13,8 +13,8 @@ from matplotlib.ticker import AutoMinorLocator
 from ztf_viewer.app import app
 from ztf_viewer.cache import cache
 from ztf_viewer.catalogs import find_ztf_oid
-from ztf_viewer.util import mjd_to_datetime, NotFound, FILTER_COLORS, FILTERS_ORDER, parse_json_to_immutable, ZTF_FILTERS, flip
-
+from ztf_viewer.exceptions import NotFound
+from ztf_viewer.util import mjd_to_datetime, FILTER_COLORS, FILTERS_ORDER, parse_json_to_immutable, ZTF_FILTERS, flip
 
 MJD_OFFSET = 58000
 

@@ -5,7 +5,7 @@ import cachetools
 import flask
 import requests
 
-from ztf_viewer.util import NotFound, UnAuthorized
+from ztf_viewer.exceptions import NotFound, UnAuthorized
 
 
 class AKB:

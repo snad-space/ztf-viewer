@@ -6,7 +6,8 @@ from astropy.coordinates import SkyCoord
 
 from ztf_viewer.cache import cache
 from ztf_viewer.config import LC_API_URL
-from ztf_viewer.util import NotFound, INF
+from ztf_viewer.exceptions import NotFound
+from ztf_viewer.util import INF
 
 
 class _BaseFindZTF:

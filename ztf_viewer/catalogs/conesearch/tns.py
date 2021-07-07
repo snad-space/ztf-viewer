@@ -7,7 +7,7 @@ from astropy.table import Table
 
 from ztf_viewer.catalogs.conesearch._base import _BaseCatalogApiQuery
 from ztf_viewer.config import TNS_API_KEY, TNS_API_URL, TNS_BOT_ID, TNS_BOT_NAME
-from ztf_viewer.util import CatalogUnavailable
+from ztf_viewer.exceptions import CatalogUnavailable
 
 
 class TnsQuery(_BaseCatalogApiQuery):
