@@ -41,8 +41,7 @@ class DateWithFrac:
         return f'{self.month:02d}{self.day:02d}'
 
     def frac_digits(self, digits):
-        rou = round(self.fraction, digits)
-        return int(rou * 10**digits)
+        return round(self.fraction * 10**digits)
 
     @property
     def products_root(self):
