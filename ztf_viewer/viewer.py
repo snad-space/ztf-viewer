@@ -173,6 +173,7 @@ def get_layout(pathname):
                                             brokers.alerce_tag(ra, dec),
                                             brokers.antares_tag(ra, dec, oid=oid),
                                             brokers.fink_tag(ra, dec),
+                                            brokers.mars_tag(ra, dec),
                                         ],
                                     )),
                                     id='brokers',
