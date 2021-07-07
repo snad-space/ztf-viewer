@@ -165,23 +165,6 @@ def get_layout(pathname):
                         ),
                         html.Div(
                             [
-                                html.H2('Brokers'),
-                                html.Div(
-                                    list(joiner(
-                                        ', ',
-                                        [
-                                            brokers.alerce_tag(ra, dec),
-                                            brokers.antares_tag(ra, dec, oid=oid),
-                                            brokers.fink_tag(ra, dec),
-                                            brokers.mars_tag(ra, dec),
-                                        ],
-                                    )),
-                                    id='brokers',
-                                ),
-                            ]
-                        ),
-                        html.Div(
-                            [
                                 html.H2('Neighbours'),
                                 html.Div(
                                     [
@@ -708,6 +691,13 @@ def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_v
                                                          if fltr in mean_mag]
     if 'zg' in mean_mag and 'zr' in mean_mag:
         elements['Average mag (including neighbourhood)'].append(f'(zg–zr) {mean_mag["zg"] - mean_mag["zr"]: .2f}')
+
+    elements['Brokers'] = [
+        brokers.alerce_tag(ra, dec),
+        brokers.antares_tag(ra, dec, oid=oid),
+        brokers.fink_tag(ra, dec),
+        brokers.mars_tag(ra, dec),
+    ]
 
     elements['Coordinates'] = [
         f'Eq {find_ztf_oid.get_coord_string(oid, dr, frame=None)}',
