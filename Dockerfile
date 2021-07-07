@@ -9,7 +9,7 @@ ARG JS9_VERSION=3.1
 RUN curl -LJ -o js9.tar.gz https://github.com/ericmandel/js9/archive/v${JS9_VERSION}.tar.gz \
     && tar -xzvf js9.tar.gz \
     && cd js9-${JS9_VERSION} \
-    && ./configure --with-webdir=/app/static/js9 \
+    && ./configure --with-webdir=/app/ztf_viewer/static/js9 \
     && make \
     && make install \
     && cd - \

@@ -4,3 +4,4 @@ include ztf_viewer/assets/*
 
 include ztf_viewer/static/img/*
 include ztf_viewer/static/js/*
+include ztf_viewer/static/js9/*
