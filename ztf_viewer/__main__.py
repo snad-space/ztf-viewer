@@ -7,6 +7,8 @@ import urllib.parse
 
 import dash_core_components as dcc
 import dash_html_components as html
+from astropy.coordinates import SkyCoord, get_icrs_coordinates
+from astropy.coordinates.name_resolve import NameResolveError
 from dash.dash import no_update
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
@@ -14,10 +16,11 @@ from dash.exceptions import PreventUpdate
 from ztf_viewer.akb import akb
 from ztf_viewer.anomalies import get_layout as get_anomalies_layout
 from ztf_viewer.app import app
+from ztf_viewer.catalogs.snad import SnadCatalogSource
 from ztf_viewer.login import get_layout as get_login_layout
 from ztf_viewer.search import get_layout as get_search_layout
 from ztf_viewer.tags import get_layout as get_tags_layout
-from ztf_viewer.util import available_drs, joiner, sky_coord_from_str, YEAR, DEFAULT_DR, UnAuthorized, oid_from_input
+from ztf_viewer.util import available_drs, joiner, YEAR, DEFAULT_DR, UnAuthorized
 from ztf_viewer.viewer import get_layout as get_viewer_layout
 
 
@@ -159,6 +162,32 @@ def set_username(_):
         return akb.username()
     except UnAuthorized:
         return html.A('login', href='/login')
+
+
+def oid_from_input(s: str):
+    s = s.strip()
+    if s.isnumeric() and 15 <= len(s) <= 16:
+        return s
+    if s.isnumeric() or s.upper().startswith('SNAD'):
+        return str(SnadCatalogSource(s).ztf_oid)
+    return s
+
+
+def sky_coord_from_str(s):
+    s = s.strip()
+    if s.upper().startswith('SNAD'):
+        try:
+            return SnadCatalogSource(s).coord
+        except KeyError:
+            raise ValueError(f"ID {s} isn't found in the SNAD catalog")
+    try:
+        return SkyCoord(s)
+    except ValueError:
+        pass
+    try:
+        return get_icrs_coordinates(s)
+    except NameResolveError:
+        raise ValueError(f'Cannot parse given coordinates or a name: "{s}"')
 
 
 @app.callback(

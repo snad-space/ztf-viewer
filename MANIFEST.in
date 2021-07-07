@@ -1,4 +1,4 @@
-include ztf_viewer/data/snad_catalog.csv
+include ztf_viewer/catalogs/snad/data/snad_catalog.csv
 
 include ztf_viewer/assets/*
 

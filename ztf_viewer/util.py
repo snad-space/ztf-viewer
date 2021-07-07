@@ -9,13 +9,10 @@ import astropy.table
 import datetime
 import numpy as np
 from astropy import units
-from astropy.coordinates import SkyCoord
-from astropy.coordinates.name_resolve import get_icrs_coordinates, NameResolveError
 from astropy.time import Time
 from immutabledict import immutabledict
 from jinja2 import Template
 
-from ztf_viewer.snad_catalog import SnadCatalogSource
 
 YEAR = datetime.datetime.now().year
 
@@ -195,29 +192,3 @@ def parse_json_to_immutable(s):
 def flip(items, ncol):
     """https://stackoverflow.com/a/10101532/5437597"""
     return chain(*[items[i::ncol] for i in range(ncol)])
-
-
-def sky_coord_from_str(s):
-    s = s.strip()
-    if s.upper().startswith('SNAD'):
-        try:
-            return SnadCatalogSource(s).coord
-        except KeyError:
-            raise ValueError(f"ID {s} isn't found in the SNAD catalog")
-    try:
-        return SkyCoord(s)
-    except ValueError:
-        pass
-    try:
-        return get_icrs_coordinates(s)
-    except NameResolveError:
-        raise ValueError(f'Cannot parse given coordinates or a name: "{s}"')
-
-
-def oid_from_input(s: str):
-    s = s.strip()
-    if s.isnumeric() and 15 <= len(s) <= 16:
-        return s
-    if s.isnumeric() or s.upper().startswith('SNAD'):
-        return str(SnadCatalogSource(s).ztf_oid)
-    return s

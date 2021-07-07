@@ -7,7 +7,7 @@ import pandas as pd
 import requests
 from astropy.coordinates import SkyCoord
 
-from ztf_viewer import data
+from ztf_viewer.catalogs.snad import data
 
 
 class _SnadCatalog:
