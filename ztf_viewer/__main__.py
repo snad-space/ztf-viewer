@@ -358,7 +358,7 @@ def app_select_by_url(pathname):
             no_update,
             no_update,
         ]
-    if re.search('^/+anomalies/*$', pathname):
+    if re.search('^/+(?:(?:anomalies)|(?:akb))/*$', pathname):
         return [
             get_anomalies_layout(pathname),
             no_update,
