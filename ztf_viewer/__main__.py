@@ -14,14 +14,14 @@ from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 
 from ztf_viewer.akb import akb
-from ztf_viewer.anomalies import get_layout as get_anomalies_layout
+from ztf_viewer.pages.akb_table import get_layout as get_anomalies_layout
 from ztf_viewer.app import app
 from ztf_viewer.catalogs.snad import SnadCatalogSource
-from ztf_viewer.login import get_layout as get_login_layout
-from ztf_viewer.search import get_layout as get_search_layout
-from ztf_viewer.tags import get_layout as get_tags_layout
+from ztf_viewer.pages.login import get_layout as get_login_layout
+from ztf_viewer.pages.search import get_layout as get_search_layout
+from ztf_viewer.pages.tags import get_layout as get_tags_layout
 from ztf_viewer.util import available_drs, joiner, YEAR, DEFAULT_DR, UnAuthorized
-from ztf_viewer.viewer import get_layout as get_viewer_layout
+from ztf_viewer.pages.viewer import get_layout as get_viewer_layout
 
 
 logging.basicConfig(level=logging.INFO)

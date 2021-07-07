@@ -24,7 +24,7 @@ from ztf_viewer.catalogs.vizier import vizier_catalog_details, find_vizier
 from ztf_viewer.catalogs.ztf import find_ztf_oid, find_ztf_circle
 from ztf_viewer.figures import get_plot_data, get_folded_plot_data, MJD_OFFSET
 from ztf_viewer.lc_features import light_curve_features
-from ztf_viewer.products import DateWithFrac, correct_date
+from ztf_viewer.date_with_frac import DateWithFrac, correct_date
 from ztf_viewer.util import (html_from_astropy_table, to_str, INF, min_max_mjd_short, FILTER_COLORS, ZTF_FILTERS, available_drs,
                   NotFound, CatalogUnavailable, joiner)
 
