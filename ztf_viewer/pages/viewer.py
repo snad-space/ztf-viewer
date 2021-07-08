@@ -93,6 +93,7 @@ def get_layout(pathname):
         html.Div(min_mjd, id='min-mjd', style={'display': 'none'}),
         html.Div(max_mjd, id='max-mjd', style={'display': 'none'}),
         html.H2(id='title'),
+        html.Div(id='akb-neighbours'),
         html.Div(set_akb_info(0, oid), id='akb-info'),
         html.Div(
             [
@@ -452,6 +453,29 @@ def get_layout(pathname):
 )
 def set_title(oid):
     return f'{oid}'
+
+
+@app.callback(
+    Output('akb-neighbours', 'children'),
+    [
+        Input('different_filter_neighbours', 'children'),
+        Input('different_field_neighbours', 'children'),
+    ],
+)
+def set_akb_neighbours(different_filter, different_field):
+    if not akb.is_token_valid():
+        return None
+
+    oids = neighbour_oids(different_filter, different_field)
+    labeled_oids = [oid for oid in oids if akb.oid_exists(oid)]
+    if len(labeled_oids) == 0:
+        return None
+
+    return html.Div(
+        ['Neighbour OID(s) have been labeled: ']
+        + list(joiner(', ', (html.A(str(oid), href=f'./{oid}') for oid in labeled_oids))),
+        className='attention',
+    )
 
 
 def set_akb_info(_, oid):

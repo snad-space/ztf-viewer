@@ -11,6 +11,10 @@
   display: inline;
 }
 
+.attention {
+    font-size: large;
+}
+
 /* Links
 –––––––––––––––––––––––––––––––––––––––––––––––––– */
 a {

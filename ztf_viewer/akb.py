@@ -18,16 +18,19 @@ class AKB:
         self.session = requests.Session()
 
     def _get(self, url, token=None):
-        resp = self.session.get(url, headers=self._token_header(token))
-        if resp.status_code == 200:
-            return resp.json()
-        message = f'{resp.url} returned {resp.status_code}: {resp.text}'
+        response = self.session.get(url, headers=self._token_header(token))
+        if response.status_code == 200:
+            return response.json()
+        message = f'{response.url} returned {response.status_code}: {response.text}'
         logging.info(message)
-        if resp.status_code == 401:
+        if response.status_code == 401:
             return UnAuthorized(message)
-        if resp.status_code == 404:
+        if response.status_code == 404:
             raise NotFound(message)
-        resp.raise_for_status()
+        response.raise_for_status()
+
+    def _head(self, url, token=None):
+        return self.session.head(url, headers=self._token_header(token))
 
     def _token_from_cookies(self):
         try:
@@ -85,6 +88,15 @@ class AKB:
 
     def get_by_oid(self, oid, token=None):
         return self._get(self._object_url(oid), token=token)
+
+    def oid_exists(self, oid, token=None):
+        response = self._head(self._object_url(oid), token=token)
+        if response.status_code == 200:
+            return True
+        if response.status_code == 404:
+            return False
+        response.raise_for_status()
+        raise RuntimeError("Unexpected error while HEAD request to AKB server")
 
     def post_object(self, oid, tags, description, token=None):
         data = dict(oid=oid, tags=tags, description=description)
