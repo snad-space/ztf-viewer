@@ -4,6 +4,7 @@ from .astrocats import AstrocatsQuery
 from .atlas import AtlasQuery
 from .fink import FinkQuery
 from .gaia2dis import Gaia2Dis
+from .gaia_edr3_dis import GaiaEdr3Dis
 from .gcvs import GcvsQuery
 from .ogle import OgleQuery
 from .simbad import SimbadQuery
@@ -17,6 +18,7 @@ ASTROCATS_QUERY = AstrocatsQuery('Astrocats')
 FINK_QUERY = FinkQuery('Fink')
 ATLAS_QUERY = AtlasQuery('ATLAS')
 GAIA2_DIS = Gaia2Dis('Gaia DR2 Distances')
+GAIA_EDR3_DIS = GaiaEdr3Dis('Gaia EDR3 Distances')
 GCVS_QUERY = GcvsQuery('GCVS')
 OGLE_QUERY = OgleQuery('OGLE')
 SIMBAD_QUERY = SimbadQuery('Simbad')

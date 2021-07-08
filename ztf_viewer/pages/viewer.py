@@ -362,17 +362,17 @@ def get_layout(pathname):
         ),
         html.Div(
             [
-                html.H2('Gaia DR2 Distances'),
+                html.H2('Gaia EDR3 Distances'),
                 dcc.Input(
                     value='1',
-                    id=dict(type='search-radius', index='gaia-dr2-distances'),
+                    id=dict(type='search-radius', index='gaia-edr3-distances'),
                     placeholder='Search radius, arcsec',
                     type='number',
                 ),
                 ' search radius, arcsec',
-                html.Div(id='gaia-dr2-distances-table'),
+                html.Div(id='gaia-edr3-distances-table'),
             ],
-            id='gaia-dr2-distances',
+            id='gaia-edr3-distances',
         ),
         html.Div(
             [
