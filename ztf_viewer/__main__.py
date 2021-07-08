@@ -275,7 +275,7 @@ def app_select_by_url(pathname):
                         ', ',
                         html.A('the Simbad Astronomical Data Base', href='//simbad.u-strasbg.fr/simbad/'),
                         ', ',
-                        html.A('Gaia DR2 distances (Bailer-Jones+, 2018)', href='//vizier.u-strasbg.fr/viz-bin/VizieR?-source=I/347'),
+                        html.A('Gaia EDR3 distances (Bailer-Jones+, 2021)', href='//vizier.u-strasbg.fr/viz-bin/VizieR?-source=I/352'),
                         ', ',
                         html.A('Vizier', href='//vizier.u-strasbg.fr/viz-bin/VizieR'),
                         '.',
