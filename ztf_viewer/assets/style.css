@@ -93,3 +93,24 @@ select:focus {
     top: 0.4910254038em;  /* (sqrt(3) - 1) / 2 + 0.125 */
     position: relative;
 }
+
+
+/* Slider
+--------------------------------------------------- */
+.rc-slider-handle,
+.rc-slider-dot-active,
+.rc-slider-track {
+    border: solid 2px #FCBD43;
+}
+
+.rc-slider-handle:focus,
+.rc-slider-handle:hover,
+.rc-slider-handle:active,
+.rc-slider-handle-click-focused,
+.rc-slider-handle-click-focused:focus,
+.rc-slider-handle.rc-slider-handle-click-focused,
+.rc-slider-handle.rc-slider-handle-click-focused:active,
+.rc-slider-handle.rc-slider-handle-click-focused:focus,
+.rc-slider-handle.rc-slider-handle-click-focused:focus {
+    border: 2px solid #22114C;
+}

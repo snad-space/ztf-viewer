@@ -116,13 +116,31 @@ def get_layout(pathname):
                 ),
                 html.Div(
                     [
-                        dcc.Input(
-                            value=features['period_0'] if features is not None else None,
-                            id='fold-period',
-                            placeholder='Period, days',
-                            type='number',
+                        html.Div(
+                            [
+                                dcc.Input(
+                                    value=features['period_0'] if features is not None else None,
+                                    id='fold-period',
+                                    placeholder='Period, days',
+                                    type='number',
+                                ),
+                                ' period, days',
+                            ],
+                            style={'width': '40%', 'display': 'inline-block',},
                         ),
-                        ' period, days',
+                        html.Div(
+                            [
+                                dcc.Slider(
+                                    value=0.0,
+                                    id='fold-zero-phase',
+                                    min=0.0,
+                                    max=1.0,
+                                    step=1e-3,
+                                    marks={x: f'{x:.1f}' for x in np.linspace(0, 1, 11)},
+                                ),
+                            ],
+                            style={'width': '60%', 'display': 'inline-block', 'vertical-align': 'bottom'},
+                        ),
                     ],
                     id='fold-period-layout',
                     style={'display': 'none',}
@@ -778,9 +796,10 @@ def neighbour_oids(different_filter, different_field):
         Input('max-mjd', 'children'),
         Input('light-curve-type', 'value'),
         Input('fold-period', 'value'),
+        Input('fold-zero-phase', 'value'),
     ],
 )
-def set_figure(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd, lc_type, period):
+def set_figure(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd, lc_type, period, phase0):
     if lc_type == 'folded' and not period:
         raise PreventUpdate
 
@@ -788,7 +807,9 @@ def set_figure(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd,
     if lc_type == 'full':
         lcs = get_plot_data(cur_oid, dr, other_oids=other_oids, min_mjd=min_mjd, max_mjd=max_mjd)
     elif lc_type == 'folded':
-        lcs = get_folded_plot_data(cur_oid, dr, period=period, other_oids=other_oids, min_mjd=min_mjd, max_mjd=max_mjd)
+        offset = -(phase0 or 0.0) * period
+        lcs = get_folded_plot_data(cur_oid, dr, period=period, offset=offset, other_oids=other_oids, min_mjd=min_mjd,
+                                   max_mjd=max_mjd)
     else:
         raise ValueError(f'{lc_type = } is unknown')
     lcs = list(chain.from_iterable(lcs.values()))
