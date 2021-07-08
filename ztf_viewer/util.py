@@ -9,6 +9,7 @@ import astropy.table
 import datetime
 import numpy as np
 from astropy import units
+from astropy.coordinates import EarthLocation
 from astropy.time import Time
 from immutabledict import immutabledict
 from jinja2 import Template
@@ -17,7 +18,11 @@ from jinja2 import Template
 YEAR = datetime.datetime.now().year
 
 
+PALOMAR = EarthLocation(lon=-116.863, lat=33.356, height=1706)  # EarthLocation.of_site('Palomar')
+
+
 INF = float('inf')
+
 
 FILTER_COLORS = {
     'zg': '#62D03E',
@@ -133,10 +138,9 @@ def min_max_mjd_short(dr):
     return -INF, INF
 
 
-def mjd_to_datetime(mjd):
-    t = Time(mjd, format='mjd')
-    dt = t.to_datetime(datetime.timezone.utc)
-    return dt
+def hmjd_to_earth(hmjd, coord):
+    t = Time(hmjd, format='mjd')
+    return t - t.light_travel_time(coord, kind='heliocentric', location=PALOMAR)
 
 
 def raise_if(condition, exception):

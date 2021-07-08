@@ -785,7 +785,7 @@ def set_figure(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd,
             symbol='oid',
             size='mark_size',
             size_max=MARKER_SIZE,
-            hover_data={f'mjd_{MJD_OFFSET}': ':.5f', 'Heliodate': True, 'magerr': True},
+            hover_data={f'mjd_{MJD_OFFSET}': ':.5f', 'date': True, 'magerr': True},
             custom_data=['mjd', 'oid', 'fieldid', 'rcid', 'filter'],
         )
     elif lc_type == 'folded':
@@ -801,7 +801,7 @@ def set_figure(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd,
             symbol='oid',
             size='mark_size',
             size_max=MARKER_SIZE,
-            hover_data={'folded_time': True, f'mjd_{MJD_OFFSET}': ':.5f', 'Heliodate': True, 'magerr': True},
+            hover_data={'folded_time': True, f'mjd_{MJD_OFFSET}': ':.5f', 'date': True, 'magerr': True},
             custom_data=['mjd', 'oid', 'fieldid', 'rcid', 'filter'],
         )
     else:
@@ -961,7 +961,8 @@ def graph_clicked(data, dr):
     point = points[0]
     mjd, oid, fieldid, rcid, fltr, *_ = point['customdata']
     ra, dec = find_ztf_oid.get_coord(oid, dr)
-    date = DateWithFrac.from_mjd(mjd, coord=dict(ra=ra, dec=dec))
+    coord = find_ztf_oid.get_sky_coord(oid, dr)
+    date = DateWithFrac.from_hmjd(mjd, coord=coord)
     correct_date(date)
     fits_url = date.sciimg_path(fieldid=fieldid, rcid=rcid, filter=fltr)
     prod_dir_url = date.products_path

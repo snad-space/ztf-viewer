@@ -5,15 +5,10 @@ from urllib.parse import urljoin
 
 import numpy as np
 import requests
-from astropy import units
-from astropy.coordinates import SkyCoord, EarthLocation
-from astropy.time import Time
 
 from ztf_viewer.cache import cache
 from ztf_viewer.config import PRODUCTS_URL
-
-
-PALOMAR = EarthLocation(lon=-116.863, lat=33.356, height=1706)  # EarthLocation.of_site('Palomar')
+from ztf_viewer.util import hmjd_to_earth
 
 
 @dataclass
@@ -24,10 +19,8 @@ class DateWithFrac:
     fraction: float
 
     @classmethod
-    def from_mjd(cls, mjd, coord=None, location=PALOMAR):
-        t = Time(mjd, format='mjd', location=location)
-        if coord is not None:
-            t = t - t.light_travel_time(SkyCoord(**coord, unit=units.deg))
+    def from_hmjd(cls, hmjd, coord):
+        t = hmjd_to_earth(hmjd, coord)
         dt = t.to_datetime()
         return cls(
             year=dt.year,

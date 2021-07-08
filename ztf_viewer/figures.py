@@ -6,6 +6,7 @@ import matplotlib.backends.backend_pgf
 import matplotlib.figure
 import numpy as np
 import pandas as pd
+from astropy.time import Time
 from flask import Response, request, send_file
 from immutabledict import immutabledict
 from matplotlib.ticker import AutoMinorLocator
@@ -14,7 +15,7 @@ from ztf_viewer.app import app
 from ztf_viewer.cache import cache
 from ztf_viewer.catalogs import find_ztf_oid
 from ztf_viewer.exceptions import NotFound
-from ztf_viewer.util import mjd_to_datetime, FILTER_COLORS, FILTERS_ORDER, parse_json_to_immutable, ZTF_FILTERS, flip
+from ztf_viewer.util import FILTER_COLORS, FILTERS_ORDER, parse_json_to_immutable, ZTF_FILTERS, flip
 
 MJD_OFFSET = 58000
 
@@ -62,10 +63,12 @@ def get_plot_data(cur_oid, dr, other_oids=frozenset(), min_mjd=None, max_mjd=Non
             obs['mark_size'] = 3
             list_lc.append(obs)
         lcs[identifier] = list_lc
-    for lc in lcs.values():
-        for obs in lc:
+    for oid, lc in lcs.items():
+        mjd = np.array([obs['mjd'] for obs in lc])
+        time = Time(mjd, format='mjd')
+        for t, obs in zip(time, lc):
             obs[f'mjd_{MJD_OFFSET}'] = obs['mjd'] - MJD_OFFSET
-            obs['Heliodate'] = mjd_to_datetime(obs['mjd']).strftime('%Y-%m-%d %H:%M:%S')
+            obs['date'] = t.strftime('%Y-%m-%d')
             obs['cur_oid'] = cur_oid
     return lcs
 

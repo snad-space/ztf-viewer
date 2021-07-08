@@ -55,6 +55,10 @@ class FindZTFOID(_BaseFindZTF):
         coord = meta['coord']
         return coord['ra'], coord['dec']
 
+    def get_sky_coord(self, oid, dr):
+        ra, dec = self.get_coord(oid, dr)
+        return SkyCoord(ra=ra, dec=dec, unit='deg')
+
     def get_coord_string(self, oid, dr, frame=None):
         try:
             ra, dec = self.get_coord(oid, dr)
