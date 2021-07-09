@@ -346,7 +346,7 @@ def app_select_by_url(pathname):
                 coord_or_name,
                 search_match['radius_arcsec'],
             ]
-        dr = search_match.group('dr')
+        dr = search_match.group('dr') or DEFAULT_DR
         return [
             get_search_layout(coordinates, radius_arcsec, dr),
             coord_or_name,
