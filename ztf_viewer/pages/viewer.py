@@ -11,6 +11,8 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+from astropy.coordinates import SkyCoord
+from astropy.table import QTable
 from dash.dependencies import Input, Output, State, ALL, MATCH
 from dash.exceptions import PreventUpdate
 from dash_table import DataTable
@@ -20,6 +22,7 @@ from ztf_viewer import brokers
 from ztf_viewer.akb import akb
 from ztf_viewer.app import app
 from ztf_viewer.catalogs.conesearch import get_catalog_query, catalog_query_objects
+from ztf_viewer.catalogs.extinction import bayestar, sfd
 from ztf_viewer.catalogs.vizier import vizier_catalog_details, find_vizier
 from ztf_viewer.catalogs.ztf import find_ztf_oid, find_ztf_circle
 from ztf_viewer.date_with_frac import DateWithFrac, correct_date
@@ -671,6 +674,7 @@ def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_v
         raise PreventUpdate
     radii = {id['index']: float(value) for id, value in zip(radius_ids, radius_values)}
     ra, dec = find_ztf_oid.get_coord(oid, dr)
+    coord = find_ztf_oid.get_sky_coord(oid, dr)
 
     elements = {}
     for catalog, query in catalog_query_objects().items():
@@ -735,7 +739,20 @@ def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_v
     if 'zg' in mean_mag and 'zr' in mean_mag:
         elements['Average mag (including neighbourhood)'].append(f'(zg–zr) {mean_mag["zg"] - mean_mag["zr"]: .2f}')
 
-    elements['Brokers'] = [
+    elements['Extinction'] = [f'SFD E(B-V) = {sfd.ebv(coord):.2f}']
+    try:
+        table = get_catalog_query('Gaia EDR3 Distances').find(ra, dec, 1)
+        row = QTable(table[np.argmin(table['separation'])])
+        import logging
+        distance = row['__distance']
+        af = bayestar(SkyCoord(coord, distance=distance))
+        elements['Extinction'].append(
+            f'Bayestar & Gaia EDR distance Ag = {af["zg"]:.2f} Ar = {af["zr"]:.2f} Ai = {af["zi"]:.2f}'
+        )
+    except (NotFound, CatalogUnavailable):
+        pass
+
+    elements['Search in brokers'] = [
         brokers.alerce_tag(ra, dec),
         brokers.antares_tag(ra, dec, oid=oid),
         brokers.fink_tag(ra, dec),

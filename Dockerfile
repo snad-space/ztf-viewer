@@ -1,10 +1,13 @@
 FROM python:3.8-buster
 
+# Timezone settings
 ENV TZ=Europe/Moscow
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
+# Install gunicorn to run a web-server
 RUN pip install gunicorn
 
+# Install JS9 for FITS viewer
 ARG JS9_VERSION=3.1
 RUN curl -LJ -o js9.tar.gz https://github.com/ericmandel/js9/archive/v${JS9_VERSION}.tar.gz \
     && tar -xzvf js9.tar.gz \
@@ -15,12 +18,19 @@ RUN curl -LJ -o js9.tar.gz https://github.com/ericmandel/js9/archive/v${JS9_VERS
     && cd - \
     && rm -rf js9.tar.gz js9-${JS9_VERSION}
 
+# Install LaTeX for downloadable figures
 RUN apt-get update \
     && apt-get install -y --no-install-recommends texlive-latex-extra cm-super-minimal dvipng texlive-xetex texlive-fonts-recommended \
     && rm -rf /var/lib/apt/lists/*
 
+# Install dependencies
 COPY requirements.txt /app/
 RUN pip install -r /app/requirements.txt
+
+# Configure and download dustmaps
+RUN echo '{"data_dir": "/dustmaps"}' > /dustmapsrc
+ENV DUSTMAPS_CONFIG_FNAME /dustmapsrc
+RUN python -c 'from dustmaps import sfd, bayestar; sfd.fetch(); bayestar.fetch()'
 
 EXPOSE 80
 
