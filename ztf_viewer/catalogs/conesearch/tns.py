@@ -86,7 +86,7 @@ class TnsQuery(_BaseCatalogApiQuery):
         return table
 
     def get_url(self, id):
-        return f'//wis-tns.org/object/{id}'
+        return f'//www.wis-tns.org/object/{id}'
 
     def add_redshift_column(self, table):
         table['__redshift'] = [row['redshift'] if row['redshift'] else row['host_redshift'] for row in table]
