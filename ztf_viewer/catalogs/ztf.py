@@ -6,7 +6,7 @@ from astropy.coordinates import SkyCoord
 
 from ztf_viewer.cache import cache
 from ztf_viewer.config import LC_API_URL
-from ztf_viewer.exceptions import NotFound
+from ztf_viewer.exceptions import NotFound, CatalogUnavailable
 from ztf_viewer.util import INF
 
 
@@ -101,8 +101,10 @@ class FindZTFCircle(_BaseFindZTF):
             params=dict(ra=ra, dec=dec, radius_arcsec=radius_arcsec),
         )
         if resp.status_code != 200:
-            raise NotFound
+            raise CatalogUnavailable
         j = resp.json()
+        if not j:
+            raise NotFound
         coord = SkyCoord(ra, dec, unit='deg', frame='icrs')
         cat_coord = SkyCoord(ra=[obj['meta']['coord']['ra'] for obj in j.values()],
                              dec=[obj['meta']['coord']['dec'] for obj in j.values()],
