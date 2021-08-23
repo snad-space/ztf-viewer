@@ -14,8 +14,6 @@ This projects contains a source of [ZTF](http://ztf.caltech.edu) Data Releases l
 - `REDIS_URL`: redis server address
 - `LC_API_URL`: light curve API address
 - `PRODUCTS_URL`: address of ZTF DR FITS data-products 
-- `TNS_API_URL`: transient name server address, use `https://sandbox-tns.weizmann.ac.il/` for tests
-- `TNS_API_KEY`: transient name server bot API key
 
 ### Running without docker
 
@@ -30,11 +28,11 @@ source ~/.virtualenv/ztf-viewer/bin/activate
 python -m pip install -e .
 
 # Run webserver
-CACHE_TYPE="memory" TNS_API_URL="" python -m ztf_viewer
+CACHE_TYPE="memory" python -m ztf_viewer
 ```
 
 Go to the url specified in the command line output, it should be something like http://localhost:8050/
-Some features like FITS viewer and TNS cross-match wouldn't work.
+Some features like FITS viewer wouldn't work.
 
 ## Web-services used by the viewer
 

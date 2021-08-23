@@ -1,9 +1,11 @@
 import logging
 import urllib.parse
 
+import pandas as pd
 import requests
 from astropy.coordinates import SkyCoord
 from astropy.cosmology import FlatLambdaCDM
+from astropy.table import Table
 from astroquery.utils.commons import TableList
 
 from ztf_viewer.cache import cache
@@ -142,7 +144,12 @@ class _BaseCatalogApiQuery(_BaseCatalogQuery):
             raise CatalogUnavailable(response.text)
 
     def _api_query_region(self, ra, dec, radius_arcsec):
-        raise NotImplemented
+        query = {'ra': ra, 'dec': dec, 'radius_arcsec': radius_arcsec}
+        response = self._api_session.get(self._get_api_url(query))
+        self._raise_if_not_ok(response)
+        j = response.json()
+        table = Table.from_pandas(pd.DataFrame.from_records(j))
+        return table
 
     def _query_region(self, coord, radius):
         ra = coord.ra.to_value('deg')
