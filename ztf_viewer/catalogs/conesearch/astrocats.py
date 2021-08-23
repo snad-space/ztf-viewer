@@ -38,6 +38,7 @@ class AstrocatsQuery(_BaseCatalogApiQuery):
         table = astropy.io.ascii.read(BytesIO(response.content), format='csv', guess=False)
         table['references'] = [', '.join(f'<a href=//adsabs.harvard.edu/abs/{r}>{r}</a>'
                                          for r in row['references'].split(','))
+                               if row['references'] else ''
                                for row in table]
         return table
 
