@@ -4,7 +4,7 @@ from urllib.parse import quote_plus
 import dash_html_components as html
 
 from ztf_viewer.catalogs.conesearch import get_catalog_query
-from ztf_viewer.exceptions import NotFound
+from ztf_viewer.exceptions import CatalogUnavailable, NotFound
 
 
 def _a_tag(text, url):
@@ -51,7 +51,7 @@ def fink_conesearch_url(ra, dec, radius_arcsec=1):
 def fink_tag(ra, dec, radius_arcsec=1):
     try:
         return _a_tag('Fink', fink_conesearch_url(ra, dec, radius_arcsec))
-    except NotFound:
+    except (NotFound, CatalogUnavailable):
         return 'Fink'
 
 
