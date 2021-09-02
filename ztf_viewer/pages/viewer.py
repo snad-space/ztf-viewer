@@ -682,10 +682,14 @@ def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_v
             table = query.find(ra, dec, radii[catalog])
         except (NotFound, CatalogUnavailable, KeyError):
             continue
-        row = table[np.argmin(table['separation'])]
+        idx = np.argmin(table['separation'])
+        row = table[idx]
         for table_field, display_name in SUMMARY_FIELDS.items():
             try:
-                value = to_str(row[table_field]).strip()
+                value = row[table_field]
+                if table_field == '__distance' and table['__distance'].unit is not None:
+                    value = value * table['__distance'].unit
+                value = to_str(value).strip()
             except KeyError:
                 continue
             if value == '':
