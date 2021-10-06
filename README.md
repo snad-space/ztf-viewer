@@ -40,8 +40,8 @@ Some features like FITS viewer wouldn't work.
 - [SNAD Light-curve feature API](http://features.lc.snad.space/help) is a HTTP service to extract light-curve features using [`light-curve-feature`](//crates.io/crates/light-curve-feature) Rust crate. Source code: https://github.com/snad-space/web-light-curve-features
 - [SNAD OGLE-III metadata API](http://ogle3.snad.space/) provides cone search within [OGLE-III variable star catalog](http://ogledb.astrouw.edu.pl/~ogle/CVS/). Source code: https://github.com/snad-space/snad-ogle3
 - [SNAD ZTF Periodic Catalog API](http://periodic.ztf.snad.space) provides cone search within [ZTF Catalog of Periodic Variable Stars](http://variables.cn:88/ztf/). Source code: https://github.com/snad-space/ztf-periodic-catalog-db
+- [SNAD Transient Name Server API](http://tns.snad.space) provides cone search within [TNS](https://www.wis-tns.org). Source code: https://github.com/snad-space/snad-tns
 - [NASA/IPAC Infrared Science Archive](https://irsa.ipac.caltech.edu/frontpage/) is used to access ZTF FITS files
 - [Vizier](https://vizier.u-strasbg.fr) is used to access various catalogs
 - [Simbad](http://simbad.u-strasbg.fr) is used for both cone search and identifier queries
 - [Astrocats](https://astrocats.space) are used for cone search
-- [Transient Name Server](//www.wis-tns.org) is used for cone search
