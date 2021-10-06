@@ -5,19 +5,18 @@ services:
     networks:
       - app
     restart: always
+
   ztf-web-viewer-app:
     build: .
     environment:
       - PRODUCTS_URL=http://ztf-web-viewer-proxy-dev
       - LC_API_URL=http://db.ztf.snad.space
-      - TNS_API_URL=https://www.wis-tns.org
-    env_file:
-      - secret.env # TNS_API_KEY
     networks:
       - app
     depends_on:
       - redis
     restart: always
+
   ztf-web-viewer-proxy-dev:
     build: proxy
     volumes:
