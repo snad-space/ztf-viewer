@@ -42,7 +42,7 @@ app.layout = html.Div([
                         href='/',
                     ),
                     ' ',
-                    html.Div('DR4', id='dr-title', style={'display': 'inline-block'}),
+                    html.Div(DEFAULT_DR.upper(), id='dr-title', style={'display': 'inline-block'}),
                     ' object viewer',
                 ],
             ),
