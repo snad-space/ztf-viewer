@@ -50,7 +50,7 @@ FILTERS_ORDER = {
 }
 
 
-DEFAULT_DR = 'dr7'
+DEFAULT_DR = 'dr4'
 available_drs = ('dr2', 'dr3', 'dr4', 'dr7')
 
 
