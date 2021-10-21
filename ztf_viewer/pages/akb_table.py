@@ -24,6 +24,10 @@ def get_layout(pathname):
             filter_action='native',
             sort_action='native',
             page_action='native',
+            style_data={
+                'whiteSpace': 'normal',
+                'height': 'auto',
+            },
         ),
         html.Br(),
         'See filtering syntax ',
