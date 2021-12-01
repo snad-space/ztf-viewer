@@ -51,7 +51,7 @@ FILTERS_ORDER = {
 
 
 DEFAULT_DR = 'dr4'
-available_drs = ('dr2', 'dr3', 'dr4', 'dr7')
+available_drs = ('dr2', 'dr3', 'dr4',)
 
 
 def db_coord_to_degrees(coord):
