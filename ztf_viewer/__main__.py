@@ -5,12 +5,9 @@ import pathlib
 import re
 import urllib.parse
 
-import dash_core_components as dcc
-import dash_html_components as html
 from astropy.coordinates import SkyCoord, get_icrs_coordinates
 from astropy.coordinates.name_resolve import NameResolveError
-from dash.dash import no_update
-from dash.dependencies import Input, Output, State
+from dash import html, dcc, Input, Output, State, no_update
 from dash.exceptions import PreventUpdate
 
 from ztf_viewer.akb import akb
@@ -200,7 +197,7 @@ def sky_coord_from_str(s):
         Input('input-coord-or-name', 'n_submit'),
         Input('input-search-radius', 'n_submit'),
     ],
-    state=[
+    [
         State('input-oid', 'value'),
         State('input-coord-or-name', 'value'),
         State('input-search-radius', 'value'),

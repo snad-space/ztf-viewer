@@ -1,7 +1,7 @@
 import json
 from urllib.parse import quote_plus
 
-import dash_html_components as html
+from dash import html
 
 from ztf_viewer.catalogs.conesearch import get_catalog_query
 from ztf_viewer.exceptions import CatalogUnavailable, NotFound

@@ -1,8 +1,5 @@
-import dash_core_components as dcc
-import dash_html_components as html
-import flask
 import re
-from dash.dependencies import Input, Output, State, MATCH, ALL
+from dash import html, dcc, Input, Output, State, ALL
 from dash.exceptions import PreventUpdate
 
 from ztf_viewer.akb import akb
@@ -148,7 +145,7 @@ def are_tags_priorities_unique(priorities):
 @app.callback(
     Output('tags-list-save-status', 'children'),
     [Input('tags-list-save-button', 'n_clicks')],
-    state=[
+    [
         State(dict(type='tag-priority-input', index=ALL), 'id'),
         State(dict(type='tag-priority-input', index=ALL), 'value'),
         State('new-tag-priority-input', 'value'),

@@ -1,9 +1,8 @@
 from datetime import datetime
 
-import dash_html_components as html
-from dash.dependencies import Input, Output, State
+from dash import html, Input, Output
 from dash.exceptions import PreventUpdate
-from dash_table import DataTable
+from dash.dash_table import DataTable
 
 from ztf_viewer.akb import akb
 from ztf_viewer.app import app

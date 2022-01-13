@@ -1,6 +1,3 @@
-import pandas as pd
-from astropy.table import Table
-
 from ztf_viewer.catalogs.conesearch._base import _BaseCatalogApiQuery
 
 

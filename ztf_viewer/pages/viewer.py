@@ -4,19 +4,17 @@ from functools import lru_cache, partial
 from itertools import chain
 from urllib.parse import urlencode, urljoin
 
-import dash_core_components as dcc
 import dash_dangerously_set_inner_html as ddsih
 import dash_defer_js_import as dji
-import dash_html_components as html
 import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from astropy.coordinates import SkyCoord
 from astropy.table import QTable
-from dash.dependencies import Input, Output, State, ALL, MATCH
+from dash import dcc, html, Input, Output, State, ALL
 from dash.exceptions import PreventUpdate
-from dash_table import DataTable
+from dash.dash_table import DataTable
 from requests import ConnectionError
 
 from ztf_viewer import brokers
@@ -148,7 +146,7 @@ def get_layout(pathname):
                                     min=0.0,
                                     max=1.0,
                                     step=1e-3,
-                                    marks={x: f'{x:.1f}' for x in np.linspace(0, 1, 11)},
+                                    marks={str(x): f'{x:.1f}' for x in np.linspace(0, 1, 11)},
                                 ),
                             ],
                             style={'width': '60%', 'display': 'inline-block', 'vertical-align': 'bottom'},
@@ -657,14 +655,14 @@ def set_akb_info(_, oid):
 app.callback(
     Output('akb-info', 'children'),
     [Input('akb-reset', 'n_clicks')],
-    state=[State('oid', 'children')],
+    [State('oid', 'children')],
 )(set_akb_info)
 
 
 @app.callback(
     Output('akb-submitted', 'children'),
     [Input('akb-submit', 'n_clicks')],
-    state=[
+    [
         State('oid', 'children'),
         State(dict(type='akb-tags', index=ALL), 'value'),
         State('akb-description', 'value'),
@@ -689,7 +687,7 @@ def update_akb(n_clicks, oid, tags, description):
         Output('max-mjd', 'children'),
     ],
     [Input('light-curve-time-interval', 'value')],
-    state=[State('dr', 'children')],
+    [State('dr', 'children')],
 )
 def set_min_max_mjd(values, dr):
     if values is None:
@@ -702,7 +700,7 @@ def set_min_max_mjd(values, dr):
 @app.callback(
     Output('fold-period-layout', 'style'),
     [Input('light-curve-type', 'value')],
-    state=[State('fold-period-layout', 'style')]
+    [State('fold-period-layout', 'style')]
 )
 def show_fold_period_layout(light_curve_type, old_style):
     style = old_style.copy()
@@ -1038,7 +1036,7 @@ def find_neighbours(radius, center_oid, dr, different):
 app.callback(
     Output('different_field_neighbours', 'children'),
     [Input('different_field_radius', 'value')],
-    state=[
+    [
         State('oid', 'children'),
         State('dr', 'children'),
     ]
@@ -1047,7 +1045,7 @@ app.callback(
 app.callback(
     Output('different_filter_neighbours', 'children'),
     [Input('different_filter_radius', 'value')],
-    state=[
+    [
         State('oid', 'children'),
         State('dr', 'children'),
     ]
@@ -1082,7 +1080,7 @@ app.clientside_callback(
 @app.callback(
     Output('fits-to-show', 'children'),
     [Input('graph', 'clickData')],
-    state=[
+    [
         State('dr', 'children')
     ]
 )
@@ -1136,7 +1134,7 @@ def set_tables():
         app.callback(
             Output(f'{catalog}-table', 'children'),
             [Input(dict(type='search-radius', index=catalog), 'value')],
-            state=[
+            [
                 State('oid', 'children'),
                 State('dr', 'children'),
             ]
@@ -1149,7 +1147,7 @@ set_tables()
 @app.callback(
     Output('search-on-vizier', 'href'),
     [Input('vizier-radius', 'value')],
-    state=[
+    [
         State('oid', 'children'),
         State('dr', 'children'),
     ],
@@ -1164,7 +1162,7 @@ def set_vizier_url(radius, oid, dr):
 @app.callback(
     Output('vizier-list', 'children'),
     [Input('vizier-button', 'n_clicks')],
-    state=[
+    [
         State('vizier-radius', 'value'),
         State('oid', 'children'),
         State('dr', 'children'),

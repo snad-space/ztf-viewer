@@ -1,7 +1,5 @@
 import dash
-import dash_core_components as dcc
-import dash_html_components as html
-from dash.dependencies import Input, Output, State
+from dash import html, dcc, Input, Output, State
 
 from ztf_viewer.akb import akb
 from ztf_viewer.app import app
@@ -29,7 +27,7 @@ def get_layout(pathname):
 @app.callback(
     Output('login-status', 'children'),
     [Input('token', 'n_submit')],
-    state=[State('token', 'value')]
+    [State('token', 'value')]
 )
 def do_login(n_submit, token):
     try:
