@@ -23,6 +23,7 @@ from ztf_viewer.akb import akb
 from ztf_viewer.app import app
 from ztf_viewer.catalogs.conesearch import get_catalog_query, catalog_query_objects
 from ztf_viewer.catalogs.extinction import bayestar, sfd
+from ztf_viewer.catalogs.snad.catalog import snad_catalog
 from ztf_viewer.catalogs.vizier import vizier_catalog_details, find_vizier
 from ztf_viewer.catalogs.ztf import find_ztf_oid, find_ztf_circle
 from ztf_viewer.date_with_frac import DateWithFrac, correct_date
@@ -470,10 +471,19 @@ def get_layout(pathname):
 
 @app.callback(
     Output('title', 'children'),
-    [Input('oid', 'children')],
+    [
+        Input('oid', 'children'),
+        Input('dr', 'children'),
+    ],
 )
-def set_title(oid):
-    return f'{oid}'
+def set_title(oid, dr):
+    ra, dec = find_ztf_oid.get_coord(oid, dr)
+    try:
+        snad_name = snad_catalog.search_region(ra, dec, radius_arcsec=3)
+        snad_name = f'{snad_name} '
+    except NotFound:
+        snad_name = ''
+    return f'{snad_name}{oid}'
 
 
 @app.callback(
