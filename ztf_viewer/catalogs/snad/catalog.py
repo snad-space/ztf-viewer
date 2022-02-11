@@ -58,6 +58,7 @@ class _SnadCatalog:
         return self.table.copy()
 
     def search_region(self, ra, dec, radius_arcsec):
+        self._update()
         coord = SkyCoord(ra=ra, dec=dec, unit='deg')
         radius = Angle(radius_arcsec, unit='arcsec')
         idx, sep, _ = coord.match_to_catalog_sky(self.table['coord'])
