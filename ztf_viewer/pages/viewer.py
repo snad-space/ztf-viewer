@@ -480,7 +480,7 @@ def set_title(oid, dr):
     ra, dec = find_ztf_oid.get_coord(oid, dr)
     try:
         snad_name = snad_catalog.search_region(ra, dec, radius_arcsec=3)
-        snad_name = f'{snad_name} '
+        snad_name = f'{snad_name} — '
     except NotFound:
         snad_name = ''
     return f'{snad_name}{oid}'
