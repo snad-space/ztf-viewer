@@ -3,21 +3,32 @@ import importlib.resources
 from datetime import datetime, timedelta
 from io import BytesIO
 
-import pandas as pd
+import numpy as np
 import requests
-from astropy.coordinates import SkyCoord
+from astropy.coordinates import Angle, SkyCoord
+from astropy.io import ascii
 
 from ztf_viewer.catalogs.snad import data
+from ztf_viewer.exceptions import NotFound
 
 
 class _SnadCatalog:
     url = 'https://snad.space/catalog/snad_catalog.csv'
 
     def __init__(self, interval_seconds=600):
-        with importlib.resources.open_binary(data, 'snad_catalog.csv') as fh:
-            self.df = pd.read_csv(fh, index_col='Name')
-        self.updated_at = datetime(1900, 1, 1, 1, 1)
         self.check_interval = timedelta(seconds=interval_seconds)
+
+        with importlib.resources.open_binary(data, 'snad_catalog.csv') as fh:
+            self.table = self._create_table(fh)
+
+        self.updated_at = datetime(1900, 1, 1, 1, 1)
+
+    @staticmethod
+    def _create_table(src):
+        table = ascii.read(src, format='csv')
+        table['coord'] = SkyCoord(ra=table['R.A.'], dec=table['Dec.'], unit='deg')
+        table.add_index('Name')
+        return table
 
     @staticmethod
     def _last_modified(resp):
@@ -40,14 +51,22 @@ class _SnadCatalog:
                 bio = BytesIO(resp.content)
         except requests.exceptions.ConnectionError:
             return
-        self.df = pd.read_csv(bio, index_col='Name')
+        self.table = self._create_table(bio)
 
     def __call__(self):
         self._update()
-        return self.df.copy(deep=True)
+        return self.table.copy()
+
+    def search_region(self, ra, dec, radius_arcsec):
+        coord = SkyCoord(ra=ra, dec=dec, unit='deg')
+        radius = Angle(radius_arcsec, unit='arcsec')
+        idx, sep, _ = coord.match_to_catalog_sky(self.table['coord'])
+        if sep > radius:
+            raise NotFound
+        return self.table['Name'][idx]
 
 
-get_snad_catalog = _SnadCatalog()
+snad_catalog = _SnadCatalog()
 
 
 class SnadCatalogSource:
@@ -55,12 +74,12 @@ class SnadCatalogSource:
         if isinstance(name, int) or not name.upper().startswith('SNAD'):
             name = f'SNAD{name}'
         name = name.upper()
-        catalog = get_snad_catalog()
+        catalog = snad_catalog()
         self.row = catalog.loc[name]
 
     @property
     def coord(self):
-        return SkyCoord(ra=self.row['R.A.'], dec=self.row['Dec.'], unit='deg')
+        return self.row['coord']
 
     @property
     def ztf_oid(self):
