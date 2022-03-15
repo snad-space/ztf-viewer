@@ -49,10 +49,11 @@ MARKER_SIZE = 10
 
 LIST_MAXSHOW = 4
 
-LIGHT_CURVE_VALUE_VERSION_ANNOTATION = defaultdict(str) | {
+LIGHT_CURVE_VALUE_VERSION_ANNOTATION = defaultdict(str)
+LIGHT_CURVE_VALUE_VERSION_ANNOTATION.update({
     'v0.1.17': ' (Malanchev et al. 2021)',
     'v0.2.2': ' (Aleo et al. 2021)',
-}
+})
 
 
 def parse_pathname(pathname):
