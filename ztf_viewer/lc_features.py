@@ -1,3 +1,5 @@
+from typing import List
+
 import requests
 
 from ztf_viewer.cache import cache
@@ -13,11 +15,22 @@ class LightCurveFeatures:
         self._find_ztf_oid = find_ztf_oid
 
     @cache()
-    def __call__(self, oid, dr, min_mjd=None, max_mjd=None):
+    def versions(self) -> List[str]:
+        url = f'{self._base_api_url}/versions'
+        resp = self._api_session.get(url)
+        if resp.status_code != 200:
+            raise NotFound
+        return resp.json()
+
+    def url(self, version: str = "latest") -> str:
+        return f'{self._base_api_url}/api/{version}/'
+
+    @cache()
+    def __call__(self, oid, dr, version, min_mjd=None, max_mjd=None):
         lc = find_ztf_oid.get_lc(oid, dr, min_mjd=min_mjd, max_mjd=max_mjd)
         light_curve = [dict(t=obs['mjd'], m=obs['mag'], err=obs['magerr']) for obs in lc]
         j = dict(light_curve=light_curve)
-        resp = self._api_session.post(self._base_api_url, json=j)
+        resp = self._api_session.post(self.url(version), json=j)
         if resp.status_code != 200:
             raise NotFound
         return resp.json()

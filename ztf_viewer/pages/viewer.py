@@ -1,4 +1,5 @@
 import pathlib
+from collections import defaultdict
 from functools import lru_cache, partial
 from itertools import chain
 from urllib.parse import urlencode
@@ -48,6 +49,11 @@ MARKER_SIZE = 10
 
 LIST_MAXSHOW = 4
 
+LIGHT_CURVE_VALUE_VERSION_ANNOTATION = defaultdict(str) | {
+    'v0.1.17': ' (Malanchev et al. 2021)',
+    'v0.2.2': ' (Aleo et al. 2021)',
+}
+
 
 def parse_pathname(pathname):
     path = pathlib.Path(pathname)
@@ -87,7 +93,7 @@ def get_layout(pathname):
     short_min_mjd, short_max_mjd = min_max_mjd_short(dr)
     min_mjd, max_mjd = (short_min_mjd, short_max_mjd) if is_short else (-INF, INF)
     try:
-        features = light_curve_features(oid, dr, min_mjd=min_mjd, max_mjd=max_mjd)
+        features = light_curve_features(oid, dr, version='latest', min_mjd=min_mjd, max_mjd=max_mjd)
     except NotFound:
         features = None
     layout = html.Div([
@@ -123,7 +129,7 @@ def get_layout(pathname):
                         html.Div(
                             [
                                 dcc.Input(
-                                    value=features['period_0'] if features is not None else None,
+                                    value=features.get('period_0_magn', features.get('period_0', None)) if features is not None else None,
                                     id='fold-period',
                                     placeholder='Period, days',
                                     type='number',
@@ -441,6 +447,17 @@ def get_layout(pathname):
         html.Div(
             [
                 html.H2('Features'),
+                dcc.Dropdown(
+                    id='features-api-version',
+                    placeholder='light-curve-feature version',
+                    options=[dict(value=v, label=f'{v}{LIGHT_CURVE_VALUE_VERSION_ANNOTATION[v]}')
+                             for v in sorted(light_curve_features.versions())],
+                    value='latest',
+                    multi=False,
+                    clearable=False,
+                    style={'width': 300,}, # 'display': 'inline-block'},
+                ),
+                html.Br(),
                 html.Div(id='features-list'),
             ],
             id='features',
@@ -724,17 +741,19 @@ def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_v
                 style={'display': 'inline'},
             ))
     try:
-        features = light_curve_features(oid, dr)
+        features = light_curve_features(oid, dr, version='latest')
+        period = features.get('period_0_magn', features.get('period_0'))
+        period_s2n = features.get('period_s_to_n_0_magn', features.get('period_s_to_n_0'))
         el = elements.setdefault('Period, days', [])
         el.insert(0, html.Div(
             [
-                f'{features["period_0"]:.3f} (',
+                f'{period:.3f} (',
                 html.A(
                     'periodogram',
                     href='#features',
                     style={'border-bottom': '1px dashed', 'text-decoration': 'none'},
                 ),
-                f' S/N={features["period_s_to_n_0"]:.3f})'
+                f' S/N={period_s2n:.3f})'
             ],
             style={'display': 'inline'},
         ))
@@ -1162,13 +1181,14 @@ def set_vizier_list(n_clicks, radius, oid, dr):
     [
         Input('oid', 'children'),
         Input('dr', 'children'),
+        Input('features-api-version', 'value'),
         Input('min-mjd', 'children'),
         Input('max-mjd', 'children'),
     ]
 )
-def set_features_list(oid, dr, min_mjd, max_mjd):
+def set_features_list(oid, dr, version, min_mjd, max_mjd):
     try:
-        features = light_curve_features(oid, dr, min_mjd=min_mjd, max_mjd=max_mjd)
+        features = light_curve_features(oid, dr, version=version, min_mjd=min_mjd, max_mjd=max_mjd)
     except NotFound:
         return 'Not available'
     items = [f'**{k}**: {v:.4g}' for k, v in sorted(features.items(), key=lambda item: item[0])]
