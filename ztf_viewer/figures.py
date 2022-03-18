@@ -343,6 +343,7 @@ def response_figure(dr, oid):
 @app.server.route('/<dr>/figure/<int:oid>/folded/<float:period>')
 def response_figure_folded(dr, oid, period):
     kwargs = parse_figure_args_helper(request.args)
+    offset = float(request.args.get('offset', 0.0))
     fmt = kwargs.pop('fmt')
     caption = kwargs.pop('caption')
     title = kwargs.pop('title')
@@ -351,7 +352,7 @@ def response_figure_folded(dr, oid, period):
     if repeat is not None:
         repeat = int(repeat)
 
-    data = get_folded_plot_data(oid, dr, period=period, **kwargs)
+    data = get_folded_plot_data(oid, dr, period=period, offset=offset, **kwargs)
     img = plot_folded_data(oid, data, period=period, repeat=repeat, fmt=fmt, caption=caption, title=title)
 
     return Response(

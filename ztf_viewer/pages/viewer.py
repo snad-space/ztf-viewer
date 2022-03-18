@@ -918,7 +918,8 @@ def set_figure(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd,
     return fw
 
 
-def set_figure_link(cur_oid, dr, title, different_filter, different_field, min_mjd, max_mjd, lc_type, period, fmt):
+def set_figure_link(cur_oid, dr, title, different_filter, different_field, min_mjd, max_mjd, lc_type, period, phase0,
+                    fmt):
     if lc_type == 'folded' and not period:
         raise PreventUpdate
     other_oids = neighbour_oids(different_filter, different_field)
@@ -929,6 +930,9 @@ def set_figure_link(cur_oid, dr, title, different_filter, different_field, min_m
     if max_mjd is not None:
         data.append(('max_mjd', max_mjd))
     data.append(('format', fmt))
+    if lc_type == 'folded':
+        offset = -(phase0 or 0.0) * period
+        data.append(('offset', offset))
     query = urlencode(data)
     if lc_type == 'full':
         return f'/{dr}/figure/{cur_oid}?{query}'
@@ -949,6 +953,7 @@ app.callback(
         Input('max-mjd', 'children'),
         Input('light-curve-type', 'value'),
         Input('fold-period', 'value'),
+        Input('fold-zero-phase', 'value'),
     ],
 )(partial(set_figure_link, fmt='png'))
 
@@ -965,6 +970,7 @@ app.callback(
         Input('max-mjd', 'children'),
         Input('light-curve-type', 'value'),
         Input('fold-period', 'value'),
+        Input('fold-zero-phase', 'value'),
     ],
 )(partial(set_figure_link, fmt='pdf'))
 
