@@ -2,7 +2,7 @@ import pathlib
 from collections import defaultdict
 from functools import lru_cache, partial
 from itertools import chain
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urljoin
 
 import dash_core_components as dcc
 import dash_dangerously_set_inner_html as ddsih
@@ -27,6 +27,7 @@ from ztf_viewer.catalogs.extinction import bayestar, sfd
 from ztf_viewer.catalogs.snad.catalog import snad_catalog
 from ztf_viewer.catalogs.vizier import vizier_catalog_details, find_vizier
 from ztf_viewer.catalogs.ztf import find_ztf_oid, find_ztf_circle
+from ztf_viewer.config import PRODUCTS_URL
 from ztf_viewer.date_with_frac import DateWithFrac, correct_date
 from ztf_viewer.exceptions import NotFound, CatalogUnavailable
 from ztf_viewer.figures import get_plot_data, get_folded_plot_data, MJD_OFFSET
@@ -1060,7 +1061,7 @@ def graph_clicked(data, dr):
     coord = find_ztf_oid.get_sky_coord(oid, dr)
     date = DateWithFrac.from_hmjd(mjd, coord=coord)
     correct_date(date)
-    fits_url = date.sciimg_path(fieldid=fieldid, rcid=rcid, filter=fltr)
+    fits_url = urljoin(PRODUCTS_URL, date.sciimg_path(fieldid=fieldid, rcid=rcid, filter=fltr))
     prod_dir_url = date.products_path
     return [
         html.Div(ra, id='fits-to-show-ra', style={'display': 'none'}),

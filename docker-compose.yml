@@ -9,37 +9,16 @@ services:
   ztf-web-viewer-app:
     build: .
     environment:
-      - PRODUCTS_URL=http://ztf-web-viewer-proxy
-      - LC_API_URL=http://db.ztf.snad.space
-    networks:
-      - app
-    depends_on:
-      - redis
-    restart: always
-
-  ztf-web-viewer-proxy:
-    build: proxy
-    volumes:
-      - /srv/pgsql/cache/ztf-products:/cache
+      - VIRTUAL_HOST=ztf.snad.space
+      - DYNDNS_HOST=ztf.snad.space
+      - LETSENCRYPT_HOST=ztf.snad.space
+      - LETSENCRYPT_EMAIL=ztf@snad.space
     networks:
       - app
       - proxy
-    environment:
-      VIRTUAL_HOST: ztf.snad.space
-      DYNDNS_HOST: ztf.snad.space
-      LETSENCRYPT_HOST: ztf.snad.space
-      LETSENCRYPT_EMAIL: ztf@snad.space
     depends_on:
-      - ztf-web-viewer-app
+      - redis
     restart: always
-
-  proxy-cache-filler:
-    build: proxy-cache-filler
-    networks:
-      - app
-    depends_on:
-      - ztf-web-viewer-proxy
-    restart: on-failure
 
 networks:
   app:
