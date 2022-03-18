@@ -900,6 +900,7 @@ def set_figure(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd,
             size_max=MARKER_SIZE,
             hover_data={'folded_time': True, f'mjd_{MJD_OFFSET}': ':.5f', 'date': True, 'magerr': True},
             custom_data=['mjd', 'oid', 'fieldid', 'rcid', 'filter'],
+            range_x=[0.0, 1.0],
         )
     else:
         raise ValueError(f'{lc_type = } is unknown')
