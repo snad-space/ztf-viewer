@@ -29,6 +29,6 @@ class GcvsQuery(_BaseCatalogQuery):
         )
         self._query_region = partial(self._query.query_region, catalog='B/gcvs/gcvs_cat')
 
-    def get_url(self, id):
+    def get_url(self, id, row=None):
         qid = urllib.parse.quote_plus(id)
         return f'http://www.sai.msu.su/gcvs/cgi-bin/search.cgi?search={qid}'

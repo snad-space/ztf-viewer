@@ -32,5 +32,5 @@ class AlerceQuery(_BaseCatalogApiQuery):
         table = Table.from_pandas(df)
         return table
 
-    def get_url(self, id):
+    def get_url(self, id, row=None):
         return f'//alerce.online/object/{id}'

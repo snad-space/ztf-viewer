@@ -24,5 +24,5 @@ class ZtfPeriodicQuery(_BaseCatalogApiQuery):
     }
     _base_api_url = 'http://periodic.ztf.snad.space/api/v1/circle'
 
-    def get_url(self, id):
+    def get_url(self, id, row=None):
         return f'http://variables.cn:88/lcz.php?SourceID={id}'

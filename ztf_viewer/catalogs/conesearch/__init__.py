@@ -7,6 +7,7 @@ from .gaia2dis import Gaia2Dis
 from .gaia_edr3_dis import GaiaEdr3Dis
 from .gcvs import GcvsQuery
 from .ogle import OgleQuery
+from .sdss import SdssQuasarsQuery
 from .simbad import SimbadQuery
 from .tns import TnsQuery
 from .vsx import VsxQuery
@@ -21,6 +22,7 @@ GAIA2_DIS = Gaia2Dis('Gaia DR2 Distances')
 GAIA_EDR3_DIS = GaiaEdr3Dis('Gaia EDR3 Distances')
 GCVS_QUERY = GcvsQuery('GCVS')
 OGLE_QUERY = OgleQuery('OGLE')
+SDSS_QUASARS_QUERY = SdssQuasarsQuery('SDSS DR16 Quasars')
 SIMBAD_QUERY = SimbadQuery('Simbad')
 TNS_QUERY = TnsQuery('Transient Name Server')
 VSX_QUERY = VsxQuery('VSX')

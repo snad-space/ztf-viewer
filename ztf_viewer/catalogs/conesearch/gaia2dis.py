@@ -32,7 +32,7 @@ class Gaia2Dis(_BaseCatalogQuery):
         )
         self._query_region = partial(self._query.query_region, catalog='I/347/gaia2dis')
 
-    def get_url(self, id):
+    def get_url(self, id, row=None):
         return f'//vizier.u-strasbg.fr/viz-bin/VizieR-6?-out.form=%2bH&-source=I/347/gaia2dis&Source={id}'
 
     def add_distance_column(self, table):

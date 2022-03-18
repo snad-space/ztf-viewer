@@ -30,7 +30,7 @@ class SimbadQuery(_BaseCatalogQuery):
         self._query.add_votable_fields('distance', 'fluxdata(R)', 'fluxdata(V)', 'otype', 'otypes', 'v*')
         self._query_region = self._query.query_region
 
-    def get_url(self, id):
+    def get_url(self, id, row=None):
         qid = urllib.parse.quote(id)
         return f'//simbad.u-strasbg.fr/simbad/sim-id?Ident={qid}'
 

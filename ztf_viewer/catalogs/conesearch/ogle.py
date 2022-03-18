@@ -79,7 +79,7 @@ class OgleQuery(_BaseCatalogApiQuery):
         table['light_curve'] = [self._download_light_curve(row[self.id_column]) for row in table]
         return table
 
-    def get_link(self, id, name):
+    def get_link(self, id, name, row=None):
         return anchor_form(self._post_url, dict(**self._post_data, val_id=id), name)
 
 

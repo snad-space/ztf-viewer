@@ -301,6 +301,19 @@ def get_layout(pathname):
         ),
         html.Div(
             [
+                html.H2('SDSS DR16 Quasars'),
+                dcc.Input(
+                    value='10',
+                    id=dict(type='search-radius', index='sdss-dr16-quasars'),
+                    placeholder='Search radius, arcsec',
+                    type='number',
+                ),
+                'search radius, arcsec',
+                html.Div(id='sdss-dr16-quasars-table'),
+            ]
+        ),
+        html.Div(
+            [
                 html.H2('ATLAS'),
                 dcc.Input(
                     value='10',

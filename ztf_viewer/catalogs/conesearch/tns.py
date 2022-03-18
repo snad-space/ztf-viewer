@@ -24,7 +24,7 @@ class TnsQuery(_BaseCatalogApiQuery):
 
     _base_api_url = 'http://tns.snad.space/api/v1/circle'
 
-    def get_url(self, id):
+    def get_url(self, id, row=None):
         return f'//www.wis-tns.org/object/{id}'
 
     def _api_query_region(self, ra, dec, radius_arcsec):

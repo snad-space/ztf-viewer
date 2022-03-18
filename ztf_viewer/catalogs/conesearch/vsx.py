@@ -29,5 +29,5 @@ class VsxQuery(_BaseCatalogQuery):
         self._query = Vizier()
         self._query_region = partial(self._query.query_region, catalog='B/vsx/vsx')
 
-    def get_url(self, id):
+    def get_url(self, id, row=None):
         return f'//www.aavso.org/vsx/index.php?view=detail.top&oid={id}'

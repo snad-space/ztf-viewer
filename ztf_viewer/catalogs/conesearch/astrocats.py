@@ -42,7 +42,7 @@ class AstrocatsQuery(_BaseCatalogApiQuery):
                                for row in table]
         return table
 
-    def get_link(self, id, name):
+    def get_link(self, id, name, row=None):
         urls = {}
         for cat, base_url in self._base_astrocats_urls.items():
             url = urllib.parse.urljoin(base_url, urllib.parse.quote(id))

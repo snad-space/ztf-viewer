@@ -103,7 +103,7 @@ class _BaseCatalogQuery:
         table['__objname'] = [to_str(row[self.name_column]) for row in table]
 
     def add_link_column(self, table):
-        table['__link'] = [self.get_link(row[self.id_column], row['__objname']) for row in table]
+        table['__link'] = [self.get_link(row[self.id_column], row['__objname'], row=row) for row in table]
 
     def add_type_column(self, table):
         if self.type_column is not None:
@@ -121,11 +121,11 @@ class _BaseCatalogQuery:
         if '__redshift' in table.columns:
             table['__distance'] = [None if z is None else COSMO.luminosity_distance(z) for z in table['__redshift']]
 
-    def get_url(self, id):
+    def get_url(self, id, row=None):
         raise NotImplemented
 
-    def get_link(self, id, name):
-        return f'<a href="{self.get_url(id)}">{name}</a>'
+    def get_link(self, id, name, row=None):
+        return f'<a href="{self.get_url(id, row=row)}">{name}</a>'
 
 
 class _BaseCatalogApiQuery(_BaseCatalogQuery):

@@ -28,5 +28,5 @@ class FinkQuery(_BaseCatalogApiQuery):
         table = Table.from_pandas(pd.read_json(response.content))
         return table
 
-    def get_url(self, id):
+    def get_url(self, id, row=None):
         return urljoin(self._base_url, id)
