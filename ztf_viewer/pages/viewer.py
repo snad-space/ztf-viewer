@@ -918,11 +918,12 @@ def set_figure(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd,
     return fw
 
 
-def set_figure_link(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd, lc_type, period, fmt):
+def set_figure_link(cur_oid, dr, title, different_filter, different_field, min_mjd, max_mjd, lc_type, period, fmt):
     if lc_type == 'folded' and not period:
         raise PreventUpdate
     other_oids = neighbour_oids(different_filter, different_field)
     data = [('other_oid', oid) for oid in other_oids]
+    data.append(('title', title))
     if min_mjd is not None:
         data.append(('min_mjd', min_mjd))
     if max_mjd is not None:
@@ -941,6 +942,7 @@ app.callback(
     [
         Input('oid', 'children'),
         Input('dr', 'children'),
+        Input('title', 'children'),
         Input('different_filter_neighbours', 'children'),
         Input('different_field_neighbours', 'children'),
         Input('min-mjd', 'children'),
@@ -956,6 +958,7 @@ app.callback(
     [
         Input('oid', 'children'),
         Input('dr', 'children'),
+        Input('title', 'children'),
         Input('different_filter_neighbours', 'children'),
         Input('different_field_neighbours', 'children'),
         Input('min-mjd', 'children'),
