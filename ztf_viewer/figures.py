@@ -339,6 +339,7 @@ def response_figure(dr, oid):
     )
 
 
+@app.server.route('/<dr>/figure/<int:oid>/folded/<int:period>')
 @app.server.route('/<dr>/figure/<int:oid>/folded/<float:period>')
 def response_figure_folded(dr, oid, period):
     kwargs = parse_figure_args_helper(request.args)
