@@ -462,15 +462,28 @@ def get_layout(pathname):
         html.Div(
             [
                 html.H2('Features'),
-                dcc.Dropdown(
-                    id='features-api-version',
-                    placeholder='light-curve-feature version',
-                    options=[dict(value=v, label=f'{v}{LIGHT_CURVE_VALUE_VERSION_ANNOTATION[v]}')
-                             for v in sorted(light_curve_features.versions())],
-                    value='latest',
-                    multi=False,
-                    clearable=False,
-                    style={'width': 300,}, # 'display': 'inline-block'},
+                html.Div(
+                    [
+                        html.Div(
+                            [
+                                html.A('light-curve-feature', href='https://github.com/light-curve/light-curve-feature'),
+                                ' version',
+                            ],
+                            style={'display': 'inline-block'},
+                        ),
+                        html.Div(style={'display': 'inline-block', 'width': '0.5em'}),
+                        dcc.Dropdown(
+                            id='features-api-version',
+                            placeholder='light-curve-feature version',
+                            options=[dict(value=v, label=f'{v}{LIGHT_CURVE_VALUE_VERSION_ANNOTATION[v]}')
+                                     for v in sorted(light_curve_features.versions())],
+                            value='latest',
+                            multi=False,
+                            clearable=False,
+                            style={'width': 300, 'display': 'inline-block'},
+                        ),
+                    ],
+                    style={'align-items': 'center', 'display': 'flex'}
                 ),
                 html.Br(),
                 html.Div(id='features-list'),
