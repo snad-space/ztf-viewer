@@ -3,9 +3,6 @@ from urllib.parse import quote_plus
 
 import dash_html_components as html
 
-from ztf_viewer.catalogs.conesearch import get_catalog_query
-from ztf_viewer.exceptions import CatalogUnavailable, NotFound
-
 
 def _a_tag(text, url):
     return html.A(text, href=url)
@@ -42,17 +39,11 @@ def antares_tag(ra, dec, radius_arcsec=1, *, oid):
 
 
 def fink_conesearch_url(ra, dec, radius_arcsec=1):
-    fink_query = get_catalog_query('Fink')
-    table = fink_query.find(ra, dec, radius_arcsec)
-    id = table[fink_query.id_column][0]
-    return fink_query.get_url(id)
+    return f'https://fink-portal.org/?query_type=Conesearch&ra={ra}&dec={dec}&radius={radius_arcsec}'
 
 
 def fink_tag(ra, dec, radius_arcsec=1):
-    try:
-        return _a_tag('Fink', fink_conesearch_url(ra, dec, radius_arcsec))
-    except (NotFound, CatalogUnavailable):
-        return 'Fink'
+    return _a_tag('Fink', fink_conesearch_url(ra, dec, radius_arcsec))
 
 
 def mars_conesearch_url(ra, dec, radius_arcsec=1):

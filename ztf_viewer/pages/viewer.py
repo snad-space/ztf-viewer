@@ -433,6 +433,20 @@ def get_layout(pathname):
         ),
         html.Div(
             [
+                html.H2('Fink'),
+                dcc.Input(
+                    value='1',
+                    id=dict(type='search-radius', index='fink'),
+                    placeholder='Search radius, arcsec',
+                    type='number',
+                ),
+                ' search radius, arcsec',
+                html.Div(id='fink-table'),
+            ],
+            id='alerce',
+        ),
+        html.Div(
+            [
                 html.H2('Vizier'),
                 html.A(
                     'Search on Vizier website within',
