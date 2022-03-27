@@ -1,7 +1,7 @@
 import json
 from urllib.parse import quote_plus
 
-import dash_html_components as html
+from dash import html
 
 
 def _a_tag(text, url):

@@ -1,8 +1,6 @@
-from functools import lru_cache
-
-import dash_html_components as html
 import dash_dangerously_set_inner_html as ddsih
 from astropy.table import Table
+from dash import html
 
 from ztf_viewer.catalogs import find_ztf_circle
 from ztf_viewer.exceptions import NotFound

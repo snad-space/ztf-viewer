@@ -1,3 +1,4 @@
+from io import BytesIO
 from urllib.parse import urljoin
 
 import pandas as pd
@@ -25,7 +26,7 @@ class FinkQuery(_BaseCatalogApiQuery):
         params = {'ra': ra, 'dec': dec, 'radius': radius_arcsec}
         response = self._api_session.get(self._api_url, params=params)
         self._raise_if_not_ok(response)
-        table = Table.from_pandas(pd.read_json(response.content))
+        table = Table.from_pandas(pd.read_json(BytesIO(response.content)))
         return table
 
     def get_url(self, id, row=None):
