@@ -25,6 +25,9 @@ from ztf_viewer.util import available_drs, joiner, YEAR, DEFAULT_DR
 logging.basicConfig(level=logging.INFO)
 
 
+app.title = 'SNAD ZTF viewer'
+
+
 app.layout = html.Div([
     dcc.Location(id='url', refresh=True),
     html.Div(
