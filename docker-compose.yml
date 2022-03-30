@@ -12,7 +12,7 @@ services:
       - VIRTUAL_HOST=ztf.snad.space
       - DYNDNS_HOST=ztf.snad.space
       - LETSENCRYPT_HOST=ztf.snad.space
-      - LETSENCRYPT_EMAIL=ztf@snad.space
+      - LETSENCRYPT_EMAIL=letsencrypt@snad.space
     networks:
       - app
       - proxy
