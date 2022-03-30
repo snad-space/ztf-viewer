@@ -234,6 +234,19 @@ def go_to_url(n_clicks_oid, n_submit_oid, n_clicks_search,
 def app_select_by_url(pathname):
     if not isinstance(pathname, str):
         raise PreventUpdate
+    # DR7 is not supported any more:
+    if m := re.search(r'^/dr7((?:/.*)?)$', pathname):
+        href = m.group(1) or '/'
+        return [
+            [
+                html.H3([
+                    'DR7 is not supported any more, consider to use ',
+                    html.A('the most recent DR instead', href=href),
+                ]),
+            ],
+            no_update,
+            no_update,
+        ]
     if m := re.search(r'^/+(?:(dr\d)/+)?$', pathname):
         dr = m.group(1) or DEFAULT_DR
         other_drs = [other_dr for other_dr in available_drs if other_dr != dr]
