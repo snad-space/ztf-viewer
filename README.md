@@ -43,6 +43,7 @@ Some features like FITS viewer wouldn't work.
 - [SNAD ZTF Periodic Catalog API](http://periodic.ztf.snad.space) provides cone search within [ZTF Catalog of Periodic Variable Stars](http://variables.cn:88/ztf/). Source code: https://github.com/snad-space/ztf-periodic-catalog-db
 - [SNAD Transient Name Server API](http://tns.snad.space) provides cone search within [TNS](https://www.wis-tns.org). Source code: https://github.com/snad-space/snad-tns
 - [SNAD ZTF FITS Proxy](http://fits.ztf.snad.space/products/) is a FITS image service used by the embedded JS9 FITS viewer. Source code: https://github.com/snad-space/ztf-fits-proxy
+- SNAD Anomaly Knowledge Base is an internal database for experts. Source code: https://github.com/snad-space/akb-backend (private)
 - [NASA/IPAC Infrared Science Archive](https://irsa.ipac.caltech.edu/frontpage/) is a original source of ZTF FITS files
 - [Vizier](https://vizier.u-strasbg.fr) is used to access various catalogs
 - [Simbad](http://simbad.u-strasbg.fr) is used for both cone search and identifier queries
