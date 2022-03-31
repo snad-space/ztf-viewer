@@ -8,7 +8,7 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 RUN pip install gunicorn
 
 # Install JS9 for FITS viewer
-ARG JS9_VERSION=3.1
+ARG JS9_VERSION=3.6.2
 RUN curl -LJ -o js9.tar.gz https://github.com/ericmandel/js9/archive/v${JS9_VERSION}.tar.gz \
     && tar -xzvf js9.tar.gz \
     && cd js9-${JS9_VERSION} \
