@@ -1072,15 +1072,14 @@ app.clientside_callback(
         console.log(divs);
         if (divs) {
             let ra = divs[0].props.children;
-            console.log(ra);
             let dec = divs[1].props.children;
-            console.log(dec);
             let fits = divs[2].props.href;
-            console.log(fits);
             JS9.Load(fits, {onload: function(im) {
-                JS9.SetFlip("y");
                 JS9.SetPan({ra: ra, dec: dec}, {display: im});
                 JS9.AddRegions({shape: 'point', ra: ra, dec: dec}, {display: im});
+                if (JS9.GetFlip() == "none") {
+                    JS9.SetFlip("y");
+                }
             }});
         }
         return '';
