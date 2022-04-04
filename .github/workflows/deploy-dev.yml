@@ -41,7 +41,3 @@ jobs:
       run: |
         docker context use dev-snad
         docker compose -f docker-compose-github.yml -p ${SUBDOMAIN} up --build -d
-    - name: Docker prune
-      run: |
-        docker context use dev-snad
-        docker system prune -a --force
