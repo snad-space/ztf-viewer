@@ -22,9 +22,9 @@ jobs:
       run: exit 1
     - name: Checkout repository
       uses: actions/checkout@v3
-    - name: Set SUBDOMAIN=pr##
+    - name: Set SUBDOMAIN=pr#
       if: ${{ github.event_name != 'push' }}
-      run: echo "SUBDOMAIN=pr${{ github.event.number }}" >> $GITHUB_ENV
+      run: echo "SUBDOMAIN=pr${{ github.event.pull_request.number }}" >> $GITHUB_ENV
     - name: Set SUBDOMAIN=master
       if: ${{ github.event_name == 'push' }}
       run: echo "SUBDOMAIN=master" >> $GITHUB_ENV
