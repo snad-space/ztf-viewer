@@ -12,6 +12,8 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
 
+    concurrency: deploy
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v3
@@ -41,3 +43,7 @@ jobs:
       run: |
         docker context use dev-snad
         docker compose -f docker-compose-github.yml -p ${SUBDOMAIN} up --build -d
+    - name: Docker prune
+      run: |
+        docker context use dev-snad
+        docker system prune -a --force
