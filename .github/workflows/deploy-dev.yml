@@ -5,6 +5,8 @@ on:
     branches: [master]
   pull_request:
     types: [opened, reopened, synchronize, closed]
+  pull_request_review:
+    types: [submitted]
   schedule:
     - cron: '12 20 12 * *'
 
@@ -15,13 +17,16 @@ jobs:
     concurrency: deploy
 
     steps:
+    - name: Cancel if pull request is not approved
+      if ${{ github.event_name == 'pull_request_review' && github.event.review.state != 'approved' }}
+      run: exit 1
     - name: Checkout repository
       uses: actions/checkout@v3
     - name: Set SUBDOMAIN=pr##
-      if: ${{ github.event_name == 'pull_request' }}
+      if: ${{ github.event_name != 'push' }}
       run: echo "SUBDOMAIN=pr${{ github.event.number }}" >> $GITHUB_ENV
     - name: Set SUBDOMAIN=master
-      if: ${{ github.event_name != 'pull_request' }}
+      if: ${{ github.event_name == 'push' }}
       run: echo "SUBDOMAIN=master" >> $GITHUB_ENV
     - name: Generate docker-compose.yml
       run: envsubst < .ci/docker-compose.yml.tmpl | tee docker-compose-github.yml
