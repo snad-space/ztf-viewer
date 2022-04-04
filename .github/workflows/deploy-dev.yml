@@ -18,7 +18,7 @@ jobs:
 
     steps:
     - name: Cancel if pull request is not approved
-      if ${{ github.event_name == 'pull_request_review' && github.event.review.state != 'approved' }}
+      if: ${{ github.event_name == 'pull_request_review' && github.event.review.state != 'approved' }}
       run: exit 1
     - name: Checkout repository
       uses: actions/checkout@v3
