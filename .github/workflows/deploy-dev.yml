@@ -37,7 +37,7 @@ jobs:
         docker context use dev-snad
         docker compose -f docker-compose-github.yml -p ${SUBDOMAIN} down
     - name: Start
-      if: ${{ !github.event.issue.closed }}
+      if: ${{ github.event.pull_request.state != 'closed' }}
       run: |
         docker context use dev-snad
         docker compose -f docker-compose-github.yml -p ${SUBDOMAIN} up --build -d

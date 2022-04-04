@@ -8,6 +8,7 @@ services:
 
   ztf-web-viewer-app:
     build: .
+    entrypoint: ["gunicorn", "-w2", "-t300", "-b0.0.0.0:80", "ztf_viewer.__main__:server()"]
     environment:
       - VIRTUAL_HOST=${SUBDOMAIN}.ztf.snad.space
       - DYNDNS_HOST=${SUBDOMAIN}.ztf.snad.space
