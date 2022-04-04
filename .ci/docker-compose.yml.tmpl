@@ -1,0 +1,27 @@
+version: '2'
+services:
+  redis:
+    image: redis
+    networks:
+      - app
+    restart: always
+
+  ztf-web-viewer-app:
+    build: .
+    environment:
+      - VIRTUAL_HOST=${SUBDOMAIN}.ztf.snad.space
+      - DYNDNS_HOST=${SUBDOMAIN}.ztf.snad.space
+      - LETSENCRYPT_HOST=${SUBDOMAIN}.ztf.snad.space
+      - LETSENCRYPT_EMAIL=letsencrypt@snad.space
+    networks:
+      - app
+      - proxy
+    depends_on:
+      - redis
+    restart: always
+
+networks:
+  app:
+  proxy:
+    external:
+      name: proxy
