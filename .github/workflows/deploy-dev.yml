@@ -1,0 +1,47 @@
+name: "Deployment"
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    types: [opened, reopened, synchronize, closed]
+  schedule:
+    - cron: '12 20 12 * *'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+    - name: Set SUBDOMAIN=pr##
+      if: ${{ github.event_name == 'pull_request' }}
+      run: echo "SUBDOMAIN=pr${{ github.event.number }}" >> $GITHUB_ENV
+    - name: Set SUBDOMAIN=master
+      if: ${{ github.event_name != 'pull_request' }}
+      run: echo "SUBDOMAIN=master" >> $GITHUB_ENV
+    - name: Generate docker-compose.yml
+      run: envsubst < .ci/docker-compose.yml.tmpl | tee docker-compose-github.yml
+    - name: Set up SSH
+      run: |
+        mkdir -p ${HOME}/.ssh
+        echo "${{ secrets.DEV_SNAD_SSH_KEY }}" > ${HOME}/.ssh/id_rsa
+        ls -lk ${HOME}/.ssh/id_rsa
+        chmod 600 ${HOME}/.ssh/id_rsa
+        ssh-keyscan -t ssh-rsa dev.snad.space >> ${HOME}/.ssh/known_hosts
+    - name: Set up Docker context
+      run: docker context create dev-snad --docker "host=ssh://root@dev.snad.space"
+    - name: Stop
+      run: |
+        docker context use dev-snad
+        docker compose -f docker-compose-github.yml -p ${SUBDOMAIN} down
+    - name: Start
+      if: ${{ !github.event.issue.closed }}
+      run: |
+        docker context use dev-snad
+        docker compose -f docker-compose-github.yml -p ${SUBDOMAIN} up --build -d
+    - name: Docker prune
+      run: |
+        docker context use dev-snad
+        docker system prune -a --force
