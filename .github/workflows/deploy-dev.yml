@@ -11,10 +11,39 @@ on:
     - cron: '12 20 12 * *'
 
 jobs:
-  deploy:
+  subdomain:
     runs-on: ubuntu-latest
 
-    concurrency: deploy
+    outputs:
+      output: ${{ steps.final.outputs.output }}
+
+    steps:
+      - name: Cancel if pull request is not approved
+        if: ${{ github.event_name == 'pull_request_review' && github.event.review.state != 'approved' }}
+        run: exit 1
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Set SUBDOMAIN=pr#
+        if: ${{ github.event_name != 'push' }}
+        run: echo "SUBDOMAIN=pr${{ github.event.pull_request.number }}" >> $GITHUB_ENV
+      - name: Set SUBDOMAIN=master
+        if: ${{ github.event_name == 'push' }}
+        run: echo "SUBDOMAIN=master" >> $GITHUB_ENV
+      - name: Output
+        id: final
+        run: echo "::set-output name=output::${SUBDOMAIN}"
+
+  deploy:
+    needs: subdomain
+
+    runs-on: ubuntu-latest
+
+    env:
+      SUBDOMAIN: ${{ github.event.pull_request.number || 'master' }}
+
+    concurrency:
+      group: "deploy ${{ needs.subdomain.outputs.output }}"
+      cancel-in-progress: true
 
     steps:
     - name: Cancel if pull request is not approved
@@ -22,12 +51,8 @@ jobs:
       run: exit 1
     - name: Checkout repository
       uses: actions/checkout@v3
-    - name: Set SUBDOMAIN=pr#
-      if: ${{ github.event_name != 'push' }}
-      run: echo "SUBDOMAIN=pr${{ github.event.pull_request.number }}" >> $GITHUB_ENV
-    - name: Set SUBDOMAIN=master
-      if: ${{ github.event_name == 'push' }}
-      run: echo "SUBDOMAIN=master" >> $GITHUB_ENV
+    - name: Set SUBDOMAIN env var
+      run: echo "SUBDOMAIN=${{ needs.subdomain.outputs.output }}" >> $GITHUB_ENV
     - name: Generate docker-compose.yml
       run: envsubst < .ci/docker-compose.yml.tmpl | tee docker-compose-github.yml
     - name: Set up SSH
@@ -48,7 +73,3 @@ jobs:
       run: |
         docker context use dev-snad
         docker compose -f docker-compose-github.yml -p ${SUBDOMAIN} up --build -d
-    - name: Docker prune
-      run: |
-        docker context use dev-snad
-        docker system prune -a --force
