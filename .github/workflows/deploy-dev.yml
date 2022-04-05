@@ -31,7 +31,7 @@ jobs:
         run: echo "SUBDOMAIN=master" >> $GITHUB_ENV
       - name: Output
         id: final
-        run: echo "::set-output name=test::${SUBDOMAIN}"
+        run: echo "::set-output name=output::${SUBDOMAIN}"
 
   deploy:
     needs: subdomain
