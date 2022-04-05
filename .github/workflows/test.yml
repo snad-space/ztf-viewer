@@ -12,4 +12,4 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v3
     - name: Build docker image
-      run: docker build
+      run: docker build --tag ztf-viewer .
