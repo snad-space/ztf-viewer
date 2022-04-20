@@ -1,4 +1,5 @@
 from ztf_viewer.catalogs.conesearch._base import _BaseCatalogApiQuery
+from ztf_viewer.config import TNS_API_URL
 
 
 class TnsQuery(_BaseCatalogApiQuery):
@@ -19,7 +20,7 @@ class TnsQuery(_BaseCatalogApiQuery):
         'internal_names': 'Internal names',
     }
 
-    _base_api_url = 'http://tns.snad.space/api/v1/circle'
+    _base_api_url = f'{TNS_API_URL}/api/v1/circle'
 
     def get_url(self, id, row=None):
         return f'//www.wis-tns.org/object/{id}'

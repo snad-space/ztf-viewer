@@ -4,11 +4,12 @@ import requests
 
 from ztf_viewer.cache import cache
 from ztf_viewer.catalogs.ztf import find_ztf_oid
+from ztf_viewer.config import FEATURES_API_URL
 from ztf_viewer.exceptions import NotFound
 
 
 class LightCurveFeatures:
-    _base_api_url = 'http://features.lc.snad.space'
+    _base_api_url = FEATURES_API_URL
 
     def __init__(self):
         self._api_session = requests.Session()

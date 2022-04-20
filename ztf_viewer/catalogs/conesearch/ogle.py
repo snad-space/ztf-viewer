@@ -6,6 +6,7 @@ import astropy.io.ascii
 import requests
 
 from ztf_viewer.catalogs.conesearch._base import _BaseCatalogApiQuery
+from ztf_viewer.config import OGLE_III_API_URL
 from ztf_viewer.util import anchor_form
 
 
@@ -28,7 +29,7 @@ class OgleQuery(_BaseCatalogApiQuery):
         'V': 'Mean V-magnitude',
         'Remarks': 'Remarks',
     }
-    _base_api_url = 'http://ogle3.snad.space/api/v1/circle'
+    _base_api_url = f'{OGLE_III_API_URL}/api/v1/circle'
     _base_light_curve_url = 'http://ogledb.astrouw.edu.pl/~ogle/CVS/images/'
     _post_url = 'http://ogledb.astrouw.edu.pl/~ogle/CVS/query.php?first=1&qtype=catalog'
     _post_data = {

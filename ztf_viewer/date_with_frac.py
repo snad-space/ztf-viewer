@@ -7,7 +7,7 @@ import numpy as np
 import requests
 
 from ztf_viewer.cache import cache
-from ztf_viewer.config import PRODUCTS_URL
+from ztf_viewer.config import ZTF_FITS_PROXY_URL
 from ztf_viewer.util import hmjd_to_earth
 
 
@@ -53,7 +53,7 @@ class DateWithFrac:
 
 @cache()
 def _fracs(products_root):
-    url = urljoin(PRODUCTS_URL, products_root)
+    url = urljoin(ZTF_FITS_PROXY_URL, products_root)
     body = requests.get(url).text
     fracs = re.findall(r'<a href="(\d{6})/">\1/</a>', body)
     return sorted(int(f) for f in fracs)

@@ -1,4 +1,5 @@
 from ztf_viewer.catalogs.conesearch._base import _BaseCatalogApiQuery
+from ztf_viewer.config import ZTF_PERIODIC_API_URL
 
 
 class ZtfPeriodicQuery(_BaseCatalogApiQuery):
@@ -19,7 +20,7 @@ class ZtfPeriodicQuery(_BaseCatalogApiQuery):
         'Amp_g': 'zg amplitude',
         'Amp_r': 'zr amplitude',
     }
-    _base_api_url = 'http://periodic.ztf.snad.space/api/v1/circle'
+    _base_api_url = f'{ZTF_PERIODIC_API_URL}/api/v1/circle'
 
     def get_url(self, id, row=None):
         return f'http://variables.cn:88/lcz.php?SourceID={id}'

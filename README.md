@@ -10,10 +10,16 @@ This projects contains a source of [ZTF](http://ztf.caltech.edu) Data Releases l
 
 ### Environment variables
 
+Environment variables to configure the server, see default values in `config.py`:
 - `CACHE_TYPE`: cache type, specify `redis` to use [redis](https://redis.io) server, or `memory` to use in-process cache
 - `REDIS_URL`: redis server address
-- `LC_API_URL`: light curve API address
-- `PRODUCTS_URL`: address of ZTF DR FITS data-products 
+- `LC_API_URL`: SNAD ZTF database API address
+- `AKB_API_URL`: knowledge database address
+- `FEATURES_API_URL`: feature extraction service address
+- `OGLE_III_API_URL`: SNAD OGLE III mirror address
+- `ZTF_PERIODIC_API_URL`: SNAD mirror of the ZTF periodic variables catalog
+- `TNS_API_URL`: SNAD mirror of the TNS
+- `ZTF_FITS_PROXY_URL`: address of SNAD proxy for ZTF FITS 
 
 ### Running without docker
 
