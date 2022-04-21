@@ -40,4 +40,4 @@ COPY setup.py setup.cfg MANIFEST.in /app/
 COPY ztf_viewer /app/ztf_viewer/
 RUN pip install /app
 
-ENTRYPOINT ["gunicorn", "-w4", "-b0.0.0.0:80", "ztf_viewer.__main__:server()"]
+ENTRYPOINT ["gunicorn", "-w4", "-t300", "-b0.0.0.0:80", "ztf_viewer.__main__:server()"]
