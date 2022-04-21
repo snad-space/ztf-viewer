@@ -11,7 +11,7 @@ services:
     environment:
       - AKB_API_URL=https://akb.ztf.snad.space/
       - LC_API_URL=http://db.ztf.snad.space
-      - ZTF_FITS_PROXY_URL=http://fits.ztf.snad.space
+      - ZTF_FITS_PROXY_URL=https://fits.ztf.snad.space
       - FEATURES_API_URL=http://features.lc.snad.space
       - OGLE_III_API_URL=http://ogle3.snad.space
       - ZTF_PERIODIC_API_URL=http://periodic.ztf.snad.space
