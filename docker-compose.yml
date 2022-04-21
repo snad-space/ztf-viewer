@@ -9,7 +9,7 @@ services:
   ztf-web-viewer-app:
     build: .
     environment:
-      - AKB_API_URL=http://akb.ztf.snad.space/
+      - AKB_API_URL=https://akb.ztf.snad.space/
       - LC_API_URL=http://db.ztf.snad.space
       - ZTF_FITS_PROXY_URL=http://fits.ztf.snad.space
       - FEATURES_API_URL=http://features.lc.snad.space
