@@ -1,7 +1,7 @@
-import urllib.parse
 from io import BytesIO
 
 import astropy.io.ascii
+from requests.exceptions import JSONDecodeError
 
 from ztf_viewer.catalogs.conesearch._base import _BaseCatalogApiQuery
 
@@ -48,6 +48,13 @@ class AstrocatsQuery(_BaseCatalogApiQuery):
         query = {'ra': ra, 'dec': dec, 'radius': radius_arcsec, 'format': 'csv', 'item': 0}
         response = self._api_session.get(self._get_api_url(query))
         self._raise_if_not_ok(response)
+        # If nothing is found a single-line JSON response coming:
+        # {"message": "No objects found within specified search region."}
+        try:
+            if len(response.json()) > 0:
+                return None
+        except JSONDecodeError:
+            pass
         table = astropy.io.ascii.read(BytesIO(response.content), format='csv', guess=False)
         table['references'] = [', '.join(map(self._format_source, sources))
                                for sources in map(self._get_sources, table['event'])]
