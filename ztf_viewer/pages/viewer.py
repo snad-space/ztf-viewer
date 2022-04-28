@@ -504,7 +504,7 @@ def get_layout(pathname):
         ),
         html.H2(
             [
-                'Download light curve: ',
+                'Download light curve of the single OID: ',
                 html.A('CSV', href=f'/{dr}/csv/{oid}'),
                 ', ',
                 html.A('JSON', href=find_ztf_oid.json_url(oid, dr)),
