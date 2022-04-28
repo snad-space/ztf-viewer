@@ -36,7 +36,7 @@ EXPOSE 80
 
 ENV PYTHONUNBUFFERED TRUE
 
-COPY setup.py setup.cfg MANIFEST.in /app/
+COPY pyproject.toml setup.py setup.cfg MANIFEST.in /app/
 COPY ztf_viewer /app/ztf_viewer/
 RUN pip install /app
 
