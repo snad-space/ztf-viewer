@@ -943,7 +943,7 @@ def set_figure(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd,
     if brightness_type == 'mag':
         range_y = [y_max + 0.1 * y_ampl, y_min - 0.1 * y_ampl]
     elif brightness_type == 'flux':
-        range_y = [y_min - 0.1 * y_ampl, y_max + 0.1 * y_ampl]
+        range_y = [min(0.0, y_min - 0.1 * y_ampl), y_max + 0.1 * y_ampl]
     else:
         raise ValueError(f'Wrong brightness_type "{brightness_type}"')
     if lc_type == 'full':
