@@ -14,4 +14,4 @@ jobs:
     - name: Build docker image
       run: docker build --tag ztf-viewer .
     - name: Pytest
-      run: docker run --env=PYTHONUNBUFFERED=0 --workdir=/app -t --entrypoint='/bin/bash' ztf-viewer -c 'python -mpip install pytest && python -mpytest'
+      run: docker run --workdir=/app -ti --entrypoint='/bin/bash' -v$(pwd)/tests:/tests ztf-viewer -c 'python -mpip install pytest && python -mpytest /tests'
