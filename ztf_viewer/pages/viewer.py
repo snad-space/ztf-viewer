@@ -513,7 +513,7 @@ def get_layout(pathname):
         ),
         html.Div(
             [
-                html.H2('Light curve'),
+                html.H2('Light curve (single OID)'),
                 DataTable(
                     id='light-curve-table',
                     columns=[{'name': column, 'id': column} for column in LIGHT_CURVE_TABLE_COLUMNS],
