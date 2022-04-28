@@ -126,6 +126,15 @@ def get_layout(pathname):
                     labelStyle={'display': 'inline-block', 'margin-right': '2em'},
                     id='light-curve-type',
                 ),
+                dcc.RadioItems(
+                    options=[
+                        {'label': 'Magnitude', 'value': 'mag'},
+                        {'label': 'Flux', 'value': 'flux'},
+                    ],
+                    value='mag',
+                    labelStyle={'display': 'inline-block', 'margin-right': '2em'},
+                    id='light-curve-brightness',
+                ),
                 html.Div(
                     [
                         html.Div(
@@ -898,14 +907,25 @@ def neighbour_oids(different_filter, different_field):
         Input('different_field_neighbours', 'children'),
         Input('min-mjd', 'children'),
         Input('max-mjd', 'children'),
+        Input('light-curve-brightness', 'value'),
         Input('light-curve-type', 'value'),
         Input('fold-period', 'value'),
         Input('fold-zero-phase', 'value'),
     ],
 )
-def set_figure(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd, lc_type, period, phase0):
+def set_figure(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd, brightness_type, lc_type, period,
+               phase0):
     if lc_type == 'folded' and not period:
         raise PreventUpdate
+
+    if brightness_type == 'mag':
+        bright = 'mag'
+        brighterr = 'magerr'
+    elif brightness_type == 'flux':
+        bright = 'flux_Jy'
+        brighterr = 'fluxerr_Jy'
+    else:
+        raise ValueError(f'Wrong brightness_type "{brightness_type}"')
 
     other_oids = neighbour_oids(different_filter, different_field)
     if lc_type == 'full':
@@ -917,32 +937,38 @@ def set_figure(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd,
     else:
         raise ValueError(f'{lc_type = } is unknown')
     lcs = list(chain.from_iterable(lcs.values()))
-    mag_min = min(obs['mag'] - obs['magerr'] for obs in lcs)
-    mag_max = max(obs['mag'] + obs['magerr'] for obs in lcs)
-    mag_ampl = mag_max - mag_min
-    range_y = [mag_max + 0.1 * mag_ampl, mag_min - 0.1 * mag_ampl]
+    y_min = min(obs[bright] - obs[brighterr] for obs in lcs)
+    y_max = max(obs[bright] + obs[brighterr] for obs in lcs)
+    y_ampl = y_max - y_min
+    if brightness_type == 'mag':
+        range_y = [y_max + 0.1 * y_ampl, y_min - 0.1 * y_ampl]
+    elif brightness_type == 'flux':
+        range_y = [y_min - 0.1 * y_ampl, y_max + 0.1 * y_ampl]
+    else:
+        raise ValueError(f'Wrong brightness_type "{brightness_type}"')
     if lc_type == 'full':
         figure = px.scatter(
             pd.DataFrame.from_records(lcs),
             x=f'mjd_{MJD_OFFSET}',
-            y='mag',
-            error_y='magerr',
+            y=bright,
+            error_y=brighterr,
             color='filter',
             range_y=range_y,
-            labels={f'mjd_{MJD_OFFSET}': f'mjd − {MJD_OFFSET}'},
+            labels={f'mjd_{MJD_OFFSET}': f'mjd − {MJD_OFFSET}', bright: bright.replace('_', ', '),
+                    brighterr: brighterr.replace('_', ', ')},
             color_discrete_map=FILTER_COLORS,
             symbol='oid',
             size='mark_size',
             size_max=MARKER_SIZE,
-            hover_data={f'mjd_{MJD_OFFSET}': ':.5f', 'date': True, 'magerr': True},
+            hover_data={f'mjd_{MJD_OFFSET}': ':.5f', 'date': True, brighterr: True},
             custom_data=['mjd', 'oid', 'fieldid', 'rcid', 'filter'],
         )
     elif lc_type == 'folded':
         figure = px.scatter(
             pd.DataFrame.from_records(lcs),
             x='phase',
-            y='mag',
-            error_y='magerr',
+            y=bright,
+            error_y=brighterr,
             color='filter',
             range_y=range_y,
             labels={f'mjd_{MJD_OFFSET}': f'mjd − {MJD_OFFSET}'},
@@ -950,7 +976,7 @@ def set_figure(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd,
             symbol='oid',
             size='mark_size',
             size_max=MARKER_SIZE,
-            hover_data={'folded_time': True, f'mjd_{MJD_OFFSET}': ':.5f', 'date': True, 'magerr': True},
+            hover_data={'folded_time': True, f'mjd_{MJD_OFFSET}': ':.5f', 'date': True, brighterr: True},
             custom_data=['mjd', 'oid', 'fieldid', 'rcid', 'filter'],
             range_x=[0.0, 1.0],
         )
