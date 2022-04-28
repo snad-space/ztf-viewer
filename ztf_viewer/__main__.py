@@ -15,6 +15,9 @@ from ztf_viewer.app import app
 from ztf_viewer.catalogs.snad import SnadCatalogSource
 from ztf_viewer.exceptions import UnAuthorized
 from ztf_viewer.pages.akb_table import get_layout as get_anomalies_layout
+from ztf_viewer.pages import favicon as _
+from ztf_viewer.pages import figure as _
+from ztf_viewer.pages import lc_csv as _
 from ztf_viewer.pages.login import get_layout as get_login_layout
 from ztf_viewer.pages.search import get_layout as get_search_layout
 from ztf_viewer.pages.tags import get_layout as get_tags_layout

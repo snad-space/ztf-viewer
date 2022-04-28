@@ -28,10 +28,11 @@ from ztf_viewer.catalogs.ztf import find_ztf_oid, find_ztf_circle
 from ztf_viewer.config import ZTF_FITS_PROXY_URL
 from ztf_viewer.date_with_frac import DateWithFrac, correct_date
 from ztf_viewer.exceptions import NotFound, CatalogUnavailable
-from ztf_viewer.figures import get_plot_data, get_folded_plot_data, MJD_OFFSET
+from ztf_viewer.plot_data import get_plot_data, get_folded_plot_data, MJD_OFFSET
 from ztf_viewer.lc_features import light_curve_features
 from ztf_viewer.util import (html_from_astropy_table, to_str, INF, min_max_mjd_short, FILTER_COLORS, ZTF_FILTERS,
                              available_drs, joiner)
+
 
 LIGHT_CURVE_TABLE_COLUMNS = ('mjd', 'mag', 'magerr', 'clrcoeff')
 
