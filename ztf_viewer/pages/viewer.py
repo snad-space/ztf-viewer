@@ -24,7 +24,7 @@ from ztf_viewer.catalogs.conesearch import get_catalog_query, catalog_query_obje
 from ztf_viewer.catalogs.extinction import bayestar, sfd
 from ztf_viewer.catalogs.snad.catalog import snad_catalog
 from ztf_viewer.catalogs.vizier import vizier_catalog_details, find_vizier
-from ztf_viewer.catalogs.ztf import find_ztf_oid, find_ztf_circle
+from ztf_viewer.catalogs.ztf_dr import find_ztf_oid, find_ztf_circle
 from ztf_viewer.config import ZTF_FITS_PROXY_URL
 from ztf_viewer.date_with_frac import DateWithFrac, correct_date
 from ztf_viewer.exceptions import NotFound, CatalogUnavailable

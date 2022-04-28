@@ -188,3 +188,11 @@ def parse_json_to_immutable(s):
 def flip(items, ncol):
     """https://stackoverflow.com/a/10101532/5437597"""
     return chain(*[items[i::ncol] for i in range(ncol)])
+
+
+def ccdid_from_rcid(rcid: int) -> int:
+    return rcid // 4 + 1
+
+
+def qid_from_rcid(rcid: int) -> int:
+    return rcid % 4 + 1

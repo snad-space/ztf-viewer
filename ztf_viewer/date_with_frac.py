@@ -8,7 +8,7 @@ import requests
 
 from ztf_viewer.cache import cache
 from ztf_viewer.config import ZTF_FITS_PROXY_URL
-from ztf_viewer.util import hmjd_to_earth
+from ztf_viewer.util import hmjd_to_earth, qid_from_rcid, ccdid_from_rcid
 
 
 @dataclass
@@ -45,8 +45,8 @@ class DateWithFrac:
         return f'{self.products_root}{self.frac_digits(6):06d}/'
 
     def sciimg_path(self, *, fieldid, filter, rcid):
-        ccdid = rcid // 4 + 1
-        qid = rcid % 4 + 1
+        ccdid = ccdid_from_rcid(rcid)
+        qid = qid_from_rcid(rcid)
         filename = f'ztf_{self.year}{self.monthday}{self.frac_digits(6):06d}_{fieldid:06d}_{filter}_c{ccdid:02d}_o_q{qid}_sciimg.fits'
         return os.path.join(self.products_path, filename)
 
