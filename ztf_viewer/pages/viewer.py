@@ -28,10 +28,11 @@ from ztf_viewer.catalogs.ztf import find_ztf_oid, find_ztf_circle
 from ztf_viewer.config import ZTF_FITS_PROXY_URL
 from ztf_viewer.date_with_frac import DateWithFrac, correct_date
 from ztf_viewer.exceptions import NotFound, CatalogUnavailable
-from ztf_viewer.figures import get_plot_data, get_folded_plot_data, MJD_OFFSET
+from ztf_viewer.plot_data import get_plot_data, get_folded_plot_data, MJD_OFFSET
 from ztf_viewer.lc_features import light_curve_features
 from ztf_viewer.util import (html_from_astropy_table, to_str, INF, min_max_mjd_short, FILTER_COLORS, ZTF_FILTERS,
                              available_drs, joiner)
+
 
 LIGHT_CURVE_TABLE_COLUMNS = ('mjd', 'mag', 'magerr', 'clrcoeff')
 
@@ -168,6 +169,8 @@ def get_layout(pathname):
                         html.A('PNG', href=f'/{dr}/figure/{oid}?format=png', id='figure-png-link'),
                         ', ',
                         html.A('PDF', href=f'/{dr}/figure/{oid}?format=pdf', id='figure-pdf-link'),
+                        ', ',
+                        html.A('CSV', href=f'/{dr}/csv/{oid}', id='csv-link')
                     ]
                 )
             ],
@@ -504,7 +507,7 @@ def get_layout(pathname):
         ),
         html.H2(
             [
-                'Download light curve: ',
+                'Download light curve of the single OID: ',
                 html.A('CSV', href=f'/{dr}/csv/{oid}'),
                 ', ',
                 html.A('JSON', href=find_ztf_oid.json_url(oid, dr)),
@@ -513,7 +516,7 @@ def get_layout(pathname):
         ),
         html.Div(
             [
-                html.H2('Light curve'),
+                html.H2('Light curve (single OID)'),
                 DataTable(
                     id='light-curve-table',
                     columns=[{'name': column, 'id': column} for column in LIGHT_CURVE_TABLE_COLUMNS],
@@ -1012,6 +1015,23 @@ app.callback(
         Input('fold-zero-phase', 'value'),
     ],
 )(partial(set_figure_link, fmt='pdf'))
+
+
+@app.callback(
+    Output('csv-link', 'href'),
+    [
+        Input('oid', 'children'),
+        Input('dr', 'children'),
+        Input('different_filter_neighbours', 'children'),
+        Input('different_field_neighbours', 'children'),
+    ],
+)
+def set_csv_link(oid, dr, different_filter, different_field):
+    url = f'/{dr}/csv/{oid}'
+    if other_oids := neighbour_oids(different_filter, different_field):
+        part = [f'other_oid={other}' for other in other_oids]
+        url += '?' + '&'.join(part)
+    return url
 
 
 def find_neighbours(radius, center_oid, dr, different):
