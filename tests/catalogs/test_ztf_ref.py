@@ -30,6 +30,9 @@ def test_regression_get():
         'chi': 1.002,
         'sharp': 0.015,
         'flags': 0,
+        'magzp': 26.275,
+        'magzp_rms': 0.0257194382,
+        'infobits': 0,
     }
 
     actual = ztf_ref.get(oid, dr)

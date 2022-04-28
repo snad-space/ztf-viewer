@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 import numpy as np
@@ -39,14 +40,20 @@ class ZTFRef:
     @cache()
     def get(self, oid, dr):
         url = self.fits_url(oid, dr)
-        sourceid = oid % 10_000_000
+        sourceid = int(oid) % 10_000_000
         with fits.open(url) as f:
+            header = f[0].header
             data = f[1].data
             where = np.where(data['sourceid'] == sourceid)[0]
             if where.size == 0:
+                logging.warning(f'Object {oid} is not found in the reference catalog file {url}')
                 raise NotFound
             idx = where.item()
             record = dict(zip(data.names, data[idx]))
+            record['magzp'] = header['MAGZP']
+            record['magzp_rms'] = header['MAGZPRMS']
+            record['infobits'] = header['INFOBITS']
+
         return record
 
 

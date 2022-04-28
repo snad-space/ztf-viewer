@@ -25,6 +25,7 @@ from ztf_viewer.catalogs.extinction import bayestar, sfd
 from ztf_viewer.catalogs.snad.catalog import snad_catalog
 from ztf_viewer.catalogs.vizier import vizier_catalog_details, find_vizier
 from ztf_viewer.catalogs.ztf_dr import find_ztf_oid, find_ztf_circle
+from ztf_viewer.catalogs.ztf_ref import ztf_ref
 from ztf_viewer.config import ZTF_FITS_PROXY_URL
 from ztf_viewer.date_with_frac import DateWithFrac, correct_date
 from ztf_viewer.exceptions import NotFound, CatalogUnavailable
@@ -37,7 +38,7 @@ from ztf_viewer.util import (html_from_astropy_table, to_str, INF, min_max_mjd_s
 LIGHT_CURVE_TABLE_COLUMNS = ('mjd', 'mag', 'magerr', 'clrcoeff')
 
 METADATA_FIELDS = ('nobs', 'ngoodobs', 'ngoodobs_short', 'filter', 'coord_string', 'duration', 'duration_short',
-                   'fieldid', 'rcid')
+                   'fieldid', 'rcid', 'ref_mag', 'ref_magerr', 'ref_flags')
 SUMMARY_FIELDS = {
     '__objname': 'Name',
     '__type': 'Type',
@@ -859,6 +860,16 @@ def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_v
 def get_metadata(oid, dr):
     meta = find_ztf_oid.get_meta(oid, dr).copy()
     meta['coord_string'] = find_ztf_oid.get_coord_string(oid, dr)
+
+    try:
+        ref = ztf_ref.get(oid, dr)
+    except NotFound:
+        pass
+    else:
+        meta['ref_mag'] = ref['mag'] + ref['magzp']
+        meta['ref_magerr'] = ref['sigmag']
+        meta['ref_flags'] = ref['flags']
+
     items = [f'**{k}**: {to_str(meta[k])}' for k in METADATA_FIELDS if k in meta]
     column_width = max(map(len, items)) - 2
     div = html.Div(
