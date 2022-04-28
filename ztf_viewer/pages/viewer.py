@@ -169,6 +169,8 @@ def get_layout(pathname):
                         html.A('PNG', href=f'/{dr}/figure/{oid}?format=png', id='figure-png-link'),
                         ', ',
                         html.A('PDF', href=f'/{dr}/figure/{oid}?format=pdf', id='figure-pdf-link'),
+                        ', ',
+                        html.A('CSV', href=f'/{dr}/csv/{oid}', id='csv-link')
                     ]
                 )
             ],
@@ -1013,6 +1015,23 @@ app.callback(
         Input('fold-zero-phase', 'value'),
     ],
 )(partial(set_figure_link, fmt='pdf'))
+
+
+@app.callback(
+    Output('csv-link', 'href'),
+    [
+        Input('oid', 'children'),
+        Input('dr', 'children'),
+        Input('different_filter_neighbours', 'children'),
+        Input('different_field_neighbours', 'children'),
+    ],
+)
+def set_csv_link(oid, dr, different_filter, different_field):
+    url = f'/{dr}/csv/{oid}'
+    if other_oids := neighbour_oids(different_filter, different_field):
+        part = [f'other_oid={other}' for other in other_oids]
+        url += '?' + '&'.join(part)
+    return url
 
 
 def find_neighbours(radius, center_oid, dr, different):
