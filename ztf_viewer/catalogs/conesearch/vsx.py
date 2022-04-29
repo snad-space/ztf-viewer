@@ -1,17 +1,10 @@
-from functools import partial
-
-from astroquery.vizier import Vizier
-
-from ztf_viewer.catalogs.conesearch._base import _BaseCatalogQuery
+from ztf_viewer.catalogs.conesearch._base import _BaseVizierQuery
 
 
-class VsxQuery(_BaseCatalogQuery):
+class VsxQuery(_BaseVizierQuery):
     id_column = 'OID'
     type_column = 'Type'
     period_column = 'Period'
-    _table_ra = 'RAJ2000'
-    _ra_unit = 'hour'
-    _table_dec = 'DEJ2000'
     columns = {
         '__link': 'Designation',
         'separation': 'Separation, arcsec',
@@ -23,11 +16,7 @@ class VsxQuery(_BaseCatalogQuery):
         'min': 'Minimum mag',
         'n_min': 'Band of min mag',
     }
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._query = Vizier()
-        self._query_region = partial(self._query.query_region, catalog='B/vsx/vsx')
+    _vizier_catalog='B/vsx/vsx'
 
     def get_url(self, id, row=None):
         return f'//www.aavso.org/vsx/index.php?view=detail.top&oid={id}'

@@ -1,5 +1,6 @@
 import logging
 import urllib.parse
+from functools import partial
 
 import pandas as pd
 import requests
@@ -7,6 +8,7 @@ from astropy.coordinates import SkyCoord
 from astropy.cosmology import FlatLambdaCDM
 from astropy.table import Table
 from astroquery.utils.commons import TableList
+from astroquery.vizier import Vizier
 
 from ztf_viewer.cache import cache
 from ztf_viewer.exceptions import NotFound, CatalogUnavailable
@@ -162,3 +164,24 @@ class _BaseCatalogApiQuery(_BaseCatalogQuery):
     def _get_api_url(self, query):
         query_string = urllib.parse.urlencode(query)
         return f'{self._base_api_url}?{query_string}'
+
+
+class _BaseVizierQuery(_BaseCatalogQuery):
+    _table_ra = '_RAJ2000'
+    _ra_unit = 'deg'
+    _table_dec = '_DEJ2000'
+    _vizier_columns = ['*']
+
+    @property
+    def _vizier_catalog(self) -> str:
+        raise NotImplemented
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._query = Vizier(columns=['+_r', '_RAJ2000', '_DEJ2000'] + self._vizier_columns)
+        self._query_region = partial(self._query.query_region, catalog=self._vizier_catalog)
+
+    def get_url(self, id, row=None):
+        id = to_str(id)
+        id = urllib.parse.quote_plus(id)
+        return f'//vizier.u-strasbg.fr/viz-bin/VizieR-6?-out.form=%2bH&-source={self._vizier_catalog}&{self.id_column}={id} '

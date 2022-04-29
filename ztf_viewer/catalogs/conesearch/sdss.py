@@ -1,18 +1,10 @@
-from functools import partial
-
-from astropy.units import mag
-from astroquery.vizier import Vizier
-
 from ztf_viewer.cache import cache
-from ztf_viewer.catalogs.conesearch._base import _BaseCatalogQuery
+from ztf_viewer.catalogs.conesearch._base import _BaseVizierQuery
 
 
-class SdssQuasarsQuery(_BaseCatalogQuery):
+class SdssQuasarsQuery(_BaseVizierQuery):
     id_column = 'SDSS'
     type_column = 'Class'
-    _table_ra = 'RAJ2000'
-    _ra_unit = 'deg'
-    _table_dec = 'DEJ2000'
     redshift_column = 'z'
     columns = {
         '__link': 'SDSS',
@@ -35,11 +27,8 @@ class SdssQuasarsQuery(_BaseCatalogQuery):
         50: 'possible blazar',
     }
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._query = Vizier(columns=['SDSS', 'Class', 'RAJ2000', 'DEJ2000', 'z', 'QSO', 'r_z', 'gmag', 'rmag', 'imag',
-                                      'Plate', 'MJD', 'Fiber'])
-        self._query_region = partial(self._query.query_region, catalog='VII/289/superset')
+    _vizier_columns = ['SDSS', 'Class', 'z', 'QSO', 'r_z', 'gmag', 'rmag', 'imag', 'Plate', 'MJD', 'Fiber']
+    _vizier_catalog = 'VII/289/superset'
 
     @cache()
     def find(self, ra, dec, radius_arcsec):
