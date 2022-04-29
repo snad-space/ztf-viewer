@@ -5,6 +5,7 @@ from astropy.time import Time
 from immutabledict import immutabledict
 
 from ztf_viewer.cache import cache
+from ztf_viewer.lc_data import EXTERNAL_LC_DATA
 from ztf_viewer.lc_data.arbitrary import add_id_to_obs
 from ztf_viewer.lc_data.ztf_dr import ztf_dr_lc
 from ztf_viewer.util import immutabledefaultdict
@@ -67,10 +68,18 @@ def folded_plot_data(plot_data, period, offset=None):
 
 
 @cache()
-def get_plot_data(cur_oid, dr, other_oids=frozenset(), min_mjd=None, max_mjd=None, additional_data=immutabledict(),
-                  ref_mag=immutabledefaultdict(lambda: np.inf), ref_magerr=immutabledefaultdict(float)):
+def get_plot_data(cur_oid, dr, other_oids=frozenset(), min_mjd=None, max_mjd=None, external_data=immutabledict(),
+                  additional_data=immutabledict(), ref_mag=immutabledefaultdict(lambda: np.inf),
+                  ref_magerr=immutabledefaultdict(float)):
     """Get plot data
-    additional_data format is:
+
+    external_data format:
+    {
+        'antares': {<kwargs for get_antares_lc(oid, dr, **kwargs)>},
+        ...
+    }
+
+    additional_data format:
     {
         'id1': [
             {
@@ -86,7 +95,11 @@ def get_plot_data(cur_oid, dr, other_oids=frozenset(), min_mjd=None, max_mjd=Non
     """
     lcs = {
         cur_oid: plot_data(ztf_dr_lc(cur_oid, dr), mark_size=3, min_mjd=min_mjd, max_mjd=max_mjd, ref_mag=ref_mag,
-                           ref_magerr=ref_magerr,),
+                           ref_magerr=ref_magerr),
+    } | {
+        source: plot_data(EXTERNAL_LC_DATA[source](cur_oid, dr, **kwargs), mark_size=1, min_mjd=min_mjd,
+                          max_mjd=max_mjd, ref_mag=ref_mag, ref_magerr=ref_magerr)
+        for source, kwargs in external_data.items()
     } | {
         oid: plot_data(ztf_dr_lc(oid, dr), mark_size=1, min_mjd=min_mjd, max_mjd=max_mjd, ref_mag=ref_mag,
                        ref_magerr=ref_magerr)
@@ -100,9 +113,10 @@ def get_plot_data(cur_oid, dr, other_oids=frozenset(), min_mjd=None, max_mjd=Non
 
 @cache()
 def get_folded_plot_data(cur_oid, dr, period, offset=None, other_oids=frozenset(), min_mjd=None, max_mjd=None,
-                         additional_data=immutabledict(), ref_mag=immutabledefaultdict(lambda: np.inf),
-                         ref_magerr=immutabledefaultdict(float)):
+                         external_data=immutabledict(), additional_data=immutabledict(),
+                         ref_mag=immutabledefaultdict(lambda: np.inf), ref_magerr=immutabledefaultdict(float)):
     lcs = get_plot_data(cur_oid=cur_oid, dr=dr, other_oids=other_oids, min_mjd=min_mjd, max_mjd=max_mjd,
-                        additional_data=additional_data, ref_mag=ref_mag, ref_magerr=ref_magerr)
+                        external_data=external_data, additional_data=additional_data, ref_mag=ref_mag,
+                        ref_magerr=ref_magerr)
     lcs = {oid: folded_plot_data(lc, period=period, offset=offset) for oid, lc in lcs.items()}
     return lcs

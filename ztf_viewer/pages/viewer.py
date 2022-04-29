@@ -15,6 +15,7 @@ from astropy.table import QTable
 from dash import dcc, html, Input, Output, State, ALL
 from dash.exceptions import PreventUpdate
 from dash.dash_table import DataTable
+from immutabledict import immutabledict
 from requests import ConnectionError
 
 from ztf_viewer import brokers
@@ -32,6 +33,7 @@ from ztf_viewer.date_with_frac import DateWithFrac, correct_date
 from ztf_viewer.exceptions import NotFound, CatalogUnavailable
 from ztf_viewer.lc_data.plot_data import get_plot_data, get_folded_plot_data, MJD_OFFSET
 from ztf_viewer.lc_features import light_curve_features
+from ztf_viewer.lc_data.antares import get_antares_lc
 from ztf_viewer.util import (html_from_astropy_table, to_str, INF, min_max_mjd_short, FILTER_COLORS, ZTF_FILTERS,
                              available_drs, joiner, immutabledefaultdict)
 
@@ -50,6 +52,8 @@ SUMMARY_FIELDS = {
 MARKER_SIZE = 10
 
 LIST_MAXSHOW = 4
+
+ADDITIONAL_LC_SEARCH_RADIUS = '5s'
 
 LIGHT_CURVE_VALUE_VERSION_ANNOTATION = defaultdict(str)
 LIGHT_CURVE_VALUE_VERSION_ANNOTATION.update({
@@ -813,25 +817,6 @@ def get_antares_lc_option(oid, dr, old):
     return option
 
 
-def get_antares_lc(oid, dr):
-    coord = find_ztf_oid.get_sky_coord(oid, dr)
-    radius = '5s'
-    _, locus = AntaresQuery.query_region_closest_locus(coord, radius)
-    lc = [
-        {
-            'oid': locus.locus_id,
-            'mjd': obs['ant_mjd'],
-            'mag': obs['ant_mag'],
-            'magerr': obs['ant_magerr'],
-            'filter': f"ant_{obs['passband']}",
-            'mark_size': 1,
-        }
-        for obs in locus.lightcurve
-    ]
-    return lc
-
-
-
 @app.callback(
     Output('ref-mag-layout', 'style'),
     [Input('light-curve-brightness', 'value')],
@@ -1178,27 +1163,19 @@ def set_figure(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd,
         {id['index']: value for id, value in zip(ref_magerr_ids, ref_magerr_values) if value is not None}
     )
 
+    external_data = immutabledict({value: immutabledict({'radius': ADDITIONAL_LC_SEARCH_RADIUS})
+                                   for value in additional_lc_types})
+
     other_oids = neighbour_oids(different_filter, different_field)
     if lc_type == 'full':
         lcs = get_plot_data(cur_oid, dr, other_oids=other_oids, min_mjd=min_mjd, max_mjd=max_mjd, ref_mag=ref_mag,
-                            ref_magerr=ref_magerr)
+                            ref_magerr=ref_magerr, external_data=external_data)
     elif lc_type == 'folded':
         offset = -(phase0 or 0.0) * period
         lcs = get_folded_plot_data(cur_oid, dr, period=period, offset=offset, other_oids=other_oids, min_mjd=min_mjd,
-                                   max_mjd=max_mjd, ref_mag=ref_mag, ref_magerr=ref_magerr)
+                                   max_mjd=max_mjd, ref_mag=ref_mag, ref_magerr=ref_magerr, external_data=external_data)
     else:
         raise ValueError(f'{lc_type = } is unknown')
-
-    add_lcs = []
-    for add_lc_type in additional_lc_types:
-        if add_lc_type == 'antares':
-            try:
-                lc = get_antares_lc(cur_oid, dr)
-            except NotFound:
-                continue
-        else:
-            raise ValueError(f'Wrong additional-light-curves value {add_lc_type}')
-        add_lcs.append(lc)
 
     lcs = list(chain.from_iterable(lcs.values()))
     if brightness_type in {'mag', 'diffmag'}:
