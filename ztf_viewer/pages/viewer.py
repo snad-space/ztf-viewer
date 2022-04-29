@@ -12,7 +12,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from astropy.coordinates import SkyCoord
 from astropy.table import QTable
-from dash import dcc, html, Input, Output, State, ALL
+from dash import dcc, html, Input, Output, State, ALL, MATCH
 from dash.exceptions import PreventUpdate
 from dash.dash_table import DataTable
 from requests import ConnectionError
@@ -32,7 +32,7 @@ from ztf_viewer.exceptions import NotFound, CatalogUnavailable
 from ztf_viewer.plot_data import get_plot_data, get_folded_plot_data, MJD_OFFSET
 from ztf_viewer.lc_features import light_curve_features
 from ztf_viewer.util import (html_from_astropy_table, to_str, INF, min_max_mjd_short, FILTER_COLORS, ZTF_FILTERS,
-                             available_drs, joiner)
+                             available_drs, joiner, immutabledefaultdict)
 
 
 LIGHT_CURVE_TABLE_COLUMNS = ('mjd', 'mag', 'magerr', 'clrcoeff')
@@ -55,6 +55,20 @@ LIGHT_CURVE_VALUE_VERSION_ANNOTATION.update({
     'v0.1.17': ' (Malanchev et al. 2021)',
     'v0.2.2': ' (Aleo et al. 2021)',
 })
+
+
+BRIGHT_LABELS = {
+    'mag': 'mag',
+    'flux_Jy': 'flux, Jy',
+    'diffmag': 'diff mag',
+    'diffflux_Jy': 'diff flux, Jy',
+}
+BRIGHTERR_LABELS = {
+    'magerr': 'mag error',
+    'fluxerr_Jy': 'flux error, Jy',
+    'diffmagerr': 'diff mag error',
+    'difffluxerr_Jy': 'diff flux error, Jy',
+}
 
 
 def parse_pathname(pathname):
@@ -126,15 +140,6 @@ def get_layout(pathname):
                     labelStyle={'display': 'inline-block', 'margin-right': '2em'},
                     id='light-curve-type',
                 ),
-                dcc.RadioItems(
-                    options=[
-                        {'label': 'Magnitude', 'value': 'mag'},
-                        {'label': 'Flux', 'value': 'flux'},
-                    ],
-                    value='mag',
-                    labelStyle={'display': 'inline-block', 'margin-right': '2em'},
-                    id='light-curve-brightness',
-                ),
                 html.Div(
                     [
                         html.Div(
@@ -147,7 +152,7 @@ def get_layout(pathname):
                                 ),
                                 ' period, days',
                             ],
-                            style={'width': '40%', 'display': 'inline-block',},
+                            style={'width': '40%', 'display': 'inline-block', 'margin-bottom': '1em'},
                         ),
                         html.Div(
                             [
@@ -164,7 +169,31 @@ def get_layout(pathname):
                         ),
                     ],
                     id='fold-period-layout',
-                    style={'display': 'none',}
+                    style={'display': 'none', 'vertical-align': 'center'},
+                ),
+                dcc.RadioItems(
+                    options=[
+                        {'label': 'Magnitude', 'value': 'mag'},
+                        {'label': 'Flux', 'value': 'flux'},
+                        {'label': 'diff Magnitude', 'value': 'diffmag'},
+                        {'label': 'diff Flux', 'value': 'diffflux'},
+                    ],
+                    value='mag',
+                    labelStyle={'display': 'inline-block', 'margin-right': '2em'},
+                    id='light-curve-brightness',
+                ),
+                html.Div(
+                    [
+                        html.Div(
+                            [
+                                html.B('Reference:'),
+                                html.Div(id='ref-mag'),
+                            ],
+                            style={'display': 'inline-block', 'vertical-align': 'top',},
+                        ),
+                    ],
+                    id='ref-mag-layout',
+                    style={'display': 'none'},
                 ),
                 dcc.Graph(
                     id='graph',
@@ -739,6 +768,143 @@ def show_fold_period_layout(light_curve_type, old_style):
 
 
 @app.callback(
+    Output('ref-mag-layout', 'style'),
+    [Input('light-curve-brightness', 'value')],
+    [State('ref-mag-layout', 'style')],
+)
+def show_ref_mag_layout(brightness_type, old_style):
+    style = old_style.copy()
+    if brightness_type in {'diffmag', 'diffflux'}:
+        style['display'] = 'inline'
+    else:
+        style['display'] = 'none'
+    return style
+
+
+@app.callback(
+    Output('ref-mag', 'children'),
+    [
+        Input('oid', 'children'),
+        Input('dr', 'children'),
+        Input('different_filter_neighbours', 'children'),
+        Input('different_field_neighbours', 'children'),
+        Input('light-curve-brightness', 'value'),
+    ],
+)
+def show_ref_mag_or_magerr(oid, dr, different_filter, different_field, brightness_type):
+    if brightness_type not in {'diffmag', 'diffflux'}:
+        raise PreventUpdate
+    oids = sorted(neighbour_oids(different_filter, different_field) | {oid})
+
+    filters = defaultdict(set)
+    for objectid in oids:
+        fltr = find_ztf_oid.get_meta(objectid, dr)['filter']
+        filters[fltr].add(int(objectid))
+
+    layout = []
+    for fltr in ZTF_FILTERS:
+        if fltr not in filters:
+            continue
+        if oid in filters[fltr]:
+            objectid = oid
+        else:
+            objectid = min(filters[fltr])
+        try:
+            ref = ztf_ref.get(objectid, dr)
+        except NotFound:
+            ref_mag = None
+            ref_magerr = None
+        else:
+            ref_mag = np.round(ref['mag'] + ref['magzp'], decimals=3)
+            ref_magerr = np.round(ref['sigmag'], decimals=3)
+        layout.append(html.Div(
+            [
+                html.Div(
+                    html.B(fltr),
+                    style={'min-width': '2em', 'display': 'inline', 'float': 'left', 'vertical-align': 'bottom'},
+                ),
+                html.Div(
+                    '  mag ',
+                    style={'display': 'inline'},
+                ),
+                dcc.Input(
+                    value=ref_mag,
+                    id={'type': 'ref-mag-input', 'index': fltr},
+                    placeholder='mag',
+                    type='number',
+                    maxLength=6,
+                    style={'width': '6em', 'display': 'inline'},
+                ),
+                html.Div(
+                    '  error ',
+                    style={'display': 'inline'},
+                ),
+                dcc.Input(
+                    value=ref_magerr,
+                    id={'type': 'ref-magerr-input', 'index': fltr},
+                    placeholder='mag err',
+                    type='number',
+                    maxLength=6,
+                    style={'width': '6em', 'display': 'inline'},
+                ),
+                html.Div(
+                    ' Load reference for: ',
+                    style={'display': 'inline'},
+                )
+            ] +
+            list(joiner(
+                ', ',
+                (
+                    html.A(
+                        objectid,
+                        href=None,
+                        id={'type': 'ref-mag-link', 'index': objectid},
+                        n_clicks=0,
+                        style={'display': 'inline', 'border-bottom': '1px dashed', 'text-decoration': 'none'},
+                    )
+                    for objectid in sorted(filters[fltr])
+                )
+            )),
+        ))
+    return layout
+
+
+@app.callback(
+    [
+        Output(dict(type='ref-mag-input', index=ALL), 'value'),
+        Output(dict(type='ref-magerr-input', index=ALL), 'value'),
+        Output(dict(type='ref-mag-link', index=ALL), 'n_clicks'),
+    ],
+    [
+        Input('dr', 'children'),
+        Input(dict(type='ref-mag-link', index=ALL), 'n_clicks')
+    ],
+    [
+        State(dict(type='ref-mag-input', index=ALL), 'id'),
+        State(dict(type='ref-mag-input', index=ALL), 'value'),
+        State(dict(type='ref-magerr-input', index=ALL), 'id'),
+        State(dict(type='ref-magerr-input', index=ALL), 'value'),
+        State(dict(type='ref-mag-link', index=ALL), 'id'),
+    ]
+)
+def set_ref_mag_magerr(dr, n_clicks, ref_mag_ids, ref_mag_values, ref_magerr_ids, ref_magerr_values, ref_mag_link_ids):
+    if all(n == 0 for n in n_clicks):
+        raise PreventUpdate
+
+    ref_mag = {id['index']: value for id, value in zip(ref_mag_ids, ref_mag_values)}
+    ref_magerr = {id['index']: value for id, value in zip(ref_magerr_ids, ref_magerr_values)}
+
+    idx = n_clicks.index(1)
+    oid = ref_mag_link_ids[idx]['index']
+    fltr = find_ztf_oid.get_meta(oid, dr)['filter']
+
+    ref = ztf_ref.get(oid, dr)
+    ref_mag[fltr] = np.round(ref['mag'] + ref['magzp'], decimals=3)
+    ref_magerr[fltr] = np.round(ref['sigmag'], decimals=3)
+    return list(ref_mag.values()), list(ref_magerr.values()), [0] * len(n_clicks)
+
+
+@app.callback(
     Output('summary', 'children'),
     [
         Input('oid', 'children'),
@@ -888,7 +1054,7 @@ def get_metadata(oid, dr):
     return div
 
 
-def neighbour_oids(different_filter, different_field):
+def neighbour_oids(different_filter, different_field) -> frozenset:
     if not isinstance(different_filter, list):
         different_filter = []
     if not isinstance(different_field, list):
@@ -911,10 +1077,14 @@ def neighbour_oids(different_filter, different_field):
         Input('light-curve-type', 'value'),
         Input('fold-period', 'value'),
         Input('fold-zero-phase', 'value'),
+        Input(dict(type='ref-mag-input', index=ALL), 'id'),
+        Input(dict(type='ref-mag-input', index=ALL), 'value'),
+        Input(dict(type='ref-magerr-input', index=ALL), 'id'),
+        Input(dict(type='ref-magerr-input', index=ALL), 'value'),
     ],
 )
 def set_figure(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd, brightness_type, lc_type, period,
-               phase0):
+               phase0, ref_mag_ids, ref_mag_values, ref_magerr_ids, ref_magerr_values):
     if lc_type == 'folded' and not period:
         raise PreventUpdate
 
@@ -924,25 +1094,42 @@ def set_figure(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd,
     elif brightness_type == 'flux':
         bright = 'flux_Jy'
         brighterr = 'fluxerr_Jy'
+    elif brightness_type == 'diffmag':
+        bright = 'diffmag'
+        brighterr = 'diffmagerr'
+    elif brightness_type == 'diffflux':
+        bright = 'diffflux_Jy'
+        brighterr = 'difffluxerr_Jy'
     else:
         raise ValueError(f'Wrong brightness_type "{brightness_type}"')
 
+    ref_mag_link_oids = {}
+    ref_mag = immutabledefaultdict(
+        lambda: np.inf,
+        {id['index']: value for id, value in zip(ref_mag_ids, ref_mag_values) if value is not None}
+    )
+    ref_magerr = immutabledefaultdict(
+        float,
+        {id['index']: value for id, value in zip(ref_magerr_ids, ref_magerr_values) if value is not None}
+    )
+
     other_oids = neighbour_oids(different_filter, different_field)
     if lc_type == 'full':
-        lcs = get_plot_data(cur_oid, dr, other_oids=other_oids, min_mjd=min_mjd, max_mjd=max_mjd)
+        lcs = get_plot_data(cur_oid, dr, other_oids=other_oids, min_mjd=min_mjd, max_mjd=max_mjd, ref_mag=ref_mag,
+                            ref_magerr=ref_magerr)
     elif lc_type == 'folded':
         offset = -(phase0 or 0.0) * period
         lcs = get_folded_plot_data(cur_oid, dr, period=period, offset=offset, other_oids=other_oids, min_mjd=min_mjd,
-                                   max_mjd=max_mjd)
+                                   max_mjd=max_mjd, ref_mag=ref_mag, ref_magerr=ref_magerr)
     else:
         raise ValueError(f'{lc_type = } is unknown')
     lcs = list(chain.from_iterable(lcs.values()))
-    y_min = min(obs[bright] - obs[brighterr] for obs in lcs)
-    y_max = max(obs[bright] + obs[brighterr] for obs in lcs)
+    y_min = min(obs[bright] - obs[brighterr] for obs in lcs if np.isfinite(obs[bright]))
+    y_max = max(obs[bright] + obs[brighterr] for obs in lcs if np.isfinite(obs[bright]))
     y_ampl = y_max - y_min
-    if brightness_type == 'mag':
+    if brightness_type in {'mag', 'diffmag'}:
         range_y = [y_max + 0.1 * y_ampl, y_min - 0.1 * y_ampl]
-    elif brightness_type == 'flux':
+    elif brightness_type in {'flux', 'diffflux'}:
         range_y = [min(0.0, y_min - 0.1 * y_ampl), y_max + 0.1 * y_ampl]
     else:
         raise ValueError(f'Wrong brightness_type "{brightness_type}"')
@@ -954,8 +1141,8 @@ def set_figure(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd,
             error_y=brighterr,
             color='filter',
             range_y=range_y,
-            labels={f'mjd_{MJD_OFFSET}': f'mjd − {MJD_OFFSET}', bright: bright.replace('_', ', '),
-                    brighterr: brighterr.replace('_', ', ')},
+            labels={f'mjd_{MJD_OFFSET}': f'mjd − {MJD_OFFSET}', bright: BRIGHT_LABELS[bright],
+                    brighterr: BRIGHTERR_LABELS[brighterr]},
             color_discrete_map=FILTER_COLORS,
             symbol='oid',
             size='mark_size',

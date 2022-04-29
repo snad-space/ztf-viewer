@@ -56,15 +56,15 @@ def get_plot_data(cur_oid, dr, other_oids=frozenset(), min_mjd=None, max_mjd=Non
             obs['flux_Jy'] = 10 ** (-0.4 * (obs['mag'] - ABZPMAG_JY))
             obs['fluxerr_Jy'] = LN10_04 * obs['flux_Jy'] * obs['magerr']
 
-            obs['difflux_Jy'] = obs['flux_Jy'] - ref_flux
-            obs['diffluxerr_Jy'] = np.hypot(obs['fluxerr_Jy'], ref_fluxerr)
+            obs['diffflux_Jy'] = obs['flux_Jy'] - ref_flux
+            obs['difffluxerr_Jy'] = np.hypot(obs['fluxerr_Jy'], ref_fluxerr)
 
-            if obs['difflux_Jy'] <= 0:
+            if obs['diffflux_Jy'] <= 0:
                 obs['diffmag'] = np.inf
                 obs['diffmagerr'] = np.inf
             else:
-                obs['diffmag'] = ABZPMAG_JY - 2.5 * m.log10(obs['difflux_Jy'])
-                obs['diffmagerr'] = 1.0 / LN10_04 * obs['diffluxerr_Jy'] / obs['difflux_Jy']
+                obs['diffmag'] = ABZPMAG_JY - 2.5 * m.log10(obs['diffflux_Jy'])
+                obs['diffmagerr'] = 1.0 / LN10_04 * obs['difffluxerr_Jy'] / obs['diffflux_Jy']
         lcs[oid] = lc
     for identifier, lc in additional_data.items():
         list_lc = []
@@ -86,11 +86,12 @@ def get_plot_data(cur_oid, dr, other_oids=frozenset(), min_mjd=None, max_mjd=Non
 
 @cache()
 def get_folded_plot_data(cur_oid, dr, period, offset=None, other_oids=frozenset(), min_mjd=None, max_mjd=None,
-                         additional_data=immutabledict()):
+                         additional_data=immutabledict(), ref_mag=immutabledefaultdict(lambda: np.inf),
+                         ref_magerr=immutabledefaultdict(float)):
     if offset is None:
         offset = MJD_OFFSET
     lcs = get_plot_data(cur_oid, dr, other_oids=other_oids, min_mjd=min_mjd, max_mjd=max_mjd,
-                        additional_data=additional_data)
+                        additional_data=additional_data, ref_mag=ref_mag, ref_magerr=ref_magerr)
     for lc in lcs.values():
         for obs in lc:
             obs['folded_time'] = (obs['mjd'] - offset) % period
