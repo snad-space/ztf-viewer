@@ -123,6 +123,23 @@ def get_layout(pathname):
         html.Div(set_akb_info(0, oid), id='akb-info'),
         html.Div(
             [
+                dcc.Graph(
+                    id='graph',
+                    config={
+                        'toImageButtonOptions': {'filename': str(oid)},
+                        'displaylogo': False,
+                    },
+                ),
+                html.Div(
+                    [
+                        'Download ',
+                        html.A('PNG', href=f'/{dr}/figure/{oid}?format=png', id='figure-png-link'),
+                        ', ',
+                        html.A('PDF', href=f'/{dr}/figure/{oid}?format=pdf', id='figure-pdf-link'),
+                        ', ',
+                        html.A('CSV', href=f'/{dr}/csv/{oid}', id='csv-link')
+                    ]
+                ),
                 dcc.Checklist(
                     id='light-curve-time-interval',
                     options=[
@@ -195,23 +212,6 @@ def get_layout(pathname):
                     id='ref-mag-layout',
                     style={'display': 'none'},
                 ),
-                dcc.Graph(
-                    id='graph',
-                    config={
-                        'toImageButtonOptions': {'filename': str(oid)},
-                        'displaylogo': False,
-                    },
-                ),
-                html.Div(
-                    [
-                        'Download ',
-                        html.A('PNG', href=f'/{dr}/figure/{oid}?format=png', id='figure-png-link'),
-                        ', ',
-                        html.A('PDF', href=f'/{dr}/figure/{oid}?format=pdf', id='figure-pdf-link'),
-                        ', ',
-                        html.A('CSV', href=f'/{dr}/csv/{oid}', id='csv-link')
-                    ]
-                )
             ],
             id='graph-layout',
             style={'width': '70%', 'display': 'inline-block'},
