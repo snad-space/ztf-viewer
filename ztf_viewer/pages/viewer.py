@@ -30,7 +30,7 @@ from ztf_viewer.catalogs.ztf_ref import ztf_ref
 from ztf_viewer.config import ZTF_FITS_PROXY_URL
 from ztf_viewer.date_with_frac import DateWithFrac, correct_date
 from ztf_viewer.exceptions import NotFound, CatalogUnavailable
-from ztf_viewer.plot_data import get_plot_data, get_folded_plot_data, MJD_OFFSET
+from ztf_viewer.lc_data.plot_data import get_plot_data, get_folded_plot_data, MJD_OFFSET
 from ztf_viewer.lc_features import light_curve_features
 from ztf_viewer.util import (html_from_astropy_table, to_str, INF, min_max_mjd_short, FILTER_COLORS, ZTF_FILTERS,
                              available_drs, joiner, immutabledefaultdict)
