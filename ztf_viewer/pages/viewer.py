@@ -1124,12 +1124,15 @@ def set_figure(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd,
     else:
         raise ValueError(f'{lc_type = } is unknown')
     lcs = list(chain.from_iterable(lcs.values()))
-    y_min = min(obs[bright] - obs[brighterr] for obs in lcs if np.isfinite(obs[bright]))
-    y_max = max(obs[bright] + obs[brighterr] for obs in lcs if np.isfinite(obs[bright]))
-    y_ampl = y_max - y_min
     if brightness_type in {'mag', 'diffmag'}:
+        y_min = min(obs[bright] - obs[brighterr] for obs in lcs if np.isfinite(obs[bright]) and obs[brighterr] < 1)
+        y_max = max(obs[bright] + obs[brighterr] for obs in lcs if np.isfinite(obs[bright]) and obs[brighterr] < 1)
+        y_ampl = y_max - y_min
         range_y = [y_max + 0.1 * y_ampl, y_min - 0.1 * y_ampl]
     elif brightness_type in {'flux', 'diffflux'}:
+        y_min = min(obs[bright] - obs[brighterr] for obs in lcs)
+        y_max = max(obs[bright] + obs[brighterr] for obs in lcs)
+        y_ampl = y_max - y_min
         range_y = [min(0.0, y_min - 0.1 * y_ampl), y_max + 0.1 * y_ampl]
     else:
         raise ValueError(f'Wrong brightness_type "{brightness_type}"')
