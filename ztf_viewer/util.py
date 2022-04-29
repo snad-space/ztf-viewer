@@ -2,6 +2,7 @@ import json
 import logging
 import math
 import re
+from collections import defaultdict
 from functools import wraps
 from itertools import chain
 
@@ -196,3 +197,7 @@ def ccdid_from_rcid(rcid: int) -> int:
 
 def qid_from_rcid(rcid: int) -> int:
     return rcid % 4 + 1
+
+
+class immutabledefaultdict(immutabledict):
+    dict_cls = defaultdict
