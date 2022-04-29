@@ -69,6 +69,21 @@ def folded_plot_data(plot_data, period, offset=None):
 @cache()
 def get_plot_data(cur_oid, dr, other_oids=frozenset(), min_mjd=None, max_mjd=None, additional_data=immutabledict(),
                   ref_mag=immutabledefaultdict(lambda: np.inf), ref_magerr=immutabledefaultdict(float)):
+    """Get plot data
+    additional_data format is:
+    {
+        'id1': [
+            {
+                'mjd': 58800.3,
+                'mag': 18.1,
+                'magerr': 0.34,
+                'filter': 'r',
+            },
+            ...
+        ],
+        ...
+    }
+    """
     lcs = {
         cur_oid: plot_data(ztf_dr_lc(cur_oid, dr), mark_size=3, min_mjd=min_mjd, max_mjd=max_mjd, ref_mag=ref_mag,
                            ref_magerr=ref_magerr,),
