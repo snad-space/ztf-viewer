@@ -12,7 +12,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from astropy.coordinates import SkyCoord
 from astropy.table import QTable
-from dash import dcc, html, Input, Output, State, ALL, MATCH
+from dash import dcc, html, Input, Output, State, ALL
 from dash.exceptions import PreventUpdate
 from dash.dash_table import DataTable
 from requests import ConnectionError
@@ -21,6 +21,7 @@ from ztf_viewer import brokers
 from ztf_viewer.akb import akb
 from ztf_viewer.app import app
 from ztf_viewer.catalogs.conesearch import get_catalog_query, catalog_query_objects
+from ztf_viewer.catalogs.conesearch.antares import AntaresQuery
 from ztf_viewer.catalogs.extinction import bayestar, sfd
 from ztf_viewer.catalogs.snad.catalog import snad_catalog
 from ztf_viewer.catalogs.vizier import vizier_catalog_details, find_vizier
@@ -187,6 +188,14 @@ def get_layout(pathname):
                     ],
                     id='fold-period-layout',
                     style={'display': 'none', 'vertical-align': 'center'},
+                ),
+                dcc.Checklist(
+                    id='additional-light-curves',
+                    options=[
+                        {'label': 'Closest Antares object', 'value': 'antares', 'disabled': False},
+                    ],
+                    value=[],
+                    style={'display': 'block'},
                 ),
                 dcc.RadioItems(
                     options=[
@@ -768,6 +777,62 @@ def show_fold_period_layout(light_curve_type, old_style):
 
 
 @app.callback(
+    Output('additional-light-curves', 'options'),
+    [
+        Input('oid', 'children'),
+        Input('dr', 'children'),
+        Input('additional-light-curves', 'value')
+    ],
+    [State('additional-light-curves', 'options')]
+)
+def update_additional_light_curve_options(oid, dr, values, old_options):
+    if len(values) == 0:
+        raise PreventUpdate
+    options_dict = {option['value']: option for option in old_options}
+    for value in values:
+        if value == 'antares':
+            option = get_antares_lc_option(oid, dr, old=options_dict[value])
+        else:
+            raise ValueError(f'additional light curve value "{value}" unknown')
+        options_dict[value] = option
+    return list(options_dict.values())
+
+
+def get_antares_lc_option(oid, dr, old):
+    option = old.copy()
+    coord = find_ztf_oid.get_sky_coord(oid, dr)
+    radius = '5s'
+    try:
+        sep, locus = AntaresQuery.query_region_closest_locus(coord, radius)
+    except NotFound:
+        option['label'] = f'Antares object (not found in {radius[:-1]}″)'
+        option['disabled'] = True
+        return option
+    option['label'] = f'Antares {locus.locus_id} ({np.round(sep.arcsec, 1)}″)'
+    option['disabled'] = False
+    return option
+
+
+def get_antares_lc(oid, dr):
+    coord = find_ztf_oid.get_sky_coord(oid, dr)
+    radius = '5s'
+    _, locus = AntaresQuery.query_region_closest_locus(coord, radius)
+    lc = [
+        {
+            'oid': locus.locus_id,
+            'mjd': obs['ant_mjd'],
+            'mag': obs['ant_mag'],
+            'magerr': obs['ant_magerr'],
+            'filter': f"ant_{obs['passband']}",
+            'mark_size': 1,
+        }
+        for obs in locus.lightcurve
+    ]
+    return lc
+
+
+
+@app.callback(
     Output('ref-mag-layout', 'style'),
     [Input('light-curve-brightness', 'value')],
     [State('ref-mag-layout', 'style')],
@@ -1081,10 +1146,11 @@ def neighbour_oids(different_filter, different_field) -> frozenset:
         Input(dict(type='ref-mag-input', index=ALL), 'value'),
         Input(dict(type='ref-magerr-input', index=ALL), 'id'),
         Input(dict(type='ref-magerr-input', index=ALL), 'value'),
+        Input('additional-light-curves', 'value'),
     ],
 )
 def set_figure(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd, brightness_type, lc_type, period,
-               phase0, ref_mag_ids, ref_mag_values, ref_magerr_ids, ref_magerr_values):
+               phase0, ref_mag_ids, ref_mag_values, ref_magerr_ids, ref_magerr_values, additional_lc_types):
     if lc_type == 'folded' and not period:
         raise PreventUpdate
 
@@ -1103,7 +1169,6 @@ def set_figure(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd,
     else:
         raise ValueError(f'Wrong brightness_type "{brightness_type}"')
 
-    ref_mag_link_oids = {}
     ref_mag = immutabledefaultdict(
         lambda: np.inf,
         {id['index']: value for id, value in zip(ref_mag_ids, ref_mag_values) if value is not None}
@@ -1123,6 +1188,18 @@ def set_figure(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd,
                                    max_mjd=max_mjd, ref_mag=ref_mag, ref_magerr=ref_magerr)
     else:
         raise ValueError(f'{lc_type = } is unknown')
+
+    add_lcs = []
+    for add_lc_type in additional_lc_types:
+        if add_lc_type == 'antares':
+            try:
+                lc = get_antares_lc(cur_oid, dr)
+            except NotFound:
+                continue
+        else:
+            raise ValueError(f'Wrong additional-light-curves value {add_lc_type}')
+        add_lcs.append(lc)
+
     lcs = list(chain.from_iterable(lcs.values()))
     if brightness_type in {'mag', 'diffmag'}:
         y_min = min(obs[bright] - obs[brighterr] for obs in lcs if np.isfinite(obs[bright]) and obs[brighterr] < 1)
