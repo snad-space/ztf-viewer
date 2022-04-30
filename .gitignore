@@ -2,3 +2,4 @@ __pycache__
 secret.env
 *.egg-info/
 build/
+ztf_viewer/_version.py
