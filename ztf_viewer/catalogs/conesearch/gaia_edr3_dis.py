@@ -1,20 +1,14 @@
-from functools import partial
-
 from astropy import units
-from astroquery.vizier import Vizier
 
-from ztf_viewer.catalogs.conesearch._base import _BaseCatalogQuery
+from ztf_viewer.catalogs.conesearch._base import _BaseVizierQuery
 
 
-class GaiaEdr3Dis(_BaseCatalogQuery):
-    """Gaia DR2 distances from Bailer-Jones et al 2021
+class GaiaEdr3Dis(_BaseVizierQuery):
+    """Gaia eDR3 distances from Bailer-Jones et al 2021
 
     https://ui.adsabs.harvard.edu/?#abs/2021AJ....161..147B
     """
     id_column = 'Source'
-    _table_ra = 'RA_ICRS'
-    _ra_unit = 'deg'
-    _table_dec = 'DE_ICRS'
     columns = {
         '__link': 'Source ID',
         'separation': 'Separation, arcsec',
@@ -26,15 +20,8 @@ class GaiaEdr3Dis(_BaseCatalogQuery):
         'B_rpgeo': 'Upper bound, pc'
     }
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._query = Vizier(
-            columns=['Source', 'RA_ICRS', 'DE_ICRS', 'rgeo', 'b_rgeo', 'B_rgeo', 'rpgeo', 'b_rpgeo', 'B_rpgeo', 'Flag'],
-        )
-        self._query_region = partial(self._query.query_region, catalog='I/352/gedr3dis')
-
-    def get_url(self, id, row=None):
-        return f'//vizier.u-strasbg.fr/viz-bin/VizieR-6?-out.form=%2bH&-source=I/352/gedr3dis&Source={id}'
+    _vizier_columns=['Source', 'rgeo', 'b_rgeo', 'B_rgeo', 'rpgeo', 'b_rpgeo', 'B_rpgeo', 'Flag']
+    _vizier_catalog='I/352/gedr3dis'
 
     def add_distance_column(self, table):
         table['__distance'] = [x * units.pc for x in table['rgeo']]
