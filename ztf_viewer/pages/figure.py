@@ -9,7 +9,7 @@ from immutabledict import immutabledict
 from matplotlib.ticker import AutoMinorLocator
 
 from ztf_viewer.app import app
-from ztf_viewer.plot_data import get_folded_plot_data, get_plot_data
+from ztf_viewer.lc_data.plot_data import get_folded_plot_data, get_plot_data
 from ztf_viewer.util import parse_json_to_immutable, FILTER_COLORS, FILTERS_ORDER, ZTF_FILTERS, flip
 
 
