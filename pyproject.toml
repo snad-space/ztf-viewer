@@ -1,3 +1,57 @@
+[project]
+name = "snad-ztf-viewer"
+version = "2022.04.0"
+authors = [
+  {email = "hombit@gmail.com"},
+  {name = "Konstantin Malanchev"}
+]
+description = "ZTF data releases viewer"
+readme = "README.md"
+license = {text = "MIT"}
+keywords = ["science", "astrophysics"]
+requires-python = ">=3.9"
+dependencies = [
+    "dash>=2.3.1",
+    "dash_defer_js_import",
+    "dash-dangerously-set-inner-html",
+    "orjson",
+    "flask",
+    "pandas",
+    "numpy",
+    # astropy 5 is not supported by dustmaps https://github.com/gregreen/dustmaps/issues/37
+    "astropy<5",
+    "astroquery",
+    "jinja2",
+    "requests",
+    "redis",
+    "redis-lru",
+    "ipywidgets>=7.0.0",
+    "matplotlib>=3.3,<4.0",
+    "cachetools",
+    "scipy",
+    "immutabledict",
+    "alerce",
+    "dustmaps",
+    "antares-client>=1.2.0",
+]
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Scientific/Engineering :: Astronomy",
+    "Programming Language :: Python :: 3",
+]
+
+[project.urls]
+homepage = "ztf.snad.space"
+repository = "github.com/snad-space/ztf_viewer"
+changelog = "github.com/snad-space/ztf_viewer/blob/master/CHANGELOG.md"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+exclude = ["tests"]
+
 [tool.pytest.ini_options]
 minversion = "6.0"
 addopts = "-ra -q"
