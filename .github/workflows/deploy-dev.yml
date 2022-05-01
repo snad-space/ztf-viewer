@@ -62,8 +62,12 @@ jobs:
         ls -lk ${HOME}/.ssh/id_rsa
         chmod 600 ${HOME}/.ssh/id_rsa
         ssh-keyscan -t ssh-rsa dev.snad.space >> ${HOME}/.ssh/known_hosts
+        ssh root@dev.snad.space ls /
     - name: Set up Docker context
-      run: docker context create dev-snad --docker "host=ssh://root@dev.snad.space"
+      run: |
+        docker context create dev-snad --docker "host=ssh://root@dev.snad.space"
+        docker context use dev-snad
+        docker ps
     - name: Stop
       run: |
         docker context use dev-snad
