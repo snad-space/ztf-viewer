@@ -496,7 +496,7 @@ def get_layout(pathname):
                 ' search radius, arcsec',
                 html.Div(id='fink-table'),
             ],
-            id='alerce',
+            id='fink',
         ),
         html.Div(
             [
