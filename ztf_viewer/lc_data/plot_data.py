@@ -41,12 +41,17 @@ def plot_data(lc, mark_size=1, min_mjd=None, max_mjd=None, ref_mag=immutabledefa
         obs['diffflux_Jy'] = obs['flux_Jy'] - ref_flux
         obs['difffluxerr_Jy'] = np.hypot(obs['fluxerr_Jy'], ref_fluxerr)
 
-        if obs['diffflux_Jy'] <= 0:
+        # we do both for a weird case of negative error
+        if obs['diffflux_Jy'] <= 0 or obs['diffflux_Jy'] < obs['difffluxerr_Jy']:
             obs['diffmag'] = np.inf
-            obs['diffmagerr'] = np.inf
+            obs['diffmagerr_plus'] = np.inf
+            obs['diffmagerr_minus'] = np.inf
         else:
             obs['diffmag'] = ABZPMAG_JY - 2.5 * m.log10(obs['diffflux_Jy'])
-            obs['diffmagerr'] = 1.0 / LN10_04 * obs['difffluxerr_Jy'] / obs['diffflux_Jy']
+            # for smaller flux
+            obs['diffmagerr_plus'] = -2.5 * m.log10(1 - obs['difffluxerr_Jy'] / obs['diffflux_Jy'])
+            # positive and for larger flux
+            obs['diffmagerr_minus'] = 2.5 * m.log10(1 + obs['difffluxerr_Jy'] / obs['diffflux_Jy'])
 
         obs[f'mjd_{MJD_OFFSET}'] = obs['mjd'] - MJD_OFFSET
         time = Time(obs['mjd'], format='mjd')
