@@ -859,14 +859,6 @@ def show_ref_mag_or_magerr(oid, dr, different_filter, different_field, brightnes
             html.Div(html.B(fltr),),
         ]
         for objectid in filters[fltr]:
-            try:
-                ref = ztf_ref.get(objectid, dr)
-            except NotFound:
-                ref_mag = None
-                ref_magerr = None
-            else:
-                ref_mag = np.round(ref['mag'] + ref['magzp'], decimals=3)
-                ref_magerr = np.round(ref['sigmag'], decimals=3)
             filter_layout.append(html.Div(
                 [
                     html.A(
@@ -882,11 +874,12 @@ def show_ref_mag_or_magerr(oid, dr, different_filter, different_field, brightnes
                         style={'display': 'inline'},
                     ),
                     dcc.Input(
-                        value=ref_mag,
+                        value=None,
                         id={'type': 'ref-mag-input', 'index': objectid},
                         placeholder='mag',
                         type='number',
                         maxLength=6,
+                        step=0.001,
                         style={'width': '6em', 'display': 'inline'},
                     ),
                     html.Div(
@@ -894,11 +887,13 @@ def show_ref_mag_or_magerr(oid, dr, different_filter, different_field, brightnes
                         style={'display': 'inline'},
                     ),
                     dcc.Input(
-                        value=ref_magerr,
+                        value=None,
                         id={'type': 'ref-magerr-input', 'index': objectid},
                         placeholder='mag err',
                         type='number',
                         maxLength=5,
+                        min=0,
+                        step=0.001,
                         style={'width': '5em', 'display': 'inline'},
                     ),
                 ],
@@ -923,9 +918,7 @@ def show_ref_mag_or_magerr(oid, dr, different_filter, different_field, brightnes
         State(dict(type='ref-mag-link', index=MATCH), 'id'),
     ]
 )
-def set_ref_mag_magerr(dr, n_clicks, ref_mag_link_id):
-    if n_clicks == 0:
-        raise PreventUpdate
+def set_ref_mag_magerr(dr, _n_clicks, ref_mag_link_id):
     objectid = ref_mag_link_id['index']
     ref = ztf_ref.get(objectid, dr)
     ref_mag = np.round(ref['mag'] + ref['magzp'], decimals=3)
