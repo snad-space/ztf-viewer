@@ -32,8 +32,10 @@ def plot_data(lc, mark_size=1, min_mjd=None, max_mjd=None, ref_mag=immutabledefa
 
         obs['mark_size'] = mark_size
 
-        ref_flux = 10 ** (-0.4 * (ref_mag[obs['filter']] - ABZPMAG_JY))
-        ref_fluxerr = LN10_04 * ref_flux * ref_magerr[obs['filter']]
+        # Normally we have a single oid for the light curve, but it could not
+        # be a case, see get_antares_lc for an example
+        ref_flux = 10 ** (-0.4 * (ref_mag[obs['oid']] - ABZPMAG_JY))
+        ref_fluxerr = LN10_04 * ref_flux * ref_magerr[obs['oid']]
 
         obs['flux_Jy'] = 10 ** (-0.4 * (obs['mag'] - ABZPMAG_JY))
         obs['fluxerr_Jy'] = LN10_04 * obs['flux_Jy'] * obs['magerr']
