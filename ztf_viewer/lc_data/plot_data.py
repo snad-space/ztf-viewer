@@ -99,16 +99,16 @@ def get_plot_data(cur_oid, dr, other_oids=frozenset(), min_mjd=None, max_mjd=Non
         cur_oid: plot_data(ztf_dr_lc(cur_oid, dr), mark_size=3, min_mjd=min_mjd, max_mjd=max_mjd, ref_mag=ref_mag,
                            ref_magerr=ref_magerr),
     } | {
-        source: plot_data(EXTERNAL_LC_DATA[source](cur_oid, dr, **kwargs), mark_size=1, min_mjd=min_mjd,
-                          max_mjd=max_mjd, ref_mag=ref_mag, ref_magerr=ref_magerr)
-        for source, kwargs in external_data.items()
-    } | {
         oid: plot_data(ztf_dr_lc(oid, dr), mark_size=1, min_mjd=min_mjd, max_mjd=max_mjd, ref_mag=ref_mag,
                        ref_magerr=ref_magerr)
         for oid in sorted(other_oids, key=int)
     } | {
         id: plot_data(lc, mark_size=3, min_mjd=min_mjd, max_mjd=max_mjd, ref_mag=ref_mag, ref_magerr=ref_magerr)
         for id, lc in add_id_to_obs(additional_data).items()
+    } | {
+              source: plot_data(EXTERNAL_LC_DATA[source](cur_oid, dr, **kwargs), mark_size=1, min_mjd=min_mjd,
+                                max_mjd=max_mjd, ref_mag=ref_mag, ref_magerr=ref_magerr)
+              for source, kwargs in external_data.items()
     }
     return lcs
 
