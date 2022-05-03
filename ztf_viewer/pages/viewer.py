@@ -71,7 +71,8 @@ BRIGHT_LABELS = {
 BRIGHTERR_LABELS = {
     'magerr': 'mag error',
     'fluxerr_Jy': 'flux error, Jy',
-    'diffmagerr': 'diff mag error',
+    'diffmagerr_plus': 'diff mag error +',
+    'diffmagerr_minus': 'diff mag error -',
     'difffluxerr_Jy': 'diff flux error, Jy',
 }
 
@@ -1114,15 +1115,19 @@ def set_figure(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd,
     if brightness_type == 'mag':
         bright = 'mag'
         brighterr = 'magerr'
+        brighterr_minus = None
     elif brightness_type == 'flux':
         bright = 'flux_Jy'
         brighterr = 'fluxerr_Jy'
+        brighterr_minus = None
     elif brightness_type == 'diffmag':
         bright = 'diffmag'
-        brighterr = 'diffmagerr'
+        brighterr = 'diffmagerr_plus'
+        brighterr_minus = 'diffmagerr_minus'
     elif brightness_type == 'diffflux':
         bright = 'diffflux_Jy'
         brighterr = 'difffluxerr_Jy'
+        brighterr_minus = None
     else:
         raise ValueError(f'Wrong brightness_type "{brightness_type}"')
 
@@ -1168,10 +1173,14 @@ def set_figure(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd,
             x=f'mjd_{MJD_OFFSET}',
             y=bright,
             error_y=brighterr,
+            error_y_minus=brighterr_minus,
             color='filter',
             range_y=range_y,
-            labels={f'mjd_{MJD_OFFSET}': f'mjd − {MJD_OFFSET}', bright: BRIGHT_LABELS[bright],
-                    brighterr: BRIGHTERR_LABELS[brighterr]},
+            labels={
+                f'mjd_{MJD_OFFSET}': f'mjd − {MJD_OFFSET}',
+                bright: BRIGHT_LABELS[bright],
+                brighterr: BRIGHTERR_LABELS[brighterr],
+            } | ({} if brighterr_minus is None else {brighterr_minus: BRIGHTERR_LABELS[brighterr_minus]}),
             color_discrete_map=FILTER_COLORS,
             symbol='oid',
             size='mark_size',
@@ -1185,6 +1194,7 @@ def set_figure(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd,
             x='phase',
             y=bright,
             error_y=brighterr,
+            error_y_minus=None,
             color='filter',
             range_y=range_y,
             labels={f'mjd_{MJD_OFFSET}': f'mjd − {MJD_OFFSET}'},
