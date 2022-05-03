@@ -1,3 +1,5 @@
+import math as m
+
 from ztf_viewer.catalogs import find_ztf_oid
 from ztf_viewer.catalogs.conesearch.antares import AntaresQuery
 
@@ -13,6 +15,6 @@ def get_antares_lc(oid, dr, radius):
             'magerr': obs.ant_magerr,
             'filter': f"ant_{obs.ant_passband}",
         }
-        for obs in locus.lightcurve.itertuples()
+        for obs in locus.lightcurve.itertuples() if not m.isnan(obs['ant_mag'])
     ]
     return lc
