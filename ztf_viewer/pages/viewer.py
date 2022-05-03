@@ -12,7 +12,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from astropy.coordinates import SkyCoord
 from astropy.table import QTable
-from dash import dcc, html, Input, Output, State, ALL
+from dash import dcc, html, Input, Output, State, ALL, MATCH
 from dash.exceptions import PreventUpdate
 from dash.dash_table import DataTable
 from immutabledict import immutabledict
@@ -844,114 +844,86 @@ def show_ref_mag_layout(brightness_type, old_style):
 def show_ref_mag_or_magerr(oid, dr, different_filter, different_field, brightness_type):
     if brightness_type not in {'diffmag', 'diffflux'}:
         raise PreventUpdate
-    oids = sorted(neighbour_oids(different_filter, different_field) | {oid})
+    oids = sorted(neighbour_oids(different_filter, different_field) | {oid}, key=int)
 
-    filters = defaultdict(set)
+    filters = defaultdict(list)
     for objectid in oids:
         fltr = find_ztf_oid.get_meta(objectid, dr)['filter']
-        filters[fltr].add(int(objectid))
+        filters[fltr].append(objectid)
 
     layout = []
     for fltr in ZTF_FILTERS:
         if fltr not in filters:
             continue
-        if oid in filters[fltr]:
-            objectid = oid
-        else:
-            objectid = min(filters[fltr])
-        try:
-            ref = ztf_ref.get(objectid, dr)
-        except NotFound:
-            ref_mag = None
-            ref_magerr = None
-        else:
-            ref_mag = np.round(ref['mag'] + ref['magzp'], decimals=3)
-            ref_magerr = np.round(ref['sigmag'], decimals=3)
-        layout.append(html.Div(
-            [
-                html.Div(
-                    html.B(fltr),
-                    style={'min-width': '2em', 'display': 'inline', 'float': 'left', 'vertical-align': 'bottom'},
-                ),
-                html.Div(
-                    '  mag ',
-                    style={'display': 'inline'},
-                ),
-                dcc.Input(
-                    value=ref_mag,
-                    id={'type': 'ref-mag-input', 'index': fltr},
-                    placeholder='mag',
-                    type='number',
-                    maxLength=6,
-                    style={'width': '6em', 'display': 'inline'},
-                ),
-                html.Div(
-                    '  error ',
-                    style={'display': 'inline'},
-                ),
-                dcc.Input(
-                    value=ref_magerr,
-                    id={'type': 'ref-magerr-input', 'index': fltr},
-                    placeholder='mag err',
-                    type='number',
-                    maxLength=6,
-                    style={'width': '6em', 'display': 'inline'},
-                ),
-                html.Div(
-                    ' Load reference for: ',
-                    style={'display': 'inline'},
-                )
-            ] +
-            list(joiner(
-                ', ',
-                (
+        filter_layout = [
+            html.Div(html.B(fltr),),
+        ]
+        for objectid in filters[fltr]:
+            filter_layout.append(html.Div(
+                [
                     html.A(
                         objectid,
                         href=None,
                         id={'type': 'ref-mag-link', 'index': objectid},
                         n_clicks=0,
                         style={'display': 'inline', 'border-bottom': '1px dashed', 'text-decoration': 'none'},
-                    )
-                    for objectid in sorted(filters[fltr])
-                )
-            )),
+                    ),
+                    html.Br(),
+                    html.Div(
+                        'mag ',
+                        style={'display': 'inline'},
+                    ),
+                    dcc.Input(
+                        value=None,
+                        id={'type': 'ref-mag-input', 'index': objectid},
+                        placeholder='mag',
+                        type='number',
+                        maxLength=6,
+                        step=0.001,
+                        style={'width': '6em', 'display': 'inline'},
+                    ),
+                    html.Div(
+                        '  err ',
+                        style={'display': 'inline'},
+                    ),
+                    dcc.Input(
+                        value=None,
+                        id={'type': 'ref-magerr-input', 'index': objectid},
+                        placeholder='mag err',
+                        type='number',
+                        maxLength=5,
+                        min=0,
+                        step=0.001,
+                        style={'width': '5em', 'display': 'inline'},
+                    ),
+                ],
+            ))
+        layout.append(html.Div(
+            filter_layout,
+            style={'display': 'inline-block', 'width': '50%', 'vertical-align': 'top'},
         ))
     return layout
 
 
 @app.callback(
     [
-        Output(dict(type='ref-mag-input', index=ALL), 'value'),
-        Output(dict(type='ref-magerr-input', index=ALL), 'value'),
-        Output(dict(type='ref-mag-link', index=ALL), 'n_clicks'),
+        Output(dict(type='ref-mag-input', index=MATCH), 'value'),
+        Output(dict(type='ref-magerr-input', index=MATCH), 'value'),
     ],
     [
         Input('dr', 'children'),
-        Input(dict(type='ref-mag-link', index=ALL), 'n_clicks')
+        Input(dict(type='ref-mag-link', index=MATCH), 'n_clicks')
     ],
     [
-        State(dict(type='ref-mag-input', index=ALL), 'id'),
-        State(dict(type='ref-mag-input', index=ALL), 'value'),
-        State(dict(type='ref-magerr-input', index=ALL), 'id'),
-        State(dict(type='ref-magerr-input', index=ALL), 'value'),
-        State(dict(type='ref-mag-link', index=ALL), 'id'),
+        State(dict(type='ref-mag-link', index=MATCH), 'id'),
     ]
 )
-def set_ref_mag_magerr(dr, n_clicks, ref_mag_ids, ref_mag_values, ref_magerr_ids, ref_magerr_values, ref_mag_link_ids):
-    if all(n == 0 for n in n_clicks):
-        raise PreventUpdate
-
-    ref_mag = {id['index']: value for id, value in zip(ref_mag_ids, ref_mag_values)}
-    ref_magerr = {id['index']: value for id, value in zip(ref_magerr_ids, ref_magerr_values)}
-
-    idx = n_clicks.index(1)
-    oid = ref_mag_link_ids[idx]['index']
-    fltr = find_ztf_oid.get_meta(oid, dr)['filter']
-
-    ref = ztf_ref.get(oid, dr)
-    ref_mag[fltr] = np.round(ref['mag'] + ref['magzp'], decimals=3)
-    ref_magerr[fltr] = np.round(ref['sigmag'], decimals=3)
-    return list(ref_mag.values()), list(ref_magerr.values()), [0] * len(n_clicks)
+def set_ref_mag_magerr(dr, _n_clicks, ref_mag_link_id):
+    objectid = ref_mag_link_id['index']
+    ref = ztf_ref.get(objectid, dr)
+    ref_mag = np.round(ref['mag'] + ref['magzp'], decimals=3)
+    ref_magerr = np.round(ref['sigmag'], decimals=3)
+    return ref_mag, ref_magerr
 
 
 @app.callback(
