@@ -38,6 +38,8 @@ ENV PYTHONUNBUFFERED TRUE
 
 COPY pyproject.toml setup.py MANIFEST.in /app/
 COPY ztf_viewer /app/ztf_viewer/
+ARG GITHUB_SHA
+RUN if [ -z ${GITHUB_SHA+x} ]; then echo "$GITHUB_SHA is not set"; else echo "github_sha = \"${GITHUB_SHA}\"" >> /app/ztf_viewer/_version.py; fi
 RUN pip install /app
 
 ENTRYPOINT ["gunicorn", "-w4", "-t300", "-b0.0.0.0:80", "ztf_viewer.__main__:server()"]

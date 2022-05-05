@@ -110,7 +110,13 @@ app.layout = html.Div([
             f'© {YEAR} ',
             html.A('SИAD', href='//snad.space'),
             f'. ',
-            '' if version_string is None else html.A(f'Version {version_string}', href=version_url),
+            *(
+                () if version_string is None else (
+                    'Version ',
+                    html.A(f'{version_string}', href=version_url),
+                    '.'
+                )
+            ),
             ' Developed by Konstantin Malanchev, based on ',
             html.A('the ZTF Caltech data.', href='//ztf.caltech.edu'),
             ' See the source code ',

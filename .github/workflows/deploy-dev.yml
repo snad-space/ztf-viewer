@@ -72,4 +72,5 @@ jobs:
       if: ${{ github.event.pull_request.state != 'closed' }}
       run: |
         docker context use dev-snad
-        docker compose -f docker-compose-github.yml -p ${SUBDOMAIN} up --build -d
+        docker compose -f docker-compose-github.yml -p ${SUBDOMAIN} build --build-arg GITHUB_SHA
+        docker compose -f docker-compose-github.yml -p ${SUBDOMAIN} up -d
