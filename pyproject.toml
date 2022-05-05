@@ -1,5 +1,5 @@
 [project]
-name = "snad-ztf-viewer"
+name = "ztf_viewer"
 version = "2022.5.0"
 authors = [
   {email = "hombit@gmail.com"},
