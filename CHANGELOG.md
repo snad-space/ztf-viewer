@@ -16,6 +16,12 @@ Version schema is `year.month.num_release`
 - Reference catalog magnitude, error and flags are added to the **Metadata**
 - Magnitude / flux / differential magnitude / diff flux switching
 - Show the closest Antares object
+- Show the viewer version in the footer
+
+### Fixed
+
+- Fink link is not working https://github.com/snad-space/ztf-viewer/issues/129
+- Sort vizier matches by separation https://github.com/snad-space/ztf-viewer/issues/92
 
 ### Changed
 
