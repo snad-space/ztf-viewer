@@ -31,3 +31,4 @@ Version schema is `year.month.num_release`
 
 - Downloadable plots don't support new flux / diff mag / diff flux variants yet https://github.com/snad-space/ztf-viewer/issues/121
 - Downloadable plots don't include the closest Antares object https://github.com/snad-space/ztf-viewer/issues/137
+- Closest Antares object can be missed due to a (reported) bug in Antares
