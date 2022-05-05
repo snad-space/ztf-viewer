@@ -23,6 +23,7 @@ from ztf_viewer.pages.search import get_layout as get_search_layout
 from ztf_viewer.pages.tags import get_layout as get_tags_layout
 from ztf_viewer.pages.viewer import get_layout as get_viewer_layout
 from ztf_viewer.util import available_drs, joiner, YEAR, DEFAULT_DR
+from ztf_viewer.version import version_string, version_url
 
 
 logging.basicConfig(level=logging.INFO)
@@ -108,7 +109,9 @@ app.layout = html.Div([
         [
             f'© {YEAR} ',
             html.A('SИAD', href='//snad.space'),
-            '. Developed by Konstantin Malanchev, based on ',
+            f'. ',
+            '' if version_string is None else html.A(f'Version {version_string}', href=version_url),
+            ' Developed by Konstantin Malanchev, based on ',
             html.A('the ZTF Caltech data.', href='//ztf.caltech.edu'),
             ' See the source code ',
             html.A('on GitHub', href='//github.com/snad-space/ztf-viewer'),
