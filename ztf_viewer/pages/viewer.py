@@ -57,7 +57,7 @@ ADDITIONAL_LC_SEARCH_RADIUS = '5s'
 
 LIGHT_CURVE_VALUE_VERSION_ANNOTATION = defaultdict(str) | {
     'v0.1': ' (Malanchev et al. 2021)',
-    'v0.2': ' (Aleo et al. 2021)',
+    'v0.2': ' (Aleo et al. 2022)',
 }
 
 
