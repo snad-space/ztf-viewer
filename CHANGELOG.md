@@ -10,6 +10,10 @@ Version schema is `year.month.num_release`
 
 - Highlight that Antares is diff-photometry https://github.com/snad-space/ztf-viewer/pull/140
 
+### Fixed
+
+- Support the latest `light-curve-feature` API v2022.5.1
+
 ## [2022.5.0] 2022 May 5
 
 ### Added
