@@ -6,7 +6,9 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
-—
+### Changed
+
+- Highlight that Antares is diff-photometry https://github.com/snad-space/ztf-viewer/pull/140
 
 ## [2022.5.0] 2022 May 5
 
