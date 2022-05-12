@@ -197,7 +197,7 @@ def get_layout(pathname):
                 dcc.Checklist(
                     id='additional-light-curves',
                     options=[
-                        {'label': 'Closest Antares object', 'value': 'antares', 'disabled': False},
+                        {'label': 'Closest Antares object, diff-photometry', 'value': 'antares', 'disabled': False},
                     ],
                     value=[],
                     style={'display': 'block'},
@@ -813,7 +813,7 @@ def get_antares_lc_option(oid, dr, old):
         option['label'] = f'Antares object (not found in {radius[:-1]}″)'
         option['disabled'] = True
         return option
-    option['label'] = f'Antares {locus.locus_id} ({np.round(sep.arcsec, 1)}″)'
+    option['label'] = f'Antares {locus.locus_id} ({np.round(sep.arcsec, 1)}″), diff-photometry'
     option['disabled'] = False
     return option
 
