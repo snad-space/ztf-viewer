@@ -1,14 +1,15 @@
 import antares_client.search
+import numpy as np
 from antares_client.models import Locus
 from astropy.coordinates import Angle, SkyCoord
 from astropy.table import Table
 
 from ztf_viewer.cache import cache
-from ztf_viewer.catalogs.conesearch._base import _BaseCatalogApiQuery
+from ztf_viewer.catalogs.conesearch._base import _BaseCatalogApiQuery, _BaseLightCurveQuery
 from ztf_viewer.exceptions import NotFound
 
 
-class AntaresQuery(_BaseCatalogApiQuery):
+class AntaresQuery(_BaseCatalogApiQuery, _BaseLightCurveQuery):
     id_column = 'locus_id'
     _table_ra = 'ra'
     _ra_unit = 'deg'
@@ -37,6 +38,35 @@ class AntaresQuery(_BaseCatalogApiQuery):
         separations = [locus.coordinates.separation(coord) for locus in loci]
         sep, locus = min(zip(separations, loci), key=lambda x: x[0])
         return sep, locus
+
+    @staticmethod
+    def _locus_to_light_curve(locus):
+        lc = locus.lightcurve[~np.isnan(locus.lightcurve['ant_mag'])]
+        return [
+            {
+                'oid': locus.locus_id,
+                'mjd': obs.ant_mjd,
+                'mag': obs.ant_mag,
+                'magerr': obs.ant_magerr,
+                'filter': f"ant_{obs.ant_passband}",
+            }
+            for obs in lc.itertuples()
+        ]
+
+    @cache()
+    def light_curve(self, id, row=None):
+        locus = antares_client.search.get_by_id(id)
+        if locus is None:
+            raise NotFound
+        return self._locus_to_light_curve(locus)
+
+    def closest_light_curve(self, ra, dec, radius_arcsec):
+        loci = self.query_region_loci(ra, dec, f'{radius_arcsec}s')
+        if len(loci) == 0:
+            raise NotFound
+        coord = SkyCoord(ra=ra, dec=dec, unit='deg')
+        locus = min(loci, key=lambda locus: locus.coordinates.separation(coord))
+        return self._locus_to_light_curve(locus)
 
     def _query_region(self, coord, radius):
         loci = self.query_region_loci(coord.ra.deg, coord.dec.deg, radius)

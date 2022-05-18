@@ -32,7 +32,6 @@ from ztf_viewer.date_with_frac import DateWithFrac, correct_date
 from ztf_viewer.exceptions import NotFound, CatalogUnavailable
 from ztf_viewer.lc_data.plot_data import get_plot_data, get_folded_plot_data, MJD_OFFSET
 from ztf_viewer.lc_features import light_curve_features
-from ztf_viewer.lc_data.antares import get_antares_lc
 from ztf_viewer.util import (html_from_astropy_table, to_str, INF, min_max_mjd_short, FILTER_COLORS, ZTF_FILTERS,
                              available_drs, joiner, immutabledefaultdict)
 
@@ -52,7 +51,7 @@ MARKER_SIZE = 10
 
 LIST_MAXSHOW = 4
 
-ADDITIONAL_LC_SEARCH_RADIUS = '5s'
+ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC = 5.0
 
 LIGHT_CURVE_VALUE_VERSION_ANNOTATION = defaultdict(str) | {
     'v0.1': ' (Malanchev et al. 2021)',
@@ -819,11 +818,10 @@ def update_additional_light_curve_options(oid, dr, values, old_options):
 def get_antares_lc_option(oid, dr, old):
     option = old.copy()
     ra, dec = find_ztf_oid.get_coord(oid, dr)
-    radius_arcsec = ADDITIONAL_LC_SEARCH_RADIUS[:-1]
     try:
-        row = ANTARES_QUERY.find_closest(ra, dec, radius_arcsec)
+        row = ANTARES_QUERY.find_closest(ra, dec, radius_arcsec=ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC)
     except NotFound:
-        option['label'] = f'Antares object (not found in {radius_arcsec}″)'
+        option['label'] = f'Antares object (not found in {ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC}″)'
         option['disabled'] = True
     else:
         option['label'] = f'Antares {row[ANTARES_QUERY.id_column]} ({np.round(row["separation"], 1)}″), diff-photometry'
@@ -1153,7 +1151,7 @@ def set_figure(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd,
         {id['index']: value for id, value in zip(ref_magerr_ids, ref_magerr_values) if value is not None}
     )
 
-    external_data = immutabledict({value: immutabledict({'radius': ADDITIONAL_LC_SEARCH_RADIUS})
+    external_data = immutabledict({value: immutabledict({'radius_arcsec': ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC})
                                    for value in additional_lc_types})
 
     other_oids = neighbour_oids(different_filter, different_field)
