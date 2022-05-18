@@ -1,5 +1,3 @@
-from functools import partial
-
 import numpy as np
 from astropy.table import Table
 from astroquery.mast import Catalogs
