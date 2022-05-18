@@ -8,24 +8,25 @@ from ztf_viewer.catalogs.conesearch._base import _BaseCatalogQuery
 
 
 class PanstarrsDr2StackedQuery(_BaseCatalogQuery):
+    # https://outerspace.stsci.edu/display/PANSTARRS/PS1+FAQ+-+Frequently+asked+questions
     id_column = 'objName'
-    _table_ra = 'raStack'
+    _table_ra = 'raMean'
     _ra_unit = 'deg'
-    _table_dec = 'decStack'
+    _table_dec = 'decMean'
     columns = {
         '__link': 'Name',
         'objID': 'ID',
         'separation': 'Separation, arcsec',
-        'gApMag': 'g aperture mag',
-        'gApMagErr': 'err',
-        'rApMag': 'r mag',
-        'rApMagErr': 'err',
-        'iApMag': 'i mag',
-        'iApMagErr': 'err',
-        'zApMag': 'z mag',
-        'zApMagErr': 'err',
-        'yApMag': 'y mag',
-        'yApMagErr': 'err',
+        'gPSFMag': 'g PSF mag',
+        'gPSFMagErr': 'err',
+        'rPSFMag': 'r mag',
+        'rPSFMagErr': 'err',
+        'iPSFMag': 'i mag',
+        'iPSFMagErr': 'err',
+        'zPSFMag': 'z mag',
+        'zPSFMagErr': 'err',
+        'yPSFMag': 'y mag',
+        'yPSFMagErr': 'err',
     }
 
     _detection_url = 'https://catalogs.mast.stsci.edu/panstarrs/detections.html'
@@ -64,6 +65,7 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery):
         table = self._catalogs.query_region(coord, radius=radius, catalog='Panstarrs', data_release='dr2',
                                             table='stacked')
         df = table.to_pandas()
+        df = df[df['primaryDetection'] == 1]
         df = df.groupby('objID', sort=False).apply(self.__apply_groups)
         table = Table.from_pandas(df)
         return table
