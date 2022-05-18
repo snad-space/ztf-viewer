@@ -4,6 +4,12 @@ All notable changes to [ZTF SNAD Viewer](http://ztf.snad.space) will be document
 
 Version schema is `year.month.num_release`
 
+## [Unreleased]
+
+### Added
+
+- New catalog: Pan-STARRS DR2 stacked aperture mags
+
 ## [2022.5.1] 2022 May 12
 
 ### Changed

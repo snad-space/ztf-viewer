@@ -398,6 +398,21 @@ def get_layout(pathname):
         ),
         html.Div(
             [
+                html.H2('Pan-STARRS DR2 Stacked'),
+                dcc.Input(
+                    value='5',
+                    id=dict(type='search-radius', index='pan-starrs-dr2-stacked'),
+                    placeholder='Search radius, arcsec',
+                    type='number',
+                    step='1',
+                ),
+                ' search radius, arcsec',
+                html.Div(id='pan-starrs-dr2-stacked-table'),
+            ],
+            id='pan-starrs-dr2-stacked',
+        ),
+        html.Div(
+            [
                 html.H2('Transient Name Server'),
                 dcc.Input(
                     value='5',
