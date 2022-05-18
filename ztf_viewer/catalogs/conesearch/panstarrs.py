@@ -1,11 +1,16 @@
+from itertools import count
+
 import numpy as np
+from astropy.coordinates import Angle, SkyCoord
 from astropy.table import Table
 from astroquery.mast import Catalogs
 
-from ztf_viewer.catalogs.conesearch._base import _BaseCatalogQuery
+from ztf_viewer.cache import cache
+from ztf_viewer.catalogs.conesearch._base import _BaseCatalogQuery, _BaseLightCurveQuery
+from ztf_viewer.exceptions import NotFound
 
 
-class PanstarrsDr2StackedQuery(_BaseCatalogQuery):
+class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
     # https://outerspace.stsci.edu/display/PANSTARRS/PS1+FAQ+-+Frequently+asked+questions
     id_column = 'objName'
     _table_ra = 'raMean'
@@ -30,6 +35,7 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery):
     _detection_url = 'https://catalogs.mast.stsci.edu/panstarrs/detections.html'
 
     _bands = 'grizy'
+    _band_ids = dict(zip(count(1), _bands))
     _phot_types = ('Ap', 'PSF')
 
     def __init__(self, query_name):
@@ -70,3 +76,27 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery):
 
     def get_url(self, id, row=None):
         return f'{self._detection_url}?objID={row["objID"]}'
+
+    def _table_to_light_curve(self, table):
+        table = table[table['psfFlux'] > 0.0]
+
+        table['mag'] = -2.5 * np.log10(table['psfFlux']) + 8.9
+        table['magErr'] = 0.4 / np.log(10.0) * table['psfFluxErr'] / table['psfFlux']
+
+        return [
+            {
+               'oid': row['objID'],
+               'mjd': row['obsTime'],
+               'mag': row['mag'],
+               'magerr': row['magErr'],
+               'filter': f'ps_{self._band_ids[row["filterID"]]}',
+            }
+            for row in table
+        ]
+
+    def light_curve(self, id, row=None):
+        table = self._catalogs.query_criteria(objID=row['objID'], catalog='Panstarrs', data_release='dr2',
+                                              table='detection')
+        if len(table) == 0:
+            raise NotFound
+        return self._table_to_light_curve(table)

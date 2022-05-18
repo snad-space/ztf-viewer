@@ -136,7 +136,6 @@ class _BaseCatalogQuery:
 
 
 class _BaseLightCurveQuery:
-    @cache()
     def light_curve(self, id, row=None):
         raise NotImplemented
 

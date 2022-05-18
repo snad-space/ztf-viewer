@@ -37,6 +37,11 @@ FILTER_COLORS = {
     "i'": '#1c1309',
     'ant_g': '#05ffc5',
     'ant_R': '#f08b98',
+    'ps_g': '#a7d984',
+    'ps_r': '#e0848f',
+    'ps_i': '#694721',
+    'ps_z': '#5c5cff',
+    'ps_y': '#9370d8',
 }
 FILTERS = tuple(FILTER_COLORS)
 ZTF_FILTERS = ('zg', 'zr', 'zi')
@@ -52,6 +57,11 @@ FILTERS_ORDER = {
     'zi': 9,
     'ant_g': 10,
     'ant_R': 11,
+    'ps_g': 12,
+    'ps_r': 13,
+    'ps_i': 14,
+    'ps_z': 15,
+    'ps_y': 16,
 }
 
 
