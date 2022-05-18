@@ -8,7 +8,12 @@ Version schema is `year.month.num_release`
 
 ### Added
 
-- New catalog: Pan-STARRS DR2 stacked aperture mags
+- New catalog: Pan-STARRS DR2 stacked PSF mags
+- Pan-STARRS DR2 PSF light curves for the graph
+
+### Known issues
+
+- Pan-STARRS MJD definition is different from ZTF's https://github.com/snad-space/ztf-viewer/issues/144
 
 ## [2022.5.1] 2022 May 12
 
