@@ -38,9 +38,8 @@ class AntaresQuery(_BaseCatalogApiQuery):
         sep, locus = min(zip(separations, loci), key=lambda x: x[0])
         return sep, locus
 
-    # Not useful and not tested
     def _query_region(self, coord, radius):
-        loci = self.query_region_loci(coord, radius)
+        loci = self.query_region_loci(coord.ra.deg, coord.dec.deg, radius)
         table = Table(rows=[(l.locus_id, l.ra, l.dec) for l in loci], names=('locus_id', 'ra', 'dec',))
         return table
 

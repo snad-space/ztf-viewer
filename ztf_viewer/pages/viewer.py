@@ -21,8 +21,7 @@ from requests import ConnectionError
 from ztf_viewer import brokers
 from ztf_viewer.akb import akb
 from ztf_viewer.app import app
-from ztf_viewer.catalogs.conesearch import get_catalog_query, catalog_query_objects
-from ztf_viewer.catalogs.conesearch.antares import AntaresQuery
+from ztf_viewer.catalogs.conesearch import get_catalog_query, catalog_query_objects, ANTARES_QUERY
 from ztf_viewer.catalogs.extinction import bayestar, sfd
 from ztf_viewer.catalogs.snad.catalog import snad_catalog
 from ztf_viewer.catalogs.vizier import vizier_catalog_details, find_vizier
@@ -819,16 +818,16 @@ def update_additional_light_curve_options(oid, dr, values, old_options):
 
 def get_antares_lc_option(oid, dr, old):
     option = old.copy()
-    coord = find_ztf_oid.get_sky_coord(oid, dr)
-    radius = '5s'
+    ra, dec = find_ztf_oid.get_coord(oid, dr)
+    radius_arcsec = ADDITIONAL_LC_SEARCH_RADIUS[:-1]
     try:
-        sep, locus = AntaresQuery.query_region_closest_locus(coord, radius)
+        row = ANTARES_QUERY.find_closest(ra, dec, radius_arcsec)
     except NotFound:
-        option['label'] = f'Antares object (not found in {radius[:-1]}″)'
+        option['label'] = f'Antares object (not found in {radius_arcsec}″)'
         option['disabled'] = True
-        return option
-    option['label'] = f'Antares {locus.locus_id} ({np.round(sep.arcsec, 1)}″), diff-photometry'
-    option['disabled'] = False
+    else:
+        option['label'] = f'Antares {row[ANTARES_QUERY.id_column]} ({np.round(row["separation"], 1)}″), diff-photometry'
+        option['disabled'] = False
     return option
 
 

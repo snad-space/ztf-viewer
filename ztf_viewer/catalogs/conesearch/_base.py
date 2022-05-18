@@ -93,6 +93,10 @@ class _BaseCatalogQuery:
         self.add_additional_columns(table)
         return table
 
+    def find_closest(self, ra, dec, radius_arcsec):
+        table = self.find(ra, dec, radius_arcsec)
+        return table[0]
+
     def add_additional_columns(self, table):
         self.add_objname_column(table)
         self.add_link_column(table)

@@ -1,5 +1,6 @@
 from ._base import _BaseCatalogQuery
 from .alerce import AlerceQuery
+from .antares import AntaresQuery
 from .astrocats import AstrocatsQuery
 from .atlas import AtlasQuery
 from .fink import FinkQuery
@@ -16,6 +17,7 @@ from .ztf_periodic import ZtfPeriodicQuery
 
 
 ALERCE_QUERY = AlerceQuery('Alerce')
+ANTARES_QUERY = AntaresQuery('Antares')
 ASTROCATS_QUERY = AstrocatsQuery('Astrocats')
 FINK_QUERY = FinkQuery('Fink')
 ATLAS_QUERY = AtlasQuery('ATLAS')
