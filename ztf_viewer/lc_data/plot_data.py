@@ -8,7 +8,7 @@ from ztf_viewer.cache import cache
 from ztf_viewer.lc_data import EXTERNAL_LC_DATA
 from ztf_viewer.lc_data.arbitrary import add_id_to_obs
 from ztf_viewer.lc_data.ztf_dr import ztf_dr_lc
-from ztf_viewer.util import immutabledefaultdict
+from ztf_viewer.util import immutabledefaultdict, FILTERS_ORDER
 
 MJD_OFFSET = 58000
 
@@ -60,6 +60,8 @@ def plot_data(lc, mark_size=1, min_mjd=None, max_mjd=None, ref_mag=immutabledefa
         obs['date'] = time.strftime('%Y-%m-%d')
 
         data.append(obs)
+
+    data = sorted(data, key=lambda obs: (FILTERS_ORDER[obs['filter']], obs['mjd']))
 
     return data
 
