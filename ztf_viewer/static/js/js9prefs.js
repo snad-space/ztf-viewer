@@ -15,6 +15,7 @@ var JS9Prefs = {
 	"imageOpts":  {
 		"colormap":	     "grey",
 		"scale":     	 "histeq",
+		"zoom":          5,
 		// "refresh": true
 	}
 }

@@ -11,6 +11,10 @@ Version schema is `year.month.num_release`
 - New catalog: Pan-STARRS DR2 stacked PSF mags
 - Pan-STARRS DR2 PSF light curves for the graph
 
+### Changed
+
+- Default JS9 FITS zoom level is changed from 1 to 5
+
 ### Known issues
 
 - Pan-STARRS MJD definition is different from ZTF's https://github.com/snad-space/ztf-viewer/issues/144
