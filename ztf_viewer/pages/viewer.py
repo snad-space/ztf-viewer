@@ -21,8 +21,7 @@ from requests import ConnectionError
 from ztf_viewer import brokers
 from ztf_viewer.akb import akb
 from ztf_viewer.app import app
-from ztf_viewer.catalogs.conesearch import get_catalog_query, catalog_query_objects
-from ztf_viewer.catalogs.conesearch.antares import AntaresQuery
+from ztf_viewer.catalogs.conesearch import get_catalog_query, catalog_query_objects, ANTARES_QUERY, PANSTARRS_DR2_QUERY
 from ztf_viewer.catalogs.extinction import bayestar, sfd
 from ztf_viewer.catalogs.snad.catalog import snad_catalog
 from ztf_viewer.catalogs.vizier import vizier_catalog_details, find_vizier
@@ -33,7 +32,6 @@ from ztf_viewer.date_with_frac import DateWithFrac, correct_date
 from ztf_viewer.exceptions import NotFound, CatalogUnavailable
 from ztf_viewer.lc_data.plot_data import get_plot_data, get_folded_plot_data, MJD_OFFSET
 from ztf_viewer.lc_features import light_curve_features
-from ztf_viewer.lc_data.antares import get_antares_lc
 from ztf_viewer.util import (html_from_astropy_table, to_str, INF, min_max_mjd_short, FILTER_COLORS, ZTF_FILTERS,
                              available_drs, joiner, immutabledefaultdict)
 
@@ -53,7 +51,7 @@ MARKER_SIZE = 10
 
 LIST_MAXSHOW = 4
 
-ADDITIONAL_LC_SEARCH_RADIUS = '5s'
+ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC = 5.0
 
 LIGHT_CURVE_VALUE_VERSION_ANNOTATION = defaultdict(str) | {
     'v0.1': ' (Malanchev et al. 2021)',
@@ -197,8 +195,10 @@ def get_layout(pathname):
                     id='additional-light-curves',
                     options=[
                         {'label': 'Closest Antares object, diff-photometry', 'value': 'antares', 'disabled': False},
+                        {'label': 'Closest Pan-STARRS object, apparent', 'value': 'panstarrs', 'disabled': False},
                     ],
                     value=[],
+                    labelStyle={'display': 'inline-block', 'margin-right': '2em'},
                     style={'display': 'block'},
                 ),
                 dcc.RadioItems(
@@ -811,6 +811,8 @@ def update_additional_light_curve_options(oid, dr, values, old_options):
     for value in values:
         if value == 'antares':
             option = get_antares_lc_option(oid, dr, old=options_dict[value])
+        elif value == 'panstarrs':
+            option = get_panstarrs_lc_option(oid, dr, old=options_dict[value])
         else:
             raise ValueError(f'additional light curve value "{value}" unknown')
         options_dict[value] = option
@@ -819,16 +821,29 @@ def update_additional_light_curve_options(oid, dr, values, old_options):
 
 def get_antares_lc_option(oid, dr, old):
     option = old.copy()
-    coord = find_ztf_oid.get_sky_coord(oid, dr)
-    radius = '5s'
+    ra, dec = find_ztf_oid.get_coord(oid, dr)
     try:
-        sep, locus = AntaresQuery.query_region_closest_locus(coord, radius)
+        row = ANTARES_QUERY.find_closest(ra, dec, radius_arcsec=ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC)
     except NotFound:
-        option['label'] = f'Antares object (not found in {radius[:-1]}″)'
+        option['label'] = f'Antares object (not found in {ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC}″)'
         option['disabled'] = True
-        return option
-    option['label'] = f'Antares {locus.locus_id} ({np.round(sep.arcsec, 1)}″), diff-photometry'
-    option['disabled'] = False
+    else:
+        option['label'] = f'Antares {row[ANTARES_QUERY.id_column]} ({np.round(row["separation"], 1)}″), diff-photometry'
+        option['disabled'] = False
+    return option
+
+
+def get_panstarrs_lc_option(oid, dr, old):
+    option = old.copy()
+    ra, dec = find_ztf_oid.get_coord(oid, dr)
+    try:
+        row = PANSTARRS_DR2_QUERY.find_closest(ra, dec, radius_arcsec=ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC)
+    except NotFound:
+        option['label'] = f'Pan-STARRS object (not found in {ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC}″)'
+        option['disabled'] = True
+    else:
+        option['label'] = f'Pan-STARRS {row[PANSTARRS_DR2_QUERY.id_column]} ({np.round(row["separation"], 1)}″), apparent'
+        option['disabled'] = False
     return option
 
 
@@ -1154,7 +1169,7 @@ def set_figure(cur_oid, dr, different_filter, different_field, min_mjd, max_mjd,
         {id['index']: value for id, value in zip(ref_magerr_ids, ref_magerr_values) if value is not None}
     )
 
-    external_data = immutabledict({value: immutabledict({'radius': ADDITIONAL_LC_SEARCH_RADIUS})
+    external_data = immutabledict({value: immutabledict({'radius_arcsec': ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC})
                                    for value in additional_lc_types})
 
     other_oids = neighbour_oids(different_filter, different_field)

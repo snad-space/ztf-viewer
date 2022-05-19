@@ -11,6 +11,7 @@ from astroquery.utils.commons import TableList
 from astroquery.vizier import Vizier
 
 from ztf_viewer.cache import cache
+from ztf_viewer.catalogs import find_ztf_oid
 from ztf_viewer.exceptions import NotFound, CatalogUnavailable
 from ztf_viewer.util import to_str
 
@@ -93,6 +94,10 @@ class _BaseCatalogQuery:
         self.add_additional_columns(table)
         return table
 
+    def find_closest(self, ra, dec, radius_arcsec):
+        table = self.find(ra, dec, radius_arcsec)
+        return table[0]
+
     def add_additional_columns(self, table):
         self.add_objname_column(table)
         self.add_link_column(table)
@@ -128,6 +133,19 @@ class _BaseCatalogQuery:
 
     def get_link(self, id, name, row=None):
         return f'<a href="{self.get_url(id, row=row)}">{name}</a>'
+
+
+class _BaseLightCurveQuery:
+    def light_curve(self, id, row=None):
+        raise NotImplemented
+
+    def closest_light_curve(self, ra, dec, radius_arcsec):
+        row = self.find_closest(ra, dec, radius_arcsec)
+        return self.light_curve(row[self.id_column], row=row)
+
+    def closest_light_curve_by_oid(self, oid, dr, radius_arcsec):
+        ra, dec = find_ztf_oid.get_coord(oid, dr)
+        return self.closest_light_curve(ra, dec, radius_arcsec)
 
 
 class _BaseCatalogApiQuery(_BaseCatalogQuery):
