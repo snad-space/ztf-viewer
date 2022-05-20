@@ -1389,7 +1389,7 @@ app.clientside_callback(
             JS9.Load(fits, {onload: function(im) {
                 JS9.SetPan({ra: ra, dec: dec}, {display: im});
                 JS9.AddRegions({shape: 'point', ra: ra, dec: dec}, {display: im});
-                if (JS9.GetFlip() == "none") {
+                if (JS9.GetFlip() === "none") {
                     JS9.SetFlip("y");
                 }
             }});
