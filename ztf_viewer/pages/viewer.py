@@ -27,7 +27,7 @@ from ztf_viewer.catalogs.snad.catalog import snad_catalog
 from ztf_viewer.catalogs.vizier import vizier_catalog_details, find_vizier
 from ztf_viewer.catalogs.ztf_dr import find_ztf_oid, find_ztf_circle
 from ztf_viewer.catalogs.ztf_ref import ztf_ref
-from ztf_viewer.config import ZTF_FITS_PROXY_URL
+from ztf_viewer.config import ZTF_FITS_PROXY_URL, JS9_URL
 from ztf_viewer.date_with_frac import DateWithFrac, correct_date
 from ztf_viewer.exceptions import NotFound, CatalogUnavailable
 from ztf_viewer.lc_data.plot_data import get_plot_data, get_folded_plot_data, MJD_OFFSET
@@ -1385,11 +1385,11 @@ app.clientside_callback(
         if (divs) {
             let ra = divs[0].props.children;
             let dec = divs[1].props.children;
-            let fits = divs[2].props.href;
+            let fits = divs[4].props.href;
             JS9.Load(fits, {onload: function(im) {
                 JS9.SetPan({ra: ra, dec: dec}, {display: im});
                 JS9.AddRegions({shape: 'point', ra: ra, dec: dec}, {display: im});
-                if (JS9.GetFlip() == "none") {
+                if (JS9.GetFlip() === "none") {
                     JS9.SetFlip("y");
                 }
             }});
@@ -1421,10 +1421,14 @@ def graph_clicked(data, dr):
     date = DateWithFrac.from_hmjd(mjd, coord=coord)
     correct_date(date)
     fits_url = urljoin(ZTF_FITS_PROXY_URL, date.sciimg_path(fieldid=fieldid, rcid=rcid, filter=fltr))
+    # Looks like flipping doesn't work
+    js9_url = f'{JS9_URL}?{urlencode(dict(url=fits_url,zoom=10,ra=ra,dec=dec,scale="histeq",flip="y"))}'
     prod_dir_url = urljoin(ZTF_FITS_PROXY_URL, date.products_path)
     return [
         html.Div(ra, id='fits-to-show-ra', style={'display': 'none'}),
         html.Div(dec, id='fits-to-show-dec', style={'display': 'none'}),
+        html.A('Open in JS9', href=js9_url, id='fits-to-show-js9-url'),
+        " ",
         html.A('Download FITS', href=fits_url, id='fits-to-show-url'),
         " ",
         html.A('Product directory', href=prod_dir_url, id='fits-to-show-dir-url'),

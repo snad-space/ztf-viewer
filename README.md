@@ -20,6 +20,7 @@ Environment variables to configure the server, see default values in `config.py`
 - `ZTF_PERIODIC_API_URL`: SNAD mirror of the ZTF periodic variables catalog
 - `TNS_API_URL`: SNAD mirror of the TNS
 - `ZTF_FITS_PROXY_URL`: address of SNAD proxy for ZTF FITS 
+- `JS9_URL`: address of full-functional JS9 viewer supporting `JS9.LoadProxy`
 
 ### Running without docker
 
