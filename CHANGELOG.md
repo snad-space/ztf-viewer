@@ -4,7 +4,7 @@ All notable changes to [ZTF SNAD Viewer](http://ztf.snad.space) will be document
 
 Version schema is `year.month.num_release`
 
-## [Unreleased]
+## [2022.5.2] 2022 May 20
 
 ### Added
 
@@ -16,7 +16,6 @@ Version schema is `year.month.num_release`
 
 - Pan-STARRS MJD definition is different from ZTF's so the  https://github.com/snad-space/ztf-viewer/issues/144
 - "Open in JS9" link doesn't draw a point in the object location, it looks like it is not supported by JS9 query parameters interface
-- "Open in JS9" link sets the required y-flipping, but it does nothing https://github.com/ericmandel/js9/issues/86 
 
 ## [2022.5.1] 2022 May 12
 
