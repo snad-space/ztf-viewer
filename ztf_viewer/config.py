@@ -10,3 +10,4 @@ FEATURES_API_URL = os.environ.get('FEATURES_API_URL', 'https://features.lc.snad.
 OGLE_III_API_URL = os.environ.get('OGLE_III_API_URL', 'https://ogle3.snad.space')
 ZTF_PERIODIC_API_URL = os.environ.get('ZTF_PERIODIC_API_URL', 'https://periodic.ztf.snad.space')
 TNS_API_URL = os.environ.get('TNS_API_URL', 'https://tns.snad.space')
+JS9_URL = os.environ.get('JS9_URL', 'https://js9.si.edu/js9/js9.html')

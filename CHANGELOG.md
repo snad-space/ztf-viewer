@@ -10,10 +10,13 @@ Version schema is `year.month.num_release`
 
 - New catalog: Pan-STARRS DR2 stacked PSF mags
 - Pan-STARRS DR2 PSF light curves for the graph
+- "Open in JS9" link to a full-functional installation of the JS9 FITS viewer
 
 ### Known issues
 
-- Pan-STARRS MJD definition is different from ZTF's https://github.com/snad-space/ztf-viewer/issues/144
+- Pan-STARRS MJD definition is different from ZTF's so the  https://github.com/snad-space/ztf-viewer/issues/144
+- "Open in JS9" link doesn't draw a point in the object location, it looks like it is not supported by JS9 query parameters interface
+- "Open in JS9" link sets the required y-flipping, but it does nothing https://github.com/ericmandel/js9/issues/86 
 
 ## [2022.5.1] 2022 May 12
 
