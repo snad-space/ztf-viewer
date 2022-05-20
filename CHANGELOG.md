@@ -14,7 +14,7 @@ Version schema is `year.month.num_release`
 
 ### Known issues
 
-- Pan-STARRS MJD definition is different from ZTF's so the  https://github.com/snad-space/ztf-viewer/issues/144
+- Pan-STARRS MJD is different from ZTF's one https://github.com/snad-space/ztf-viewer/issues/144
 - "Open in JS9" link doesn't draw a point in the object location, it looks like it is not supported by JS9 query parameters interface
 
 ## [2022.5.1] 2022 May 12
