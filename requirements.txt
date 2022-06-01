@@ -1,7 +1,7 @@
 astropy==4.3.1
 astroquery==0.4.6
 cachetools==5.0.0
-dash==2.3.1
+dash==2.4.1
 dash_dangerously_set_inner_html==0.0.2
 dash_defer_js_import==0.0.2
 dustmaps==1.0.9
