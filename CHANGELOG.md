@@ -4,6 +4,12 @@ All notable changes to [ZTF SNAD Viewer](http://ztf.snad.space) will be document
 
 Version schema is `year.month.num_release`
 
+## [Unreleased]
+
+### Added
+
+- Gaia DR3 light curves
+
 ## [2022.5.2] 2022 May 20
 
 ### Added
