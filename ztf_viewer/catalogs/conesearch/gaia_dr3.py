@@ -1,5 +1,6 @@
 import urllib.parse
 
+import numpy as np
 from astropy.coordinates import Angle
 from astropy.time import Time
 from astroquery.gaia import GaiaClass
@@ -24,6 +25,18 @@ class GaiaDr3Query(_BaseCatalogQuery, _BaseLightCurveQuery):
         'pmra_error': 'error',
         'pmdec': 'pm Dec',
         'pmdec_error': 'error',
+    }
+
+    # https://www.cosmos.esa.int/web/gaia/edr3-passbands
+    AB_ZP = {
+        'G': 25.8010446445,
+        'BP': 25.3539555559,
+        'RP': 25.1039837393,
+    }
+    AB_ZP_ERR = {
+        'G': 0.0027590522,
+        'BP': 0.0023065687,
+        'RP': 0.0015800349,
     }
 
     def __init__(self, query_name):
@@ -58,14 +71,17 @@ class GaiaDr3Query(_BaseCatalogQuery, _BaseLightCurveQuery):
     def _table_to_light_curve(self, table):
         """https://gea.esac.esa.int/archive/documentation/GDR3/Gaia_archive/chap_datamodel/sec_dm_photometry/ssec_dm_epoch_photometry.html"""
         table['mjd'] = (Time('2010-01-01T00:00:00') + table['time']).mjd
-        table['magerr'] = LGE_25 / table['flux_over_error']
+        table['AB_zp'] = [self.AB_ZP[band] for band in table['band']]
+        table['AB_zperr'] = [self.AB_ZP_ERR[band] for band in table['band']]
+        table['mag_AB'] = table['AB_zp'] - 2.5 * np.log10(table['flux'])
+        table['magerr_AB'] = np.hypot(LGE_25 / table['flux_over_error'], table['AB_zperr'])
 
         return [
             {
                'oid': row['source_id'],
                'mjd': row['mjd'],
-               'mag': row['mag'],
-               'magerr': row['magerr'],
+               'mag': row['mag_AB'],
+               'magerr': row['magerr_AB'],
                'filter': f"gaia_{row['band']}",
             }
             for row in table

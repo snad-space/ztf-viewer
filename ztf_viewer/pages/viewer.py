@@ -196,7 +196,7 @@ def get_layout(pathname):
                     options=[
                         {'label': 'Closest Antares object, diff-photometry', 'value': 'antares', 'disabled': False},
                         {'label': 'Closest Pan-STARRS object, apparent', 'value': 'panstarrs', 'disabled': False},
-                        {'label': 'Closest Gaia object, Vega apparent', 'value': 'gaia', 'disabled': False},
+                        {'label': 'Closest Gaia object, apparent', 'value': 'gaia', 'disabled': False},
                     ],
                     value=[],
                     labelStyle={'display': 'inline-block', 'margin-right': '2em'},
