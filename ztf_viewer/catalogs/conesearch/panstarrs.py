@@ -1,11 +1,9 @@
 from itertools import count
 
 import numpy as np
-from astropy.coordinates import Angle, SkyCoord
 from astropy.table import Table
 from astroquery.mast import Catalogs
 
-from ztf_viewer.cache import cache
 from ztf_viewer.catalogs.conesearch._base import _BaseCatalogQuery, _BaseLightCurveQuery
 from ztf_viewer.exceptions import NotFound
 
