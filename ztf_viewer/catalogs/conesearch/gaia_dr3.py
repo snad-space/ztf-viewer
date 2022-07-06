@@ -80,6 +80,7 @@ class GaiaDr3Query(_BaseCatalogQuery, _BaseLightCurveQuery):
         tables = next(iter(result.values()))
         assert len(tables) == 1
         table = tables[0].to_table()  # From VOtable to normal astropy table
+        table = table[~table['rejected_by_photometry']]
         if len(table) == 0:
             raise NotFound
         return self._table_to_light_curve(table)
