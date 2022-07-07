@@ -14,7 +14,7 @@ class GaiaDr3Query(_BaseVizierQuery, _BaseLightCurveQuery):
     id_column = 'Source'
     columns = {
         '__link': 'Source ID',
-        'separation': 'Sep, ″',
+        'separation': 'Sep, arcsec',
         '_A0': 'A(λ=5477Å), mag',
         '_Teff': 'Teff, K',
         '_logg': 'lg(g)',
@@ -22,6 +22,9 @@ class GaiaDr3Query(_BaseVizierQuery, _BaseLightCurveQuery):
         '_Plx': 'parallax, mas',
         '_pmRA': 'pm RA, mas/yr',
         '_pmDE': 'pm Dec, mas/yr',
+        'PQSO': 'quasar prob',
+        'PGal': 'galaxy prob',
+        'PSS': 'single star prob',
     }
 
     _vizier_columns = [id_column,
@@ -32,6 +35,7 @@ class GaiaDr3Query(_BaseVizierQuery, _BaseLightCurveQuery):
                        'Plx', 'e_Plx',
                        'pmRA', 'e_pmRA',
                        'pmDE', 'e_pmDE',
+                       'PQSO', 'PGal', 'PSS',
                        'EpochPh']
     _vizier_catalog = 'I/355/gaiadr3'
 
