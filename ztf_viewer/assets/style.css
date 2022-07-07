@@ -131,17 +131,18 @@ Example:
 </div>
  */
 .expression {
-  display:flex;
-  align-items: center;
+    display: flex;
+    align-items: center;
 }
 .supsub {
-  display: flex;
-  flex-direction: column;
-  margin-left: 2px;
+    display: flex;
+    flex-direction: column;
+    margin-left: 2px;
+    align-items: center;
 }
 .subscript {
-  display:flex;
+    display:flex;
 }
 .superscript {
-  display:flex;
+    display:flex;
 }

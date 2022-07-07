@@ -5,17 +5,17 @@ from astropy.coordinates import Angle
 from astropy.time import Time
 from astroquery.gaia import GaiaClass
 
-from ztf_viewer.catalogs.conesearch._base import _BaseVizierQuery, _BaseLightCurveQuery
+from ztf_viewer.catalogs.conesearch._base import _BaseVizierQuery, _BaseLightCurveQuery, ValueWithIntervalColumn, ValueWithUncertaintyColumn
 from ztf_viewer.exceptions import NotFound
 from ztf_viewer.util import LGE_25, to_str, compose_plus_minus_expression
 
 
 class GaiaDr3Query(_BaseVizierQuery, _BaseLightCurveQuery):
-    id_column = 'DR3Name'
+    id_column = 'Source'
     columns = {
         '__link': 'Source ID',
         'separation': 'Sep, ″',
-        '_A0': 'A(λ=5477Å)',
+        '_A0': 'A(λ=5477Å), mag',
         '_Teff': 'Teff, K',
         '_logg': 'lg(g)',
         '_[Fe/H]': '[Fe/H]',
@@ -35,71 +35,17 @@ class GaiaDr3Query(_BaseVizierQuery, _BaseLightCurveQuery):
                        'EpochPh']
     _vizier_catalog = 'I/355/gaiadr3'
 
-    def add_additional_columns(self, table):
-        super().add_additional_columns(table)
-        self.add_A0_column(table)
-        self.add_Teff_column(table)
-        self.add_logg_column(table)
-        self.add_FeH_column(table)
-        self.add_Plx_column(table)
-        self.add_pmRA_column(table)
-        self.add_pmDE_column(table)
-
-    def add_A0_column(self, table):
-        table['_A0'] = [
-            compose_plus_minus_expression(row['A0'], row['b_A0'], row['B_A0'], float_decimal_digits=1)
-            if row['A0'] and row['b_A0'] and row['B_A0']
-            else ''
-            for row in table
-        ]
-
-    def add_Teff_column(self, table):
-        table['_Teff'] = [
-            compose_plus_minus_expression(row['Teff'], row['b_Teff'], row['B_Teff'], float_decimal_digits=1)
-            if row['Teff'] and row['b_Teff'] and row['B_Teff']
-            else ''
-            for row in table
-        ]
-
-    def add_logg_column(self, table):
-        table['_logg'] = [
-            compose_plus_minus_expression(row['logg'], row['b_logg'], row['B_logg'], float_decimal_digits=1)
-            if row['logg'] and row['b_logg'] and row['B_logg']
-            else ''
-            for row in table
-        ]
-
-    def add_FeH_column(self, table):
-        table['_[Fe/H]'] = [
-            compose_plus_minus_expression(row['__Fe_H_'], row['b__Fe_H_'], row['B__Fe_H_'], float_decimal_digits=1)
-            if row['__Fe_H_'] and row['b__Fe_H_'] and row['B__Fe_H_']
-            else ''
-            for row in table
-        ]
-
-    def add_Plx_column(self, table):
-        table['_Plx'] = [
-            f'{to_str(row["Plx"])}±{to_str(row["e_Plx"])}'
-            if row['Plx'] and row['e_Plx']
-            else ''
-            for row in table
-        ]
-
-    def add_pmRA_column(self, table):
-        table['_pmRA'] = [
-            f'{to_str(row["pmRA"])}±{to_str(row["e_pmRA"])}'
-            if row['pmRA'] and row['e_pmRA']
-            else ''
-            for row in table
-        ]
-
-    def add_pmDE_column(self, table):
-        table['_pmDE'] = [
-            f'{to_str(row["pmDE"])}±{to_str(row["e_pmDE"])}'
-            if row['pmDE'] and row['e_pmDE']
-            else ''
-            for row in table
-        ]
+    _value_with_interval_columns = [
+        ValueWithIntervalColumn(value='A0'),
+        ValueWithIntervalColumn(value='Teff', float_decimal_digits=1),
+        ValueWithIntervalColumn(value='logg'),
+        ValueWithIntervalColumn(name='_[Fe/H]', value='__Fe_H_', lower='b__Fe_H_', upper='B__Fe_H_'),
+    ]
+    _value_wirh_uncertanty_columns = [
+        ValueWithUncertaintyColumn(value='Plx'),
+        ValueWithUncertaintyColumn(value='pmRA'),
+        ValueWithUncertaintyColumn(value='pmDE'),
+    ]
 
     # https://www.cosmos.esa.int/web/gaia/edr3-passbands
     AB_ZP = {

@@ -4,7 +4,7 @@ import numpy as np
 from astropy.table import Table
 from astroquery.mast import Catalogs
 
-from ztf_viewer.catalogs.conesearch._base import _BaseCatalogQuery, _BaseLightCurveQuery
+from ztf_viewer.catalogs.conesearch._base import _BaseCatalogQuery, _BaseLightCurveQuery, ValueWithIntervalColumn, ValueWithUncertaintyColumn
 from ztf_viewer.exceptions import NotFound
 
 
@@ -18,16 +18,11 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
         '__link': 'Name',
         'objID': 'ID',
         'separation': 'Separation, arcsec',
-        'gPSFMag': 'g PSF mag',
-        'gPSFMagErr': 'err',
-        'rPSFMag': 'r mag',
-        'rPSFMagErr': 'err',
-        'iPSFMag': 'i mag',
-        'iPSFMagErr': 'err',
-        'zPSFMag': 'z mag',
-        'zPSFMagErr': 'err',
-        'yPSFMag': 'y mag',
-        'yPSFMagErr': 'err',
+        '_gPSFMag': 'g PSF mag',
+        '_rPSFMag': 'r mag',
+        '_iPSFMag': 'i mag',
+        '_zPSFMag': 'z mag',
+        '_yPSFMag': 'y mag',
     }
 
     _detection_url = 'https://catalogs.mast.stsci.edu/panstarrs/detections.html'
@@ -35,6 +30,8 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
     _bands = 'grizy'
     _band_ids = dict(zip(count(1), _bands))
     _phot_types = ('Ap', 'PSF')
+
+    _value_wirh_uncertanty_columns = [ ValueWithUncertaintyColumn(value=f'{b}PSFMag', uncertainty=f'{b}PSFMagErr') for b in _bands]
 
     def __init__(self, query_name):
         super().__init__(query_name)
