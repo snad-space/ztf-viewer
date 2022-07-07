@@ -9,6 +9,7 @@ Version schema is `year.month.num_release`
 ### Added
 
 - Gaia DR3 light curves
+- Gaia DR3 table which includes astrometry and spectral derivatives
 
 ## [2022.5.2] 2022 May 20
 
