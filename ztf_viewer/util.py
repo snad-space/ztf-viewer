@@ -95,7 +95,7 @@ def html_from_astropy_table(table: astropy.table.Table, columns: dict):
     return html
 
 
-def to_str(s):
+def to_str(s, *, float_decimal_digits=3):
     if isinstance(s, bytes):
         return s.decode()
     if isinstance(s, str):
@@ -105,7 +105,7 @@ def to_str(s):
     if isinstance(s, np.floating) or isinstance(s, float):
         if np.isnan(s):
             return ''
-        return f'{s:.3f}'
+        return f'{s:.{float_decimal_digits}f}'
     if isinstance(s, units.Quantity):
         if s.unit.is_equivalent('cm'):
             for unit in (units.pc, units.kpc, units.Mpc, units.Gpc):
@@ -203,3 +203,14 @@ def qid_from_rcid(rcid: int) -> int:
 
 class immutabledefaultdict(immutabledict):
     dict_cls = defaultdict
+
+def compose_plus_minus_expression(value, lower, upper, **to_str_kwargs):
+    return f'''
+        <div class="expression">
+            {to_str(value, **to_str_kwargs)}
+            <span class='supsub'>
+              <sup class='superscript'>+{to_str(upper - value, **to_str_kwargs)}</sup>
+              <sub class='subscript'>-{to_str(value - lower, **to_str_kwargs)}</sub>
+            </span>
+            </div>
+    '''

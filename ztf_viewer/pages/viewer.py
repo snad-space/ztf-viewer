@@ -488,6 +488,20 @@ def get_layout(pathname):
         ),
         html.Div(
             [
+                html.H2('Gaia DR3'),
+                dcc.Input(
+                    value='1',
+                    id=dict(type='search-radius', index='gaia-dr3'),
+                    placeholder='Search radius, arcsec',
+                    type='number',
+                ),
+                ' search radius, arcsec',
+                html.Div(id='gaia-dr3-table'),
+            ],
+            id='gaia-dr3',
+        ),
+        html.Div(
+            [
                 html.H2('ALeRCE'),
                 dcc.Input(
                     value='1',
