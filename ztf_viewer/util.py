@@ -23,6 +23,8 @@ PALOMAR = EarthLocation(lon=-116.863, lat=33.356, height=1706)  # EarthLocation.
 
 
 INF = float('inf')
+LN10_04 = 0.4 * np.log(10.0)
+LGE_25 = 2.5 / np.log(10.0)
 
 
 FILTER_COLORS = {
@@ -37,6 +39,9 @@ FILTER_COLORS = {
     'zi': '#1c1309',
     'ant_g': '#05ffc5',
     'ant_R': '#f08b98',
+    'gaia_G': 'grey',
+    'gaia_BP': 'blue',
+    'gaia_RP': 'red',
     'ps_g': '#a7d984',
     'ps_r': '#e0848f',
     'ps_i': '#694721',

@@ -94,7 +94,7 @@ class _BaseCatalogQuery:
         self.add_additional_columns(table)
         return table
 
-    def find_closest(self, ra, dec, radius_arcsec):
+    def find_closest(self, ra, dec, radius_arcsec, has_light_curve=True):
         table = self.find(ra, dec, radius_arcsec)
         return table[0]
 
@@ -139,13 +139,18 @@ class _BaseLightCurveQuery:
     def light_curve(self, id, row=None):
         raise NotImplemented
 
-    def closest_light_curve(self, ra, dec, radius_arcsec):
-        row = self.find_closest(ra, dec, radius_arcsec)
-        return self.light_curve(row[self.id_column], row=row)
+    def closest_light_curve(self, ra, dec, radius_arcsec, fail_on_empty=True):
+        try:
+            row = self.find_closest(ra, dec, radius_arcsec, has_light_curve=True)
+            return self.light_curve(row[self.id_column], row=row)
+        except NotFound:
+            if fail_on_empty:
+                raise
+            return Table(dict.fromkeys(['oid', 'mjd', 'mag', 'magerr', 'filter'], []))
 
-    def closest_light_curve_by_oid(self, oid, dr, radius_arcsec):
+    def closest_light_curve_by_oid(self, oid, dr, radius_arcsec, fail_on_empty=True):
         ra, dec = find_ztf_oid.get_coord(oid, dr)
-        return self.closest_light_curve(ra, dec, radius_arcsec)
+        return self.closest_light_curve(ra, dec, radius_arcsec, fail_on_empty=fail_on_empty)
 
 
 class _BaseCatalogApiQuery(_BaseCatalogQuery):
@@ -202,4 +207,4 @@ class _BaseVizierQuery(_BaseCatalogQuery):
     def get_url(self, id, row=None):
         id = to_str(id)
         id = urllib.parse.quote_plus(id)
-        return f'//vizier.u-strasbg.fr/viz-bin/VizieR-6?-out.form=%2bH&-source={self._vizier_catalog}&{self.id_column}={id} '
+        return f'//vizier.u-strasbg.fr/viz-bin/VizieR-6?-out.form=%2bH&-source={self._vizier_catalog}&{self.id_column}={id}'

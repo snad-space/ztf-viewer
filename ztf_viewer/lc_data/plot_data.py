@@ -8,12 +8,10 @@ from ztf_viewer.cache import cache
 from ztf_viewer.lc_data import EXTERNAL_LC_DATA
 from ztf_viewer.lc_data.arbitrary import add_id_to_obs
 from ztf_viewer.lc_data.ztf_dr import ztf_dr_lc
-from ztf_viewer.util import immutabledefaultdict, FILTERS_ORDER
+from ztf_viewer.util import immutabledefaultdict, FILTERS_ORDER, LN10_04
 
 MJD_OFFSET = 58000
 
-
-LN10_04 = 0.4 * np.log(10.0)
 ABZPMAG_JY = 8.9
 
 

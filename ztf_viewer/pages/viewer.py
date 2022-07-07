@@ -21,7 +21,7 @@ from requests import ConnectionError
 from ztf_viewer import brokers
 from ztf_viewer.akb import akb
 from ztf_viewer.app import app
-from ztf_viewer.catalogs.conesearch import get_catalog_query, catalog_query_objects, ANTARES_QUERY, PANSTARRS_DR2_QUERY
+from ztf_viewer.catalogs.conesearch import get_catalog_query, catalog_query_objects, ANTARES_QUERY, GAIA_DR3, PANSTARRS_DR2_QUERY
 from ztf_viewer.catalogs.extinction import bayestar, sfd
 from ztf_viewer.catalogs.snad.catalog import snad_catalog
 from ztf_viewer.catalogs.vizier import vizier_catalog_details, find_vizier
@@ -196,6 +196,7 @@ def get_layout(pathname):
                     options=[
                         {'label': 'Closest Antares object, diff-photometry', 'value': 'antares', 'disabled': False},
                         {'label': 'Closest Pan-STARRS object, apparent', 'value': 'panstarrs', 'disabled': False},
+                        {'label': 'Closest Gaia object, apparent', 'value': 'gaia', 'disabled': False},
                     ],
                     value=[],
                     labelStyle={'display': 'inline-block', 'margin-right': '2em'},
@@ -811,6 +812,8 @@ def update_additional_light_curve_options(oid, dr, values, old_options):
     for value in values:
         if value == 'antares':
             option = get_antares_lc_option(oid, dr, old=options_dict[value])
+        elif value == 'gaia':
+            option = get_gaia_lc_option(oid, dr, old=options_dict[value])
         elif value == 'panstarrs':
             option = get_panstarrs_lc_option(oid, dr, old=options_dict[value])
         else:
@@ -829,6 +832,20 @@ def get_antares_lc_option(oid, dr, old):
         option['disabled'] = True
     else:
         option['label'] = f'Antares {row[ANTARES_QUERY.id_column]} ({np.round(row["separation"], 1)}″), diff-photometry'
+        option['disabled'] = False
+    return option
+
+
+def get_gaia_lc_option(oid, dr, old):
+    option = old.copy()
+    ra, dec = find_ztf_oid.get_coord(oid, dr)
+    try:
+        row = GAIA_DR3.find_closest(ra, dec, radius_arcsec=ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC, has_light_curve=True)
+    except NotFound:
+        option['label'] = f'Gaia object (not found in {ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC}″)'
+        option['disabled'] = True
+    else:
+        option['label'] = f'Gaia object {row[GAIA_DR3.id_column]} ({np.round(row["separation"], 1)}″), Vega apparent'
         option['disabled'] = False
     return option
 
