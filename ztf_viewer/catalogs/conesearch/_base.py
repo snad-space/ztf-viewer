@@ -1,4 +1,6 @@
+import dataclasses
 import logging
+from typing import List, Optional
 import urllib.parse
 from functools import partial
 
@@ -13,9 +15,55 @@ from astroquery.vizier import Vizier
 from ztf_viewer.cache import cache
 from ztf_viewer.catalogs import find_ztf_oid
 from ztf_viewer.exceptions import NotFound, CatalogUnavailable
-from ztf_viewer.util import to_str
+from ztf_viewer.util import to_str, compose_plus_minus_expression
 
 COSMO = FlatLambdaCDM(H0=70, Om0=0.3)
+
+
+@dataclasses.dataclass
+class ValueWithIntervalColumn:
+    value: str
+    lower: Optional[str] = None
+    upper: Optional[str] = None
+    name: Optional[str] = None
+    float_decimal_digits: int = 3
+
+    def __post_init__(self):
+        if self.name is None:
+            self.name = f'_{self.value}'
+        if self.lower is None:
+            self.lower = f'b_{self.value}'
+        if self.upper is None:
+            self.upper = f'b_{self.value}'
+
+    def html(self, row) -> str:
+        if row[self.value] is None or row[self.lower] is None or row[self.upper] is None:
+            return ''
+        return compose_plus_minus_expression(
+            row[self.value],
+            row[self.lower],
+            row[self.upper],
+            float_decimal_digits=self.float_decimal_digits
+        )
+
+
+@dataclasses.dataclass
+class ValueWithUncertaintyColumn:
+    value: str
+    uncertainty: Optional[str] = None
+    name: Optional[str] = None
+    float_decimal_digits: int = 3
+
+    def __post_init__(self):
+        if self.name is None:
+            self.name = f'_{self.value}'
+        if self.uncertainty is None:
+            self.uncertainty = f'e_{self.value}'
+
+    def html(self, row) -> str:
+        if row[self.value] is None or row[self.uncertainty] is None:
+            return ''
+        return f'{to_str(row[self.value], float_decimal_digits=self.float_decimal_digits)}±{to_str(row[self.uncertainty], float_decimal_digits=self.float_decimal_digits)}'
 
 
 class _BaseCatalogQuery:
@@ -31,6 +79,9 @@ class _BaseCatalogQuery:
     _ra_unit = None
     _table_dec = None
     columns = None
+
+    _value_with_interval_columns: List[ValueWithIntervalColumn] = []
+    _value_wirh_uncertanty_columns: List[ValueWithUncertaintyColumn] = []
 
     def __new__(cls, query_name):
         name = cls._normalize_name(query_name)
@@ -105,6 +156,16 @@ class _BaseCatalogQuery:
         self.add_period_column(table)
         self.add_redshift_column(table)
         self.add_distance_column(table)
+        self.add_value_interval_columns(table)
+        self.add_value_uncertaincy_columns(table)
+
+    def add_value_interval_columns(self, table):
+        for x in self._value_with_interval_columns:
+            table[x.name] = [x.html(row) for row in table]
+
+    def add_value_uncertaincy_columns(self, table):
+        for x in self._value_wirh_uncertanty_columns:
+            table[x.name] = [x.html(row) for row in table]
 
     def add_objname_column(self, table):
         table['__objname'] = [to_str(row[self.name_column]) for row in table]

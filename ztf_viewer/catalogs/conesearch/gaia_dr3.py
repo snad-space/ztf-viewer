@@ -5,27 +5,51 @@ from astropy.coordinates import Angle
 from astropy.time import Time
 from astroquery.gaia import GaiaClass
 
-from ztf_viewer.catalogs.conesearch._base import _BaseCatalogQuery, _BaseLightCurveQuery
+from ztf_viewer.catalogs.conesearch._base import _BaseVizierQuery, _BaseLightCurveQuery, ValueWithIntervalColumn, ValueWithUncertaintyColumn
 from ztf_viewer.exceptions import NotFound
-from ztf_viewer.util import LGE_25, to_str
+from ztf_viewer.util import LGE_25, to_str, compose_plus_minus_expression
 
 
-class GaiaDr3Query(_BaseCatalogQuery, _BaseLightCurveQuery):
-    id_column = 'source_id'
-    _table_ra = 'ra'
-    _ra_unit = 'deg'
-    _table_dec = 'dec'
+class GaiaDr3Query(_BaseVizierQuery, _BaseLightCurveQuery):
+    id_column = 'Source'
     columns = {
-        '__link': 'Name',
-        'source_id': 'ID',
-        'separation': 'Separation, arcsec',
-        'parallax': 'parallax',
-        'parallax_error': 'error',
-        'pmra': 'pm RA',
-        'pmra_error': 'error',
-        'pmdec': 'pm Dec',
-        'pmdec_error': 'error',
+        '__link': 'Source ID',
+        'separation': 'Sep, arcsec',
+        '_A0': 'A(λ=5477Å), mag',
+        '_Teff': 'Teff, K',
+        '_logg': 'lg(g)',
+        '_[Fe/H]': '[Fe/H]',
+        '_Plx': 'parallax, mas',
+        '_pmRA': 'pm RA, mas/yr',
+        '_pmDE': 'pm Dec, mas/yr',
+        'PQSO': 'quasar prob',
+        'PGal': 'galaxy prob',
+        'PSS': 'single star prob',
     }
+
+    _vizier_columns = [id_column,
+                       'Teff', 'b_Teff', 'B_Teff',
+                       'logg', 'b_logg', 'B_logg',
+                       '[Fe/H]', 'b_[Fe/H]', 'B_[Fe/H]',
+                       'A0', 'b_A0', 'B_A0',
+                       'Plx', 'e_Plx',
+                       'pmRA', 'e_pmRA',
+                       'pmDE', 'e_pmDE',
+                       'PQSO', 'PGal', 'PSS',
+                       'EpochPh']
+    _vizier_catalog = 'I/355/gaiadr3'
+
+    _value_with_interval_columns = [
+        ValueWithIntervalColumn(value='A0'),
+        ValueWithIntervalColumn(value='Teff', float_decimal_digits=1),
+        ValueWithIntervalColumn(value='logg'),
+        ValueWithIntervalColumn(name='_[Fe/H]', value='__Fe_H_', lower='b__Fe_H_', upper='B__Fe_H_'),
+    ]
+    _value_wirh_uncertanty_columns = [
+        ValueWithUncertaintyColumn(value='Plx'),
+        ValueWithUncertaintyColumn(value='pmRA'),
+        ValueWithUncertaintyColumn(value='pmDE'),
+    ]
 
     # https://www.cosmos.esa.int/web/gaia/edr3-passbands
     AB_ZP = {
@@ -43,30 +67,13 @@ class GaiaDr3Query(_BaseCatalogQuery, _BaseLightCurveQuery):
         super().__init__(query_name)
         self.gaia = GaiaClass()
 
-    def _query_region(self, coord, radius):
-        radius = Angle(radius)
-        job = self.gaia.launch_job(f'''
-            SELECT source_id, ra, dec, pmra, pmra_error, pmdec, pmdec_error, parallax, parallax_error,
-            has_epoch_photometry, DISTANCE(POINT({coord.ra.deg}, {coord.dec.deg}), POINT(ra, dec)) as separation
-                FROM gaiadr3.gaia_source
-                WHERE CONTAINS(POINT({coord.ra.deg}, {coord.dec.deg}), CIRCLE(ra, dec, {radius.deg})) = 1
-                ORDER by separation
-        ''')
-        table = job.get_results()
-        return table
-
     def find_closest(self, ra, dec, radius_arcsec, has_light_curve: bool = False):
         table = self.find(ra, dec, radius_arcsec)
         if has_light_curve:
-            table = table[table['has_epoch_photometry']]
+            table = table[table['EpochPh'] == 1]
             if len(table) == 0:
                 raise NotFound
         return table[0]
-
-    def get_url(self, id, row=None):
-        id = to_str(id)
-        id = urllib.parse.quote_plus(id)
-        return f'//vizier.u-strasbg.fr/viz-bin/VizieR-6?-out.form=%2bH&-source=I/355/gaiadr3&{self.id_column}={id}'
 
     def _table_to_light_curve(self, table):
         """https://gea.esac.esa.int/archive/documentation/GDR3/Gaia_archive/chap_datamodel/sec_dm_photometry/ssec_dm_epoch_photometry.html"""

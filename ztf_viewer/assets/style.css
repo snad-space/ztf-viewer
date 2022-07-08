@@ -114,3 +114,35 @@ select:focus {
 .rc-slider-handle.rc-slider-handle-click-focused:focus {
     border: 2px solid #22114C;
 }
+
+
+/*
+ Make superscript and subscript to be one bellow other
+ https://stackoverflow.com/a/58628296/5437597
+
+Example:
+
+<div class="expression">
+1.23
+<span class='supsub'>
+  <sup class='superscript'>+0.12</sup>
+  <sub class='subscript'>-0.07</sub>
+</span>
+</div>
+ */
+.expression {
+    display: flex;
+    align-items: center;
+}
+.supsub {
+    display: flex;
+    flex-direction: column;
+    margin-left: 2px;
+    align-items: center;
+}
+.subscript {
+    display:flex;
+}
+.superscript {
+    display:flex;
+}
