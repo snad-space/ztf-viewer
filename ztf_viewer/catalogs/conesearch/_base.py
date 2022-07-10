@@ -34,7 +34,7 @@ class ValueWithIntervalColumn:
         if self.lower is None:
             self.lower = f'b_{self.value}'
         if self.upper is None:
-            self.upper = f'b_{self.value}'
+            self.upper = f'B_{self.value}'
 
     def html(self, row) -> str:
         if not row[self.value] or not row[self.lower] or not row[self.upper]:
