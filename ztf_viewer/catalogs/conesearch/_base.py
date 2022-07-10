@@ -37,7 +37,7 @@ class ValueWithIntervalColumn:
             self.upper = f'b_{self.value}'
 
     def html(self, row) -> str:
-        if row[self.value] is None or row[self.lower] is None or row[self.upper] is None:
+        if not row[self.value] or not row[self.lower] or not row[self.upper]:
             return ''
         return compose_plus_minus_expression(
             row[self.value],
@@ -61,7 +61,7 @@ class ValueWithUncertaintyColumn:
             self.uncertainty = f'e_{self.value}'
 
     def html(self, row) -> str:
-        if row[self.value] is None or row[self.uncertainty] is None:
+        if not row[self.value] or not row[self.uncertainty]:
             return ''
         return f'{to_str(row[self.value], float_decimal_digits=self.float_decimal_digits)}±{to_str(row[self.uncertainty], float_decimal_digits=self.float_decimal_digits)}'
 
