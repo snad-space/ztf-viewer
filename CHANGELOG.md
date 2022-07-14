@@ -4,6 +4,12 @@ All notable changes to [ZTF SNAD Viewer](http://ztf.snad.space) will be document
 
 Version schema is `year.month.num_release`
 
+## [Unreleased]
+
+### Fixed
+
+- Pan-STARRS magnitude errors equation
+
 ## [2022.7.0] 2022 July 10
 
 ### Added

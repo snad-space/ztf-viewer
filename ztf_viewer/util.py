@@ -26,6 +26,7 @@ INF = float('inf')
 LN10_04 = 0.4 * np.log(10.0)
 LGE_25 = 2.5 / np.log(10.0)
 
+ABZPMAG_JY = 8.9
 
 FILTER_COLORS = {
     'g': '#62D03E',

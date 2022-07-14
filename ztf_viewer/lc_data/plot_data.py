@@ -8,11 +8,9 @@ from ztf_viewer.cache import cache
 from ztf_viewer.lc_data import EXTERNAL_LC_DATA
 from ztf_viewer.lc_data.arbitrary import add_id_to_obs
 from ztf_viewer.lc_data.ztf_dr import ztf_dr_lc
-from ztf_viewer.util import immutabledefaultdict, FILTERS_ORDER, LN10_04
+from ztf_viewer.util import immutabledefaultdict, FILTERS_ORDER, LN10_04, ABZPMAG_JY
 
 MJD_OFFSET = 58000
-
-ABZPMAG_JY = 8.9
 
 
 def plot_data(lc, mark_size=1, min_mjd=None, max_mjd=None, ref_mag=immutabledefaultdict(lambda: np.inf),
