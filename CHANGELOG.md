@@ -8,6 +8,7 @@ Version schema is `year.month.num_release`
 
 ### Fixed
 
+- Pan-STARRS magnitude errors equation
 - Description of Gaia light curves said that magnitudes are in Vega system, while we use AB.
 
 ## [2022.7.0] 2022 July 10

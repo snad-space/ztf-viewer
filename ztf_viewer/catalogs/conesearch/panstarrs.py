@@ -6,6 +6,7 @@ from astroquery.mast import Catalogs
 
 from ztf_viewer.catalogs.conesearch._base import _BaseCatalogQuery, _BaseLightCurveQuery, ValueWithIntervalColumn, ValueWithUncertaintyColumn
 from ztf_viewer.exceptions import NotFound
+from ztf_viewer.util import ABZPMAG_JY, LGE_25
 
 
 class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
@@ -75,8 +76,8 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
     def _table_to_light_curve(self, table):
         table = table[table['psfFlux'] > 0.0]
 
-        table['mag'] = -2.5 * np.log10(table['psfFlux']) + 8.9
-        table['magErr'] = 0.4 / np.log(10.0) * table['psfFluxErr'] / table['psfFlux']
+        table['mag'] = ABZPMAG_JY - 2.5 * np.log10(table['psfFlux'])
+        table['magErr'] = LGE_25 * table['psfFluxErr'] / table['psfFlux']
 
         return [
             {
