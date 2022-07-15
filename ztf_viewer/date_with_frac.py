@@ -61,5 +61,6 @@ def _fracs(products_root):
 
 def correct_date(date_with_frac):
     fracs = _fracs(date_with_frac.products_root)
-    i = np.searchsorted(fracs, date_with_frac.frac_digits(6))
-    date_with_frac.fraction = fracs[i - 1] / 1e6
+    digits = 6
+    i = np.searchsorted(fracs, date_with_frac.frac_digits(digits))
+    date_with_frac.fraction = fracs[i - 1] / (10.0 ** digits)
