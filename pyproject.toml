@@ -31,7 +31,8 @@ dependencies = [
     "scipy",
     "immutabledict",
     "alerce",
-    "dustmaps",
+    # supports astropy 5
+    "dustmaps>=1.0.10",
     "antares-client>=1.2.0",
 ]
 classifiers = [
