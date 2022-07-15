@@ -10,6 +10,7 @@ Version schema is `year.month.num_release`
 
 - Pan-STARRS magnitude errors equation
 - Description of Gaia light curves said that magnitudes are in Vega system, while we use AB.
+- List new catalogs on the index page: SDSS DR16 QSO, PanSTARRS DR2, Gaia DR3. 
 
 ## [2022.7.0] 2022 July 10
 
