@@ -12,7 +12,7 @@ matplotlib==3.5.1
 numpy==1.22.3
 pandas==1.4.2
 plotly==5.9.0
-redis==4.2.2
+redis==4.3.4
 redis_lru==0.1.2
 requests==2.27.1
 setuptools==62.1.0
