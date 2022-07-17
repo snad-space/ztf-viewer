@@ -18,8 +18,7 @@ dependencies = [
     "flask",
     "pandas",
     "numpy",
-    # astropy 5 is not supported by dustmaps https://github.com/gregreen/dustmaps/issues/37
-    "astropy<5",
+    "astropy",
     "astroquery",
     "jinja2",
     "requests",
