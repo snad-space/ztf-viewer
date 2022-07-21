@@ -9,6 +9,7 @@ Version schema is `year.month.num_release`
 ### Fixed
 
 - Fix Gaia light curve loading for some edge-cases
+- Antares light curve loading
 
 ## [2022.7.1] 2022 July 17
 
