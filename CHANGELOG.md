@@ -4,11 +4,11 @@ All notable changes to [ZTF SNAD Viewer](http://ztf.snad.space) will be document
 
 Version schema is `year.month.num_release`
 
-## [Unreleased]
+## [2022.7.2] 2022 July 21
 
 ### Fixed
 
-- Fix Gaia light curve loading for some edge-cases
+- Gaia light curve loading for some edge-cases
 - Antares light curve loading
 
 ## [2022.7.1] 2022 July 17
