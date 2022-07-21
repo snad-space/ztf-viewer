@@ -1,13 +1,15 @@
-import urllib.parse
+import os
+import random
+from string import ascii_lowercase
+from tempfile import TemporaryDirectory
 
 import numpy as np
-from astropy.coordinates import Angle
 from astropy.time import Time
 from astroquery.gaia import GaiaClass
 
 from ztf_viewer.catalogs.conesearch._base import _BaseVizierQuery, _BaseLightCurveQuery, ValueWithIntervalColumn, ValueWithUncertaintyColumn
 from ztf_viewer.exceptions import NotFound
-from ztf_viewer.util import LGE_25, to_str, compose_plus_minus_expression
+from ztf_viewer.util import LGE_25
 
 
 class GaiaDr3Query(_BaseVizierQuery, _BaseLightCurveQuery):
@@ -95,8 +97,13 @@ class GaiaDr3Query(_BaseVizierQuery, _BaseLightCurveQuery):
         ]
 
     def light_curve(self, id, row=None):
-        result = self.gaia.load_data(ids=[id], data_release='Gaia DR3', retrieval_type='EPOCH_PHOTOMETRY',
-                                   data_structure='INDIVIDUAL')
+        # By default, load_data creates temporary file in the current directory with time-based name. It could cause
+        # problems in multiprocessing scenario
+        with TemporaryDirectory() as output_dir:
+            filename = ''.join(random.choices(ascii_lowercase, k=6))
+            output_file = os.path.join(output_dir, filename)
+            result = self.gaia.load_data(ids=[id], data_release='Gaia DR3', retrieval_type='EPOCH_PHOTOMETRY',
+                                         data_structure='INDIVIDUAL', output_file=output_file)
         if len(result) == 0:
             raise NotFound
         assert len(result) == 1, 'we asked for a single GAIA DR3 object light curve, how could we have more than one result?'
