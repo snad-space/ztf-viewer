@@ -60,17 +60,21 @@ class AntaresQuery(_BaseCatalogApiQuery, _BaseLightCurveQuery):
             raise NotFound
         return self._locus_to_light_curve(locus)
 
-    def closest_light_curve(self, ra, dec, radius_arcsec):
+    def closest_light_curve(self, ra, dec, radius_arcsec, fail_on_empty=True):
         loci = self.query_region_loci(ra, dec, f'{radius_arcsec}s')
         if len(loci) == 0:
-            raise NotFound
+            if fail_on_empty:
+                raise NotFound
+            return self._empty_light_curve()
         coord = SkyCoord(ra=ra, dec=dec, unit='deg')
         locus = min(loci, key=lambda locus: locus.coordinates.separation(coord))
         return self._locus_to_light_curve(locus)
 
     def _query_region(self, coord, radius):
         loci = self.query_region_loci(coord.ra.deg, coord.dec.deg, radius)
-        table = Table(rows=[(l.locus_id, l.ra, l.dec) for l in loci], names=('locus_id', 'ra', 'dec',))
+        # It works better then Table(rows=...) for empty tables
+        table = Table(dict(locus_id=[l.locus_id for l in loci], ra=[l.ra for l in loci], dec=[l.dec for l in loci]))
+        # table = Table(rows=[(l.locus_id, l.ra, l.dec) for l in loci], names=('locus_id', 'ra', 'dec',))
         return table
 
     def get_url(self, id, row=None):

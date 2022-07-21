@@ -200,6 +200,10 @@ class _BaseLightCurveQuery:
     def light_curve(self, id, row=None):
         raise NotImplemented
 
+    @staticmethod
+    def _empty_light_curve():
+        return Table(dict.fromkeys(['oid', 'mjd', 'mag', 'magerr', 'filter'], []))
+
     def closest_light_curve(self, ra, dec, radius_arcsec, fail_on_empty=True):
         try:
             row = self.find_closest(ra, dec, radius_arcsec, has_light_curve=True)
@@ -207,7 +211,7 @@ class _BaseLightCurveQuery:
         except NotFound:
             if fail_on_empty:
                 raise
-            return Table(dict.fromkeys(['oid', 'mjd', 'mag', 'magerr', 'filter'], []))
+            return self._empty_light_curve()
 
     def closest_light_curve_by_oid(self, oid, dr, radius_arcsec, fail_on_empty=True):
         ra, dec = find_ztf_oid.get_coord(oid, dr)
