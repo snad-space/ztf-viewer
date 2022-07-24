@@ -4,6 +4,12 @@ All notable changes to [ZTF SNAD Viewer](http://ztf.snad.space) will be document
 
 Version schema is `year.month.num_release`
 
+## [Unreleased]
+
+### Fixed
+
+- Better handling situations when cross-matched catalogs are not available
+
 ## [2022.7.2] 2022 July 21
 
 ### Fixed

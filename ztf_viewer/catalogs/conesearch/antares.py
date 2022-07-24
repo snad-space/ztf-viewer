@@ -1,12 +1,15 @@
+import logging
+
 import antares_client.search
 import numpy as np
 from antares_client.models import Locus
 from astropy.coordinates import Angle, SkyCoord
 from astropy.table import Table
+from requests import RequestException
 
 from ztf_viewer.cache import cache
 from ztf_viewer.catalogs.conesearch._base import _BaseCatalogApiQuery, _BaseLightCurveQuery
-from ztf_viewer.exceptions import NotFound
+from ztf_viewer.exceptions import NotFound, CatalogUnavailable
 
 
 class AntaresQuery(_BaseCatalogApiQuery, _BaseLightCurveQuery):
@@ -26,8 +29,12 @@ class AntaresQuery(_BaseCatalogApiQuery, _BaseLightCurveQuery):
         if not (isinstance(radius, str) and radius.endswith('s')):
             raise ValueError('radius argument should be strings that ends with "s" letter')
         radius = Angle(radius)
-        loci = sorted(antares_client.search.cone_search(coord, radius),
-                      key=lambda locus: locus.coordinates.separation(coord))
+        try:
+            loci = sorted(antares_client.search.cone_search(coord, radius),
+                          key=lambda locus: locus.coordinates.separation(coord))
+        except RequestException as e:
+            logging.warning(str(e))
+            raise CatalogUnavailable
         return loci
 
     @staticmethod
@@ -60,8 +67,13 @@ class AntaresQuery(_BaseCatalogApiQuery, _BaseLightCurveQuery):
             raise NotFound
         return self._locus_to_light_curve(locus)
 
-    def closest_light_curve(self, ra, dec, radius_arcsec, fail_on_empty=True):
-        loci = self.query_region_loci(ra, dec, f'{radius_arcsec}s')
+    def closest_light_curve(self, ra, dec, radius_arcsec, fail_on_empty=True, fail_on_unavailable=True):
+        try:
+            loci = self.query_region_loci(ra, dec, f'{radius_arcsec}s')
+        except CatalogUnavailable:
+            if fail_on_unavailable:
+                raise
+            return self._empty_light_curve()
         if len(loci) == 0:
             if fail_on_empty:
                 raise NotFound
