@@ -1,3 +1,4 @@
+import logging
 import os
 import random
 from string import ascii_lowercase
@@ -6,9 +7,10 @@ from tempfile import TemporaryDirectory
 import numpy as np
 from astropy.time import Time
 from astroquery.gaia import GaiaClass
+from requests.exceptions import RequestException
 
 from ztf_viewer.catalogs.conesearch._base import _BaseVizierQuery, _BaseLightCurveQuery, ValueWithIntervalColumn, ValueWithUncertaintyColumn
-from ztf_viewer.exceptions import NotFound
+from ztf_viewer.exceptions import NotFound, CatalogUnavailable
 from ztf_viewer.util import LGE_25
 
 
@@ -102,8 +104,13 @@ class GaiaDr3Query(_BaseVizierQuery, _BaseLightCurveQuery):
         with TemporaryDirectory() as output_dir:
             filename = ''.join(random.choices(ascii_lowercase, k=6))
             output_file = os.path.join(output_dir, filename)
-            result = self.gaia.load_data(ids=[id], data_release='Gaia DR3', retrieval_type='EPOCH_PHOTOMETRY',
-                                         data_structure='INDIVIDUAL', output_file=output_file)
+            try:
+                result = self.gaia.load_data(ids=[id], data_release='Gaia DR3', retrieval_type='EPOCH_PHOTOMETRY',
+                                             data_structure='INDIVIDUAL', output_file=output_file)
+            except RequestException as e:
+                logging.warning(str(e))
+                raise CatalogUnavailable
+
         if len(result) == 0:
             raise NotFound
         assert len(result) == 1, 'we asked for a single GAIA DR3 object light curve, how could we have more than one result?'

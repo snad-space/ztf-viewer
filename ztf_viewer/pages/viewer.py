@@ -844,6 +844,9 @@ def get_antares_lc_option(oid, dr, old):
     except NotFound:
         option['label'] = f'Antares object (not found in {ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC}″)'
         option['disabled'] = True
+    except CatalogUnavailable:
+        option['label'] = f'Antares API is unavailable now'
+        option['disabled'] = False
     else:
         option['label'] = f'Antares {row[ANTARES_QUERY.id_column]} ({np.round(row["separation"], 1)}″), diff-photometry'
         option['disabled'] = False
@@ -861,6 +864,13 @@ def get_gaia_lc_option(oid, dr, old):
     else:
         option['label'] = f'Gaia object {row[GAIA_DR3.id_column]} ({np.round(row["separation"], 1)}″), apparent'
         option['disabled'] = False
+    # Checxk if we can load data
+    try:
+        _ = GAIA_DR3.closest_light_curve(ra, dec, radius_arcsec=ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC, fail_on_empty=False,
+                                         fail_on_unavailable=True)
+    except CatalogUnavailable:
+        option['label'] = f'Gaia DataLink is unavailable now'
+        option['disabled'] = False
     return option
 
 
@@ -872,6 +882,9 @@ def get_panstarrs_lc_option(oid, dr, old):
     except NotFound:
         option['label'] = f'Pan-STARRS object (not found in {ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC}″)'
         option['disabled'] = True
+    except CatalogUnavailable:
+        option['label'] = f'MAST Pan-STARRS archive is unavailable now'
+        option['disabled'] = False
     else:
         option['label'] = f'Pan-STARRS {row[PANSTARRS_DR2_QUERY.id_column]} ({np.round(row["separation"], 1)}″), apparent'
         option['disabled'] = False

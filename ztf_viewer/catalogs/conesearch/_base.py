@@ -11,6 +11,7 @@ from astropy.cosmology import FlatLambdaCDM
 from astropy.table import Table
 from astroquery.utils.commons import TableList
 from astroquery.vizier import Vizier
+from requests import RequestException
 
 from ztf_viewer.cache import cache
 from ztf_viewer.catalogs import find_ztf_oid
@@ -126,7 +127,11 @@ class _BaseCatalogQuery:
         coord = SkyCoord(ra, dec, unit='deg', frame='icrs')
         radius = f'{radius_arcsec}s'
         logging.info(f'Querying ra={ra}, dec={dec}, r={radius_arcsec}')
-        table = self._query_region(coord, radius=radius)
+        try:
+            table = self._query_region(coord, radius=radius)
+        except RequestException as e:  # this gives a good chance to catch network or service problem
+            logging.warning(str(e))
+            raise CatalogUnavailable
         if table is None:
             raise NotFound
         if isinstance(table, TableList):
@@ -204,7 +209,7 @@ class _BaseLightCurveQuery:
     def _empty_light_curve():
         return Table(dict.fromkeys(['oid', 'mjd', 'mag', 'magerr', 'filter'], []))
 
-    def closest_light_curve(self, ra, dec, radius_arcsec, fail_on_empty=True):
+    def closest_light_curve(self, ra, dec, radius_arcsec, fail_on_empty=True, fail_on_unavailable=True):
         try:
             row = self.find_closest(ra, dec, radius_arcsec, has_light_curve=True)
             return self.light_curve(row[self.id_column], row=row)
@@ -212,10 +217,15 @@ class _BaseLightCurveQuery:
             if fail_on_empty:
                 raise
             return self._empty_light_curve()
+        except CatalogUnavailable:
+            if fail_on_unavailable:
+                raise
+            return self._empty_light_curve()
 
-    def closest_light_curve_by_oid(self, oid, dr, radius_arcsec, fail_on_empty=True):
+    def closest_light_curve_by_oid(self, oid, dr, radius_arcsec, fail_on_empty=True, fail_on_unavailable=True):
         ra, dec = find_ztf_oid.get_coord(oid, dr)
-        return self.closest_light_curve(ra, dec, radius_arcsec, fail_on_empty=fail_on_empty)
+        return self.closest_light_curve(ra, dec, radius_arcsec, fail_on_empty=fail_on_empty,
+                                        fail_on_unavailable=fail_on_unavailable)
 
 
 class _BaseCatalogApiQuery(_BaseCatalogQuery):

@@ -1,11 +1,13 @@
+import logging
 from itertools import count
 
 import numpy as np
 from astropy.table import Table
 from astroquery.mast import Catalogs
+from requests import RequestException
 
 from ztf_viewer.catalogs.conesearch._base import _BaseCatalogQuery, _BaseLightCurveQuery, ValueWithIntervalColumn, ValueWithUncertaintyColumn
-from ztf_viewer.exceptions import NotFound
+from ztf_viewer.exceptions import NotFound, CatalogUnavailable
 from ztf_viewer.util import ABZPMAG_JY, LGE_25
 
 
@@ -62,8 +64,12 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
         return row
 
     def _query_region(self, coord, radius):
-        table = self._catalogs.query_region(coord, radius=radius, catalog='Panstarrs', data_release='dr2',
-                                            table='stacked')
+        try:
+            table = self._catalogs.query_region(coord, radius=radius, catalog='Panstarrs', data_release='dr2',
+                                                table='stacked')
+        except RequestException as e:
+            logging.warning(e)
+            raise CatalogUnavailable
         df = table.to_pandas()
         df = df[df['primaryDetection'] == 1]
         df = df.groupby('objID', sort=False).apply(self.__apply_groups)
@@ -91,8 +97,12 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
         ]
 
     def light_curve(self, id, row=None):
-        table = self._catalogs.query_criteria(objID=row['objID'], catalog='Panstarrs', data_release='dr2',
-                                              table='detection')
+        try:
+            table = self._catalogs.query_criteria(objID=row['objID'], catalog='Panstarrs', data_release='dr2',
+                                                  table='detection')
+        except RequestException as e:
+            logging.info(str(e))
+            raise CatalogUnavailable
         if len(table) == 0:
             raise NotFound
         return self._table_to_light_curve(table)
