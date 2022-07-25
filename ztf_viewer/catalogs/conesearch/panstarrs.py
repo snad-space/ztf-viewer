@@ -57,9 +57,13 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
                 err_column = f'{band}{phot_type}MagErr'
                 idx = (df[mag_column] >= 0) & (df[err_column] >= 0)
                 valid = df[idx]
-                w_ = 1.0 / np.square(valid[err_column])
-                row[mag_column] = np.average(valid[mag_column], weights=w_)
-                row[err_column] = 1.0 / np.sqrt(np.mean(w_))
+                if len(valid) == 0:
+                    row[mag_column] = np.nan
+                    row[err_column] = np.nan
+                else:
+                    w_ = 1.0 / np.square(valid[err_column])
+                    row[mag_column] = np.average(valid[mag_column], weights=w_)
+                    row[err_column] = 1.0 / np.sqrt(np.mean(w_))
 
         return row
 
