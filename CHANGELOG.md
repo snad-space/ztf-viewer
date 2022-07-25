@@ -9,6 +9,7 @@ Version schema is `year.month.num_release`
 ### Fixed
 
 - Better handling situations when cross-matched catalogs are not available
+- Fix Pan-STARRS table to not load in some cases
 
 ## [2022.7.2] 2022 July 21
 
