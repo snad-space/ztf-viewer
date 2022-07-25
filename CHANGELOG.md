@@ -4,7 +4,7 @@ All notable changes to [ZTF SNAD Viewer](http://ztf.snad.space) will be document
 
 Version schema is `year.month.num_release`
 
-## [Unreleased]
+## [2022.7.3] 2022 July 25
 
 ### Fixed
 
