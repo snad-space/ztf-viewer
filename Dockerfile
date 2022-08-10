@@ -24,8 +24,8 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # Increse latex maximum memory size - matplotlib wants it
-RUN echo "main_memory = 50000000" >> /etc/texmf/texmf.d/10main_memory.cnf
-    && update-texmf
+RUN echo "main_memory = 50000000" >> /etc/texmf/texmf.d/10main_memory.cnf \
+    && update-texmf \
     && texhash
 
 # Install dependencies
