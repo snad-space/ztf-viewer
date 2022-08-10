@@ -23,6 +23,9 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends texlive-latex-extra cm-super-minimal dvipng texlive-xetex texlive-fonts-recommended \
     && rm -rf /var/lib/apt/lists/*
 
+# Increse latex maximum memory size - matplotlib wants it
+RUN echo "main_memory = 50000000" > /etc/texmf/texmf.d/10main_memory.cnf
+
 # Install dependencies
 COPY requirements.txt /app/
 RUN pip install -r /app/requirements.txt
