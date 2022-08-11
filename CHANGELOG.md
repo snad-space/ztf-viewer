@@ -4,6 +4,12 @@ All notable changes to [ZTF SNAD Viewer](http://ztf.snad.space) will be document
 
 Version schema is `year.month.num_release`
 
+## [Unreleased]
+
+### Fixed
+
+- 500 error when downloading some PDF figures with a large number of points
+
 ## [2022.7.3] 2022 July 25
 
 ### Fixed
