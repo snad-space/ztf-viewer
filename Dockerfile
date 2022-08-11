@@ -27,7 +27,7 @@ RUN apt-get update \
 RUN echo "main_memory = 50000000" > /etc/texmf/texmf.d/10main_memory.cnf \
     && update-texmf \
     && texhash \
-    && fmtutil-sys --all
+    && fmtutil-sys --all || test 1
 
 # Install dependencies
 COPY requirements.txt /app/
