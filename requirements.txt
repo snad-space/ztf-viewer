@@ -1,7 +1,7 @@
 astropy==5.1
 astroquery==0.4.6
-cachetools==5.0.0
 dash==2.6.0
+cachetools==5.2.0
 dash_dangerously_set_inner_html==0.0.2
 dash_defer_js_import==0.0.2
 dustmaps==1.0.10
@@ -10,7 +10,7 @@ immutabledict==2.2.1
 Jinja2==3.1.2
 matplotlib==3.5.1
 numpy==1.22.3
-pandas==1.4.2
+pandas==1.4.3
 plotly==5.9.0
 redis==4.2.2
 redis_lru==0.1.2
