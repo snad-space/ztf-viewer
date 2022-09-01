@@ -5,7 +5,7 @@ cachetools==5.2.0
 dash_dangerously_set_inner_html==0.0.2
 dash_defer_js_import==0.0.2
 dustmaps==1.0.10
-Flask==2.1.1
+Flask==2.2.2
 immutabledict==2.2.1
 Jinja2==3.1.2
 matplotlib==3.5.3
