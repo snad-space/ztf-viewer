@@ -1,6 +1,6 @@
 astropy==5.1
 astroquery==0.4.6
-dash==2.6.0
+dash==2.6.1
 cachetools==5.2.0
 dash_dangerously_set_inner_html==0.0.2
 dash_defer_js_import==0.0.2
