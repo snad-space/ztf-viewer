@@ -9,7 +9,9 @@ Version schema is `year.month.num_release`
 ### Fixed
 
 - 500 error when downloading some PDF figures with a large number of points
-- Change Aladin field of view from 4.35' to 7.27' to make it close to ZTF FITS one https://github.com/snad-space/ztf-viewer/pull/199 
+
+### Changed
+- Aladin field of view is changed from 4.35' to 7.27' to make it close to ZTF FITS one https://github.com/snad-space/ztf-viewer/pull/199 
 
 ## [2022.7.3] 2022 July 25
 
