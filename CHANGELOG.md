@@ -4,6 +4,16 @@ All notable changes to [ZTF SNAD Viewer](http://ztf.snad.space) will be document
 
 Version schema is `year.month.num_release`
 
+## [Unreleased]
+
+### Added
+
+- `stamp_classifier` for Alerce https://github.com/snad-space/ztf-viewer/pull/209
+
+### Fixed
+
+- https://github.com/snad-space/ztf-viewer/issues/208 Alerce table has shown no classifications. Fixed by https://github.com/snad-space/ztf-viewer/pull/209 
+
 ## [2022.9.0] 2022 September 2
 
 ### Fixed
