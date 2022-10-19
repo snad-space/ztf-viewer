@@ -10,6 +10,9 @@ Version schema is `year.month.num_release`
 
 - `stamp_classifier` for Alerce https://github.com/snad-space/ztf-viewer/pull/209
 
+### Changed
+- Search radius for broker links in the Summary section is now 3 arcsec https://github.com/snad-space/ztf-viewer/issues/217 https://github.com/snad-space/ztf-viewer/pull/218
+
 ### Fixed
 
 - https://github.com/snad-space/ztf-viewer/issues/208 Alerce table has shown no classifications. Fixed by https://github.com/snad-space/ztf-viewer/pull/209 
