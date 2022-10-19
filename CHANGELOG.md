@@ -23,6 +23,9 @@ Version schema is `year.month.num_release`
 ### Changed
 - Aladin field of view is changed from 4.35' to 7.27' to make it close to ZTF FITS one https://github.com/snad-space/ztf-viewer/pull/199 
 
+### Changed
+- Search radius for broker links in the Summary section is now 3 arcsec https://github.com/snad-space/ztf-viewer/issues/217 https://github.com/snad-space/ztf-viewer/pull/218
+
 ## [2022.7.3] 2022 July 25
 
 ### Fixed
