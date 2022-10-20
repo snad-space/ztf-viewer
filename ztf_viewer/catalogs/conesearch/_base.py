@@ -1,8 +1,8 @@
 import dataclasses
 import logging
-from typing import List, Optional
 import urllib.parse
 from functools import partial
+from typing import Dict, List, Optional
 
 import pandas as pd
 import requests
@@ -80,6 +80,9 @@ class _BaseCatalogQuery:
     _ra_unit = None
     _table_dec = None
     columns = None
+
+    # classifier pretty name -> column name
+    _prob_class_columns: Dict[str, str] = {}
 
     _value_with_interval_columns: List[ValueWithIntervalColumn] = []
     _value_wirh_uncertanty_columns: List[ValueWithUncertaintyColumn] = []
@@ -166,6 +169,7 @@ class _BaseCatalogQuery:
         self.add_period_column(table)
         self.add_redshift_column(table)
         self.add_distance_column(table)
+        self.add_prob_class_columns(table)
         self.add_value_interval_columns(table)
         self.add_value_uncertaincy_columns(table)
 
@@ -198,6 +202,11 @@ class _BaseCatalogQuery:
     def add_distance_column(self, table):
         if '__redshift' in table.columns:
             table['__distance'] = [None if z is None else COSMO.luminosity_distance(z) for z in table['__redshift']]
+
+    def add_prob_class_columns(self, table):
+        """Assign column values to {'class': probability, ...}"""
+        if len(self._prob_class_columns) != 0:
+            raise NotImplemented
 
     def get_url(self, id, row=None):
         raise NotImplemented

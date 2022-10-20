@@ -1,5 +1,5 @@
 import pathlib
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 from functools import lru_cache, partial
 from itertools import chain
 from urllib.parse import urlencode, urljoin
@@ -46,6 +46,7 @@ SUMMARY_FIELDS = {
     '__distance': 'Distance',
     '__period': 'Period, days',
 }
+SUMMARY_PROB_CLASS_MIN_PROBABILITY = 0.1
 
 MARKER_SIZE = 10
 
@@ -1018,7 +1019,7 @@ def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_v
     ra, dec = find_ztf_oid.get_coord(oid, dr)
     coord = find_ztf_oid.get_sky_coord(oid, dr)
 
-    elements = {}
+    elements = OrderedDict()
     for catalog, query in catalog_query_objects().items():
         try:
             table = query.find(ra, dec, radii[catalog])
@@ -1074,6 +1075,44 @@ def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_v
         ))
     except NotFound:
         pass
+
+    ml_classifications = []
+    for catalog, query in catalog_query_objects().items():
+        try:
+            table = query.find(ra, dec, radii[catalog])
+        except (NotFound, CatalogUnavailable, KeyError):
+            continue
+        if len(table) == 0:
+            continue
+        idx = np.argmin(table['separation'])
+        row = table[idx]
+        for pretty_name, column in query._prob_class_columns.items():
+            for class_name, prob in sorted(row[column].items(), key=lambda x: x[1], reverse=True):
+                if prob < SUMMARY_PROB_CLASS_MIN_PROBABILITY:
+                    continue
+                ml_classifications.append(html.Div(
+                    [
+                        f'{prob * 100:.0f}% {class_name} ({row["separation"]:.3f}″',
+                        html.A(
+                            query.query_name,
+                            href=f'#{catalog}',
+                            style={'border-bottom': '1px dashed', 'text-decoration': 'none'},
+                        ),
+                        # nothing if no name, otherwise space + name
+                        pretty_name and f' {pretty_name}',
+                        ')',
+                    ],
+                    style={'display': 'inline'},
+                ))
+    if len(ml_classifications) > 0:
+        elements['ML classifications'] = ml_classifications
+
+    # Put these elements first
+    for element_name in reversed(['Name', 'Type', 'ML classifications']):
+        try:
+            elements.move_to_end(element_name, last=False)
+        except KeyError:
+            pass
 
     other_oids = neighbour_oids(different_filter, different_field)
     lcs = get_plot_data(oid, dr, other_oids=other_oids)
