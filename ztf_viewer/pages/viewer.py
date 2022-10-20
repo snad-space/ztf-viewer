@@ -33,7 +33,7 @@ from ztf_viewer.exceptions import NotFound, CatalogUnavailable
 from ztf_viewer.lc_data.plot_data import get_plot_data, get_folded_plot_data, MJD_OFFSET
 from ztf_viewer.lc_features import light_curve_features
 from ztf_viewer.util import (html_from_astropy_table, to_str, INF, min_max_mjd_short, FILTER_COLORS, ZTF_FILTERS,
-                             available_drs, joiner, immutabledefaultdict)
+                             available_drs, list_join, immutabledefaultdict)
 
 
 LIGHT_CURVE_TABLE_COLUMNS = ('mjd', 'mag', 'magerr', 'clrcoeff')
@@ -320,10 +320,10 @@ def get_layout(pathname):
             [
                 'Same object in ',
             ]
-            + list(joiner(
+            + list_join(
                 ', ',
                 (html.A(dr.upper(), href=f'/{dr}/view/{oid}') for dr in other_drs)
-            ))
+            )
         ),
         html.Div(
             [
@@ -646,7 +646,7 @@ def set_akb_neighbours(different_filter, different_field):
 
     return html.Div(
         ['Neighbour OID(s) have been labeled: ']
-        + list(joiner(', ', (html.A(str(oid), href=f'./{oid}') for oid in labeled_oids))),
+        + list_join(', ', (html.A(str(oid), href=f'./{oid}') for oid in labeled_oids)),
         className='attention',
     )
 
@@ -1114,7 +1114,7 @@ def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_v
 
     div = html.Div(
         html.Ul(
-            [html.Li([html.B(k), ': '] + list(joiner(', ', v))) for k, v in elements.items()],
+            [html.Li([html.B(k), ': '] + list_join(', ', v)) for k, v in elements.items()],
             style={'list-style-type': 'none'},
         ),
     )
