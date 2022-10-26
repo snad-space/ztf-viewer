@@ -24,7 +24,7 @@ class FinkQuery(_BaseCatalogApiQuery):
 
     def _api_query_region(self, ra, dec, radius_arcsec):
         params = {'ra': ra, 'dec': dec, 'radius': radius_arcsec}
-        response = self._api_session.get(self._api_url, params=params)
+        response = self._api_session.get(self._api_url, params=params, timeout=10)
         self._raise_if_not_ok(response)
         table = Table.from_pandas(pd.read_json(BytesIO(response.content)))
         return table

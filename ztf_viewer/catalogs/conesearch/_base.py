@@ -245,7 +245,7 @@ class _BaseCatalogApiQuery(_BaseCatalogQuery):
 
     def _api_query_region(self, ra, dec, radius_arcsec):
         query = {'ra': ra, 'dec': dec, 'radius_arcsec': radius_arcsec}
-        response = self._api_session.get(self._get_api_url(query))
+        response = self._api_session.get(self._get_api_url(query), timeout=10)
         self._raise_if_not_ok(response)
         j = response.json()
         table = Table.from_pandas(pd.DataFrame.from_records(j))
@@ -255,7 +255,7 @@ class _BaseCatalogApiQuery(_BaseCatalogQuery):
         ra = coord.ra.to_value('deg')
         dec = coord.dec.to_value('deg')
         if not (isinstance(radius, str) and radius.endswith('s')):
-            raise ValueError('radius argument should be strings that ends with "s" letter')
+            raise ValueError('radius argument should be a string that ends with "s" letter')
         radius_arcsec = float(radius[:-1])
         return self._api_query_region(ra, dec, radius_arcsec)
 

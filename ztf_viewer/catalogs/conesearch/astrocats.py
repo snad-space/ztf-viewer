@@ -27,7 +27,7 @@ class AstrocatsQuery(_BaseCatalogApiQuery):
     _base_api_url = f'{__root_api_url}/all'
 
     def _get_sources(self, id):
-        response = self._api_session.get(f'{self.__root_api_url}/{id}/sources')
+        response = self._api_session.get(f'{self.__root_api_url}/{id}/sources', timeout=10)
         self._raise_if_not_ok(response)
         data = response.json()
         return data[id]['sources']
@@ -46,7 +46,7 @@ class AstrocatsQuery(_BaseCatalogApiQuery):
 
     def _api_query_region(self, ra, dec, radius_arcsec):
         query = {'ra': ra, 'dec': dec, 'radius': radius_arcsec, 'format': 'csv', 'item': 0}
-        response = self._api_session.get(self._get_api_url(query))
+        response = self._api_session.get(self._get_api_url(query), timeout=10)
         self._raise_if_not_ok(response)
         # If nothing is found a single-line JSON response coming:
         # {"message": "No objects found within specified search region."}

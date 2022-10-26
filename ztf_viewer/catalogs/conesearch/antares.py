@@ -37,9 +37,8 @@ class AntaresQuery(_BaseCatalogApiQuery, _BaseLightCurveQuery):
             raise CatalogUnavailable
         return loci
 
-    @staticmethod
-    def query_region_closest_locus(coord, radius) -> tuple[Angle, Locus]:
-        loci = AntaresQuery.query_region_loci(coord.ra.deg, coord.dec.deg, radius)
+    def query_region_closest_locus(self, coord, radius) -> tuple[Angle, Locus]:
+        loci = self.query_region_loci(coord.ra.deg, coord.dec.deg, radius)
         if len(loci) == 0:
             raise NotFound
         separations = [locus.coordinates.separation(coord) for locus in loci]
