@@ -16,6 +16,7 @@ class FinkQuery(_BaseCatalogApiQuery):
         '__link': 'Name',
         'separation': 'Separation, arcsec',
         'v:classification': 'Class',
+        'd:mulens': 'Prob to be a μLens',
         'd:rf_kn_vs_nonkn': 'Prob of KN vs all',
         'd:rf_snia_vs_nonia': 'Prob of SN Ia vs all',
         'd:snn_sn_vs_all': 'Prob of SN vs all',
@@ -23,14 +24,15 @@ class FinkQuery(_BaseCatalogApiQuery):
     }
 
     _classifiers = {
+        'μLens prob': 'd:mulens',
         'RF KN vs all': 'd:rf_kn_vs_nonkn',
-        'RF SN Ia vs all': 'd:rf_snia_vs_nonia',
+        # 'RF SN Ia vs all': 'd:rf_snia_vs_nonia',             <- disabled because we decided to not show it
         'SuperNNova SN vs all': 'd:snn_sn_vs_all',
-        # 'SuperNNova SN Ia vs CC SN': 'd:snn_snia_vs_nonia',
+        # 'SuperNNova SN Ia vs CC SN': 'd:snn_snia_vs_nonia',  <- disabled because we decided to not show it
     }
     _class_names = {
+        'μLens prob': 'μLens',
         'RF KN vs all': 'KN',
-        'RF SN Ia vs all': 'SN Ia',
         'SuperNNova SN vs all': 'SN',
     }
     _prob_class_columns = {k: f'{v}_classifications' for k, v in _classifiers.items()}
