@@ -12,6 +12,7 @@ This projects contains a source of [ZTF](http://ztf.caltech.edu) Data Releases l
 
 Environment variables to configure the server, see default values in `config.py`:
 - `CACHE_TYPE`: cache type, specify `redis` to use [redis](https://redis.io) server, or `memory` to use in-process cache
+- `UNAVAILABLE_CATALOGS_CACHE_TYPE`: unavailable catalog cache type, specify `redis` to use [redis](https://redis.io) server, or `memory` to use in-process cache
 - `REDIS_URL`: redis server address
 - `LC_API_URL`: SNAD ZTF database API address
 - `AKB_API_URL`: knowledge database address
