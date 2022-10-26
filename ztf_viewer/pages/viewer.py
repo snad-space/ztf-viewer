@@ -46,7 +46,7 @@ SUMMARY_FIELDS = {
     '__distance': 'Distance',
     '__period': 'Period, days',
 }
-SUMMARY_PROB_CLASS_MIN_PROBABILITY = 0.1
+SUMMARY_PROB_CLASS_MIN_PROBABILITY = 0.5
 
 MARKER_SIZE = 10
 
@@ -1087,23 +1087,25 @@ def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_v
         idx = np.argmin(table['separation'])
         row = table[idx]
         for pretty_name, column in query._prob_class_columns.items():
-            for class_name, prob in sorted(row[column].items(), key=lambda x: x[1], reverse=True):
-                if prob < SUMMARY_PROB_CLASS_MIN_PROBABILITY:
-                    continue
-                ml_classifications.append(html.Div(
-                    [
-                        f'{prob * 100:.0f}% {class_name} ({row["separation"]:.3f}″',
-                        html.A(
-                            query.query_name,
-                            href=f'#{catalog}',
-                            style={'border-bottom': '1px dashed', 'text-decoration': 'none'},
-                        ),
-                        # nothing if no name, otherwise space + name
-                        pretty_name and f' {pretty_name}',
-                        ')',
-                    ],
-                    style={'display': 'inline'},
-                ))
+            if len(row[column]) == 0:
+                continue
+            class_name, prob = max(row[column].items(), key=lambda x: x[1])
+            if prob < SUMMARY_PROB_CLASS_MIN_PROBABILITY:
+                continue
+            ml_classifications.append(html.Div(
+                [
+                    f'{prob * 100:.0f}% {class_name} ({row["separation"]:.3f}″',
+                    html.A(
+                        query.query_name,
+                        href=f'#{catalog}',
+                        style={'border-bottom': '1px dashed', 'text-decoration': 'none'},
+                    ),
+                    # nothing if no name, otherwise space + name
+                    pretty_name and f' {pretty_name}',
+                    ')',
+                ],
+                style={'display': 'inline'},
+            ))
     if len(ml_classifications) > 0:
         elements['ML classifications'] = ml_classifications
 
