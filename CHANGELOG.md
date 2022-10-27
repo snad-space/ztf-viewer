@@ -9,7 +9,7 @@ Version schema is `year.month.num_release`
 ### Added
 
 - `stamp_classifier` for Alerce https://github.com/snad-space/ztf-viewer/pull/209
-- https://github.com/snad-space/ztf-viewer/issues/210 "ML Classifications" section of the Summary with probability classifications from: Alerce (light-curve and stamp classifiers), Fink (binary KN, SN ang μLens classifiers), and Gaia DR3 (ternary galaxy — quasar — single star classifier).
+- https://github.com/snad-space/ztf-viewer/issues/210 "ML Classifications" section of the Summary with probability classifications from: Alerce (light-curve and stamp classifiers), Fink (binary KN, SN ang μLens classifiers), and Gaia DR3 (ternary galaxy — quasar — single star classifier). https://github.com/snad-space/ztf-viewer/issues/219
 
 ### Changed
 - Search radius for broker links in the Summary section is now 3 arcsec https://github.com/snad-space/ztf-viewer/issues/217 https://github.com/snad-space/ztf-viewer/pull/218
