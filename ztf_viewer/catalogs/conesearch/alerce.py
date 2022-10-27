@@ -7,6 +7,7 @@ from astropy.table import Table
 from requests import RequestException
 
 from ztf_viewer.catalogs.conesearch._base import _BaseCatalogApiQuery
+from ztf_viewer.exceptions import NotFound
 
 
 class AlerceQuery(_BaseCatalogApiQuery):
@@ -36,7 +37,6 @@ class AlerceQuery(_BaseCatalogApiQuery):
                              df[df['classifier_name'] == classifier]['probability'].iloc[0])
                 for classifier in self._classifiers}
 
-
     def _query_region(self, coord, radius):
         ra = coord.ra.deg
         dec = coord.dec.deg
@@ -44,6 +44,8 @@ class AlerceQuery(_BaseCatalogApiQuery):
             raise ValueError('radius argument should be strings that ends with "s" letter')
         radius_arcsec = float(radius[:-1])
         df = self._client.query_objects(format='pandas', ra=ra, dec=dec, radius=radius_arcsec, page_size=128)
+        if len(df) == 0:
+            raise NotFound
         for id in df['oid']:
             try:
                 classifications = self._get_classifications(id)
