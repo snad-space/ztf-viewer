@@ -11,7 +11,11 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v3
-    - name: Build docker image
+    - name: Build base docker image
       run: docker build --tag ztf-viewer .
-    - name: Pytest
-      run: docker run --workdir=/app -t --entrypoint='/bin/bash' -v$(pwd)/tests:/tests ztf-viewer -c 'python -mpip install pytest && python -mpytest /tests'
+    - name: Build test docker image
+      run: |
+        cp .ci/Dockerfile_test Dockerfile_test
+        docker build --tag ztf-viewer-test --file Dockerfile_test .
+    - name: Run tests
+      run: docker run -t ztf-viewer-test

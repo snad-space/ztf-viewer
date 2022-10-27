@@ -1,0 +1,11 @@
+FROM ztf-viewer
+
+RUN apt update \
+    && apt install -y redis-server
+RUN python -mpip install pytest pytest-redis
+
+COPY tests /tests
+
+WORKDIR /app
+
+ENTRYPOINT ["python", "-m", "pytest", "/tests"]

@@ -1,26 +1,27 @@
+import pickle
 from abc import ABC, abstractmethod
 from collections.abc import MutableSet
-from typing import Hashable, Iterator, TypeVar, Dict, Any
+from typing import Hashable, Iterator, TypeVar, Dict, Any, Generic
 
 from cachetools import TTLCache
 from redis import StrictRedis
 
-_T = TypeVar("_T", bound=Hashable)
+_T_Base = TypeVar("_T_Base")
 
 
-class _BaseTTLSet(ABC, MutableSet[_T]):
+class _BaseTTLSet(ABC, MutableSet[_T_Base], Generic[_T_Base]):
     def __init__(self, ttl: int):
         super().__init__()
         self.ttl = ttl
 
-    def discard(self, value: _T) -> None:
+    def discard(self, value: _T_Base) -> None:
         try:
             self.remove(value)
         except KeyError:
             pass
 
     @abstractmethod
-    def remove(self, value: _T) -> None:
+    def remove(self, value: _T_Base) -> None:
         """Must raise valueError if no value is not found"""
         raise NotImplemented
 
@@ -29,61 +30,84 @@ class _BaseTTLSet(ABC, MutableSet[_T]):
         raise NotImplemented
 
 
-class LocalTTLSet(_BaseTTLSet):
+_T_Local = TypeVar("_T_Local", bound=Hashable)
+
+
+class LocalTTLSet(_BaseTTLSet[_T_Local], Generic[_T_Local]):
     def __init__(self, maxsize: int, ttl: int):
         super().__init__(ttl)
         self.ttl_cache = TTLCache(maxsize=maxsize, ttl=ttl)
         
-    def add(self, value: _T) -> None:
+    def add(self, value: _T_Local) -> None:
         self.ttl_cache[value] = None
 
-    def remove(self, value: _T) -> None:
+    def remove(self, value: _T_Local) -> None:
         del self.ttl_cache[value]
 
     def clear(self) -> None:
         self.ttl_cache.clear()
 
-    def __contains__(self, value: _T) -> bool:
+    def __contains__(self, value: _T_Local) -> bool:
         return value in self.ttl_cache
 
     def __len__(self) -> int:
         return len(self.ttl_cache)
 
-    def __iter__(self) -> Iterator[_T]:
+    def __iter__(self) -> Iterator[_T_Local]:
         return iter(self.ttl_cache)
 
 
-class RedisTTLSet(_BaseTTLSet):
+# We don't need it to be hashable, we need it to be serializable only
+_T_Redis = TypeVar("_T_Redis")
+
+
+class RedisTTLSet(_BaseTTLSet[_T_Redis], Generic[_T_Redis]):
     def __init__(self, ttl: int, client: StrictRedis, prefix: str = 'RedisTTLSet'):
         super().__init__(ttl)
-
         self.client = client
-        self.prefix = prefix
+        self.prefix = prefix.encode()
+        if b'*' in self.prefix:
+            raise ValueError('prefix must not contain "*"')
 
-    def discard(self, value: _T) -> None:
-        key = f'{self.prefix}{value}'
+    def _encode(self, value: _T_Redis) -> bytes:
+        serialized = pickle.dumps(value, protocol=pickle.HIGHEST_PROTOCOL)
+        return self.prefix + serialized
+
+    def _decode(self, key: bytes) -> _T_Redis:
+        return pickle.loads(key.removeprefix(self.prefix))
+
+    def discard(self, value: _T_Redis) -> None:
+        key = self._encode(value)
         self.client.delete(key)
 
-    def remove(self, value: _T) -> None:
-        key = f'{self.prefix}{value}'
-        if self.client.getdel(key) is not None:
+    def remove(self, value: _T_Redis) -> None:
+        key = self._encode(value)
+        if self.client.getdel(key) is None:
             raise KeyError(f'{value} not found')
 
     def clear(self) -> None:
-        for key in self.client.keys(f'{self.prefix}*'):
+        for key in self.client.keys(self.prefix + b'*'):
             self.client.delete(key)
 
-    def add(self, value: _T) -> None:
-        key = f'{self.prefix}{value}'
+    def add(self, value: _T_Redis) -> None:
+        key = self._encode(value)
         self.client.setex(key, self.ttl, 0)
 
-    def __contains__(self, value: _T) -> bool:
-        key = f'{self.prefix}{value}'
+    def __contains__(self, value: _T_Redis) -> bool:
+        key = self._encode(value)
         return self.client.exists(key) > 0
 
     def __len__(self) -> int:
-        return len(self.client.keys(f'{self.prefix}*'))
+        return len(self.client.keys(self.prefix + b'*'))
 
-    def __iter__(self) -> Iterator[_T]:
-        for key in self.client.keys(f'{self.prefix}*'):
-            yield key.removeprefix(self.prefix)
+    def __iter__(self) -> Iterator[_T_Redis]:
+        for key in self.client.keys(self.prefix + b'*'):
+            yield self._decode(key)
+
+
+class RedisTTLStringSet(RedisTTLSet[str]):
+    def _encode(self, value: str) -> bytes:
+        return self.prefix + value.encode()
+
+    def _decode(self, key: bytes) -> str:
+        return key.removeprefix(self.prefix).decode()
