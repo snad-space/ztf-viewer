@@ -1,3 +1,4 @@
+import packaging.version
 import pickle
 from abc import ABC, abstractmethod
 from collections.abc import MutableSet
@@ -64,10 +65,24 @@ _T_Redis = TypeVar("_T_Redis")
 class RedisTTLSet(_BaseTTLSet[_T_Redis], Generic[_T_Redis]):
     def __init__(self, ttl: int, client: StrictRedis, prefix: str = 'RedisTTLSet'):
         super().__init__(ttl)
+
         self.client = client
+
         self.prefix = prefix.encode()
         if b'*' in self.prefix:
             raise ValueError('prefix must not contain "*"')
+
+        self.redis_version = self.__redis_version(client)
+        if self.redis_version < packaging.version.parse('6.2.0'):
+            self.remove = self.__remove_pre_6_2_0
+        else:
+            self.remove = self.__remove_6_2_0
+
+    @staticmethod
+    def __redis_version(client) -> packaging.version.Version:
+        info = client.info()
+        version = packaging.version.parse(info['redis_version'])
+        return version
 
     def _encode(self, value: _T_Redis) -> bytes:
         serialized = pickle.dumps(value, protocol=pickle.HIGHEST_PROTOCOL)
@@ -81,6 +96,16 @@ class RedisTTLSet(_BaseTTLSet[_T_Redis], Generic[_T_Redis]):
         self.client.delete(key)
 
     def remove(self, value: _T_Redis) -> None:
+        # To be assigned in __init__ according to Redis version
+        raise NotImplemented
+
+    def __remove_pre_6_2_0(self, value: _T_Redis) -> None:
+        key = self._encode(value)
+        if self.client.exists(key) == 0:
+            raise KeyError(f'{value} not found')
+        self.client.delete(key)
+
+    def __remove_6_2_0(self, value: _T_Redis) -> None:
         key = self._encode(value)
         if self.client.getdel(key) is None:
             raise KeyError(f'{value} not found')
