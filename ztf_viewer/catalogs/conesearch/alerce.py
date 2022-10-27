@@ -2,6 +2,7 @@ import logging
 from itertools import chain
 from typing import Dict, Tuple
 
+import pandas as pd
 from alerce.core import Alerce
 from astropy.table import Table
 from requests import RequestException
