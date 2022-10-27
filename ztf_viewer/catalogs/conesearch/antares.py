@@ -22,9 +22,9 @@ class AntaresQuery(_BaseCatalogApiQuery, _BaseLightCurveQuery):
         'separation': 'Separation, arcsec',
     }
 
-    @staticmethod
     @cache()
-    def query_region_loci(ra, dec, radius) -> list[Locus]:
+    def query_region_loci(self, ra, dec, radius) -> list[Locus]:
+        self._raise_if_unavailable()
         coord = SkyCoord(ra, dec, unit='deg')
         if not (isinstance(radius, str) and radius.endswith('s')):
             raise ValueError('radius argument should be strings that ends with "s" letter')
@@ -34,12 +34,11 @@ class AntaresQuery(_BaseCatalogApiQuery, _BaseLightCurveQuery):
                           key=lambda locus: locus.coordinates.separation(coord))
         except RequestException as e:
             logging.warning(str(e))
-            raise CatalogUnavailable
+            raise CatalogUnavailable(catalog=self)
         return loci
 
-    @staticmethod
-    def query_region_closest_locus(coord, radius) -> tuple[Angle, Locus]:
-        loci = AntaresQuery.query_region_loci(coord.ra.deg, coord.dec.deg, radius)
+    def query_region_closest_locus(self, coord, radius) -> tuple[Angle, Locus]:
+        loci = self.query_region_loci(coord.ra.deg, coord.dec.deg, radius)
         if len(loci) == 0:
             raise NotFound
         separations = [locus.coordinates.separation(coord) for locus in loci]

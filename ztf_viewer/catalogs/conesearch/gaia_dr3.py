@@ -99,6 +99,7 @@ class GaiaDr3Query(_BaseVizierQuery, _BaseLightCurveQuery):
         ]
 
     def light_curve(self, id, row=None):
+        self._raise_if_unavailable()
         # By default, load_data creates temporary file in the current directory with time-based name. It could cause
         # problems in multiprocessing scenario
         with TemporaryDirectory() as output_dir:
@@ -109,7 +110,7 @@ class GaiaDr3Query(_BaseVizierQuery, _BaseLightCurveQuery):
                                              data_structure='INDIVIDUAL', output_file=output_file)
             except RequestException as e:
                 logging.warning(str(e))
-                raise CatalogUnavailable
+                raise CatalogUnavailable(catalog=self)
 
         if len(result) == 0:
             raise NotFound

@@ -12,10 +12,12 @@ Version schema is `year.month.num_release`
 
 ### Changed
 - Search radius for broker links in the Summary section is now 3 arcsec https://github.com/snad-space/ztf-viewer/issues/217 https://github.com/snad-space/ztf-viewer/pull/218
+- Set fixed timeouts for most catalog queries
+- Implement 5-minute silence period for unavailable catalogs: if some catalog is found to not work properly, we are not calling it within 5 minutes
 
 ### Fixed
 
-- https://github.com/snad-space/ztf-viewer/issues/208 Alerce table has shown no classifications. Fixed by https://github.com/snad-space/ztf-viewer/pull/209 
+- https://github.com/snad-space/ztf-viewer/issues/208 Alerce table has shown no classifications. Fixed by https://github.com/snad-space/ztf-viewer/pull/209
 
 ## [2022.9.0] 2022 September 2
 

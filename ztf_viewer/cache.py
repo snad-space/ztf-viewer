@@ -1,5 +1,9 @@
 import functools
 
+from cachetools import cached, TTLCache
+from redis import StrictRedis
+from redis_lru import RedisLRU
+
 from ztf_viewer.config import CACHE_TYPE
 
 
@@ -8,9 +12,6 @@ MAXSIZE = 1 << 16
 
 
 def _create_redis_cache():
-    from redis import StrictRedis
-    from redis_lru import RedisLRU
-
     from ztf_viewer.config import REDIS_HOSTNAME
 
     redis_conn = StrictRedis(REDIS_HOSTNAME)
@@ -20,8 +21,6 @@ def _create_redis_cache():
 
 
 def _crate_memory_cache():
-    from cachetools import cached, TTLCache
-
     ttl_cache = TTLCache(MAXSIZE, ttl=TTL)
     cache = functools.partial(cached, cache=ttl_cache)
     return cache

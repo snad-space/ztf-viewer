@@ -66,7 +66,7 @@ class OgleQuery(_BaseCatalogApiQuery):
         paths = [basepath + '.png', basepath + '_1.png']
         light_curve_urls = [urllib.parse.urljoin(self._base_light_curve_url, path) for path in paths]
         for url in light_curve_urls:
-            response = self._light_curve_session.get(url)
+            response = self._light_curve_session.get(url, timeout=60)
             if response.status_code == 200:
                 data = b64encode(response.content).decode()
                 return f'<a href="{url}"><img src="data:image/png;base64,{data}" width=200px /></a>'
@@ -74,7 +74,7 @@ class OgleQuery(_BaseCatalogApiQuery):
 
     def _api_query_region(self, ra, dec, radius_arcsec):
         query = {'ra': ra, 'dec': dec, 'radius_arcsec': radius_arcsec, 'format': 'tsv'}
-        response = self._api_session.get(self._get_api_url(query))
+        response = self._api_session.get(self._get_api_url(query), timeout=10)
         self._raise_if_not_ok(response)
         table = astropy.io.ascii.read(BytesIO(response.content), format='tab', guess=False)
         table['light_curve'] = [self._download_light_curve(row[self.id_column]) for row in table]

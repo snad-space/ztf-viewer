@@ -73,7 +73,7 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
                                                 table='stacked')
         except RequestException as e:
             logging.warning(e)
-            raise CatalogUnavailable
+            raise CatalogUnavailable(catalog=self)
         df = table.to_pandas()
         df = df[df['primaryDetection'] == 1]
         df = df.groupby('objID', sort=False).apply(self.__apply_groups)
@@ -101,12 +101,13 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
         ]
 
     def light_curve(self, id, row=None):
+        self._raise_if_unavailable()
         try:
             table = self._catalogs.query_criteria(objID=row['objID'], catalog='Panstarrs', data_release='dr2',
                                                   table='detection')
         except RequestException as e:
             logging.info(str(e))
-            raise CatalogUnavailable
+            raise CatalogUnavailable(catalog=self)
         if len(table) == 0:
             raise NotFound
         return self._table_to_light_curve(table)

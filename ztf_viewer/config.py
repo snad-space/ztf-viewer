@@ -2,6 +2,7 @@ import os
 
 
 CACHE_TYPE = os.environ.get('CACHE_TYPE', 'redis')
+UNAVAILABLE_CATALOGS_CACHE_TYPE = os.environ.get('UNAVAILABLE_CATALOGS_CACHE_TYPE', 'redis')
 REDIS_HOSTNAME = os.environ.get('REDIS_URL', 'redis')
 AKB_API_URL = os.environ.get('AKB_API_URL', 'https://akb.ztf.snad.space/')
 LC_API_URL = os.environ.get('LC_API_URL', 'https://db.ztf.snad.space')

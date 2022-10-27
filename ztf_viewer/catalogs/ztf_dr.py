@@ -41,7 +41,7 @@ class FindZTFOID(_BaseFindZTF):
 
     @cache()
     def find(self, oid, dr):
-        resp = self._api_session.get(self._oid_api_url(dr), params=self._query_dict(oid))
+        resp = self._api_session.get(self._oid_api_url(dr), params=self._query_dict(oid), timeout=60)
         if resp.status_code != 200:
             message = f'{resp.url} returned {resp.status_code}: {resp.text}'
             logging.info(message)
@@ -99,6 +99,7 @@ class FindZTFCircle(_BaseFindZTF):
         resp = self._api_session.get(
             self._circle_api_url(dr),
             params=dict(ra=ra, dec=dec, radius_arcsec=radius_arcsec),
+            timeout=60,
         )
         if resp.status_code != 200:
             raise CatalogUnavailable

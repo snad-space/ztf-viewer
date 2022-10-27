@@ -41,6 +41,12 @@ classifiers = [
     "Programming Language :: Python :: 3",
 ]
 
+[project.optional-dependencies]
+tests = [
+  'pytest',
+  'pytest-redis',
+]
+
 [project.urls]
 homepage = "ztf.snad.space"
 repository = "github.com/snad-space/ztf_viewer"

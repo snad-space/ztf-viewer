@@ -14,7 +14,7 @@ from astroquery.vizier import Vizier
 from requests import RequestException
 
 from ztf_viewer.cache import cache
-from ztf_viewer.catalogs import find_ztf_oid
+from ztf_viewer.catalogs import find_ztf_oid, unavailable_catalogs
 from ztf_viewer.exceptions import NotFound, CatalogUnavailable
 from ztf_viewer.util import to_str, compose_plus_minus_expression
 
@@ -122,8 +122,13 @@ class _BaseCatalogQuery:
             return self._name_column
         return self.id_column
 
+    def _raise_if_unavailable(self):
+        if self.query_name in unavailable_catalogs:
+            raise CatalogUnavailable(self.query_name, prolongate=False)
+
     @cache()
     def find(self, ra, dec, radius_arcsec):
+        self._raise_if_unavailable()
         coord = SkyCoord(ra, dec, unit='deg', frame='icrs')
         radius = f'{radius_arcsec}s'
         logging.info(f'Querying ra={ra}, dec={dec}, r={radius_arcsec}')
@@ -131,7 +136,7 @@ class _BaseCatalogQuery:
             table = self._query_region(coord, radius=radius)
         except RequestException as e:  # this gives a good chance to catch network or service problem
             logging.warning(str(e))
-            raise CatalogUnavailable
+            raise CatalogUnavailable(catalog=self)
         if table is None:
             raise NotFound
         if isinstance(table, TableList):
@@ -237,15 +242,14 @@ class _BaseCatalogApiQuery(_BaseCatalogQuery):
         super().__init__(*args, **kwargs)
         self._api_session = requests.Session()
 
-    @staticmethod
-    def _raise_if_not_ok(response):
+    def _raise_if_not_ok(self, response):
         if response.status_code != 200:
             logging.warning(response.text)
-            raise CatalogUnavailable(response.text)
+            raise CatalogUnavailable(response.text, catalog=self)
 
     def _api_query_region(self, ra, dec, radius_arcsec):
         query = {'ra': ra, 'dec': dec, 'radius_arcsec': radius_arcsec}
-        response = self._api_session.get(self._get_api_url(query))
+        response = self._api_session.get(self._get_api_url(query), timeout=10)
         self._raise_if_not_ok(response)
         j = response.json()
         table = Table.from_pandas(pd.DataFrame.from_records(j))
@@ -255,7 +259,7 @@ class _BaseCatalogApiQuery(_BaseCatalogQuery):
         ra = coord.ra.to_value('deg')
         dec = coord.dec.to_value('deg')
         if not (isinstance(radius, str) and radius.endswith('s')):
-            raise ValueError('radius argument should be strings that ends with "s" letter')
+            raise ValueError('radius argument should be a string that ends with "s" letter')
         radius_arcsec = float(radius[:-1])
         return self._api_query_region(ra, dec, radius_arcsec)
 

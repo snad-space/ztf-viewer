@@ -3,3 +3,5 @@ secret.env
 *.egg-info/
 build/
 ztf_viewer/_version.py
+# We move it to the root in CI
+Dockerfile_test
