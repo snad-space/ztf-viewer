@@ -1,4 +1,5 @@
 import logging
+import packaging.version
 from itertools import chain
 from typing import Dict, Tuple
 
@@ -32,9 +33,27 @@ class AlerceQuery(_BaseCatalogApiQuery):
         super().__init__(*args, **kwargs)
         self._client = Alerce()
 
+    @staticmethod
+    def __parse_classifier_version(s):
+        # s is like 'stamp_classifier_1.0.4'
+        _, s = s.rsplit('_', 1)
+        return packaging.version.parse(s)
+
+    @staticmethod
+    def __aggregate_max_classifier_version(column):
+        return max(column, key=AlerceQuery.__parse_classifier_version)
+
     @cache()
     def _get_classifications(self, alerce_id) -> pd.DataFrame:
-        return self._client.query_probabilities(alerce_id, format='pandas')
+        df = self._client.query_probabilities(alerce_id, format='pandas')
+        # Get the highest versions of classifiers only
+        highest_versions = df.groupby('classifier_name').aggregate(
+            {'classifier_version': self.__aggregate_max_classifier_version},
+        )
+        highest_versions = highest_versions.set_index(['classifier_version'], append=True)
+        df = df.join(highest_versions, on=['classifier_name', 'classifier_version'], how='inner')
+        print(df)
+        return df
 
     def _get_best_classifications(self, alerce_id) -> Dict[str, Tuple[str, float]]:
         df = self._get_classifications(alerce_id)
