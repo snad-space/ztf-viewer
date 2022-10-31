@@ -58,9 +58,15 @@ class AlerceQuery(_BaseCatalogApiQuery):
     def _get_best_classifications(self, alerce_id) -> Dict[str, Tuple[str, float]]:
         df = self._get_classifications(alerce_id)
         df = df[df['ranking'] == 1]
-        return {classifier: (df[df['classifier_name'] == classifier]['class_name'].iloc[0],
-                             df[df['classifier_name'] == classifier]['probability'].iloc[0])
-                for classifier in self._classifiers.values()}
+        classifications = {}
+        for classifier in self._classifiers.values():
+            results = df[df['classifier_name'] == classifier]
+            if results.empty:
+                continue
+            if results.shape[0] > 1:
+                raise IndexError(f'More than one best classification for {alerce_id} from {classifier}')
+            classifications[classifier] = (results['class_name'].iloc[0], results['probability'].iloc[0])
+        return classifications
 
     def _query_region(self, coord, radius):
         ra = coord.ra.deg
