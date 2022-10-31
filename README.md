@@ -36,7 +36,7 @@ source ~/.virtualenv/ztf-viewer/bin/activate
 python -m pip install -e .
 
 # Run webserver
-CACHE_TYPE="memory" python -m ztf_viewer
+CACHE_TYPE="memory" UNAVAILABLE_CATALOGS_CACHE_TYPE="memory" python -m ztf_viewer
 ```
 
 Go to the url specified in the command line output, it should be something like http://localhost:8050/
