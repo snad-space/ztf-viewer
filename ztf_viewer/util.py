@@ -162,20 +162,16 @@ def raise_if(condition, exception):
     return decorator
 
 
-def join(value, iterator):
-    iterator = iter(iterator)
-    yield next(iterator)
-    for item in iterator:
-        yield value
-        yield item
-
-
 def joiner(value, iterator):
     iterator = iter(iterator)
     yield next(iterator)
     for item in iterator:
         yield value
         yield item
+
+
+def list_join(value, iterator):
+    return list(joiner(value, iterator))
 
 
 def _json_hook(d):

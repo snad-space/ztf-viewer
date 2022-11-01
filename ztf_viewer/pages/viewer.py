@@ -1,5 +1,5 @@
 import pathlib
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 from functools import lru_cache, partial
 from itertools import chain
 from urllib.parse import urlencode, urljoin
@@ -33,7 +33,7 @@ from ztf_viewer.exceptions import NotFound, CatalogUnavailable
 from ztf_viewer.lc_data.plot_data import get_plot_data, get_folded_plot_data, MJD_OFFSET
 from ztf_viewer.lc_features import light_curve_features
 from ztf_viewer.util import (html_from_astropy_table, to_str, INF, min_max_mjd_short, FILTER_COLORS, ZTF_FILTERS,
-                             available_drs, joiner, immutabledefaultdict)
+                             available_drs, list_join, immutabledefaultdict)
 
 
 LIGHT_CURVE_TABLE_COLUMNS = ('mjd', 'mag', 'magerr', 'clrcoeff')
@@ -46,6 +46,7 @@ SUMMARY_FIELDS = {
     '__distance': 'Distance',
     '__period': 'Period, days',
 }
+SUMMARY_PROB_CLASS_MIN_PROBABILITY = 0.5
 
 MARKER_SIZE = 10
 
@@ -320,10 +321,10 @@ def get_layout(pathname):
             [
                 'Same object in ',
             ]
-            + list(joiner(
+            + list_join(
                 ', ',
                 (html.A(dr.upper(), href=f'/{dr}/view/{oid}') for dr in other_drs)
-            ))
+            )
         ),
         html.Div(
             [
@@ -646,7 +647,7 @@ def set_akb_neighbours(different_filter, different_field):
 
     return html.Div(
         ['Neighbour OID(s) have been labeled: ']
-        + list(joiner(', ', (html.A(str(oid), href=f'./{oid}') for oid in labeled_oids))),
+        + list_join(', ', (html.A(str(oid), href=f'./{oid}') for oid in labeled_oids)),
         className='attention',
     )
 
@@ -1018,7 +1019,7 @@ def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_v
     ra, dec = find_ztf_oid.get_coord(oid, dr)
     coord = find_ztf_oid.get_sky_coord(oid, dr)
 
-    elements = {}
+    elements = OrderedDict()
     for catalog, query in catalog_query_objects().items():
         try:
             table = query.find(ra, dec, radii[catalog])
@@ -1075,6 +1076,46 @@ def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_v
     except NotFound:
         pass
 
+    ml_classifications = []
+    for catalog, query in catalog_query_objects().items():
+        try:
+            table = query.find(ra, dec, radii[catalog])
+        except (NotFound, CatalogUnavailable, KeyError):
+            continue
+        if len(table) == 0:
+            continue
+        idx = np.argmin(table['separation'])
+        row = table[idx]
+        for pretty_name, column in query._prob_class_columns.items():
+            if len(row[column]) == 0:
+                continue
+            class_name, prob = max(row[column].items(), key=lambda x: x[1])
+            if prob < SUMMARY_PROB_CLASS_MIN_PROBABILITY:
+                continue
+            ml_classifications.append(html.Div(
+                [
+                    f'{prob * 100:.0f}% {class_name} ({row["separation"]:.3f}″',
+                    html.A(
+                        query.query_name,
+                        href=f'#{catalog}',
+                        style={'border-bottom': '1px dashed', 'text-decoration': 'none'},
+                    ),
+                    # nothing if no name, otherwise space + name
+                    pretty_name and f' {pretty_name}',
+                    ')',
+                ],
+                style={'display': 'inline'},
+            ))
+    if len(ml_classifications) > 0:
+        elements['ML classifications'] = ml_classifications
+
+    # Put these elements first
+    for element_name in reversed(['Name', 'Type', 'ML classifications']):
+        try:
+            elements.move_to_end(element_name, last=False)
+        except KeyError:
+            pass
+
     other_oids = neighbour_oids(different_filter, different_field)
     lcs = get_plot_data(oid, dr, other_oids=other_oids)
     mags = {}
@@ -1114,7 +1155,7 @@ def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_v
 
     div = html.Div(
         html.Ul(
-            [html.Li([html.B(k), ': '] + list(joiner(', ', v))) for k, v in elements.items()],
+            [html.Li([html.B(k), ': '] + list_join(', ', v)) for k, v in elements.items()],
             style={'list-style-type': 'none'},
         ),
     )

@@ -22,7 +22,7 @@ from ztf_viewer.pages.login import get_layout as get_login_layout
 from ztf_viewer.pages.search import get_layout as get_search_layout
 from ztf_viewer.pages.tags import get_layout as get_tags_layout
 from ztf_viewer.pages.viewer import get_layout as get_viewer_layout
-from ztf_viewer.util import available_drs, joiner, YEAR, DEFAULT_DR
+from ztf_viewer.util import available_drs, list_join, YEAR, DEFAULT_DR
 from ztf_viewer.version import version_string, version_url
 
 
@@ -318,10 +318,10 @@ def app_select_by_url(pathname):
                     [
                         'The viewer is also available for ',
                     ]
-                    + list(joiner(', ', (
+                    + list_join(', ', (
                         html.A(f'ZTF {dr.upper()}', href=f'/{dr}/')
                         for dr in other_drs
-                    ))),
+                    )),
                 ),
             ],
             no_update,

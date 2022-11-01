@@ -79,7 +79,7 @@ class RedisTTLSet(_BaseTTLSet[_T_Redis], Generic[_T_Redis]):
             self.remove = self.__remove_6_2_0
 
     @staticmethod
-    def __redis_version(client) -> packaging.version.Version:
+    def __redis_version(client: StrictRedis) -> packaging.version.Version:
         info = client.info()
         version = packaging.version.parse(info['redis_version'])
         return version

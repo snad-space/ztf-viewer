@@ -31,6 +31,9 @@ class GaiaDr3Query(_BaseVizierQuery, _BaseLightCurveQuery):
         'PSS': 'single star prob',
     }
 
+    _prob_class_column = 'classifications'
+    _prob_class_columns = {'': _prob_class_column}
+
     _vizier_columns = [id_column,
                        'Teff', 'b_Teff', 'B_Teff',
                        'logg', 'b_logg', 'B_logg',
@@ -122,3 +125,11 @@ class GaiaDr3Query(_BaseVizierQuery, _BaseLightCurveQuery):
         if len(table) == 0:
             raise NotFound
         return self._table_to_light_curve(table)
+
+    def add_prob_class_columns(self, table):
+        table['classifications'] = [{} for _ in range(len(table))]
+        for row in table:
+            for pretty_name, column_name in [('Quasar', 'PQSO'), ('galaxy', 'PGal'), ('single star', 'PSS')]:
+                if (prob := row[column_name]) is None:
+                    continue
+                row['classifications'][pretty_name] = prob
