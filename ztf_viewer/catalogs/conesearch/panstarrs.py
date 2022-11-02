@@ -89,13 +89,14 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
         return f'{self._detection_url}?objID={row["objID"]}'
 
     def _table_to_light_curve(self, table):
+        table = table[table['psfFlux'] > 0.0]
+
         # Pan-STARRS time is MJD in TAI (International Atomic Time) standard, we convert it to HMJD UTC
         # https://outerspace.stsci.edu/display/PANSTARRS/PS1+ForcedWarpMasked+table+fields
         coord = SkyCoord(ra=table['ra'], dec=table['dec'], unit='deg')
         time = Time(Time(table['obsTime'], format='mjd', scale='tai'), scale='utc')
         helio_time = time + time.light_travel_time(coord, 'heliocentric', location=HALEAKALA)
-
-        table = table[table['psfFlux'] > 0.0]
+        table['hmjd'] = helio_time.mjd
 
         table['mag'] = ABZPMAG_JY - 2.5 * np.log10(table['psfFlux'])
         table['magErr'] = LGE_25 * table['psfFluxErr'] / table['psfFlux']
@@ -103,7 +104,7 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
         return [
             {
                'oid': row['objID'],
-               'mjd': helio_time.mjd,
+               'mjd': row['hmjd'],
                'mag': row['mag'],
                'magerr': row['magErr'],
                'filter': f'ps_{self._band_ids[row["filterID"]]}',
