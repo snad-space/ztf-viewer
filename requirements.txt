@@ -15,4 +15,4 @@ plotly==5.10.0
 redis==4.2.2
 redis_lru==0.1.2
 requests==2.27.1
-setuptools==65.3.0
+setuptools==65.5.0
