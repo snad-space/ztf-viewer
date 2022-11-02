@@ -5,7 +5,7 @@ from string import ascii_lowercase
 from tempfile import TemporaryDirectory
 
 import numpy as np
-from astropy.time import Time
+from astropy.time import Time, TimeDelta
 from astroquery.gaia import GaiaClass
 from requests.exceptions import RequestException
 
@@ -84,7 +84,11 @@ class GaiaDr3Query(_BaseVizierQuery, _BaseLightCurveQuery):
 
     def _table_to_light_curve(self, table):
         """https://gea.esac.esa.int/archive/documentation/GDR3/Gaia_archive/chap_datamodel/sec_dm_photometry/ssec_dm_epoch_photometry.html"""
-        table['mjd'] = (Time('2010-01-01T00:00:00') + table['time']).mjd
+
+        bary_tcb = Time('2010-01-01T00:00:00', scale='tcb') + TimeDelta(table['time'], format='jd')
+        # We assume Barycentric time to be close enough to Heliocentric one
+        table['bmjd'] = Time(bary_tcb, scale='utc').mjd
+
         table['AB_zp'] = [self.AB_ZP[band] for band in table['band']]
         table['AB_zperr'] = [self.AB_ZP_ERR[band] for band in table['band']]
         table['mag_AB'] = table['AB_zp'] - 2.5 * np.log10(table['flux'])
@@ -93,7 +97,7 @@ class GaiaDr3Query(_BaseVizierQuery, _BaseLightCurveQuery):
         return [
             {
                'oid': row['source_id'],
-               'mjd': row['mjd'],
+               'mjd': row['bmjd'],
                'mag': row['mag_AB'],
                'magerr': row['magerr_AB'],
                'filter': f"gaia_{row['band']}",

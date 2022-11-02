@@ -52,7 +52,6 @@ class AlerceQuery(_BaseCatalogApiQuery):
         )
         highest_versions = highest_versions.set_index(['classifier_version'], append=True)
         df = df.join(highest_versions, on=['classifier_name', 'classifier_version'], how='inner')
-        print(df)
         return df
 
     def _get_best_classifications(self, alerce_id) -> Dict[str, Tuple[str, float]]:
