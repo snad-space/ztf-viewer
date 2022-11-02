@@ -2,13 +2,18 @@ import logging
 from itertools import count
 
 import numpy as np
+from astropy.coordinates import EarthLocation, SkyCoord
 from astropy.table import Table
+from astropy.time import Time
 from astroquery.mast import Catalogs
 from requests import RequestException
 
 from ztf_viewer.catalogs.conesearch._base import _BaseCatalogQuery, _BaseLightCurveQuery, ValueWithIntervalColumn, ValueWithUncertaintyColumn
 from ztf_viewer.exceptions import NotFound, CatalogUnavailable
 from ztf_viewer.util import ABZPMAG_JY, LGE_25
+
+
+HALEAKALA = EarthLocation(lon=-156.169, lat=20.71552, height=3048.0)  # EarthLocation.of_site('Haleakala')
 
 
 class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
@@ -84,6 +89,12 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
         return f'{self._detection_url}?objID={row["objID"]}'
 
     def _table_to_light_curve(self, table):
+        # Pan-STARRS time is MJD in TAI (International Atomic Time) standard, we convert it to HMJD UTC
+        # https://outerspace.stsci.edu/display/PANSTARRS/PS1+ForcedWarpMasked+table+fields
+        coord = SkyCoord(ra=table['ra'], dec=table['dec'], unit='deg')
+        time = Time(Time(table['obsTime'], format='mjd', scale='tai'), scale='utc')
+        helio_time = time + time.light_travel_time(coord, 'heliocentric', location=HALEAKALA)
+
         table = table[table['psfFlux'] > 0.0]
 
         table['mag'] = ABZPMAG_JY - 2.5 * np.log10(table['psfFlux'])
@@ -92,7 +103,7 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
         return [
             {
                'oid': row['objID'],
-               'mjd': row['obsTime'],
+               'mjd': helio_time.mjd,
                'mag': row['mag'],
                'magerr': row['magErr'],
                'filter': f'ps_{self._band_ids[row["filterID"]]}',
