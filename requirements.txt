@@ -8,7 +8,7 @@ dustmaps==1.0.10
 Flask==2.2.2
 immutabledict==2.2.1
 Jinja2==3.1.2
-matplotlib==3.5.3
+matplotlib==3.6.1
 numpy==1.23.4
 pandas==1.5.1
 plotly==5.10.0
