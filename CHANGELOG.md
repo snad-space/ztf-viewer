@@ -6,6 +6,10 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
+—
+
+## [2022.11.0] 2022 November 2
+
 ### Added
 
 - `stamp_classifier` for Alerce https://github.com/snad-space/ztf-viewer/pull/209
@@ -13,7 +17,7 @@ Version schema is `year.month.num_release`
 
 ### Changed
 - Search radius for broker links in the Summary section is now 3 arcsec https://github.com/snad-space/ztf-viewer/issues/217 https://github.com/snad-space/ztf-viewer/pull/218
-- Set fixed timeouts for most catalog queries
+- Set fixed time-outs for most catalog queries
 - Implement 5-minute silence period for unavailable catalogs: if some catalog is found to not work properly, we are not calling it within 5 minutes
 
 ### Fixed
