@@ -55,10 +55,10 @@ app.layout = html.Div([
                 id='username',
                 style={'position': 'absolute', 'top': 0, 'right': '1em'}
             ),
-            'OID ',
+            'ZTF DR OID or SNAD name ',
             dcc.Input(
                 id='input-oid',
-                placeholder='E.g. 633207400004730',
+                placeholder='633207400004730 or 202',
                 type='text',
                 minLength=3,
                 maxLength=16,
@@ -78,20 +78,21 @@ app.layout = html.Div([
     ),
     html.Div(
         [
-            'Coordinates ',
+            'Coordinates or name ',
             dcc.Input(
                 id='input-coord-or-name',
-                placeholder='00h00m00s +00d00m00s',
+                placeholder='00h00m00s +00d00m00s or M57',
                 type='text',
                 minLength=1,
                 maxLength=50,
                 n_submit=0,
+                style={'width': '16.5em'},
             ),
-            ' radius (arcsec) ',
+            ' radius, arcsec ',
             dcc.Input(
                 value='1',
                 id='input-search-radius',
-                placeholder='radius, arcsec',
+                placeholder='1.23',
                 type='number',
                 step='0.1',
                 min='0',
@@ -247,7 +248,7 @@ def go_to_url(n_clicks_oid, n_submit_oid, n_clicks_search,
 def app_select_by_url(pathname):
     if not isinstance(pathname, str):
         raise PreventUpdate
-    # DR7 is not supported any more:
+    # DR7 is not supported anymore:
     if m := re.search(r'^/dr7((?:/.*)?)$', pathname):
         href = m.group(1) or '/'
         return [
