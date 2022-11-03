@@ -9,7 +9,7 @@ Version schema is `year.month.num_release`
 ### Fixed
 
 - https://github.com/snad-space/ztf-viewer/issues/144 Convert Pan-Starrs light curve time moments to the same time scale as ZTF https://github.com/snad-space/ztf-viewer/pull/228
-- https://github.com/snad-space/ztf-viewer/issues/172 Convert Gaia light times to the same time scale as ZTF https://github.com/snad-space/ztf-viewer/pull/228
+- https://github.com/snad-space/ztf-viewer/issues/172 Convert Gaia DR3 times to the same time scale as ZTF https://github.com/snad-space/ztf-viewer/pull/228
 
 ## [2022.11.0] 2022 November 2
 
