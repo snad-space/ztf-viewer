@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import argparse
 import logging
 import pathlib
 import re
@@ -413,5 +414,12 @@ def server():
     return app.server
 
 
+def parse_args(args):
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--host', default='127.0.0.1')
+    return parser.parse_args(args)
+
+
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    args = parse_args(None)
+    app.run_server(host=args.host, debug=True)
