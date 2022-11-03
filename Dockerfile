@@ -1,4 +1,4 @@
-FROM python:3.10-buster
+FROM python:3.10-bullseye
 
 # Timezone settings
 ENV TZ=Europe/Moscow
