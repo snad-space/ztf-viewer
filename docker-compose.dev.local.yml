@@ -1,0 +1,5 @@
+version: '2'
+services:
+  ztf-web-viewer-app:
+    volumes:
+      - ./ztf_viewer:/app/ztf_viewer

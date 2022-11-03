@@ -1,0 +1,21 @@
+version: '2'
+services:
+  redis:
+    image: redis
+    networks:
+      - app
+    restart: always
+
+  ztf-web-viewer-app:
+    build: .
+    entrypoint: "python3 -m ztf_viewer --host=0.0.0.0"
+    networks:
+      - app
+    ports:
+      - "127.0.0.1:8050:8050"
+    depends_on:
+      - redis
+    restart: always
+
+networks:
+  app:

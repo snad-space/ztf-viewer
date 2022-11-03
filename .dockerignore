@@ -1,3 +1,6 @@
 **/.git
 secret.env
 .github
+docker-compose.yml
+docker-compose.dev.yml
+docker-compose.dev.local.yml

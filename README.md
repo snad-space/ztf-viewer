@@ -4,9 +4,9 @@ This projects contains a source of [ZTF](http://ztf.caltech.edu) Data Releases l
 
 ## Evaluation
 
- Both production and development versions can be started via [Docker compose](https://docs.docker.com/compose/) using `docker-compose.yml` and `docker-compose-dev.yml` correspondingly.
- Current configuration assumes that there is a Docker `proxy` network shared with [`jwilder/nginx-proxy`](https://github.com/jwilder/nginx-proxy) which proxies the webserver to the outer world.
- Also this configuration require `secret.env` file containing secret environment variables, such as API keys. 
+ Both production and development versions can be started via [Docker compose](https://docs.docker.com/compose/) using `docker-compose.yml` and `docker-compose.dev.yml` correspondingly.
+ Current production configuration assumes that there is a Docker `proxy` network shared with [`jwilder/nginx-proxy`](https://github.com/jwilder/nginx-proxy) which proxies the webserver to the outer world.
+ Also, this configuration require `secret.env` file containing secret environment variables, such as API keys. 
 
 ### Environment variables
 
@@ -22,6 +22,20 @@ Environment variables to configure the server, see default values in `config.py`
 - `TNS_API_URL`: SNAD mirror of the TNS
 - `ZTF_FITS_PROXY_URL`: address of SNAD proxy for ZTF FITS 
 - `JS9_URL`: address of full-functional JS9 viewer supporting `JS9.LoadProxy`
+
+### Running development docker-compose
+
+You could run a development version of the server at `http://127.0.0.1:8050` using `docker-compose.dev.yml` file:
+
+```sh
+docker-compose -f docker-compose.dev.yml up --build
+```
+
+This will run Dash/Flask server in debug mode and will reload the server on code changes if you mount the source code directory `ztf_viewer` as a volume:
+
+```sh
+docker-compose -f docker-compose.dev.yml -f docker-compose.dev.local.yml up --build
+```
 
 ### Running without docker
 
