@@ -261,7 +261,7 @@ def app_select_by_url(pathname):
             no_update,
             no_update,
         ]
-    if m := re.search(r'^/+(?:(dr\d)/+)?$', pathname):
+    if m := re.search(r'^/+(?:(dr\d{1,2})/+)?$', pathname):
         dr = m.group(1) or DEFAULT_DR
         other_drs = [other_dr for other_dr in available_drs if other_dr != dr]
         return [
@@ -335,14 +335,14 @@ def app_select_by_url(pathname):
             no_update,
             no_update,
         ]
-    if re.search(r'^/+dr\d/+view/+(\d+)', pathname):
+    if re.search(r'^/+dr\d{1,2}/+view/+(\d+)', pathname):
         return [
             get_viewer_layout(pathname),
             no_update,
             no_update,
         ]
     if search_match := re.search(r"""^
-                                     (?:/+(?P<dr>dr\d))?
+                                     (?:/+(?P<dr>dr\d{1,2}))?
                                      /+search
                                      /+(?P<coord_or_name>[^/]+)
                                      /+(?P<radius_arcsec>[^/]+)

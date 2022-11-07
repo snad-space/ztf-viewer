@@ -55,7 +55,7 @@ ZTF_FILTERS = ('zg', 'zr', 'zi')
 
 
 DEFAULT_DR = 'dr8'
-available_drs = ('dr2', 'dr3', 'dr4', 'dr8',)
+available_drs = ('dr2', 'dr3', 'dr4', 'dr8', 'dr13',)
 
 
 def db_coord_to_degrees(coord):
@@ -143,6 +143,8 @@ def min_max_mjd_short(dr):
         return 58194.0, 58908.0
     if dr == 'dr8':
         return 58194.0, 58972.0
+    if dr == 'dr13':
+        return 58194.0, 59280.0
     return -INF, INF
 
 
