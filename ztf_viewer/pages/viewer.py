@@ -356,6 +356,20 @@ def get_layout(pathname):
         ),
         html.Div(
             [
+                html.H2('SPICY'),
+                dcc.Input(
+                    value='10',
+                    id=dict(type='search-radius', index='spicy'),
+                    placeholder='Search radius, arcsec',
+                    type='number',
+                ),
+                ' search radius, arcsec',
+                html.Div(id='spicy-table'),
+            ],
+            id='spicy',
+        ),
+        html.Div(
+            [
                 html.H2('SDSS DR16 Quasars'),
                 dcc.Input(
                     value='10',
