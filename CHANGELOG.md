@@ -6,6 +6,10 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
+### Added
+
+- ZTF DR13 is added. Note that DR8 is still the default, since we do not have DR13 UCI installation yet
+
 ### Fixed
 
 - https://github.com/snad-space/ztf-viewer/issues/144 Convert Pan-Starrs light curve time moments to the same time scale as ZTF https://github.com/snad-space/ztf-viewer/pull/228
