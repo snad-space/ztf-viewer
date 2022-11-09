@@ -6,6 +6,8 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
+## [2022.11.1] 2022 November 9
+
 ### Added
 
 - ZTF DR13 is added. Note that DR8 is still the default, since we do not have DR13 UCI installation yet
