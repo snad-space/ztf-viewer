@@ -6,12 +6,17 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
+## [2022.11.2] 2022 November 10
+
+### Added
+
+- SPICY catalog cross-matching ([Vizier](https://vizier.cds.unistra.fr/viz-bin/VizieR?-source=J/ApJS/254/33)) https://github.com/snad-space/ztf-viewer/pull/233 https://github.com/snad-space/ztf-viewer/pull/234
+
 ## [2022.11.1] 2022 November 9
 
 ### Added
 
 - ZTF DR13 is added. Note that DR8 is still the default, since we do not have DR13 UCI installation yet
-- SPICY catalog cross-matching ([Vizier](https://vizier.cds.unistra.fr/viz-bin/VizieR?-source=J/ApJS/254/33)) https://github.com/snad-space/ztf-viewer/pull/233 https://github.com/snad-space/ztf-viewer/pull/234
 
 ### Fixed
 
