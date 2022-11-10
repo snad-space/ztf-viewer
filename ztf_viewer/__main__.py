@@ -296,6 +296,8 @@ def app_select_by_url(pathname):
                         ', ',
                         html.A('the ZTF Catalog of Periodic Variable Stars', href='//zenodo.org/record/3886372'),
                         ', ',
+                        html.A('The Spitzer/IRAC Candidate YSO Catalog', href='https://vizier.cds.unistra.fr/viz-bin/VizieR?-source=J/ApJS/254/33'),
+                        ', ',
                         html.A('PanStarrs DR2', href='//outerspace.stsci.edu/display/PANSTARRS/'),
                         ', ',
                         html.A('the Transient Name Server', href='//www.wis-tns.org'),

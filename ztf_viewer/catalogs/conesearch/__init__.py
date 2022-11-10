@@ -11,6 +11,7 @@ from .gcvs import GcvsQuery
 from .ogle import OgleQuery
 from .panstarrs import PanstarrsDr2StackedQuery
 from .sdss import SdssQuasarsQuery
+from .spicy import SpicyQuery
 from .simbad import SimbadQuery
 from .tns import TnsQuery
 from .vsx import VsxQuery
@@ -30,6 +31,7 @@ OGLE_QUERY = OgleQuery('OGLE')
 PANSTARRS_DR2_QUERY = PanstarrsDr2StackedQuery('Pan-STARRS DR2 Stacked')
 SDSS_QUASARS_QUERY = SdssQuasarsQuery('SDSS DR16 Quasars')
 SIMBAD_QUERY = SimbadQuery('Simbad')
+SPICY_QUERY = SpicyQuery('SPICY')
 TNS_QUERY = TnsQuery('Transient Name Server')
 VSX_QUERY = VsxQuery('VSX')
 ZTF_PERIODIC_QUERY = ZtfPeriodicQuery('ZTF Periodic')
