@@ -358,7 +358,7 @@ def get_layout(pathname):
             [
                 html.H2('SPICY'),
                 dcc.Input(
-                    value='10',
+                    value='1',
                     id=dict(type='search-radius', index='spicy'),
                     placeholder='Search radius, arcsec',
                     type='number',
