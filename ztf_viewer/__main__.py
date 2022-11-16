@@ -126,7 +126,30 @@ app.layout = html.Div([
             '.',
             html.Br(),
             'If you use this web-site in your research, please cite ',
-            html.A('this paper', href='https://ui.adsabs.harvard.edu/abs/2021MNRAS.tmp..363M'),
+            html.A('this paper', href='https://ui.adsabs.harvard.edu/abs/2022arXiv221107605M'),
+            ' ',
+            dcc.Clipboard(
+                content='''@ARTICLE{2022arXiv221107605M,
+       author = {{Malanchev}, Konstantin and {Kornilov}, Matwey V. and {Pruzhinskaya}, Maria V. and {Ishida}, Emille E.~O. and {Aleo}, Patrick D. and {Korolev}, Vladimir S. and {Lavrukhina}, Anastasia and {Russeil}, Etienne and {Sreejith}, Sreevarsha and {Volnova}, Alina A. and {Voloshina}, Anastasiya and {Krone-Martins}, Alberto},
+        title = "{The SNAD Viewer: Everything You Want to Know about Your Favorite ZTF Object}",
+      journal = {arXiv e-prints},
+     keywords = {Astrophysics - Instrumentation and Methods for Astrophysics},
+         year = 2022,
+        month = nov,
+          eid = {arXiv:2211.07605},
+        pages = {arXiv:2211.07605},
+archivePrefix = {arXiv},
+       eprint = {2211.07605},
+ primaryClass = {astro-ph.IM},
+       adsurl = {https://ui.adsabs.harvard.edu/abs/2022arXiv221107605M},
+      adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+}
+''',
+                title='copy BibTeX citation',
+                style={
+                    "display": "inline-block",
+                },
+            ),
             ' as well as all relevant data source papers.',
         ],
         style={'margin-top': '5em',}
@@ -273,15 +296,13 @@ def app_select_by_url(pathname):
                     ]
                 ),
                 html.H2('Welcome to SNAD ZTF object viewer!'),
-                html.Big(
+                html.Div(html.Big(
                     [
                         'This is a tool developed by the ',
                         html.A('SИAD team', href='//snad.space'),
                         ' in order to enable quick expert investigation of objects within the public ',
                         html.A('Zwicky Transient Facility (ZTF)', href='//ztf.caltech.edu'),
-                        ' data releases.',
-                        html.Br(), html.Br(),
-                        'It was developed as part of the ',
+                        ' data releases. It was developed as part of the ',
                         html.A('3rd SИAD Workshop', href='//snad.space/2020/'),
                         ', held remotely in July, 2020.',
                         html.Br(), html.Br(),
@@ -314,18 +335,59 @@ def app_select_by_url(pathname):
                         ', ',
                         html.A('Vizier', href='//vizier.u-strasbg.fr/viz-bin/VizieR'),
                         '.',
+                        html.Br(), html.Br(),
+                        html.Div(
+                            [
+                                'The viewer is also available for ',
+                            ]
+                            + list_join(', ', (
+                                html.A(f'ZTF {dr.upper()}', href=f'/{dr}/')
+                                for dr in other_drs
+                            )),
+                        ),
                         html.Br(),
+                        'You can find the Viewer description and implementation details in the paper ',
+                        html.A(
+                            '“The SNAD Viewer: Everything You Want to Know about Your Favorite ZTF Object”, Malanchev at al. 2022',
+                            href="https://ui.adsabs.harvard.edu/abs/2022arXiv221107605M",
+                        ),
+                        ", BibTeX citation:"
                     ],
-                ),
-                html.Br(),
+                ), style={'max-width': '1200px'},),
                 html.Div(
                     [
-                        'The viewer is also available for ',
-                    ]
-                    + list_join(', ', (
-                        html.A(f'ZTF {dr.upper()}', href=f'/{dr}/')
-                        for dr in other_drs
-                    )),
+                        dcc.Markdown(
+                            '''```latex
+@ARTICLE{2022arXiv221107605M,
+   author = {{Malanchev}, Konstantin and {Kornilov}, Matwey V. and {Pruzhinskaya}, Maria V. and {Ishida}, Emille E.~O. and {Aleo}, Patrick D. and {Korolev}, Vladimir S. and {Lavrukhina}, Anastasia and {Russeil}, Etienne and {Sreejith}, Sreevarsha and {Volnova}, Alina A. and {Voloshina}, Anastasiya and {Krone-Martins}, Alberto},
+    title = "{The SNAD Viewer: Everything You Want to Know about Your Favorite ZTF Object}",
+  journal = {arXiv e-prints},
+ keywords = {Astrophysics - Instrumentation and Methods for Astrophysics},
+     year = 2022,
+    month = nov,
+      eid = {arXiv:2211.07605},
+    pages = {arXiv:2211.07605},
+archivePrefix = {arXiv},
+   eprint = {2211.07605},
+primaryClass = {astro-ph.IM},
+   adsurl = {https://ui.adsabs.harvard.edu/abs/2022arXiv221107605M},
+  adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+}
+```''',
+                            id='bibtex_citation',
+                            style={"overflow": "auto"},
+                        ),
+                        dcc.Clipboard(
+                            target_id='bibtex_citation',
+                            style={
+                                "position": "absolute",
+                                "top": 0,
+                                "right": 20,
+                                "fontSize": "1.6em",
+                            },
+                        ),
+                    ],
+                    style={"width": "50%", "max-width": "800px", "position": "relative"}
                 ),
             ],
             no_update,
