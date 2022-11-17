@@ -371,6 +371,7 @@ def app_select_by_url(pathname):
                     ),
                     style={"max-width": "1200px"},
                 ),
+                html.Br(),
                 html.Div(
                     [
                         dcc.Markdown(
@@ -392,7 +393,10 @@ primaryClass = {astro-ph.IM},
 }
 ```""",
                             id="bibtex_citation",
-                            style={"overflow": "auto"},
+                            style={
+                                "overflow": "auto",
+                                "background-color": "rgba(34, 17, 76, 0.07)",
+                            },
                         ),
                         dcc.Clipboard(
                             target_id="bibtex_citation",
