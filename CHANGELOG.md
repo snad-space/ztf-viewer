@@ -6,6 +6,14 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
+### Added
+
+- BibTeX item for the new paper at the home page
+
+### Changed
+
+- Update paper link in the footer to the new paper
+
 ## [2022.11.2] 2022 November 10
 
 ### Added
