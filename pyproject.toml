@@ -1,6 +1,6 @@
 [project]
 name = "ztf_viewer"
-version = "2022.11.2"
+version = "2022.11.3"
 authors = [
   {email = "hombit@gmail.com"},
   {name = "Konstantin Malanchev"}
