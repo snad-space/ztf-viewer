@@ -9,10 +9,10 @@ from ztf_viewer.exceptions import NotFound, UnAuthorized
 
 
 class AKB:
-    _base_api_url = 'https://akb.ztf.snad.space/'
-    _tags_api_url = urljoin(_base_api_url, '/tags/')
-    _objects_api_url = urljoin(_base_api_url, '/objects/')
-    _whoami_api_url = urljoin(_base_api_url, '/whoami/')
+    _base_api_url = "https://akb.ztf.snad.space/"
+    _tags_api_url = urljoin(_base_api_url, "/tags/")
+    _objects_api_url = urljoin(_base_api_url, "/objects/")
+    _whoami_api_url = urljoin(_base_api_url, "/whoami/")
 
     def __init__(self):
         self.session = requests.Session()
@@ -21,7 +21,7 @@ class AKB:
         response = self.session.get(url, headers=self._token_header(token))
         if response.status_code == 200:
             return response.json()
-        message = f'{response.url} returned {response.status_code}: {response.text}'
+        message = f"{response.url} returned {response.status_code}: {response.text}"
         logging.info(message)
         if response.status_code == 401:
             return UnAuthorized(message)
@@ -34,23 +34,23 @@ class AKB:
 
     def _token_from_cookies(self):
         try:
-            return flask.request.cookies['akb_token']
+            return flask.request.cookies["akb_token"]
         except KeyError:
             raise UnAuthorized
 
     def _token_header(self, token=None):
         if token is None:
             token = self._token_from_cookies()
-        return {'Authorization': f'Token {token}'}
+        return {"Authorization": f"Token {token}"}
 
     def _object_url(self, oid):
-        return urljoin(self._objects_api_url, f'{oid}/')
+        return urljoin(self._objects_api_url, f"{oid}/")
 
     def _object_log_url(self, oid):
-        return urljoin(self._objects_api_url, f'{oid}/log/')
+        return urljoin(self._objects_api_url, f"{oid}/log/")
 
     def _tag_url(self, tag_name):
-        return urljoin(self._tags_api_url, f'{tag_name}/')
+        return urljoin(self._tags_api_url, f"{tag_name}/")
 
     def _put_or_post(self, put_url, post_url, data, token=None):
         headers = self._token_header(token)
@@ -60,7 +60,7 @@ class AKB:
         try:
             resp.raise_for_status()
         except requests.HTTPError as e:
-            logging.info(f'Post into {resp.url} returned {resp.status_code}: {resp.text}')
+            logging.info(f"Post into {resp.url} returned {resp.status_code}: {resp.text}")
             raise RuntimeError from e
 
     def get_tags(self, token=None):
@@ -68,20 +68,20 @@ class AKB:
 
     def get_tag_names(self, token=None):
         tags = self.get_tags(token=token)
-        names = [tag['name'] for tag in sorted(tags, key=lambda tag: tag['priority'])]
+        names = [tag["name"] for tag in sorted(tags, key=lambda tag: tag["priority"])]
         return names
 
     def post_tag(self, name, priority=None, description=None, token=None):
         if priority is None:
-            priority = max((tag['priority'] for tag in self.get_tags()), default=-1) + 1
+            priority = max((tag["priority"] for tag in self.get_tags()), default=-1) + 1
         data = dict(name=name, priority=priority)
         if description is not None:
-            data['description'] = description
+            data["description"] = description
         self._put_or_post(self._tag_url(name), self._tags_api_url, data, token=token)
 
     def post_tags(self, tags, token=None):
         for tag in tags:
-            self.post_tag(tag['name'], tag['priority'], tag.get('description'), token=token)
+            self.post_tag(tag["name"], tag["priority"], tag.get("description"), token=token)
 
     def get_objects(self, token=None):
         return self._get(self._objects_api_url, token=token)
@@ -111,7 +111,7 @@ class AKB:
     @cachetools.cached(cachetools.TTLCache(maxsize=1024, ttl=3600))
     def whoami(self, token):
         if not isinstance(token, str):
-            raise ValueError(f'token must be a str, not {type(token)}')
+            raise ValueError(f"token must be a str, not {type(token)}")
         resp = self.session.get(self._whoami_api_url, headers=self._token_header(token))
         if resp.status_code == 401:
             raise UnAuthorized
@@ -122,9 +122,9 @@ class AKB:
         if token is None:
             token = self._token_from_cookies()
         json = self.whoami(token=token)
-        if json['first_name'] or json['last_name']:
+        if json["first_name"] or json["last_name"]:
             return f"{json['first_name']} {json['last_name']}"
-        return json['username']
+        return json["username"]
 
     @cachetools.cached(cachetools.TTLCache(maxsize=1024, ttl=3600))
     def _is_token_valid(self, token):

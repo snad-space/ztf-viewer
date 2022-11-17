@@ -1,16 +1,15 @@
 import dash
 
-
 js9_css = [
-    '/static/js9/js9support.css',
-    '/static/js9/js9.css',
+    "/static/js9/js9support.css",
+    "/static/js9/js9.css",
 ]
 
 js9_js = [
-    '/static/js/js9prefs.js',
-    '/static/js9/js9support.min.js',
-    '/static/js9/js9.min.js',
-    '/static/js9/js9plugins.js',
+    "/static/js/js9prefs.js",
+    "/static/js9/js9support.min.js",
+    "/static/js9/js9.min.js",
+    "/static/js9/js9plugins.js",
 ]
 
 

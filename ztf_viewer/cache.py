@@ -1,11 +1,10 @@
 import functools
 
-from cachetools import cached, TTLCache
+from cachetools import TTLCache, cached
 from redis import StrictRedis
 from redis_lru import RedisLRU
 
 from ztf_viewer.config import CACHE_TYPE
-
 
 TTL = 7 * 86400
 MAXSIZE = 1 << 16
@@ -27,8 +26,8 @@ def _crate_memory_cache():
 
 
 CACHE_CREATORS = {
-    'redis': _create_redis_cache,
-    'memory': _crate_memory_cache,
+    "redis": _create_redis_cache,
+    "memory": _crate_memory_cache,
 }
 
 

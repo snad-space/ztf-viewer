@@ -1,8 +1,8 @@
 def setup_config(item):
     from ztf_viewer import config
 
-    config.CACHE_TYPE = 'memory'
-    config.UNAVAILABLE_CATALOGS_CACHE_TYPE = 'memory'
+    config.CACHE_TYPE = "memory"
+    config.UNAVAILABLE_CATALOGS_CACHE_TYPE = "memory"
 
 
 def setup_cache(item):

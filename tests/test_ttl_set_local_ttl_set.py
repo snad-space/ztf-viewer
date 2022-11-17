@@ -1,5 +1,6 @@
-import pytest
 import time
+
+import pytest
 
 from ztf_viewer.ttl_set import LocalTTLSet
 

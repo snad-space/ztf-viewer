@@ -15,8 +15,8 @@ from requests import RequestException
 
 from ztf_viewer.cache import cache
 from ztf_viewer.catalogs import find_ztf_oid, unavailable_catalogs
-from ztf_viewer.exceptions import NotFound, CatalogUnavailable
-from ztf_viewer.util import to_str, compose_plus_minus_expression
+from ztf_viewer.exceptions import CatalogUnavailable, NotFound
+from ztf_viewer.util import compose_plus_minus_expression, to_str
 
 COSMO = FlatLambdaCDM(H0=70, Om0=0.3)
 
@@ -31,20 +31,17 @@ class ValueWithIntervalColumn:
 
     def __post_init__(self):
         if self.name is None:
-            self.name = f'_{self.value}'
+            self.name = f"_{self.value}"
         if self.lower is None:
-            self.lower = f'b_{self.value}'
+            self.lower = f"b_{self.value}"
         if self.upper is None:
-            self.upper = f'B_{self.value}'
+            self.upper = f"B_{self.value}"
 
     def html(self, row) -> str:
         if not row[self.value] or not row[self.lower] or not row[self.upper]:
-            return ''
+            return ""
         return compose_plus_minus_expression(
-            row[self.value],
-            row[self.lower],
-            row[self.upper],
-            float_decimal_digits=self.float_decimal_digits
+            row[self.value], row[self.lower], row[self.upper], float_decimal_digits=self.float_decimal_digits
         )
 
 
@@ -57,14 +54,14 @@ class ValueWithUncertaintyColumn:
 
     def __post_init__(self):
         if self.name is None:
-            self.name = f'_{self.value}'
+            self.name = f"_{self.value}"
         if self.uncertainty is None:
-            self.uncertainty = f'e_{self.value}'
+            self.uncertainty = f"e_{self.value}"
 
     def html(self, row) -> str:
         if not row[self.value] or not row[self.uncertainty]:
-            return ''
-        return f'{to_str(row[self.value], float_decimal_digits=self.float_decimal_digits)}±{to_str(row[self.uncertainty], float_decimal_digits=self.float_decimal_digits)}'
+            return ""
+        return f"{to_str(row[self.value], float_decimal_digits=self.float_decimal_digits)}±{to_str(row[self.uncertainty], float_decimal_digits=self.float_decimal_digits)}"
 
 
 class _BaseCatalogQuery:
@@ -104,7 +101,7 @@ class _BaseCatalogQuery:
 
     @staticmethod
     def _normalize_name(name):
-        return name.replace(' ', '-').lower()
+        return name.replace(" ", "-").lower()
 
     @classmethod
     def get_object(cls, name):
@@ -132,9 +129,9 @@ class _BaseCatalogQuery:
     @cache()
     def find(self, ra, dec, radius_arcsec):
         self._raise_if_unavailable()
-        coord = SkyCoord(ra, dec, unit='deg', frame='icrs')
-        radius = f'{radius_arcsec}s'
-        logging.info(f'Querying ra={ra}, dec={dec}, r={radius_arcsec}')
+        coord = SkyCoord(ra, dec, unit="deg", frame="icrs")
+        radius = f"{radius_arcsec}s"
+        logging.info(f"Querying ra={ra}, dec={dec}, r={radius_arcsec}")
         try:
             table = self._query_region(coord, radius=radius)
         except RequestException as e:  # this gives a good chance to catch network or service problem
@@ -149,12 +146,10 @@ class _BaseCatalogQuery:
         if len(table) == 0:
             raise NotFound
         catalog_coord = SkyCoord(
-            table[self._table_ra], table[self._table_dec],
-            unit=[self._ra_unit, 'deg'],
-            frame='icrs'
+            table[self._table_ra], table[self._table_dec], unit=[self._ra_unit, "deg"], frame="icrs"
         )
-        table['separation'] = coord.separation(catalog_coord).to('arcsec')
-        table.sort('separation')
+        table["separation"] = coord.separation(catalog_coord).to("arcsec")
+        table.sort("separation")
         self.add_additional_columns(table)
         return table
 
@@ -182,26 +177,26 @@ class _BaseCatalogQuery:
             table[x.name] = [x.html(row) for row in table]
 
     def add_objname_column(self, table):
-        table['__objname'] = [to_str(row[self.name_column]) for row in table]
+        table["__objname"] = [to_str(row[self.name_column]) for row in table]
 
     def add_link_column(self, table):
-        table['__link'] = [self.get_link(row[self.id_column], row['__objname'], row=row) for row in table]
+        table["__link"] = [self.get_link(row[self.id_column], row["__objname"], row=row) for row in table]
 
     def add_type_column(self, table):
         if self.type_column is not None:
-            table['__type'] = [to_str(row[self.type_column]) for row in table]
+            table["__type"] = [to_str(row[self.type_column]) for row in table]
 
     def add_period_column(self, table):
         if self.period_column is not None:
-            table['__period'] = table[self.period_column]
+            table["__period"] = table[self.period_column]
 
     def add_redshift_column(self, table):
         if self.redshift_column is not None:
-            table['__redshift'] = table[self.redshift_column]
+            table["__redshift"] = table[self.redshift_column]
 
     def add_distance_column(self, table):
-        if '__redshift' in table.columns:
-            table['__distance'] = [None if z is None else COSMO.luminosity_distance(z) for z in table['__redshift']]
+        if "__redshift" in table.columns:
+            table["__distance"] = [None if z is None else COSMO.luminosity_distance(z) for z in table["__redshift"]]
 
     def add_prob_class_columns(self, table):
         """Assign column values to {'class': probability, ...}"""
@@ -221,7 +216,7 @@ class _BaseLightCurveQuery:
 
     @staticmethod
     def _empty_light_curve():
-        return Table(dict.fromkeys(['oid', 'mjd', 'mag', 'magerr', 'filter'], []))
+        return Table(dict.fromkeys(["oid", "mjd", "mag", "magerr", "filter"], []))
 
     def closest_light_curve(self, ra, dec, radius_arcsec, fail_on_empty=True, fail_on_unavailable=True):
         try:
@@ -238,8 +233,9 @@ class _BaseLightCurveQuery:
 
     def closest_light_curve_by_oid(self, oid, dr, radius_arcsec, fail_on_empty=True, fail_on_unavailable=True):
         ra, dec = find_ztf_oid.get_coord(oid, dr)
-        return self.closest_light_curve(ra, dec, radius_arcsec, fail_on_empty=fail_on_empty,
-                                        fail_on_unavailable=fail_on_unavailable)
+        return self.closest_light_curve(
+            ra, dec, radius_arcsec, fail_on_empty=fail_on_empty, fail_on_unavailable=fail_on_unavailable
+        )
 
 
 class _BaseCatalogApiQuery(_BaseCatalogQuery):
@@ -257,7 +253,7 @@ class _BaseCatalogApiQuery(_BaseCatalogQuery):
             raise CatalogUnavailable(response.text, catalog=self)
 
     def _api_query_region(self, ra, dec, radius_arcsec):
-        query = {'ra': ra, 'dec': dec, 'radius_arcsec': radius_arcsec}
+        query = {"ra": ra, "dec": dec, "radius_arcsec": radius_arcsec}
         response = self._api_session.get(self._get_api_url(query), timeout=10)
         self._raise_if_not_ok(response)
         j = response.json()
@@ -265,23 +261,23 @@ class _BaseCatalogApiQuery(_BaseCatalogQuery):
         return table
 
     def _query_region(self, coord, radius):
-        ra = coord.ra.to_value('deg')
-        dec = coord.dec.to_value('deg')
-        if not (isinstance(radius, str) and radius.endswith('s')):
+        ra = coord.ra.to_value("deg")
+        dec = coord.dec.to_value("deg")
+        if not (isinstance(radius, str) and radius.endswith("s")):
             raise ValueError('radius argument should be a string that ends with "s" letter')
         radius_arcsec = float(radius[:-1])
         return self._api_query_region(ra, dec, radius_arcsec)
 
     def _get_api_url(self, query):
         query_string = urllib.parse.urlencode(query)
-        return f'{self._base_api_url}?{query_string}'
+        return f"{self._base_api_url}?{query_string}"
 
 
 class _BaseVizierQuery(_BaseCatalogQuery):
-    _table_ra = '_RAJ2000'
-    _ra_unit = 'deg'
-    _table_dec = '_DEJ2000'
-    _vizier_columns = ['*']
+    _table_ra = "_RAJ2000"
+    _ra_unit = "deg"
+    _table_dec = "_DEJ2000"
+    _vizier_columns = ["*"]
 
     @property
     def _vizier_catalog(self) -> str:
@@ -289,10 +285,10 @@ class _BaseVizierQuery(_BaseCatalogQuery):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._query = Vizier(columns=['+_r', '_RAJ2000', '_DEJ2000'] + self._vizier_columns)
+        self._query = Vizier(columns=["+_r", "_RAJ2000", "_DEJ2000"] + self._vizier_columns)
         self._query_region = partial(self._query.query_region, catalog=self._vizier_catalog)
 
     def get_url(self, id, row=None):
         id = to_str(id)
         id = urllib.parse.quote_plus(id)
-        return f'//vizier.u-strasbg.fr/viz-bin/VizieR-6?-out.form=%2bH&-source={self._vizier_catalog}&{self.id_column}={id}'
+        return f"//vizier.u-strasbg.fr/viz-bin/VizieR-6?-out.form=%2bH&-source={self._vizier_catalog}&{self.id_column}={id}"

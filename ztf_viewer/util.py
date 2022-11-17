@@ -1,3 +1,4 @@
+import datetime
 import json
 import logging
 import math
@@ -7,7 +8,6 @@ from functools import wraps
 from itertools import chain, count
 
 import astropy.table
-import datetime
 import numpy as np
 from astropy import units
 from astropy.coordinates import EarthLocation
@@ -15,51 +15,56 @@ from astropy.time import Time
 from immutabledict import immutabledict
 from jinja2 import Template
 
-
 YEAR = datetime.datetime.now().year
 
 
 PALOMAR = EarthLocation(lon=-116.863, lat=33.356, height=1706)  # EarthLocation.of_site('Palomar')
 
 
-INF = float('inf')
+INF = float("inf")
 LN10_04 = 0.4 * np.log(10.0)
 LGE_25 = 2.5 / np.log(10.0)
 
 ABZPMAG_JY = 8.9
 
 FILTER_COLORS = {
-    'g': '#62D03E',
-    'r': '#CC3344',
-    'i': '#1c1309',
-    "g'": '#62D03E',
-    "r'": '#CC3344',
-    "i'": '#1c1309',
-    'zg': '#62D03E',
-    'zr': '#CC3344',
-    'zi': '#1c1309',
-    'ant_g': '#05ffc5',
-    'ant_R': '#f08b98',
-    'gaia_G': 'grey',
-    'gaia_BP': 'blue',
-    'gaia_RP': 'red',
-    'ps_g': '#a7d984',
-    'ps_r': '#e0848f',
-    'ps_i': '#694721',
-    'ps_z': '#5c5cff',
-    'ps_y': '#9370d8',
+    "g": "#62D03E",
+    "r": "#CC3344",
+    "i": "#1c1309",
+    "g'": "#62D03E",
+    "r'": "#CC3344",
+    "i'": "#1c1309",
+    "zg": "#62D03E",
+    "zr": "#CC3344",
+    "zi": "#1c1309",
+    "ant_g": "#05ffc5",
+    "ant_R": "#f08b98",
+    "gaia_G": "grey",
+    "gaia_BP": "blue",
+    "gaia_RP": "red",
+    "ps_g": "#a7d984",
+    "ps_r": "#e0848f",
+    "ps_i": "#694721",
+    "ps_z": "#5c5cff",
+    "ps_y": "#9370d8",
 }
 FILTERS_ORDER = defaultdict(lambda: 100) | dict(zip(FILTER_COLORS, count(1)))
 FILTERS = tuple(FILTER_COLORS)
-ZTF_FILTERS = ('zg', 'zr', 'zi')
+ZTF_FILTERS = ("zg", "zr", "zi")
 
 
-DEFAULT_DR = 'dr8'
-available_drs = ('dr2', 'dr3', 'dr4', 'dr8', 'dr13',)
+DEFAULT_DR = "dr8"
+available_drs = (
+    "dr2",
+    "dr3",
+    "dr4",
+    "dr8",
+    "dr13",
+)
 
 
 def db_coord_to_degrees(coord):
-    match = re.search(r'^\((\S+)\s*,\s*(\S+)\)$', coord)
+    match = re.search(r"^\((\S+)\s*,\s*(\S+)\)$", coord)
     ra = math.degrees(float(match.group(1)))
     dec = math.degrees(float(match.group(2)))
     return ra, dec
@@ -73,7 +78,8 @@ def hms_to_deg(hms: str):
 
 
 def html_from_astropy_table(table: astropy.table.Table, columns: dict):
-    template = Template('''
+    template = Template(
+        """
         <table id="simbad-table">
         <tr>
         {% for column in columns %}
@@ -88,7 +94,8 @@ def html_from_astropy_table(table: astropy.table.Table, columns: dict):
             </tr>
         {% endfor %}
         </table>
-    ''')
+    """
+    )
     table = table[list(columns.keys())].copy()
     for column in table.colnames:
         table[column] = [to_str(x) for x in table[column]]
@@ -105,52 +112,52 @@ def to_str(s, *, float_decimal_digits=3):
         return str(s)
     if isinstance(s, np.floating) or isinstance(s, float):
         if np.isnan(s):
-            return ''
-        return f'{s:.{float_decimal_digits}f}'
+            return ""
+        return f"{s:.{float_decimal_digits}f}"
     if isinstance(s, units.Quantity):
-        if s.unit.is_equivalent('cm'):
+        if s.unit.is_equivalent("cm"):
             for unit in (units.pc, units.kpc, units.Mpc, units.Gpc):
                 if 1e-1 < (distance := s.to(unit)).value < 3e3:
-                    return f'{distance:.2f}'
+                    return f"{distance:.2f}"
             else:
-                logging.warning(f'Value {s} is too large or too small')
+                logging.warning(f"Value {s} is too large or too small")
                 return str(s)
     if np.ma.is_masked(s):
-        return ''
-    raise ValueError(f'Argument should be str, bytes, int, float or unit.Quantity (distance), not {type(s)}')
+        return ""
+    raise ValueError(f"Argument should be str, bytes, int, float or unit.Quantity (distance), not {type(s)}")
 
 
 def anchor_form(url, data, title):
-    inputs = '\n'.join(f'<input type="hidden" name="{key}" value="{value}">' for key, value in data.items())
-    return f'''
+    inputs = "\n".join(f'<input type="hidden" name="{key}" value="{value}">' for key, value in data.items())
+    return f"""
         <form method="post" action="{url}" class="inline">
             {inputs}
             <button type="submit" class="link-button">
                 {title}
             </button>
         </form>
-    '''
+    """
 
 
 def min_max_mjd_short(dr):
-    if dr == 'dr2':
+    if dr == "dr2":
         return 58194.0, 58299.0
-    if dr == 'dr3':
+    if dr == "dr3":
         return 58194.0, 58483.0
-    if dr == 'dr4':
+    if dr == "dr4":
         return 58194.0, 58664.0
-    if dr == 'dr7':
+    if dr == "dr7":
         return 58194.0, 58908.0
-    if dr == 'dr8':
+    if dr == "dr8":
         return 58194.0, 58972.0
-    if dr == 'dr13':
+    if dr == "dr13":
         return 58194.0, 59280.0
     return -INF, INF
 
 
 def hmjd_to_earth(hmjd, coord):
-    t = Time(hmjd, format='mjd')
-    return t - t.light_travel_time(coord, kind='heliocentric', location=PALOMAR)
+    t = Time(hmjd, format="mjd")
+    return t - t.light_travel_time(coord, kind="heliocentric", location=PALOMAR)
 
 
 def raise_if(condition, exception):
@@ -160,7 +167,9 @@ def raise_if(condition, exception):
             if condition:
                 raise exception
             return f(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
@@ -203,8 +212,9 @@ def qid_from_rcid(rcid: int) -> int:
 class immutabledefaultdict(immutabledict):
     dict_cls = defaultdict
 
+
 def compose_plus_minus_expression(value, lower, upper, **to_str_kwargs):
-    return f'''
+    return f"""
         <div class="expression">
             {to_str(value, **to_str_kwargs)}
             <span class='supsub'>
@@ -212,4 +222,4 @@ def compose_plus_minus_expression(value, lower, upper, **to_str_kwargs):
               <sub class='subscript'>-{to_str(value - lower, **to_str_kwargs)}</sub>
             </span>
             </div>
-    '''
+    """
