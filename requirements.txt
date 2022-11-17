@@ -72,7 +72,7 @@ Pillow==9.3.0
 plotly==5.10.0
 pluggy==1.0.0
 progressbar2==4.2.0
-prompt-toolkit==3.0.31
+prompt-toolkit==3.0.32
 psutil==5.9.3
 ptyprocess==0.7.0
 pure-eval==0.2.2
