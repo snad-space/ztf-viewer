@@ -1,23 +1,23 @@
 import logging
-from urllib.parse import urljoin, urlsplit, urlencode, urlunsplit
+from urllib.parse import urlencode, urljoin, urlsplit, urlunsplit
 
 import requests
 from astropy.coordinates import SkyCoord
 
 from ztf_viewer.cache import cache
 from ztf_viewer.config import LC_API_URL
-from ztf_viewer.exceptions import NotFound, CatalogUnavailable
+from ztf_viewer.exceptions import CatalogUnavailable, NotFound
 from ztf_viewer.util import INF
 
 
 class _BaseFindZTF:
-    _base_api_url = urljoin(LC_API_URL, '/api/v3/')
+    _base_api_url = urljoin(LC_API_URL, "/api/v3/")
 
     def __init__(self):
         self._api_session = requests.Session()
 
     def _api_url(self, dr):
-        return urljoin(self._base_api_url, f'data/{dr}/')
+        return urljoin(self._base_api_url, f"data/{dr}/")
 
     def find(self, *args, **kwargs):
         raise NotImplemented
@@ -28,7 +28,7 @@ class FindZTFOID(_BaseFindZTF):
         super().__init__()
 
     def _oid_api_url(self, dr):
-        return urljoin(self._api_url(dr), 'oid/full/json')
+        return urljoin(self._api_url(dr), "oid/full/json")
 
     def json_url(self, oid, dr):
         parts = list(urlsplit(self._oid_api_url(dr)))
@@ -43,7 +43,7 @@ class FindZTFOID(_BaseFindZTF):
     def find(self, oid, dr):
         resp = self._api_session.get(self._oid_api_url(dr), params=self._query_dict(oid), timeout=60)
         if resp.status_code != 200:
-            message = f'{resp.url} returned {resp.status_code}: {resp.text}'
+            message = f"{resp.url} returned {resp.status_code}: {resp.text}"
             logging.info(message)
             raise NotFound(message)
         return resp.json()[str(oid)]
@@ -52,12 +52,12 @@ class FindZTFOID(_BaseFindZTF):
         meta = self.get_meta(oid, dr)
         if meta is None:
             raise NotFound
-        coord = meta['coord']
-        return coord['ra'], coord['dec']
+        coord = meta["coord"]
+        return coord["ra"], coord["dec"]
 
     def get_sky_coord(self, oid, dr):
         ra, dec = self.get_coord(oid, dr)
-        return SkyCoord(ra=ra, dec=dec, unit='deg')
+        return SkyCoord(ra=ra, dec=dec, unit="deg")
 
     def get_coord_string(self, oid, dr, frame=None):
         try:
@@ -65,14 +65,14 @@ class FindZTFOID(_BaseFindZTF):
         except TypeError as e:
             raise NotFound from e
         if frame is None:
-            return f'{ra:.5f} {dec:.5f}'
-        sky_coord = SkyCoord(ra=ra, dec=dec, unit='deg')
+            return f"{ra:.5f} {dec:.5f}"
+        sky_coord = SkyCoord(ra=ra, dec=dec, unit="deg")
         frame_coord = sky_coord.transform_to(frame)
         return frame_coord.to_string()
 
     def get_meta(self, oid, dr):
         j = self.find(oid, dr)
-        return j['meta']
+        return j["meta"]
 
     def get_lc(self, oid, dr, min_mjd=None, max_mjd=None):
         if min_mjd is None:
@@ -80,7 +80,7 @@ class FindZTFOID(_BaseFindZTF):
         if max_mjd is None:
             max_mjd = INF
         j = self.find(oid, dr)
-        lc = [obs.copy() for obs in j['lc'] if min_mjd <= obs['mjd'] <= max_mjd]
+        lc = [obs.copy() for obs in j["lc"] if min_mjd <= obs["mjd"] <= max_mjd]
         return lc
 
 
@@ -92,7 +92,7 @@ class FindZTFCircle(_BaseFindZTF):
         super().__init__()
 
     def _circle_api_url(self, dr):
-        return urljoin(self._api_url(dr), 'circle/full/json')
+        return urljoin(self._api_url(dr), "circle/full/json")
 
     @cache()
     def find(self, ra, dec, radius_arcsec, dr):
@@ -106,14 +106,16 @@ class FindZTFCircle(_BaseFindZTF):
         j = resp.json()
         if not j:
             raise NotFound
-        coord = SkyCoord(ra, dec, unit='deg', frame='icrs')
-        cat_coord = SkyCoord(ra=[obj['meta']['coord']['ra'] for obj in j.values()],
-                             dec=[obj['meta']['coord']['dec'] for obj in j.values()],
-                             unit='deg',
-                             frame='icrs')
-        sep = coord.separation(cat_coord).to_value('arcsec')
+        coord = SkyCoord(ra, dec, unit="deg", frame="icrs")
+        cat_coord = SkyCoord(
+            ra=[obj["meta"]["coord"]["ra"] for obj in j.values()],
+            dec=[obj["meta"]["coord"]["dec"] for obj in j.values()],
+            unit="deg",
+            frame="icrs",
+        )
+        sep = coord.separation(cat_coord).to_value("arcsec")
         for obj, r in zip(j.values(), sep):
-            obj['separation'] = r
+            obj["separation"] = r
         return j
 
 

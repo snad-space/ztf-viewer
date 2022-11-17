@@ -1,4 +1,5 @@
-from dustmaps.sfd import SFDQuery as LocalQuery, SFDWebQuery as WebQuery
+from dustmaps.sfd import SFDQuery as LocalQuery
+from dustmaps.sfd import SFDWebQuery as WebQuery
 
 from ztf_viewer.catalogs.extinction._base import _BaseLocalRemoteExtinctionQuery
 

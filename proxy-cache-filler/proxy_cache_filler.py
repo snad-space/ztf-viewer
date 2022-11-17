@@ -6,17 +6,16 @@ from urllib.parse import urljoin
 
 import requests
 
-
-BASE_URL = 'http://ztf-web-viewer-proxy/products/sci/'
+BASE_URL = "http://ztf-web-viewer-proxy/products/sci/"
 
 ZTFSTARTDATE = datetime(2017, 9, 26)
 
 
 def request(date):
-    url = urljoin(BASE_URL, f'{date.year}/{date.month:02d}{date.day:02d}/')
-    logging.info(f'Requesting {url}')
+    url = urljoin(BASE_URL, f"{date.year}/{date.month:02d}{date.day:02d}/")
+    logging.info(f"Requesting {url}")
     response = requests.get(url)
-    logging.info(f'Status code: {response.status_code}')
+    logging.info(f"Status code: {response.status_code}")
 
 
 def main():
@@ -29,5 +28,5 @@ def main():
         date += day
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

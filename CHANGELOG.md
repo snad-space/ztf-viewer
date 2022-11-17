@@ -54,7 +54,7 @@ Version schema is `year.month.num_release`
 - 500 error when downloading some PDF figures with a large number of points
 
 ### Changed
-- Aladin field of view is changed from 4.35' to 7.27' to make it close to ZTF FITS one https://github.com/snad-space/ztf-viewer/pull/199 
+- Aladin field of view is changed from 4.35' to 7.27' to make it close to ZTF FITS one https://github.com/snad-space/ztf-viewer/pull/199
 
 ## [2022.7.3] 2022 July 25
 
@@ -76,7 +76,7 @@ Version schema is `year.month.num_release`
 
 - Pan-STARRS magnitude errors equation
 - Description of Gaia light curves said that magnitudes are in Vega system, while we use AB.
-- List new catalogs on the index page: SDSS DR16 QSO, PanSTARRS DR2, Gaia DR3. 
+- List new catalogs on the index page: SDSS DR16 QSO, PanSTARRS DR2, Gaia DR3.
 
 ## [2022.7.0] 2022 July 10
 

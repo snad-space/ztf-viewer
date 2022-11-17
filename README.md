@@ -6,7 +6,7 @@ This projects contains a source of [ZTF](http://ztf.caltech.edu) Data Releases l
 
  Both production and development versions can be started via [Docker compose](https://docs.docker.com/compose/) using `docker-compose.yml` and `docker-compose.dev.yml` correspondingly.
  Current production configuration assumes that there is a Docker `proxy` network shared with [`jwilder/nginx-proxy`](https://github.com/jwilder/nginx-proxy) which proxies the webserver to the outer world.
- Also, this configuration require `secret.env` file containing secret environment variables, such as API keys. 
+ Also, this configuration require `secret.env` file containing secret environment variables, such as API keys.
 
 ### Environment variables
 
@@ -20,7 +20,7 @@ Environment variables to configure the server, see default values in `config.py`
 - `OGLE_III_API_URL`: SNAD OGLE III mirror address
 - `ZTF_PERIODIC_API_URL`: SNAD mirror of the ZTF periodic variables catalog
 - `TNS_API_URL`: SNAD mirror of the TNS
-- `ZTF_FITS_PROXY_URL`: address of SNAD proxy for ZTF FITS 
+- `ZTF_FITS_PROXY_URL`: address of SNAD proxy for ZTF FITS
 - `JS9_URL`: address of full-functional JS9 viewer supporting `JS9.LoadProxy`
 
 ### Running development docker-compose

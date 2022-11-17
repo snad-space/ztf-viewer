@@ -6,9 +6,9 @@ import requests
 class _BaseExtinctionQuery(ABC):
     # http://svo2.cab.inta-csic.es/svo/theory/fps3/index.php?mode=browse&gname=Palomar&gname2=ZTF&asttype=
     af2av = {
-        'zg': 1.21,
-        'zr': 0.848,
-        'zi': 0.622,
+        "zg": 1.21,
+        "zr": 0.848,
+        "zi": 0.622,
     }
     r = 3.1
 

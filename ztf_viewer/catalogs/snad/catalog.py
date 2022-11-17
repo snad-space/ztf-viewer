@@ -13,26 +13,26 @@ from ztf_viewer.exceptions import NotFound
 
 
 class _SnadCatalog:
-    url = 'https://snad.space/catalog/snad_catalog.csv'
+    url = "https://snad.space/catalog/snad_catalog.csv"
 
     def __init__(self, interval_seconds=600):
         self.check_interval = timedelta(seconds=interval_seconds)
 
-        with importlib.resources.open_binary(data, 'snad_catalog.csv') as fh:
+        with importlib.resources.open_binary(data, "snad_catalog.csv") as fh:
             self.table = self._create_table(fh)
 
         self.updated_at = datetime(1900, 1, 1, 1, 1)
 
     @staticmethod
     def _create_table(src):
-        table = ascii.read(src, format='csv')
-        table['coord'] = SkyCoord(ra=table['R.A.'], dec=table['Dec.'], unit='deg')
-        table.add_index('Name')
+        table = ascii.read(src, format="csv")
+        table["coord"] = SkyCoord(ra=table["R.A."], dec=table["Dec."], unit="deg")
+        table.add_index("Name")
         return table
 
     @staticmethod
     def _last_modified(resp):
-        s = resp.headers['last-modified']
+        s = resp.headers["last-modified"]
         parsed = email.utils.parsedate(s)
         dt = datetime(*parsed[:7])
         return dt
@@ -59,12 +59,12 @@ class _SnadCatalog:
 
     def search_region(self, ra, dec, radius_arcsec):
         self._update()
-        coord = SkyCoord(ra=ra, dec=dec, unit='deg')
-        radius = Angle(radius_arcsec, unit='arcsec')
-        idx, sep, _ = coord.match_to_catalog_sky(self.table['coord'])
+        coord = SkyCoord(ra=ra, dec=dec, unit="deg")
+        radius = Angle(radius_arcsec, unit="arcsec")
+        idx, sep, _ = coord.match_to_catalog_sky(self.table["coord"])
         if sep > radius:
             raise NotFound
-        return self.table['Name'][idx]
+        return self.table["Name"][idx]
 
 
 snad_catalog = _SnadCatalog()
@@ -72,16 +72,16 @@ snad_catalog = _SnadCatalog()
 
 class SnadCatalogSource:
     def __init__(self, name):
-        if isinstance(name, int) or not name.upper().startswith('SNAD'):
-            name = f'SNAD{name}'
+        if isinstance(name, int) or not name.upper().startswith("SNAD"):
+            name = f"SNAD{name}"
         name = name.upper()
         catalog = snad_catalog()
         self.row = catalog.loc[name]
 
     @property
     def coord(self):
-        return self.row['coord']
+        return self.row["coord"]
 
     @property
     def ztf_oid(self):
-        return int(self.row['OID'])
+        return int(self.row["OID"])

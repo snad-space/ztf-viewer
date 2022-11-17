@@ -7,16 +7,18 @@ def import_matplotlib():
     """Matplotlib default parameters"""
     import matplotlib
 
-    matplotlib.use('pgf')
-    matplotlib.rcParams['pdf.fonttype'] = 42
-    matplotlib.rcParams['ps.fonttype'] = 42
-    matplotlib.rcParams['font.size'] = 14
-    matplotlib.rcParams['font.family'] = 'serif'
-    matplotlib.rcParams['pgf.rcfonts'] = True
-    matplotlib.rcParams['pgf.preamble'] = r'''
+    matplotlib.use("pgf")
+    matplotlib.rcParams["pdf.fonttype"] = 42
+    matplotlib.rcParams["ps.fonttype"] = 42
+    matplotlib.rcParams["font.size"] = 14
+    matplotlib.rcParams["font.family"] = "serif"
+    matplotlib.rcParams["pgf.rcfonts"] = True
+    matplotlib.rcParams[
+        "pgf.preamble"
+    ] = r"""
         \usepackage{hyperref}
         \hypersetup{colorlinks=true, urlcolor=black}
-    '''
+    """
 
 
 def import_astropy():
@@ -26,6 +28,7 @@ def import_astropy():
             from astroquery.cds import cds
             from astroquery.simbad import Simbad
             from astroquery.vizier import Vizier
+
             break
         except FileExistsError:
             sleep(np.random.uniform(0.05, 0.2))

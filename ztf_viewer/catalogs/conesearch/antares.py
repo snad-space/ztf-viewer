@@ -8,30 +8,34 @@ from astropy.table import Table
 from requests import RequestException
 
 from ztf_viewer.cache import cache
-from ztf_viewer.catalogs.conesearch._base import _BaseCatalogApiQuery, _BaseLightCurveQuery
-from ztf_viewer.exceptions import NotFound, CatalogUnavailable
+from ztf_viewer.catalogs.conesearch._base import (
+    _BaseCatalogApiQuery,
+    _BaseLightCurveQuery,
+)
+from ztf_viewer.exceptions import CatalogUnavailable, NotFound
 
 
 class AntaresQuery(_BaseCatalogApiQuery, _BaseLightCurveQuery):
-    id_column = 'locus_id'
-    _table_ra = 'ra'
-    _ra_unit = 'deg'
-    _table_dec = 'dec'
+    id_column = "locus_id"
+    _table_ra = "ra"
+    _ra_unit = "deg"
+    _table_dec = "dec"
     columns = {
-        '__link': 'oid',
-        'separation': 'Separation, arcsec',
+        "__link": "oid",
+        "separation": "Separation, arcsec",
     }
 
     @cache()
     def query_region_loci(self, ra, dec, radius) -> list[Locus]:
         self._raise_if_unavailable()
-        coord = SkyCoord(ra, dec, unit='deg')
-        if not (isinstance(radius, str) and radius.endswith('s')):
+        coord = SkyCoord(ra, dec, unit="deg")
+        if not (isinstance(radius, str) and radius.endswith("s")):
             raise ValueError('radius argument should be strings that ends with "s" letter')
         radius = Angle(radius)
         try:
-            loci = sorted(antares_client.search.cone_search(coord, radius),
-                          key=lambda locus: locus.coordinates.separation(coord))
+            loci = sorted(
+                antares_client.search.cone_search(coord, radius), key=lambda locus: locus.coordinates.separation(coord)
+            )
         except RequestException as e:
             logging.warning(str(e))
             raise CatalogUnavailable(catalog=self)
@@ -47,14 +51,14 @@ class AntaresQuery(_BaseCatalogApiQuery, _BaseLightCurveQuery):
 
     @staticmethod
     def _locus_to_light_curve(locus):
-        lc = locus.lightcurve[~np.isnan(locus.lightcurve['ant_mag'])]
+        lc = locus.lightcurve[~np.isnan(locus.lightcurve["ant_mag"])]
         return [
             {
-                'oid': locus.locus_id,
-                'mjd': obs.ant_mjd,
-                'mag': obs.ant_mag,
-                'magerr': obs.ant_magerr,
-                'filter': f"ant_{obs.ant_passband}",
+                "oid": locus.locus_id,
+                "mjd": obs.ant_mjd,
+                "mag": obs.ant_mag,
+                "magerr": obs.ant_magerr,
+                "filter": f"ant_{obs.ant_passband}",
             }
             for obs in lc.itertuples()
         ]
@@ -68,7 +72,7 @@ class AntaresQuery(_BaseCatalogApiQuery, _BaseLightCurveQuery):
 
     def closest_light_curve(self, ra, dec, radius_arcsec, fail_on_empty=True, fail_on_unavailable=True):
         try:
-            loci = self.query_region_loci(ra, dec, f'{radius_arcsec}s')
+            loci = self.query_region_loci(ra, dec, f"{radius_arcsec}s")
         except CatalogUnavailable:
             if fail_on_unavailable:
                 raise
@@ -77,7 +81,7 @@ class AntaresQuery(_BaseCatalogApiQuery, _BaseLightCurveQuery):
             if fail_on_empty:
                 raise NotFound
             return self._empty_light_curve()
-        coord = SkyCoord(ra=ra, dec=dec, unit='deg')
+        coord = SkyCoord(ra=ra, dec=dec, unit="deg")
         locus = min(loci, key=lambda locus: locus.coordinates.separation(coord))
         return self._locus_to_light_curve(locus)
 
@@ -89,4 +93,4 @@ class AntaresQuery(_BaseCatalogApiQuery, _BaseLightCurveQuery):
         return table
 
     def get_url(self, id, row=None):
-        return f'//antares.noirlab.edu/loci/{id}'
+        return f"//antares.noirlab.edu/loci/{id}"

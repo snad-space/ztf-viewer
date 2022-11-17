@@ -16,7 +16,7 @@ class CatalogUnavailable(Exception):
             return
 
         query_name = catalog.query_name
-        super().__init__(f'Catalog {query_name} is unavailable: {args}')
+        super().__init__(f"Catalog {query_name} is unavailable: {args}")
 
         if prolongate:
             unavailable_catalogs.add(query_name)

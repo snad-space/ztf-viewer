@@ -1,9 +1,9 @@
 import functools
 
-from ztf_viewer.config import UNAVAILABLE_CATALOGS_CACHE_TYPE, REDIS_HOSTNAME
-from ztf_viewer.ttl_set import LocalTTLSet, RedisTTLStringSet
-
 from redis import StrictRedis
+
+from ztf_viewer.config import REDIS_HOSTNAME, UNAVAILABLE_CATALOGS_CACHE_TYPE
+from ztf_viewer.ttl_set import LocalTTLSet, RedisTTLStringSet
 
 TTL = 5 * 60  # 5 minutes
 MAXSIZE = 1 << 10  # number of catalogs, we have much less
@@ -11,12 +11,12 @@ MAXSIZE = 1 << 10  # number of catalogs, we have much less
 
 def _create_redis():
     redis_client = StrictRedis(REDIS_HOSTNAME)
-    return RedisTTLStringSet(TTL, client=redis_client, prefix='unavailable_catalogs')
+    return RedisTTLStringSet(TTL, client=redis_client, prefix="unavailable_catalogs")
 
 
 CREATORS = {
-    'redis': _create_redis,
-    'memory': lambda: LocalTTLSet(maxsize=MAXSIZE, ttl=TTL),
+    "redis": _create_redis,
+    "memory": lambda: LocalTTLSet(maxsize=MAXSIZE, ttl=TTL),
 }
 
 
