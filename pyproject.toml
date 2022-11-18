@@ -14,6 +14,7 @@ dependencies = [
     "dash>=2.3.1",
     "dash_defer_js_import",
     "dash-dangerously-set-inner-html",
+    "ipywidgets>=7.0.0", # needed by plotly
     "orjson",
     "flask",
     "pandas",
