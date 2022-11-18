@@ -6,7 +6,9 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
-## Fixed
+## [2022.11.4] 2022 November 18
+
+### Fixed
 
 - The light-curve figure was broken https://github.com/snad-space/ztf-viewer/pull/248
 
