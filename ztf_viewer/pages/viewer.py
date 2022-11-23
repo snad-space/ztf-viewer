@@ -43,6 +43,7 @@ from ztf_viewer.util import (
     INF,
     ZTF_FILTERS,
     available_drs,
+    format_sep,
     html_from_astropy_table,
     immutabledefaultdict,
     list_join,
@@ -1126,7 +1127,7 @@ def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_v
             values.append(
                 html.Div(
                     [
-                        f'{value} ({bra}{row["separation"]:.3f}″ ',
+                        f'{value} ({bra}{format_sep(row["separation"])} ',
                         html.A(
                             query.query_name,
                             href=f"#{catalog}",
@@ -1179,7 +1180,7 @@ def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_v
             ml_classifications.append(
                 html.Div(
                     [
-                        f'{prob * 100:.0f}% {class_name} ({row["separation"]:.3f}″',
+                        f'{prob * 100:.0f}% {class_name} ({format_sep(row["separation"])}',
                         html.A(
                             query.query_name,
                             href=f"#{catalog}",
@@ -1555,7 +1556,7 @@ def find_neighbours(radius, center_oid, dr, different):
     children = []
     for i, (oid, obj) in enumerate(sorted(j.items(), key=lambda kv: kv[1]["separation"])):
         div = html.Div(
-            [html.A(f"{oid}", href=f"./{oid}"), f' ({obj["separation"]:.3f}″)'],
+            [html.A(f"{oid}", href=f"./{oid}"), f' ({format_sep(obj["separation"])})'],
             id=f"different-{different}-{oid}",
             style={"display": "inline"},
         )
@@ -1654,7 +1655,9 @@ def set_table(radius, oid, dr, catalog):
     try:
         table = query.find(ra, dec, radius)
     except NotFound:
-        return html.P(f'No {catalog.replace("-", " ")} objects within {radius} arcsec from {ra:.5f}, {dec:.5f}')
+        return html.P(
+            f'No {catalog.replace("-", " ")} objects within {format_sep(radius, 0, 0)} from {ra:.5f}, {dec:.5f}'
+        )
     except (CatalogUnavailable, ConnectionError):
         return html.P("Catalog data is temporarily unavailable")
     table = table.copy()
@@ -1717,7 +1720,7 @@ def set_vizier_list(n_clicks, radius, oid, dr):
 
     table_list = find_vizier.find(ra, dec, radius)
     if len(table_list) == 0:
-        return html.P(f"No vizier catalogs found within {radius} arcsec from {ra:.5f}, {dec:.5f}")
+        return html.P(f"No vizier catalogs found within {format_sep(radius, 0, 0)} from {ra:.5f}, {dec:.5f}")
 
     records = []
     lengths = []

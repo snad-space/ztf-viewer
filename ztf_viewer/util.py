@@ -127,6 +127,21 @@ def to_str(s, *, float_decimal_digits=3):
     raise ValueError(f"Argument should be str, bytes, int, float or unit.Quantity (distance), not {type(s)}")
 
 
+def format_sep(sep_arcsec: float, float_decimal_digits_small: int = 3, float_decimal_digits_large: int = 1) -> str:
+    if sep_arcsec < 0.0:
+        raise ValueError(f"Separation {sep_arcsec} < 0")
+    if sep_arcsec < 60.0:
+        return f"{sep_arcsec:.{float_decimal_digits_small}f}″"
+    if sep_arcsec < 3600.0:
+        arcmin = int(sep_arcsec // 60.0)
+        arcsec = sep_arcsec % 60.0
+        return f"{arcmin:d}′{arcsec:02.{float_decimal_digits_large}f}″"
+    deg = int(sep_arcsec // 3600.0)
+    arcmin = int(sep_arcsec // 60.0 - deg * 60.0)
+    arcsec = sep_arcsec % 60.0 % 60.0
+    return f"{deg:d}°{arcmin:02d}′{arcsec:02.0f}″"
+
+
 def anchor_form(url, data, title):
     inputs = "\n".join(f'<input type="hidden" name="{key}" value="{value}">' for key, value in data.items())
     return f"""
