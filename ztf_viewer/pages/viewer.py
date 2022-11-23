@@ -476,6 +476,30 @@ def get_layout(pathname):
             ),
             html.Div(
                 [
+                    html.H2("Astro-COLIBRI"),
+                    # Fake input for arcsec
+                    dcc.Input(
+                        value="3600",
+                        id=dict(type="search-radius", index="astro-colibri"),
+                        type="number",
+                        step="1",
+                        style={"display": "none"},
+                    ),
+                    # Real input for degrees
+                    dcc.Input(
+                        value="1",
+                        id="astro-colibri-search-radius-degrees",
+                        placeholder="Search radius, degrees",
+                        type="number",
+                        step="1",
+                    ),
+                    " search radius, degrees",
+                    html.Div(id="astro-colibri-table"),
+                ],
+                id="astro-colibri",
+            ),
+            html.Div(
+                [
                     html.H2("Astrocats"),
                     dcc.Input(
                         value="5",
@@ -1083,6 +1107,8 @@ def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_v
         for table_field, display_name in SUMMARY_FIELDS.items():
             try:
                 value = row[table_field]
+                if not value:
+                    continue
                 if table_field == "__distance" and table["__distance"].unit is not None:
                     value = value * table["__distance"].unit
                 value = to_str(value).strip()
@@ -1093,7 +1119,7 @@ def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_v
 
             bra = ""
             cket = ""
-            if table_field == "__distance" and "__redshift" in row.columns:
+            if table_field == "__distance" and "__redshift" in row.columns and row["__redshift"]:
                 cket = f' z={to_str(row["__redshift"])}'
 
             values = elements.setdefault(display_name, [])
@@ -1607,6 +1633,14 @@ def graph_clicked(data, dr):
         " ",
         html.A("Product directory", href=prod_dir_url, id="fits-to-show-dir-url"),
     ]
+
+
+@app.callback(
+    Output(dict(type="search-radius", index="astro-colibri"), "value"),
+    [Input("astro-colibri-search-radius-degrees", "value")],
+)
+def convert_astro_colibri_search_radius_to_arcsec(radius_deg):
+    return int(np.round(float(radius_deg) * 3600))
 
 
 def set_table(radius, oid, dr, catalog):
