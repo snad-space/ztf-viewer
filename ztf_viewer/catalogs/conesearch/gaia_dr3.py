@@ -72,7 +72,7 @@ class GaiaDr3Query(_BaseVizierQuery, _BaseLightCurveQuery):
         ValueWithIntervalColumn(value="logg"),
         ValueWithIntervalColumn(name="_[Fe/H]", value="__Fe_H_", lower="b__Fe_H_", upper="B__Fe_H_"),
     ]
-    _value_wirh_uncertanty_columns = [
+    _value_with_uncertainty_columns = [
         ValueWithUncertaintyColumn(value="Plx"),
         ValueWithUncertaintyColumn(value="pmRA"),
         ValueWithUncertaintyColumn(value="pmDE"),

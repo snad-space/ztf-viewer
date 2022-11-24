@@ -82,7 +82,7 @@ class _BaseCatalogQuery:
     _prob_class_columns: Dict[str, str] = {}
 
     _value_with_interval_columns: List[ValueWithIntervalColumn] = []
-    _value_wirh_uncertanty_columns: List[ValueWithUncertaintyColumn] = []
+    _value_with_uncertainty_columns: List[ValueWithUncertaintyColumn] = []
 
     def __new__(cls, query_name):
         name = cls._normalize_name(query_name)
@@ -171,7 +171,7 @@ class _BaseCatalogQuery:
             table[x.name] = [x.html(row) for row in table]
 
     def add_value_uncertaincy_columns(self, table):
-        for x in self._value_wirh_uncertanty_columns:
+        for x in self._value_with_uncertainty_columns:
             table[x.name] = [x.html(row) for row in table]
 
     def add_objname_column(self, table):
