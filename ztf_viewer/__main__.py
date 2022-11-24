@@ -13,8 +13,9 @@ from dash.exceptions import PreventUpdate
 
 from ztf_viewer.akb import akb
 from ztf_viewer.app import app
+from ztf_viewer.catalogs.conesearch import ANTARES_QUERY, TNS_QUERY
 from ztf_viewer.catalogs.snad import SnadCatalogSource
-from ztf_viewer.exceptions import UnAuthorized
+from ztf_viewer.exceptions import CatalogUnavailable, NotFound, UnAuthorized
 from ztf_viewer.pages import favicon as _
 from ztf_viewer.pages import figure as _
 from ztf_viewer.pages import lc_csv as _
@@ -212,14 +213,33 @@ def sky_coord_from_str(s):
             return SnadCatalogSource(s).coord
         except KeyError:
             raise ValueError(f"ID {s} isn't found in the SNAD catalog")
+
     try:
         return SkyCoord(s)
     except ValueError:
         pass
+
+    if s.upper().startswith("AT") or s.upper().startswith("SN"):
+        s = s.removeprefix("AT").removeprefix("at").removeprefix("SN").removeprefix("sn").strip()
+        try:
+            return TNS_QUERY.resolve_name(s)
+        except (NotFound, CatalogUnavailable):
+            pass
+
+    if s.upper().startswith("ZTF"):
+        # make cases right
+        s = "ZTF" + s.lower().removeprefix("ztf")
+        try:
+            return ANTARES_QUERY.resolve_name(s)
+        except (NotFound, CatalogUnavailable):
+            pass
+
     try:
         return get_icrs_coordinates(s)
     except NameResolveError:
-        raise ValueError(f'Cannot parse given coordinates or a name: "{s}"')
+        pass
+
+    raise ValueError(f'Cannot parse given coordinates or a name: "{s}"')
 
 
 @app.callback(

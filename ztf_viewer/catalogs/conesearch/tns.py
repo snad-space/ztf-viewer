@@ -1,8 +1,11 @@
-from ztf_viewer.catalogs.conesearch._base import _BaseCatalogApiQuery
+from ztf_viewer.catalogs.conesearch._base import (
+    _BaseCatalogApiQuery,
+    _BaseNameResolverQuery,
+)
 from ztf_viewer.config import TNS_API_URL
 
 
-class TnsQuery(_BaseCatalogApiQuery):
+class TnsQuery(_BaseCatalogApiQuery, _BaseNameResolverQuery):
     id_column = "name"
     type_column = "type"
     redshift_column = "redshift"
@@ -29,3 +32,11 @@ class TnsQuery(_BaseCatalogApiQuery):
         table = super()._api_query_region(ra, dec, radius_arcsec)
         table["fullname"] = [f'{row["name_prefix"] or ""}{row["name"]}' for row in table]
         return table
+
+    _resolve_api_url = f"{TNS_API_URL}/api/v1/object"
+
+    def get_record_by_id(self, id):
+        """id is something like 2018lwh, not AT2018lwh"""
+        response = self._api_session.get(self._resolve_api_url, params={"name": id}, timeout=1)
+        self._raise_if_not_ok(response)
+        return response.json()

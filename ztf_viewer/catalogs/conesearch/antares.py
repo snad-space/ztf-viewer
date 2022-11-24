@@ -11,11 +11,12 @@ from ztf_viewer.cache import cache
 from ztf_viewer.catalogs.conesearch._base import (
     _BaseCatalogApiQuery,
     _BaseLightCurveQuery,
+    _BaseNameResolverQuery,
 )
 from ztf_viewer.exceptions import CatalogUnavailable, NotFound
 
 
-class AntaresQuery(_BaseCatalogApiQuery, _BaseLightCurveQuery):
+class AntaresQuery(_BaseCatalogApiQuery, _BaseLightCurveQuery, _BaseNameResolverQuery):
     id_column = "locus_id"
     _table_ra = "ra"
     _ra_unit = "deg"
@@ -94,3 +95,15 @@ class AntaresQuery(_BaseCatalogApiQuery, _BaseLightCurveQuery):
 
     def get_url(self, id, row=None):
         return f"//antares.noirlab.edu/loci/{id}"
+
+    def get_record_by_id(self, id) -> Locus:
+        """ "id is something like ZTF18abqkqdm"""
+        locus = antares_client.search.get_by_ztf_object_id(id)
+        if locus is None:
+            raise NotFound
+        return locus
+
+    @cache()
+    def resolve_name(self, id) -> SkyCoord:
+        locus = self.get_record_by_id(id)
+        return locus.coordinates
