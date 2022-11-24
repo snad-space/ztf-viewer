@@ -46,7 +46,10 @@ class FindZTFOID(_BaseFindZTF):
             message = f"{resp.url} returned {resp.status_code}: {resp.text}"
             logging.info(message)
             raise NotFound(message)
-        return resp.json()[str(oid)]
+        j = resp.json()
+        if len(j) == 0:
+            raise NotFound
+        return j[str(oid)]
 
     def get_coord(self, oid, dr):
         meta = self.get_meta(oid, dr)

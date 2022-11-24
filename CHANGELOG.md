@@ -13,6 +13,7 @@ Version schema is `year.month.num_release`
 ### Fixed
 
 - Pan-STARRS forced photometry processing for no matches
+- Invalid OID submitted via search field causes 404 error now https://github.com/snad-space/ztf-viewer/issues/250 https://github.com/snad-space/ztf-viewer/pull/255
 
 ## [2022.11.4] 2022 November 18
 
