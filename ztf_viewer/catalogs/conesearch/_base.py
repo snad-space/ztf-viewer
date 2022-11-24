@@ -145,12 +145,9 @@ class _BaseCatalogQuery:
             table = table[0]
         if len(table) == 0:
             raise NotFound
-        catalog_coord = SkyCoord(
-            table[self._table_ra], table[self._table_dec], unit=[self._ra_unit, "deg"], frame="icrs"
-        )
-        table["separation"] = coord.separation(catalog_coord).to("arcsec")
-        table.sort("separation")
         self.add_additional_columns(table)
+        table["separation"] = coord.separation(table["__coord"]).to("arcsec")
+        table.sort("separation")
         return table
 
     def find_closest(self, ra, dec, radius_arcsec, has_light_curve=True):
@@ -159,6 +156,7 @@ class _BaseCatalogQuery:
 
     def add_additional_columns(self, table):
         self.add_objname_column(table)
+        self.add_coord_column(table)
         self.add_link_column(table)
         self.add_type_column(table)
         self.add_period_column(table)
@@ -178,6 +176,17 @@ class _BaseCatalogQuery:
 
     def add_objname_column(self, table):
         table["__objname"] = [to_str(row[self.name_column]) for row in table]
+
+    def _construct_coord(self, row_or_table) -> SkyCoord:
+        return SkyCoord(
+            row_or_table[self._table_ra],
+            row_or_table[self._table_dec],
+            unit=[self._ra_unit, "deg"],
+            frame="icrs",
+        )
+
+    def add_coord_column(self, table):
+        table["__coord"] = self._construct_coord(table)
 
     def add_link_column(self, table):
         table["__link"] = [self.get_link(row[self.id_column], row["__objname"], row=row) for row in table]
@@ -236,6 +245,16 @@ class _BaseLightCurveQuery:
         return self.closest_light_curve(
             ra, dec, radius_arcsec, fail_on_empty=fail_on_empty, fail_on_unavailable=fail_on_unavailable
         )
+
+
+class _BaseNameResolverQuery:
+    def get_record_by_id(self, id):
+        raise NotImplemented
+
+    @cache()
+    def resolve_name(self, id) -> SkyCoord:
+        obj = self.get_record_by_id(id)
+        return self._construct_coord(obj)
 
 
 class _BaseCatalogApiQuery(_BaseCatalogQuery):

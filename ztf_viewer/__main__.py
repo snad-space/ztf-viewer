@@ -13,6 +13,7 @@ from dash.exceptions import PreventUpdate
 
 from ztf_viewer.akb import akb
 from ztf_viewer.app import app
+from ztf_viewer.catalogs.conesearch import TNS_QUERY
 from ztf_viewer.catalogs.snad import SnadCatalogSource
 from ztf_viewer.exceptions import UnAuthorized
 from ztf_viewer.pages import favicon as _
@@ -212,14 +213,22 @@ def sky_coord_from_str(s):
             return SnadCatalogSource(s).coord
         except KeyError:
             raise ValueError(f"ID {s} isn't found in the SNAD catalog")
+
     try:
         return SkyCoord(s)
     except ValueError:
         pass
+
+    if s.upper().startswith("AT") or s.upper().startswith("SN"):
+        s = s.removeprefix("AT").removeprefix("SN").strip()
+        return TNS_QUERY.resolve_name(s)
+
     try:
         return get_icrs_coordinates(s)
     except NameResolveError:
-        raise ValueError(f'Cannot parse given coordinates or a name: "{s}"')
+        pass
+
+    raise ValueError(f'Cannot parse given coordinates or a name: "{s}"')
 
 
 @app.callback(
