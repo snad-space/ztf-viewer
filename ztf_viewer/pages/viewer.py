@@ -1280,6 +1280,7 @@ def neighbour_oids(different_filter, different_field) -> frozenset:
         Input(dict(type="ref-magerr-input", index=ALL), "id"),
         Input(dict(type="ref-magerr-input", index=ALL), "value"),
         Input("additional-light-curves", "value"),
+        Input("webgl-is-available", "children"),
     ],
 )
 def set_figure(
@@ -1298,6 +1299,7 @@ def set_figure(
     ref_magerr_ids,
     ref_magerr_values,
     additional_lc_types,
+    webgl_available,
 ):
     if lc_type == "folded" and not period:
         raise PreventUpdate
@@ -1331,6 +1333,10 @@ def set_figure(
     external_data = immutabledict(
         {value: immutabledict({"radius_arcsec": ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC}) for value in additional_lc_types}
     )
+
+    # It is "0" or "1" or None
+    webgl_available = True if webgl_available is None else bool(int(webgl_available))
+    render_mode = "auto" if webgl_available else "svg"
 
     other_oids = neighbour_oids(different_filter, different_field)
     if lc_type == "full":
@@ -1395,6 +1401,7 @@ def set_figure(
             size_max=MARKER_SIZE,
             hover_data={f"mjd_{MJD_OFFSET}": ":.5f", "date": True, brighterr: True},
             custom_data=["mjd", "oid", "fieldid", "rcid", "filter"],
+            render_mode=render_mode,
         )
     elif lc_type == "folded":
         figure = px.scatter(
@@ -1413,6 +1420,7 @@ def set_figure(
             hover_data={"folded_time": True, f"mjd_{MJD_OFFSET}": ":.5f", "date": True, brighterr: True},
             custom_data=["mjd", "oid", "fieldid", "rcid", "filter"],
             range_x=[0.0, 1.0],
+            render_mode=render_mode,
         )
     else:
         raise ValueError(f"{lc_type = } is unknown")

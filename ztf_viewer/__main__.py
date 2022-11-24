@@ -148,7 +148,31 @@ archivePrefix = {arXiv},
                 "margin-top": "5em",
             },
         ),
-    ]
+        html.Div(None, id="webgl-is-available", style={"display": "none"}),
+    ],
+    id="main-layout",
+)
+
+
+app.clientside_callback(
+    """
+    function(divs) {
+        var canvas = document.createElement("canvas");
+        // Get WebGLRenderingContext from canvas element.
+        var gl = canvas.getContext("webgl")
+          || canvas.getContext("experimental-webgl");
+        // Report the result.
+        if (gl && gl instanceof WebGLRenderingContext) {
+            console.log("WebGL is available");
+            return "1";
+        } else {
+            console.log("WebGL is unavailable");
+            return "0";
+        }
+    }
+    """,
+    Output("webgl-is-available", "children"),
+    [Input("main-layout", "children")],
 )
 
 
