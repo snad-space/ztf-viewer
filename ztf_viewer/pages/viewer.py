@@ -1118,10 +1118,13 @@ def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_v
             if value == "":
                 continue
 
-            bra = ""
-            cket = ""
+            bra_list = []
             if table_field == "__distance" and "__redshift" in row.columns and row["__redshift"]:
-                cket = f' z={to_str(row["__redshift"])}'
+                bra_list.append(f'z={to_str(row["__redshift"])}')
+            if "__event_mjd" in row.columns and row["__event_mjd"]:
+                bra_list.append(f'MJD {to_str(row["__event_mjd"], float_decimal_digits=1)}')
+            bra = ", ".join(bra_list) + ", " if bra_list else ""
+            cket = ""
 
             values = elements.setdefault(display_name, [])
             values.append(

@@ -10,6 +10,7 @@ class ColibriQuery(_BaseCatalogApiQuery):
     id_column = "source_name"
     type_column = "type"
     redshift_column = "redshift"
+    event_mjd_column = "mjd"
     _table_ra = "ra"
     _ra_unit = "deg"
     _table_dec = "dec"
