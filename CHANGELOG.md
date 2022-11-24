@@ -10,6 +10,10 @@ Version schema is `year.month.num_release`
 
 - Search-cone input field can resolve TNS and ZTF alert names, try "AT2018lyv" or "ZTF18aagrczj" https://github.com/snad-space/ztf-viewer/pull/253 https://github.com/snad-space/ztf-viewer/issues/236
 
+### Fixed
+
+- Pan-STARRS forced photometry processing for no matches
+
 ## [2022.11.4] 2022 November 18
 
 ### Fixed

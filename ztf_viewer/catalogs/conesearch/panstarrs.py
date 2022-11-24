@@ -86,6 +86,8 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
         except RequestException as e:
             logging.warning(e)
             raise CatalogUnavailable(catalog=self)
+        if len(table) == 0:
+            raise NotFound
         df = table.to_pandas()
         df = df[df["primaryDetection"] == 1]
         df = df.groupby("objID", sort=False).apply(self.__apply_groups)
