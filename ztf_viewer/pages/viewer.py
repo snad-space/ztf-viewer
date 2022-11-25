@@ -132,7 +132,12 @@ def get_layout(pathname):
     try:
         find_ztf_oid.find(oid, dr)
     except NotFound:
-        return html.H1("404")
+        return html.Div(
+            [
+                html.H1("404"),
+                html.H3(f"Object {oid} is not found in ZTF {dr.upper()}"),
+            ]
+        )
     other_drs = [other_dr for other_dr in available_drs if other_dr != dr]
     ra, dec = find_ztf_oid.get_coord(oid, dr)
     coord = find_ztf_oid.get_coord_string(oid, dr)
