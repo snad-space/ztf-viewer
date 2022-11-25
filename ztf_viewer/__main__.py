@@ -391,6 +391,11 @@ def app_select_by_url(pathname):
                             html.A("the Simbad Astronomical Data Base", href="//simbad.u-strasbg.fr/simbad/"),
                             ", ",
                             html.A(
+                                "Astro-COLIBRI platform for multi-messenger astrophysics",
+                                href="https://astro-colibri.science",
+                            ),
+                            ", ",
+                            html.A(
                                 "Gaia EDR3 distances (Bailer-Jones+, 2021)",
                                 href="//vizier.u-strasbg.fr/viz-bin/VizieR?-source=I/352",
                             ),

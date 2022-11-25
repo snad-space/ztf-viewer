@@ -71,6 +71,7 @@ class _BaseCatalogQuery:
     type_column = None
     period_column = None
     redshift_column = None
+    event_mjd_column = None
     _name_column = None
     _query_region = None
     _table_ra = None
@@ -82,7 +83,7 @@ class _BaseCatalogQuery:
     _prob_class_columns: Dict[str, str] = {}
 
     _value_with_interval_columns: List[ValueWithIntervalColumn] = []
-    _value_wirh_uncertanty_columns: List[ValueWithUncertaintyColumn] = []
+    _value_with_uncertainty_columns: List[ValueWithUncertaintyColumn] = []
 
     def __new__(cls, query_name):
         name = cls._normalize_name(query_name)
@@ -162,6 +163,7 @@ class _BaseCatalogQuery:
         self.add_period_column(table)
         self.add_redshift_column(table)
         self.add_distance_column(table)
+        self.add_event_mjd_column(table)
         self.add_prob_class_columns(table)
         self.add_value_interval_columns(table)
         self.add_value_uncertaincy_columns(table)
@@ -171,7 +173,7 @@ class _BaseCatalogQuery:
             table[x.name] = [x.html(row) for row in table]
 
     def add_value_uncertaincy_columns(self, table):
-        for x in self._value_wirh_uncertanty_columns:
+        for x in self._value_with_uncertainty_columns:
             table[x.name] = [x.html(row) for row in table]
 
     def add_objname_column(self, table):
@@ -206,6 +208,10 @@ class _BaseCatalogQuery:
     def add_distance_column(self, table):
         if "__redshift" in table.columns:
             table["__distance"] = [None if z is None else COSMO.luminosity_distance(z) for z in table["__redshift"]]
+
+    def add_event_mjd_column(self, table):
+        if self.event_mjd_column is not None:
+            table["__event_mjd"] = table[self.event_mjd_column]
 
     def add_prob_class_columns(self, table):
         """Assign column values to {'class': probability, ...}"""

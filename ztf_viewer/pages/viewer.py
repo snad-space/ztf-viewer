@@ -43,6 +43,7 @@ from ztf_viewer.util import (
     INF,
     ZTF_FILTERS,
     available_drs,
+    format_sep,
     html_from_astropy_table,
     immutabledefaultdict,
     list_join,
@@ -478,6 +479,30 @@ def get_layout(pathname):
                     html.Div(id="transient-name-server-table"),
                 ],
                 id="transient-name-server",
+            ),
+            html.Div(
+                [
+                    html.H2("Astro-COLIBRI"),
+                    # Fake input for arcsec
+                    dcc.Input(
+                        value="3600",
+                        id=dict(type="search-radius", index="astro-colibri"),
+                        type="number",
+                        step="1",
+                        style={"display": "none"},
+                    ),
+                    # Real input for degrees
+                    dcc.Input(
+                        value="1",
+                        id="astro-colibri-search-radius-degrees",
+                        placeholder="Search radius, degrees",
+                        type="number",
+                        step="1",
+                    ),
+                    " search radius, degrees",
+                    html.Div(id="astro-colibri-table"),
+                ],
+                id="astro-colibri",
             ),
             html.Div(
                 [
@@ -1088,6 +1113,8 @@ def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_v
         for table_field, display_name in SUMMARY_FIELDS.items():
             try:
                 value = row[table_field]
+                if not value:
+                    continue
                 if table_field == "__distance" and table["__distance"].unit is not None:
                     value = value * table["__distance"].unit
                 value = to_str(value).strip()
@@ -1096,16 +1123,19 @@ def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_v
             if value == "":
                 continue
 
-            bra = ""
+            bra_list = []
+            if table_field == "__distance" and "__redshift" in row.columns and row["__redshift"]:
+                bra_list.append(f'z={to_str(row["__redshift"])}')
+            if "__event_mjd" in row.columns and row["__event_mjd"]:
+                bra_list.append(f'MJD {to_str(row["__event_mjd"], float_decimal_digits=1)}')
+            bra = ", ".join(bra_list) + ", " if bra_list else ""
             cket = ""
-            if table_field == "__distance" and "__redshift" in row.columns:
-                cket = f' z={to_str(row["__redshift"])}'
 
             values = elements.setdefault(display_name, [])
             values.append(
                 html.Div(
                     [
-                        f'{value} ({bra}{row["separation"]:.3f}″ ',
+                        f'{value} ({bra}{format_sep(row["separation"])} ',
                         html.A(
                             query.query_name,
                             href=f"#{catalog}",
@@ -1158,7 +1188,7 @@ def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_v
             ml_classifications.append(
                 html.Div(
                     [
-                        f'{prob * 100:.0f}% {class_name} ({row["separation"]:.3f}″',
+                        f'{prob * 100:.0f}% {class_name} ({format_sep(row["separation"])}',
                         html.A(
                             query.query_name,
                             href=f"#{catalog}",
@@ -1542,7 +1572,7 @@ def find_neighbours(radius, center_oid, dr, different):
     children = []
     for i, (oid, obj) in enumerate(sorted(j.items(), key=lambda kv: kv[1]["separation"])):
         div = html.Div(
-            [html.A(f"{oid}", href=f"./{oid}"), f' ({obj["separation"]:.3f}″)'],
+            [html.A(f"{oid}", href=f"./{oid}"), f' ({format_sep(obj["separation"])})'],
             id=f"different-{different}-{oid}",
             style={"display": "inline"},
         )
@@ -1622,6 +1652,14 @@ def graph_clicked(data, dr):
     ]
 
 
+@app.callback(
+    Output(dict(type="search-radius", index="astro-colibri"), "value"),
+    [Input("astro-colibri-search-radius-degrees", "value")],
+)
+def convert_astro_colibri_search_radius_to_arcsec(radius_deg):
+    return int(np.round(float(radius_deg) * 3600))
+
+
 def set_table(radius, oid, dr, catalog):
     ra, dec = find_ztf_oid.get_coord(oid, dr)
     if radius is None:
@@ -1633,7 +1671,9 @@ def set_table(radius, oid, dr, catalog):
     try:
         table = query.find(ra, dec, radius)
     except NotFound:
-        return html.P(f'No {catalog.replace("-", " ")} objects within {radius} arcsec from {ra:.5f}, {dec:.5f}')
+        return html.P(
+            f'No {catalog.replace("-", " ")} objects within {format_sep(radius, 0, 0)} from {ra:.5f}, {dec:.5f}'
+        )
     except (CatalogUnavailable, ConnectionError):
         return html.P("Catalog data is temporarily unavailable")
     table = table.copy()
@@ -1696,7 +1736,7 @@ def set_vizier_list(n_clicks, radius, oid, dr):
 
     table_list = find_vizier.find(ra, dec, radius)
     if len(table_list) == 0:
-        return html.P(f"No vizier catalogs found within {radius} arcsec from {ra:.5f}, {dec:.5f}")
+        return html.P(f"No vizier catalogs found within {format_sep(radius, 0, 0)} from {ra:.5f}, {dec:.5f}")
 
     records = []
     lengths = []

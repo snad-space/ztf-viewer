@@ -43,7 +43,7 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
     _band_ids = dict(zip(count(1), _bands))
     _phot_types = ("Ap", "PSF")
 
-    _value_wirh_uncertanty_columns = [
+    _value_with_uncertainty_columns = [
         ValueWithUncertaintyColumn(value=f"{b}PSFMag", uncertainty=f"{b}PSFMagErr") for b in _bands
     ]
 

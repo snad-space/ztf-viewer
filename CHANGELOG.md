@@ -8,6 +8,7 @@ Version schema is `year.month.num_release`
 
 ### Added
 
+- [Astro-COLIBRI](https://astro-colibri.science) multi-messanger platform as a cross-matching catalog https://github.com/snad-space/ztf-viewer/issues/237 https://github.com/snad-space/ztf-viewer/pull/251
 - Search-cone input field can resolve TNS and ZTF alert names, try "AT2018lyv" or "ZTF18aagrczj" https://github.com/snad-space/ztf-viewer/pull/253 https://github.com/snad-space/ztf-viewer/issues/236
 
 ### Fixed
