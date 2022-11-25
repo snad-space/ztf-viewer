@@ -6,6 +6,8 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
+## [2022.11.5] 2022 November 25
+
 ### Added
 
 - [Astro-COLIBRI](https://astro-colibri.science) multi-messanger platform as a cross-matching catalog https://github.com/snad-space/ztf-viewer/issues/237 https://github.com/snad-space/ztf-viewer/pull/251
