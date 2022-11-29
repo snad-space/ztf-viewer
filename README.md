@@ -5,7 +5,7 @@ This projects contains a source of [ZTF](http://ztf.caltech.edu) Data Releases l
 ## Evaluation
 
  Both production and development versions can be started via [Docker compose](https://docs.docker.com/compose/) using `docker-compose.yml` and `docker-compose.dev.yml` correspondingly.
- Current production configuration assumes that there is a Docker `proxy` network shared with [`jwilder/nginx-proxy`](https://github.com/jwilder/nginx-proxy) which proxies the webserver to the outer world.
+ Current production configuration assumes that there is a Docker `proxy` network shared with [`jwilder/nginx-proxy`](https://github.com/nginx-proxy/nginx-proxy) which proxies the webserver to the outer world.
  Also, this configuration require `secret.env` file containing secret environment variables, such as API keys.
 
 ### Environment variables
@@ -70,3 +70,4 @@ Some features like FITS viewer wouldn't work.
 - [Vizier](https://vizier.u-strasbg.fr) is used to access various catalogs
 - [Simbad](http://simbad.u-strasbg.fr) is used for both cone search and identifier queries
 - [Astrocats](https://astrocats.space) are used for cone search
+- [Astro-Colibri](https://astro-colibri.science) is used for multi-messenger events code search
