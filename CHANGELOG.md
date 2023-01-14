@@ -4,7 +4,11 @@ All notable changes to [ZTF SNAD Viewer](http://ztf.snad.space) will be document
 
 Version schema is `year.month.num_release`
 
-## [Unreleased]
+## [2023.1.0]  2023 January 14
+
+### Changed
+
+- ZTF DR13 is the default data release
 
 ## [2022.11.5] 2022 November 25
 
