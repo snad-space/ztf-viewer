@@ -136,7 +136,7 @@ def plot_folded_data(oid, data, period, repeat=None, fmt="png", caption=True, ti
         )
     ax = fig.subplots()
     ax.invert_yaxis()
-    ax.set_title(f"{title}, P = {period:.4g} days", usetex=usetex)
+    ax.set_title(f"{title}, P = {period:.8g} days", usetex=usetex)
     ax.set_xlabel("phase", usetex=usetex)
     ax.set_ylabel("magnitude", usetex=usetex)
     ax.xaxis.set_minor_locator(AutoMinorLocator(2))
