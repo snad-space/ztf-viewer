@@ -4,6 +4,12 @@ All notable changes to [ZTF SNAD Viewer](http://ztf.snad.space) will be document
 
 Version schema is `year.month.num_release`
 
+## [Unreleased]
+
+### Changed
+
+- Increase number of decimal digits for period in downloadable plots from three to six https://github.com/snad-space/ztf-viewer/issues/272 https://github.com/snad-space/ztf-viewer/pull/274
+
 ## [2023.1.0]  2023 January 14
 
 ### Changed
