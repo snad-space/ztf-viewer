@@ -20,7 +20,7 @@ class _BaseFindZTF:
         return urljoin(self._base_api_url, f"data/{dr}/")
 
     def find(self, *args, **kwargs):
-        raise NotImplemented
+        raise NotImplementedError
 
 
 class FindZTFOID(_BaseFindZTF):

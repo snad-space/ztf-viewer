@@ -21,8 +21,8 @@ repos:
     hooks:
     -   id: black
         name: black
--   repo: https://github.com/pycqa/isort
-    rev: 5.11.4
+-   repo: https://github.com/charliermarsh/ruff-pre-commit
+    rev: 'v0.0.237'
     hooks:
-    -   id: isort
-        args: ['--profile=black', '--filter-files']
+    -   id: ruff
+        args: ["--fix"]

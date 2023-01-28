@@ -35,7 +35,8 @@ class AstrocatsQuery(_BaseCatalogApiQuery):
     @staticmethod
     def _format_source(source):
         if "url" in source and "bibcode" in source:
-            return f'<a href={source["url"]}>{source["name"]}</a> (<a href=//adsabs.harvard.edu/abs/{source["bibcode"]}>{source["bibcode"]}</a>)'
+            return f"""<a href={source["url"]}>{source["name"]}</a>
+            (<a href=//adsabs.harvard.edu/abs/{source["bibcode"]}>{source["bibcode"]}</a>)"""
         if "url" in source:
             return f'<a href={source["url"]}>{source["name"]}</a>'
         if "bibcode" in source:

@@ -923,7 +923,7 @@ def get_antares_lc_option(oid, dr, old):
         option["label"] = f"Antares object (not found in {ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC}″)"
         option["disabled"] = True
     except CatalogUnavailable:
-        option["label"] = f"Antares API is unavailable now"
+        option["label"] = "Antares API is unavailable now"
         option["disabled"] = False
     else:
         option["label"] = f'Antares {row[ANTARES_QUERY.id_column]} ({np.round(row["separation"], 1)}″), diff-photometry'
@@ -948,7 +948,7 @@ def get_gaia_lc_option(oid, dr, old):
             ra, dec, radius_arcsec=ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC, fail_on_empty=False, fail_on_unavailable=True
         )
     except CatalogUnavailable:
-        option["label"] = f"Gaia DataLink is unavailable now"
+        option["label"] = "Gaia DataLink is unavailable now"
         option["disabled"] = False
     return option
 
@@ -962,7 +962,7 @@ def get_panstarrs_lc_option(oid, dr, old):
         option["label"] = f"Pan-STARRS object (not found in {ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC}″)"
         option["disabled"] = True
     except CatalogUnavailable:
-        option["label"] = f"MAST Pan-STARRS archive is unavailable now"
+        option["label"] = "MAST Pan-STARRS archive is unavailable now"
         option["disabled"] = False
     else:
         option[
@@ -1227,7 +1227,6 @@ def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_v
     try:
         table = get_catalog_query("Gaia EDR3 Distances").find(ra, dec, 1)
         row = QTable(table[np.argmin(table["separation"])])
-        import logging
 
         distance = row["__distance"]
         af = bayestar(SkyCoord(coord, distance=distance))

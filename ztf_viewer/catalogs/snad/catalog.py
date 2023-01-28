@@ -3,7 +3,6 @@ import importlib.resources
 from datetime import datetime, timedelta
 from io import BytesIO
 
-import numpy as np
 import requests
 from astropy.coordinates import Angle, SkyCoord
 from astropy.io import ascii

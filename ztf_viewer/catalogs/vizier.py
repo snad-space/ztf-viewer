@@ -63,11 +63,11 @@ class FindVizier:
 
     @staticmethod
     def get_search_url(ra, dec, radius_arcsec):
-        return f"//vizier.u-strasbg.fr/viz-bin/VizieR-4?&-to=2&-from=-1&-this=-1&-out.add=_r&-out.add=_RAJ%2C_DEJ&-sort=_r&-order=I&-oc.form=sexa&-meta.foot=1&-meta=1&-meta.ucd=2&-c={ra}%2C+{dec}&-c.r=++{radius_arcsec}&-c.geom=r&-meta.ucd=2&-usenav=1&-bmark=POST&-out.max=50&-out.form=HTML+Table&-c.eq=J2000&-c.u=arcsec&-4c=Go%21"
+        return f"//vizier.u-strasbg.fr/viz-bin/VizieR-4?&-to=2&-from=-1&-this=-1&-out.add=_r&-out.add=_RAJ%2C_DEJ&-sort=_r&-order=I&-oc.form=sexa&-meta.foot=1&-meta=1&-meta.ucd=2&-c={ra}%2C+{dec}&-c.r=++{radius_arcsec}&-c.geom=r&-meta.ucd=2&-usenav=1&-bmark=POST&-out.max=50&-out.form=HTML+Table&-c.eq=J2000&-c.u=arcsec&-4c=Go%21"  # noqa F501
 
     @staticmethod
     def get_catalog_url(catalog, ra, dec, radius_arcsec):
-        return f"//vizier.u-strasbg.fr/viz-bin/VizieR-3?-source={catalog}&-c={ra},%20{dec}&-c.u=arcsec&-c.r={radius_arcsec}&-c.eq=J2000&-c.geom=r&-out.max=50&-out.form=HTML%20Table&-out.add=_r&-out.add=_RAJ,_DEJ&-sort=_r&-oc.form=sexa"
+        return f"//vizier.u-strasbg.fr/viz-bin/VizieR-3?-source={catalog}&-c={ra},%20{dec}&-c.u=arcsec&-c.r={radius_arcsec}&-c.eq=J2000&-c.geom=r&-out.max=50&-out.form=HTML%20Table&-out.add=_r&-out.add=_RAJ,_DEJ&-sort=_r&-oc.form=sexa"  # noqa F501
 
 
 find_vizier = FindVizier()

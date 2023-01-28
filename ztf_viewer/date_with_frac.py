@@ -47,7 +47,8 @@ class DateWithFrac:
     def sciimg_path(self, *, fieldid, filter, rcid):
         ccdid = ccdid_from_rcid(rcid)
         qid = qid_from_rcid(rcid)
-        filename = f"ztf_{self.year}{self.monthday}{self.frac_digits(6):06d}_{fieldid:06d}_{filter}_c{ccdid:02d}_o_q{qid}_sciimg.fits"
+        date = f"{self.year}{self.monthday}{self.frac_digits(6):06d}"
+        filename = f"ztf_{date}_{fieldid:06d}_{filter}_c{ccdid:02d}_o_q{qid}_sciimg.fits"
         return os.path.join(self.products_path, filename)
 
 

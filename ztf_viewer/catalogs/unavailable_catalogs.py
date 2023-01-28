@@ -1,5 +1,3 @@
-import functools
-
 from redis import StrictRedis
 
 from ztf_viewer.config import REDIS_HOSTNAME, UNAVAILABLE_CATALOGS_CACHE_TYPE
