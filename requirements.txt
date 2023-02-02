@@ -72,7 +72,7 @@ platformdirs==2.5.4
 plotly==5.11.0
 pluggy==1.0.0
 progressbar2==4.2.0
-prompt-toolkit==3.0.33
+prompt-toolkit==3.0.36
 psutil==5.9.4
 ptyprocess==0.7.0
 pure-eval==0.2.2
