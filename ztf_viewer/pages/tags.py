@@ -36,10 +36,12 @@ def get_layout(pathname):
             html.Ul(
                 [
                     html.Li(
-                        "You found a variable object that is not listed in any catalogs. The tags will be «VAR», «non-catalogued»."
+                        """You found a variable object that is not listed in any catalogs.
+                        The tags will be «VAR», «non-catalogued»."""
                     ),
                     html.Li(
-                        "You found a Type Ia supernova candidate that is not listed in any catalogs. The tags will be «SN Ia», «non-catalogued», «uncertain»."
+                        """You found a Type Ia supernova candidate that is not listed in any catalogs.
+                        The tags will be «SN Ia», «non-catalogued», «uncertain»."""
                     ),
                     html.Li("You found a plane track on the image. The tags will be «artefact», «track»."),
                     html.Li("You found a known transient of unknown nature. The tags will be «transient»."),

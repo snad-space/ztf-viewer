@@ -18,7 +18,7 @@ class _BaseExtinctionQuery(ABC):
 
     @abstractmethod
     def ebv(self, coord):
-        raise NotImplemented
+        raise NotImplementedError
 
 
 class _BaseLocalRemoteExtinctionQuery(_BaseExtinctionQuery):
@@ -28,11 +28,11 @@ class _BaseLocalRemoteExtinctionQuery(_BaseExtinctionQuery):
 
     @abstractmethod
     def new_local_query(self):
-        raise NotImplemented
+        raise NotImplementedError
 
     @abstractmethod
     def web_query(self, coord):
-        raise NotImplemented
+        raise NotImplementedError
 
     def query(self, coord):
         if self.local_query is None:

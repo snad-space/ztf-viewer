@@ -9,7 +9,6 @@ from astroquery.mast import Catalogs
 from requests import RequestException
 
 from ztf_viewer.catalogs.conesearch._base import (
-    ValueWithIntervalColumn,
     ValueWithUncertaintyColumn,
     _BaseCatalogQuery,
     _BaseLightCurveQuery,

@@ -16,9 +16,9 @@ from ztf_viewer.app import app
 from ztf_viewer.catalogs.conesearch import ANTARES_QUERY, TNS_QUERY
 from ztf_viewer.catalogs.snad import SnadCatalogSource
 from ztf_viewer.exceptions import CatalogUnavailable, NotFound, UnAuthorized
-from ztf_viewer.pages import favicon as _
-from ztf_viewer.pages import figure as _
-from ztf_viewer.pages import lc_csv as _
+from ztf_viewer.pages import favicon as _  # noqa: F811,F401
+from ztf_viewer.pages import figure as _  # noqa: F811,F401
+from ztf_viewer.pages import lc_csv as _  # noqa: F811,F401
 from ztf_viewer.pages.akb_table import get_layout as get_anomalies_layout
 from ztf_viewer.pages.login import get_layout as get_login_layout
 from ztf_viewer.pages.search import get_layout as get_search_layout
@@ -109,7 +109,7 @@ app.layout = html.Div(
             [
                 f"© {YEAR} ",
                 html.A("SИAD", href="//snad.space"),
-                f". ",
+                ". ",
                 *(() if version_string is None else ("Version ", html.A(f"{version_string}", href=version_url), ".")),
                 " Developed by Konstantin Malanchev, based on ",
                 html.A("the ZTF Caltech data.", href="//ztf.caltech.edu"),
@@ -136,7 +136,7 @@ archivePrefix = {arXiv},
        adsurl = {https://ui.adsabs.harvard.edu/abs/2022arXiv221107605M},
       adsnote = {Provided by the SAO/NASA Astrophysics Data System}
 }
-""",
+""",  # noqa: E501
                     title="copy BibTeX citation",
                     style={
                         "display": "inline-block",
@@ -214,7 +214,7 @@ def set_dr_title(dr):
     Output("username", "children"),
     [Input("url", "pathname")],
 )
-def set_username(_):
+def set_username(_url):
     try:
         return akb.username()
     except UnAuthorized:
@@ -341,7 +341,7 @@ def app_select_by_url(pathname):
                 html.Div(
                     [
                         "For example see the page for ",
-                        html.A(f"SNAD101", href=f"/{dr}/view/633207400004730"),
+                        html.A("SNAD101", href=f"/{dr}/view/633207400004730"),
                     ]
                 ),
                 html.H2("Welcome to SNAD ZTF object viewer!"),
@@ -357,7 +357,8 @@ def app_select_by_url(pathname):
                             ", held remotely in July, 2020.",
                             html.Br(),
                             html.Br(),
-                            "The viewer allows visualization of raw and folded light curves and metadata, as well as cross-match information with the ",
+                            """The viewer allows visualization of raw and folded light curves and metadata,
+                            as well as cross-match information with the """,
                             html.A(
                                 "the General Catalog of Variable Stars", href="http://www.sai.msu.ru/gcvs/intro.htm"
                             ),
@@ -385,10 +386,14 @@ def app_select_by_url(pathname):
                             html.A("the Open Astronomy Catalogs", href="//astrocats.space/"),
                             ", ",
                             html.A(
-                                "the OGLE III Catalog of Variable Stars", href="http://ogledb.astrouw.edu.pl/~ogle/CVS/"
+                                "the OGLE III Catalog of Variable Stars",
+                                href="http://ogledb.astrouw.edu.pl/~ogle/CVS/",
                             ),
                             ", ",
-                            html.A("the Simbad Astronomical Data Base", href="//simbad.u-strasbg.fr/simbad/"),
+                            html.A(
+                                "the Simbad Astronomical Data Base",
+                                href="//simbad.u-strasbg.fr/simbad/",
+                            ),
                             ", ",
                             html.A(
                                 "Astro-COLIBRI platform for multi-messenger astrophysics",
@@ -415,7 +420,8 @@ def app_select_by_url(pathname):
                             html.Br(),
                             "You can find the Viewer description and implementation details in the paper ",
                             html.A(
-                                "“The SNAD Viewer: Everything You Want to Know about Your Favorite ZTF Object”, Malanchev at al. 2022",
+                                """“The SNAD Viewer: Everything You Want to Know about Your Favorite ZTF Object”,
+                                Malanchev at al. 2022""",
                                 href="https://ui.adsabs.harvard.edu/abs/2022arXiv221107605M",
                             ),
                             ", BibTeX citation:",
@@ -443,7 +449,7 @@ primaryClass = {astro-ph.IM},
    adsurl = {https://ui.adsabs.harvard.edu/abs/2022arXiv221107605M},
   adsnote = {Provided by the SAO/NASA Astrophysics Data System}
 }
-```""",
+```""",  # noqa: E501
                             id="bibtex_citation",
                             style={
                                 "overflow": "auto",

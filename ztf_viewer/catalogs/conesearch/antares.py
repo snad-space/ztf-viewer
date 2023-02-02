@@ -89,7 +89,13 @@ class AntaresQuery(_BaseCatalogApiQuery, _BaseLightCurveQuery, _BaseNameResolver
     def _query_region(self, coord, radius):
         loci = self.query_region_loci(coord.ra.deg, coord.dec.deg, radius)
         # It works better then Table(rows=...) for empty tables
-        table = Table(dict(locus_id=[l.locus_id for l in loci], ra=[l.ra for l in loci], dec=[l.dec for l in loci]))
+        table = Table(
+            dict(
+                locus_id=[locus.locus_id for locus in loci],
+                ra=[locus.ra for locus in loci],
+                dec=[locus.dec for locus in loci],
+            )
+        )
         # table = Table(rows=[(l.locus_id, l.ra, l.dec) for l in loci], names=('locus_id', 'ra', 'dec',))
         return table
 

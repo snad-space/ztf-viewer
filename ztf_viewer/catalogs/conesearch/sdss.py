@@ -1,3 +1,5 @@
+import urllib.parse
+
 from ztf_viewer.cache import cache
 from ztf_viewer.catalogs.conesearch._base import _BaseVizierQuery
 
@@ -9,7 +11,11 @@ class SdssQuasarsQuery(_BaseVizierQuery):
     columns = {
         "__link": "SDSS",
         "separation": "Separation, arcsec",
-        "Class": '<a href="https://vizier.iucaa.in/viz-bin/VizieR-n?-source=METAnot&catid=7289&notid=7&-out=text">Source class</a>',
+        "Class": """
+            <a href="https://vizier.iucaa.in/viz-bin/VizieR-n?-source=METAnot&catid=7289&notid=7&-out=text">
+                Source class
+            </a>
+        """,
         "QSO": "Quasars included",
         "z": "redshift",
         "r_z": "redshift source",
@@ -38,6 +44,5 @@ class SdssQuasarsQuery(_BaseVizierQuery):
 
     def get_url(self, id, row=None):
         print(row)
-        return (
-            f'//dr16.sdss.org/optical/spectrum/view?plateid={row["Plate"]}&mjd={row["_tab2_6"]}&fiberid={row["Fiber"]}'
-        )
+        params = urllib.parse.urlencode({"plateid": row["Plate"], "mjd": row["_tab2_6"], "fiberid": row["Fiber"]})
+        return f"//dr16.sdss.org/optical/spectrum/view?{params}"

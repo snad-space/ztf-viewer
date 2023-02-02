@@ -70,5 +70,14 @@ line-length = 120
 target-version = ["py310"]
 include = '\.py$'
 
-[tool.isort]
-profile = 'black'
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.per-file-ignores]
+# F401: imported but unused
+"ztf_viewer/catalogs/__init__.py" = ["F401"]
+"ztf_viewer/catalogs/extinction/__init__.py" = ["F401"]
+"ztf_viewer/catalogs/snad/__init__.py" = ["F401"]
+"ztf_viewer/importer.py" = ["F401"]
+"ztf_viewer/lc_data/__init__.py" = ["F401"]

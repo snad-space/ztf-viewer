@@ -61,7 +61,9 @@ class ValueWithUncertaintyColumn:
     def html(self, row) -> str:
         if not row[self.value] or not row[self.uncertainty]:
             return ""
-        return f"{to_str(row[self.value], float_decimal_digits=self.float_decimal_digits)}±{to_str(row[self.uncertainty], float_decimal_digits=self.float_decimal_digits)}"
+        value = to_str(row[self.value], float_decimal_digits=self.float_decimal_digits)
+        err = to_str(row[self.uncertainty], float_decimal_digits=self.float_decimal_digits)
+        return f"{value}±{err}"
 
 
 class _BaseCatalogQuery:
@@ -216,10 +218,10 @@ class _BaseCatalogQuery:
     def add_prob_class_columns(self, table):
         """Assign column values to {'class': probability, ...}"""
         if len(self._prob_class_columns) != 0:
-            raise NotImplemented
+            raise NotImplementedError
 
     def get_url(self, id, row=None):
-        raise NotImplemented
+        raise NotImplementedError
 
     def get_link(self, id, name, row=None):
         return f'<a href="{self.get_url(id, row=row)}">{name}</a>'
@@ -227,7 +229,7 @@ class _BaseCatalogQuery:
 
 class _BaseLightCurveQuery:
     def light_curve(self, id, row=None):
-        raise NotImplemented
+        raise NotImplementedError
 
     @staticmethod
     def _empty_light_curve():
@@ -255,7 +257,7 @@ class _BaseLightCurveQuery:
 
 class _BaseNameResolverQuery:
     def get_record_by_id(self, id):
-        raise NotImplemented
+        raise NotImplementedError
 
     @cache()
     def resolve_name(self, id) -> SkyCoord:
@@ -266,7 +268,7 @@ class _BaseNameResolverQuery:
 class _BaseCatalogApiQuery(_BaseCatalogQuery):
     @property
     def _base_api_url(self):
-        raise NotImplemented
+        raise NotImplementedError
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -306,7 +308,7 @@ class _BaseVizierQuery(_BaseCatalogQuery):
 
     @property
     def _vizier_catalog(self) -> str:
-        raise NotImplemented
+        raise NotImplementedError
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -316,4 +318,6 @@ class _BaseVizierQuery(_BaseCatalogQuery):
     def get_url(self, id, row=None):
         id = to_str(id)
         id = urllib.parse.quote_plus(id)
-        return f"//vizier.u-strasbg.fr/viz-bin/VizieR-6?-out.form=%2bH&-source={self._vizier_catalog}&{self.id_column}={id}"
+        source_param = f"-source={self._vizier_catalog}"
+        id_param = f"{self.id_column}={id}"
+        return f"//vizier.u-strasbg.fr/viz-bin/VizieR-6?-out.form=%2bH&{source_param}&{id_param}"

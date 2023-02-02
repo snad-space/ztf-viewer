@@ -1,7 +1,7 @@
 import pickle
 from abc import ABC, abstractmethod
 from collections.abc import MutableSet
-from typing import Any, Dict, Generic, Hashable, Iterator, TypeVar
+from typing import Generic, Hashable, Iterator, TypeVar
 
 import packaging.version
 from cachetools import TTLCache
@@ -24,11 +24,11 @@ class _BaseTTLSet(ABC, MutableSet[_T_Base], Generic[_T_Base]):
     @abstractmethod
     def remove(self, value: _T_Base) -> None:
         """Must raise valueError if no value is not found"""
-        raise NotImplemented
+        raise NotImplementedError
 
     @abstractmethod
     def clear(self) -> None:
-        raise NotImplemented
+        raise NotImplementedError
 
 
 _T_Local = TypeVar("_T_Local", bound=Hashable)
@@ -97,7 +97,7 @@ class RedisTTLSet(_BaseTTLSet[_T_Redis], Generic[_T_Redis]):
 
     def remove(self, value: _T_Redis) -> None:
         # To be assigned in __init__ according to Redis version
-        raise NotImplemented
+        raise NotImplementedError
 
     def __remove_pre_6_2_0(self, value: _T_Redis) -> None:
         key = self._encode(value)
