@@ -39,7 +39,7 @@ html5lib==1.1
 idna==3.4
 immutabledict==2.2.3
 importlib-metadata==5.1.0
-iniconfig==1.1.1
+iniconfig==2.0.0
 ipykernel==6.17.1
 ipython==8.7.0
 ipywidgets==8.0.2
