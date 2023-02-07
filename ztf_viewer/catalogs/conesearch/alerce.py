@@ -20,7 +20,10 @@ class AlerceQuery(_BaseCatalogApiQuery):
     _table_ra = "meanra"
     _ra_unit = "deg"
     _table_dec = "meandec"
-    columns = {"__link": "oid", "separation": "Separation, arcsec",} | dict(
+    columns = {
+        "__link": "oid",
+        "separation": "Separation, arcsec",
+    } | dict(
         chain.from_iterable(
             [(f"class_{classifier}", f"Class by {classifier}"), (f"probability_{classifier}", "Probability")]
             for classifier in _classifiers.values()
