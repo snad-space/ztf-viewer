@@ -495,7 +495,6 @@ primaryClass = {astro-ph.IM},
         pathname,
         flags=re.VERBOSE,
     ):
-
         coord_or_name = urllib.parse.unquote(search_match["coord_or_name"])
         try:
             coordinates = sky_coord_from_str(coord_or_name)
