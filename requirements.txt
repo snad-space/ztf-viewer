@@ -6,7 +6,7 @@ asttokens==2.1.0
 async-timeout==4.0.2
 attrs==22.1.0
 backcall==0.2.0
-beautifulsoup4==4.11.1
+beautifulsoup4==4.11.2
 bson==0.5.10
 cachetools==5.2.0
 certifi==2022.12.7
