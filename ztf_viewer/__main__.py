@@ -121,19 +121,22 @@ app.layout = html.Div(
                 html.A("this paper", href="https://ui.adsabs.harvard.edu/abs/2022arXiv221107605M"),
                 " ",
                 dcc.Clipboard(
-                    content="""@ARTICLE{2022arXiv221107605M,
+                    content="""@ARTICLE{2023PASP..135b4503M,
        author = {{Malanchev}, Konstantin and {Kornilov}, Matwey V. and {Pruzhinskaya}, Maria V. and {Ishida}, Emille E.~O. and {Aleo}, Patrick D. and {Korolev}, Vladimir S. and {Lavrukhina}, Anastasia and {Russeil}, Etienne and {Sreejith}, Sreevarsha and {Volnova}, Alina A. and {Voloshina}, Anastasiya and {Krone-Martins}, Alberto},
         title = "{The SNAD Viewer: Everything You Want to Know about Your Favorite ZTF Object}",
-      journal = {arXiv e-prints},
-     keywords = {Astrophysics - Instrumentation and Methods for Astrophysics},
-         year = 2022,
-        month = nov,
-          eid = {arXiv:2211.07605},
-        pages = {arXiv:2211.07605},
+      journal = {\pasp},
+     keywords = {Variable stars, Astronomy software, Open source software, Publicly available software, Astronomy web services, 1761, 1855, 1866, 1864, 1856, Astrophysics - Instrumentation and Methods for Astrophysics},
+         year = 2023,
+        month = feb,
+       volume = {135},
+       number = {1044},
+          eid = {024503},
+        pages = {024503},
+          doi = {10.1088/1538-3873/acb292},
 archivePrefix = {arXiv},
        eprint = {2211.07605},
  primaryClass = {astro-ph.IM},
-       adsurl = {https://ui.adsabs.harvard.edu/abs/2022arXiv221107605M},
+       adsurl = {https://ui.adsabs.harvard.edu/abs/2023PASP..135b4503M},
       adsnote = {Provided by the SAO/NASA Astrophysics Data System}
 }
 """,  # noqa: E501
@@ -410,6 +413,12 @@ def app_select_by_url(pathname):
                             html.A("Vizier", href="//vizier.u-strasbg.fr/viz-bin/VizieR"),
                             ".",
                             html.Br(),
+                            "We acknowledge ",
+                            "Sternberg Astronomical Institute and personally Alexander Belinski, ",
+                            "University of California, Irvine and personally Alberto Krone-Martins, ",
+                            "and Gautham Narayan (University of Illinois Urbana-Champaign) ",
+                            "for the computational and data storage resources provided for this project.",
+                            html.Br(),
                             html.Br(),
                             html.Div(
                                 [
@@ -434,20 +443,23 @@ def app_select_by_url(pathname):
                     [
                         dcc.Markdown(
                             """```latex
-@ARTICLE{2022arXiv221107605M,
-   author = {{Malanchev}, Konstantin and {Kornilov}, Matwey V. and {Pruzhinskaya}, Maria V. and {Ishida}, Emille E.~O. and {Aleo}, Patrick D. and {Korolev}, Vladimir S. and {Lavrukhina}, Anastasia and {Russeil}, Etienne and {Sreejith}, Sreevarsha and {Volnova}, Alina A. and {Voloshina}, Anastasiya and {Krone-Martins}, Alberto},
-    title = "{The SNAD Viewer: Everything You Want to Know about Your Favorite ZTF Object}",
-  journal = {arXiv e-prints},
- keywords = {Astrophysics - Instrumentation and Methods for Astrophysics},
-     year = 2022,
-    month = nov,
-      eid = {arXiv:2211.07605},
-    pages = {arXiv:2211.07605},
+@ARTICLE{2023PASP..135b4503M,
+       author = {{Malanchev}, Konstantin and {Kornilov}, Matwey V. and {Pruzhinskaya}, Maria V. and {Ishida}, Emille E.~O. and {Aleo}, Patrick D. and {Korolev}, Vladimir S. and {Lavrukhina}, Anastasia and {Russeil}, Etienne and {Sreejith}, Sreevarsha and {Volnova}, Alina A. and {Voloshina}, Anastasiya and {Krone-Martins}, Alberto},
+        title = "{The SNAD Viewer: Everything You Want to Know about Your Favorite ZTF Object}",
+      journal = {\pasp},
+     keywords = {Variable stars, Astronomy software, Open source software, Publicly available software, Astronomy web services, 1761, 1855, 1866, 1864, 1856, Astrophysics - Instrumentation and Methods for Astrophysics},
+         year = 2023,
+        month = feb,
+       volume = {135},
+       number = {1044},
+          eid = {024503},
+        pages = {024503},
+          doi = {10.1088/1538-3873/acb292},
 archivePrefix = {arXiv},
-   eprint = {2211.07605},
-primaryClass = {astro-ph.IM},
-   adsurl = {https://ui.adsabs.harvard.edu/abs/2022arXiv221107605M},
-  adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+       eprint = {2211.07605},
+ primaryClass = {astro-ph.IM},
+       adsurl = {https://ui.adsabs.harvard.edu/abs/2023PASP..135b4503M},
+      adsnote = {Provided by the SAO/NASA Astrophysics Data System}
 }
 ```""",  # noqa: E501
                             id="bibtex_citation",
