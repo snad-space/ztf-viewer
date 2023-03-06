@@ -413,6 +413,12 @@ def app_select_by_url(pathname):
                             html.A("Vizier", href="//vizier.u-strasbg.fr/viz-bin/VizieR"),
                             ".",
                             html.Br(),
+                            "We acknowledge ",
+                            "Sternberg Astronomical Institute and personally Alexander Belinski, ",
+                            "University of California, Irvine and personally Alberto Krone-Martins, ",
+                            "and Gautham Narayan (University of Illinois Urbana-Champaign) ",
+                            "for the computational and data storage resources provided for this project.",
+                            html.Br(),
                             html.Br(),
                             html.Div(
                                 [
