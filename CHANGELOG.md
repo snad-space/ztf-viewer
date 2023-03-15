@@ -6,6 +6,8 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
+## [2023.3.0] 2023 March 15
+
 ### Added
 
 - Acknowledgements section on the home page
@@ -15,7 +17,7 @@ Version schema is `year.month.num_release`
 - Increase number of decimal digits for period in downloadable plots from three to six https://github.com/snad-space/ztf-viewer/issues/272 https://github.com/snad-space/ztf-viewer/pull/274
 - Update Viewer paper citation with the journal reference
 
-## [2023.1.0]  2023 January 14
+## [2023.1.0] 2023 January 14
 
 ### Changed
 
