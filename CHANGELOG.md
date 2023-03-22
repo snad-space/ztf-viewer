@@ -6,6 +6,10 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
+### Changed
+
+- Load cutouts images into the FITS viewer: ~800KB instead of ~39MB
+
 ## [2023.3.0] 2023 March 15
 
 ### Added
