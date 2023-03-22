@@ -1605,9 +1605,10 @@ app.clientside_callback(
     function(divs) {
         console.log(divs);
         if (divs) {
-            let ra = divs[0].props.children;
-            let dec = divs[1].props.children;
-            let fits = divs[4].props.href;
+            let ra = document.getElementById("fits-to-show-ra").innerText;
+            let dec = document.getElementById("fits-to-show-dec").innerText;
+            let fits = document.getElementById("fits-to-show-cutout-url").innerText;
+            console.log(fits);
             JS9.Load(fits, {onload: function(im) {
                 JS9.SetPan({ra: ra, dec: dec}, {display: im});
                 JS9.AddRegions({shape: 'point', ra: ra, dec: dec}, {display: im});
@@ -1637,15 +1638,17 @@ def graph_clicked(data, dr):
     date = DateWithFrac.from_hmjd(mjd, coord=coord)
     correct_date(date)
     fits_url = urljoin(ZTF_FITS_PROXY_URL, date.sciimg_path(fieldid=fieldid, rcid=rcid, filter=fltr))
-    # Looks like flipping doesn't work
+    cutout_query = urlencode(dict(size="449pix", gzip="false", center=f"{ra},{dec}"))
+    fits_cutout_url = f"{fits_url}?{cutout_query}"
     js9_url = f'{JS9_URL}?{urlencode(dict(url=fits_url,zoom=10,ra=ra,dec=dec,scale="histeq",flip="y"))}'
     prod_dir_url = urljoin(ZTF_FITS_PROXY_URL, date.products_path)
     return [
         html.Div(ra, id="fits-to-show-ra", style={"display": "none"}),
         html.Div(dec, id="fits-to-show-dec", style={"display": "none"}),
+        html.Div(fits_cutout_url, id="fits-to-show-cutout-url", style={"display": "none"}),
         html.A("Open in JS9", href=js9_url, id="fits-to-show-js9-url"),
         " ",
-        html.A("Download FITS", href=fits_url, id="fits-to-show-url"),
+        html.A("Download FITS", href=fits_url, id="fits-to-download-url"),
         " ",
         html.A("Product directory", href=prod_dir_url, id="fits-to-show-dir-url"),
     ]
