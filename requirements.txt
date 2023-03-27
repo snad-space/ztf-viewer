@@ -87,7 +87,7 @@ pytz==2022.7.1
 pyvo==1.4
 PyYAML==6.0
 pyzmq==24.0.1
-redis==4.4.2
+redis==4.5.3
 redis-lru==0.1.2
 requests==2.28.1
 requests-mock==1.10.0
