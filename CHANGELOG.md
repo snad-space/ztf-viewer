@@ -6,9 +6,11 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
+## [2023.4.0] 2024 April 10
+
 ### Changed
 
-- Load cutouts images into the FITS viewer: ~800KB instead of ~39MB
+- Load cutouts images into the FITS viewer: ~800KB instead of ~39MB https://github.com/snad-space/ztf-viewer/issues/300 https://github.com/snad-space/ztf-viewer/pull/301
 
 ## [2023.3.0] 2023 March 15
 
