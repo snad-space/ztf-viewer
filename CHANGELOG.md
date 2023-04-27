@@ -6,6 +6,10 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
+### Fixed
+
+- Pan-STARRS Stack catalog
+
 ## [2023.4.0] 2024 April 10
 
 ### Changed
