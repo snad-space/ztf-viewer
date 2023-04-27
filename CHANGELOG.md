@@ -6,9 +6,11 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
+## [2023.4.1] 2024 April 27
+
 ### Fixed
 
-- Pan-STARRS Stack catalog
+- Pan-STARRS Stack catalog https://github.com/snad-space/ztf-viewer/pull/311
 
 ## [2023.4.0] 2024 April 10
 
