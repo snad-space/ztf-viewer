@@ -80,7 +80,7 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
     def _query_region(self, coord, radius):
         try:
             table = self._catalogs.query_region(
-                coord, radius=radius, catalog="Panstarrs", data_release="dr2", table="stacked"
+                coord, radius=radius, catalog="Panstarrs", data_release="dr2", table="stack"
             )
         except RequestException as e:
             logging.warning(e)
