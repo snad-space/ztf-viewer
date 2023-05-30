@@ -6,6 +6,10 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
+### Added
+
+- ZTF DR17, it is not default data release yet
+
 ## [2023.4.1] 2024 April 27
 
 ### Fixed

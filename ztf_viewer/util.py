@@ -60,6 +60,7 @@ available_drs = (
     "dr4",
     "dr8",
     "dr13",
+    "dr17",
 )
 
 
@@ -167,6 +168,8 @@ def min_max_mjd_short(dr):
         return 58194.0, 58972.0
     if dr == "dr13":
         return 58194.0, 59280.0
+    if dr == "dr17":
+        return 58194.0, 59524.0
     return -INF, INF
 
 
