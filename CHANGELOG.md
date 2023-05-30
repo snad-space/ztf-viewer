@@ -6,17 +6,19 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
+## [2023.5.0] 2023 May 30
+
 ### Added
 
 - ZTF DR17, it is not default data release yet
 
-## [2023.4.1] 2024 April 27
+## [2023.4.1] 2023 April 27
 
 ### Fixed
 
 - Pan-STARRS Stack catalog https://github.com/snad-space/ztf-viewer/pull/311
 
-## [2023.4.0] 2024 April 10
+## [2023.4.0] 2023 April 10
 
 ### Changed
 
