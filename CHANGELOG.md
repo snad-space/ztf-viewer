@@ -6,6 +6,10 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
+### Changed
+
+- ZTF DR17 is the default DR now
+
 ## [2023.5.0] 2023 May 30
 
 ### Added
