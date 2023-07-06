@@ -91,7 +91,7 @@ redis==4.4.4
 redis-lru==0.1.2
 requests==2.31.0
 requests-mock==1.10.0
-scipy==1.9.3
+scipy==1.10.0
 SecretStorage==3.3.3
 six==1.16.0
 soupsieve==2.3.2.post1
