@@ -153,8 +153,6 @@ def get_layout(pathname):
             html.Div("", id="placeholder", style={"display": "none"}),
             html.Div(f"{oid}", id="oid", style={"display": "none"}),
             html.Div(f"{dr}", id="dr", style={"display": "none"}),
-            html.Div(min_mjd, id="min-mjd", style={"display": "none"}),
-            html.Div(max_mjd, id="max-mjd", style={"display": "none"}),
             html.H2(id="title"),
             html.Div(id="akb-neighbours"),
             html.Div(set_akb_info(0, oid), id="akb-info"),
@@ -177,16 +175,42 @@ def get_layout(pathname):
                             html.A("CSV", href=f"/{dr}/csv/{oid}", id="csv-link"),
                         ]
                     ),
-                    dcc.Checklist(
-                        id="light-curve-time-interval",
-                        options=[
-                            {
-                                "label": f'"Short" light curve: {short_min_mjd} ≤ MJD ≤ {short_max_mjd}',
-                                "value": "short",
-                            },
+                    html.Div(
+                        [
+                            "Min MJD ",
+                            dcc.Input(
+                                value=50000.0,
+                                id="min-mjd",
+                                type="number",
+                                placeholder=56789.0 if short_min_mjd == -INF else short_min_mjd,
+                                style={"width": "8em"},
+                            ),
+                            ", max MJD ",
+                            dcc.Input(
+                                value=70000.0,
+                                id="max-mjd",
+                                type="number",
+                                placeholder=67890.1 if short_max_mjd == INF else short_max_mjd,
+                                style={"width": "8em"},
+                            ),
+                            " ",
+                            dcc.Checklist(
+                                id="short-light-curve-checkbox",
+                                options=[
+                                    {
+                                        "label": f"ZTF Private Survey: {short_min_mjd} ≤ MJD ≤ {short_max_mjd}",
+                                        "value": "short",
+                                    },
+                                ],
+                                value=["short"] if is_short else [],
+                                style={
+                                    "display": "none"
+                                    if short_min_mjd == -INF and short_max_mjd == INF
+                                    else "inline-block"
+                                },
+                            ),
                         ],
-                        value=["short"] if is_short else [],
-                        style={"display": "none" if short_min_mjd == -INF and short_max_mjd == INF else "block"},
+                        style={"display": "inline-block"},
                     ),
                     dcc.RadioItems(
                         options=[
@@ -866,10 +890,10 @@ def update_akb(n_clicks, oid, tags, description):
 
 @app.callback(
     [
-        Output("min-mjd", "children"),
-        Output("max-mjd", "children"),
+        Output("min-mjd", "value"),
+        Output("max-mjd", "value"),
     ],
-    [Input("light-curve-time-interval", "value")],
+    [Input("short-light-curve-checkbox", "value")],
     [State("dr", "children")],
 )
 def set_min_max_mjd(values, dr):
@@ -877,7 +901,22 @@ def set_min_max_mjd(values, dr):
         raise PreventUpdate
     if "short" in values:
         return min_max_mjd_short(dr)
-    return -INF, INF
+    raise PreventUpdate
+
+
+@app.callback(
+    Output("short-light-curve-checkbox", "value"),
+    [Input("min-mjd", "value"), Input("max-mjd", "value")],
+    [State("dr", "children")],
+)
+def update_short_light_curve_checkbox(min_mjd, max_mjd, dr):
+    try:
+        min_mjd, max_mjd = float(min_mjd), float(max_mjd)
+    except (TypeError, ValueError):
+        raise PreventUpdate
+    if abs(float(min_mjd) - min_max_mjd_short(dr)[0]) < 1e-5 and abs(float(max_mjd) - min_max_mjd_short(dr)[1]) < 1e-5:
+        return ["short"]
+    return []
 
 
 @app.callback(
@@ -1303,8 +1342,8 @@ def neighbour_oids(different_filter, different_field) -> frozenset:
         Input("dr", "children"),
         Input("different_filter_neighbours", "children"),
         Input("different_field_neighbours", "children"),
-        Input("min-mjd", "children"),
-        Input("max-mjd", "children"),
+        Input("min-mjd", "value"),
+        Input("max-mjd", "value"),
         Input("light-curve-brightness", "value"),
         Input("light-curve-type", "value"),
         Input("fold-period", "value"),
@@ -1505,8 +1544,8 @@ app.callback(
         Input("title", "children"),
         Input("different_filter_neighbours", "children"),
         Input("different_field_neighbours", "children"),
-        Input("min-mjd", "children"),
-        Input("max-mjd", "children"),
+        Input("min-mjd", "value"),
+        Input("max-mjd", "value"),
         Input("light-curve-type", "value"),
         Input("fold-period", "value"),
         Input("fold-zero-phase", "value"),
@@ -1522,8 +1561,8 @@ app.callback(
         Input("title", "children"),
         Input("different_filter_neighbours", "children"),
         Input("different_field_neighbours", "children"),
-        Input("min-mjd", "children"),
-        Input("max-mjd", "children"),
+        Input("min-mjd", "value"),
+        Input("max-mjd", "value"),
         Input("light-curve-type", "value"),
         Input("fold-period", "value"),
         Input("fold-zero-phase", "value"),
@@ -1778,8 +1817,8 @@ def set_vizier_list(n_clicks, radius, oid, dr):
         Input("oid", "children"),
         Input("dr", "children"),
         Input("features-api-version", "value"),
-        Input("min-mjd", "children"),
-        Input("max-mjd", "children"),
+        Input("min-mjd", "value"),
+        Input("max-mjd", "value"),
     ],
 )
 def set_features_list(oid, dr, version, min_mjd, max_mjd):
@@ -1801,8 +1840,8 @@ def set_features_list(oid, dr, version, min_mjd, max_mjd):
     [
         Input("oid", "children"),
         Input("dr", "children"),
-        Input("min-mjd", "children"),
-        Input("max-mjd", "children"),
+        Input("min-mjd", "value"),
+        Input("max-mjd", "value"),
     ],
 )
 def set_lc_table(oid, dr, min_mjd, max_mjd):

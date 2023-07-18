@@ -6,6 +6,10 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
+### Added
+
+- Input fields for custom min/max MJD limits
+
 ### Changed
 
 - ZTF DR17 is the default DR now
