@@ -906,15 +906,16 @@ def set_min_max_mjd(values, dr):
 
 @app.callback(
     Output("short-light-curve-checkbox", "value"),
-    [Input("min-mjd", "value"), Input("max-mjd", "value")],
-    [State("dr", "children")],
+    [Input("min-mjd", "n_submit"), Input("max-mjd", "n_submit")],
+    [State("min-mjd", "value"), State("max-mjd", "value"), State("dr", "children")],
 )
-def update_short_light_curve_checkbox(min_mjd, max_mjd, dr):
+def update_short_light_curve_checkbox(_n_min_mjd, _n_max_mjd, min_mjd, max_mjd, dr):
     try:
         min_mjd, max_mjd = float(min_mjd), float(max_mjd)
     except (TypeError, ValueError):
         raise PreventUpdate
-    if abs(float(min_mjd) - min_max_mjd_short(dr)[0]) < 1e-5 and abs(float(max_mjd) - min_max_mjd_short(dr)[1]) < 1e-5:
+    min_mjd_short, max_mjd_short = min_max_mjd_short(dr)
+    if abs(float(min_mjd) - min_mjd_short) < 1e-5 and abs(float(max_mjd) - max_mjd_short) < 1e-5:
         return ["short"]
     return []
 
