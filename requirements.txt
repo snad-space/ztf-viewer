@@ -25,7 +25,7 @@ dash-html-components==2.0.0
 dash-table==5.0.0
 debugpy==1.6.6
 decorator==5.1.1
-Deprecated==1.2.13
+Deprecated==1.2.14
 dustmaps==1.0.10
 entrypoints==0.4
 exceptiongroup==1.2.0
