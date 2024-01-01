@@ -28,7 +28,7 @@ decorator==5.1.1
 Deprecated==1.2.13
 dustmaps==1.0.10
 entrypoints==0.4
-exceptiongroup==1.0.4
+exceptiongroup==1.2.0
 executing==1.2.0
 Flask==2.3.2
 fonttools==4.38.0
