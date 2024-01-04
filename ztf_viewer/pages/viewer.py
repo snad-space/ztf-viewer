@@ -30,6 +30,7 @@ from ztf_viewer.catalogs.conesearch import (
     get_catalog_query,
 )
 from ztf_viewer.catalogs.extinction import bayestar, sfd
+from ztf_viewer.catalogs.skybot import SKYBOT_QUERY
 from ztf_viewer.catalogs.snad.catalog import snad_catalog
 from ztf_viewer.catalogs.vizier import find_vizier, vizier_catalog_details
 from ztf_viewer.catalogs.ztf_dr import find_ztf_circle, find_ztf_oid
@@ -50,6 +51,7 @@ from ztf_viewer.util import (
     list_join,
     min_max_mjd_short,
     to_str,
+    hmjd_to_earth,
     DEFAULT_MIN_MAX_MJD,
 )
 
@@ -174,24 +176,26 @@ def get_layout(pathname, search):
             html.Div(set_akb_info(0, oid), id="akb-info"),
             html.Div(
                 [
-                    dcc.Graph(
-                        id="graph",
-                        config={
-                            "toImageButtonOptions": {"filename": str(oid)},
-                            "displaylogo": False,
-                        },
-                    ),
                     html.Div(
                         [
-                            "Download ",
-                            html.A("PNG", href=f"/{dr}/figure/{oid}?format=png", id="figure-png-link"),
-                            ", ",
-                            html.A("PDF", href=f"/{dr}/figure/{oid}?format=pdf", id="figure-pdf-link"),
-                            ", ",
-                            html.A("CSV", href=f"/{dr}/csv/{oid}", id="csv-link"),
-                        ]
-                    ),
-                    html.Div(
+                            dcc.Graph(
+                                id="graph",
+                                config={
+                                    "toImageButtonOptions": {"filename": str(oid)},
+                                    "displaylogo": False,
+                                },
+                            ),
+                            html.Div(
+                                [
+                                    "Download ",
+                                    html.A("PNG", href=f"/{dr}/figure/{oid}?format=png", id="figure-png-link"),
+                                    ", ",
+                                    html.A("PDF", href=f"/{dr}/figure/{oid}?format=pdf", id="figure-pdf-link"),
+                                    ", ",
+                                    html.A("CSV", href=f"/{dr}/csv/{oid}", id="csv-link"),
+                                ]
+                            ),
+                            html.Div(
                         [
                             "MJD range:",
                             dcc.Input(
@@ -232,99 +236,112 @@ def get_layout(pathname, search):
                                 },
                             ),
                         ],
-                        style={"display": "inline-block"},
-                    ),
-                    dcc.RadioItems(
-                        options=[
-                            {"label": "Full light curve", "value": "full"},
-                            {"label": "Folded light curve", "value": "folded"},
-                        ],
-                        value="full",
-                        labelStyle={"display": "inline-block", "margin-right": "2em"},
-                        id="light-curve-type",
-                    ),
-                    html.Div(
-                        [
-                            html.Div(
-                                [
-                                    dcc.Input(
-                                        value=features.get("period_0_magn", features.get("period_0", None))
-                                        if features is not None
-                                        else None,
-                                        id="fold-period",
-                                        placeholder="Period, days",
-                                        type="number",
-                                    ),
-                                    " period, days",
-                                ],
-                                style={"width": "40%", "display": "inline-block", "margin-bottom": "1em"},
-                            ),
-                            html.Div(
-                                [
-                                    dcc.Slider(
-                                        value=0.0,
-                                        id="fold-zero-phase",
-                                        min=0.0,
-                                        max=1.0,
-                                        step=1e-3,
-                                        marks={str(x): f"{x:.1f}" for x in np.linspace(0, 1, 11)},
-                                    ),
-                                ],
-                                style={"width": "60%", "display": "inline-block", "vertical-align": "bottom"},
-                            ),
-                        ],
-                        id="fold-period-layout",
-                        style={"display": "none", "vertical-align": "center"},
-                    ),
-                    dcc.Checklist(
-                        id="additional-light-curves",
-                        options=[
-                            {"label": "Closest Antares object, diff-photometry", "value": "antares", "disabled": False},
-                            {"label": "Closest Pan-STARRS object, apparent", "value": "panstarrs", "disabled": False},
-                            {"label": "Closest Gaia object, apparent", "value": "gaia", "disabled": False},
-                        ],
-                        value=[],
-                        labelStyle={"display": "inline-block", "margin-right": "2em"},
-                        style={"display": "block"},
-                    ),
-                    dcc.RadioItems(
-                        options=[
-                            {"label": "Magnitude", "value": "mag"},
-                            {"label": "Flux", "value": "flux"},
-                            {"label": "diff Magnitude", "value": "diffmag"},
-                            {"label": "diff Flux", "value": "diffflux"},
-                        ],
-                        value="mag",
-                        labelStyle={"display": "inline-block", "margin-right": "2em"},
-                        id="light-curve-brightness",
-                    ),
-                    html.Div(
-                        [
-                            html.Div(
-                                [
-                                    html.B("Reference:"),
-                                    html.Div(id="ref-mag"),
-                                ],
-                                style={
-                                    "display": "inline-block",
-                                    "vertical-align": "top",
+                        style={"display": "inline-block"
                                 },
                             ),
+                            dcc.RadioItems(
+                                options=[
+                                    {"label": "Full light curve", "value": "full"},
+                                    {"label": "Folded light curve", "value": "folded"},
+                                ],
+                                value="full",
+                                labelStyle={"display": "inline-block", "margin-right": "2em"},
+                                id="light-curve-type",
+                            ),
+                            html.Div(
+                                [
+                                    html.Div(
+                                        [
+                                            dcc.Input(
+                                                value=features.get("period_0_magn", features.get("period_0", None))
+                                                if features is not None
+                                                else None,
+                                                id="fold-period",
+                                                placeholder="Period, days",
+                                                type="number",
+                                            ),
+                                            " period, days",
+                                        ],
+                                        style={"width": "40%", "display": "inline-block", "margin-bottom": "1em"},
+                                    ),
+                                    html.Div(
+                                        [
+                                            dcc.Slider(
+                                                value=0.0,
+                                                id="fold-zero-phase",
+                                                min=0.0,
+                                                max=1.0,
+                                                step=1e-3,
+                                                marks={str(x): f"{x:.1f}" for x in np.linspace(0, 1, 11)},
+                                            ),
+                                        ],
+                                        style={"width": "60%", "display": "inline-block", "vertical-align": "bottom"},
+                                    ),
+                                ],
+                                id="fold-period-layout",
+                                style={"display": "none", "vertical-align": "center"},
+                            ),
+                            dcc.Checklist(
+                                id="additional-light-curves",
+                                options=[
+                                    {
+                                        "label": "Closest Antares object, diff-photometry",
+                                        "value": "antares",
+                                        "disabled": False,
+                                    },
+                                    {
+                                        "label": "Closest Pan-STARRS object, apparent",
+                                        "value": "panstarrs",
+                                        "disabled": False,
+                                    },
+                                    {"label": "Closest Gaia object, apparent", "value": "gaia", "disabled": False},
+                                ],
+                                value=[],
+                                labelStyle={"display": "inline-block", "margin-right": "2em"},
+                                style={"display": "block"},
+                            ),
+                            dcc.RadioItems(
+                                options=[
+                                    {"label": "Magnitude", "value": "mag"},
+                                    {"label": "Flux", "value": "flux"},
+                                    {"label": "diff Magnitude", "value": "diffmag"},
+                                    {"label": "diff Flux", "value": "diffflux"},
+                                ],
+                                value="mag",
+                                labelStyle={"display": "inline-block", "margin-right": "2em"},
+                                id="light-curve-brightness",
+                            ),
+                            html.Div(
+                                [
+                                    html.Div(
+                                        [
+                                            html.B("Reference:"),
+                                            html.Div(id="ref-mag"),
+                                        ],
+                                        style={
+                                            "display": "inline-block",
+                                            "vertical-align": "top",
+                                        },
+                                    ),
+                                ],
+                                id="ref-mag-layout",
+                                style={"display": "none"},
+                            ),
                         ],
-                        id="ref-mag-layout",
-                        style={"display": "none"},
+                        id="graph-layout",
+                        style={"flex-basis": "70%", "flex-grow": 1, "flex-shrink": 0},
+                    ),
+                    html.Div(
+                        [
+                            html.Div(className="JS9", id="JS9"),
+                            dji.Import(src="/static/js/js9_helper.js"),
+                            html.Div(id="fits-to-show"),
+                            html.Div(id="skybot"),
+                        ],
+                        style={"min-width": "450px", "width": "20%", "vertical-align": "top", "flex-shrink": 0},
                     ),
                 ],
-                id="graph-layout",
-                style={"width": "70%", "display": "inline-block"},
-            ),
-            html.Div(
-                [
-                    html.Div(className="JS9", id="JS9"),
-                    dji.Import(src="/static/js/js9_helper.js"),
-                    html.Div(id="fits-to-show"),
-                ],
-                style={"width": "20%", "display": "inline-block", "vertical-align": "top"},
+                style={"display": "flex", "min-width": "100%", "overflow-x": "auto"},
             ),
             html.Div(
                 [
@@ -1700,7 +1717,7 @@ app.clientside_callback(
 
 
 @app.callback(Output("fits-to-show", "children"), [Input("graph", "clickData")], [State("dr", "children")])
-def graph_clicked(data, dr):
+def load_fits_for_graph_clicked(data, dr):
     if data is None:
         raise PreventUpdate
     if not (points := data.get("points")):
@@ -1726,6 +1743,26 @@ def graph_clicked(data, dr):
         " ",
         html.A("Product directory", href=prod_dir_url, id="fits-to-show-dir-url"),
     ]
+
+
+@app.callback(Output("skybot", "children"), [Input("graph", "clickData")], [State("dr", "children")])
+def update_skybot_for_graph_clicked(data, dr):
+    if data is None:
+        raise PreventUpdate
+    if not (points := data.get("points")):
+        raise PreventUpdate
+    point = points[0]
+    mjd, oid, *_ = point["customdata"]
+    coord = find_ztf_oid.get_sky_coord(oid, dr)
+    observatory_mjd = hmjd_to_earth(mjd, coord)
+    try:
+        table = SKYBOT_QUERY.find(coord.ra.deg, coord.dec.deg, observatory_mjd, radius_arcsec=15.0)
+    except NotFound:
+        return html.Div("No minor planets found")
+
+    return [html.B("Minor planets: ")] + list_join(
+        ", ", (f"{row['__name']} ({row['__separation']}, mV={row['V'].to_value('mag'):.1f})" for row in table)
+    )
 
 
 @app.callback(
