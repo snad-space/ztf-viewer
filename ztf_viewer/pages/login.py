@@ -6,7 +6,9 @@ from ztf_viewer.app import app
 from ztf_viewer.exceptions import UnAuthorized
 
 
-def get_layout(pathname):
+def get_layout(*args, **kwargs):
+    del args, kwargs
+
     return html.Div(
         [
             html.Br(),

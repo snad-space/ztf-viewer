@@ -8,7 +8,9 @@ from ztf_viewer.akb import akb
 from ztf_viewer.app import app
 
 
-def get_layout(pathname):
+def get_layout(*args, **kwargs):
+    del args, kwargs
+
     return html.Div(
         [
             html.H1("Anomaly knowledge base"),

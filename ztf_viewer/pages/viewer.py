@@ -2,7 +2,8 @@ import pathlib
 from collections import OrderedDict, defaultdict
 from functools import lru_cache, partial
 from itertools import chain
-from urllib.parse import urlencode, urljoin
+from typing import Any
+from urllib.parse import parse_qs, urlencode, urljoin, urlparse
 
 import dash_dangerously_set_inner_html as ddsih
 import dash_defer_js_import as dji
@@ -112,6 +113,14 @@ def parse_pathname(pathname):
     return dr, int(oid), is_short
 
 
+def parse_search(search_query: str) -> dict[str, Any]:
+    parsed = parse_qs(urlparse(search_query).query)
+    result = dict()
+    result["min_mjd"] = float(parsed.get("min_mjd", [-INF])[-1])
+    result["max_mjd"] = float(parsed.get("max_mjd", [INF])[-1])
+    return result
+
+
 def set_div_for_aladin(oid, version):
     ra, dec = find_ztf_oid.get_coord(oid, version)
     coord = find_ztf_oid.get_coord_string(oid, version)
@@ -128,7 +137,7 @@ def set_div_for_aladin(oid, version):
 
 
 @lru_cache(maxsize=128)
-def get_layout(pathname):
+def get_layout(pathname, search):
     dr, oid, is_short = parse_pathname(pathname)
     try:
         find_ztf_oid.find(oid, dr)
@@ -142,12 +151,18 @@ def get_layout(pathname):
     other_drs = [other_dr for other_dr in available_drs if other_dr != dr]
     ra, dec = find_ztf_oid.get_coord(oid, dr)
     coord = find_ztf_oid.get_coord_string(oid, dr)
+
     short_min_mjd, short_max_mjd = min_max_mjd_short(dr)
     min_mjd, max_mjd = (short_min_mjd, short_max_mjd) if is_short else (-INF, INF)
+    search_query_parsed = parse_search(search)
+    min_mjd = search_query_parsed.get("min_mjd", min_mjd)
+    max_mjd = search_query_parsed.get("max_mjd", max_mjd)
+
     try:
         features = light_curve_features(oid, dr, version="latest", min_mjd=min_mjd, max_mjd=max_mjd)
     except NotFound:
         features = None
+
     layout = html.Div(
         [
             html.Div("", id="placeholder", style={"display": "none"}),
@@ -179,7 +194,7 @@ def get_layout(pathname):
                         [
                             "Min MJD ",
                             dcc.Input(
-                                value=50000.0,
+                                value=max(50000.0, min_mjd),
                                 id="min-mjd",
                                 type="number",
                                 placeholder=56789.0 if short_min_mjd == -INF else short_min_mjd,
@@ -187,7 +202,7 @@ def get_layout(pathname):
                             ),
                             ", max MJD ",
                             dcc.Input(
-                                value=70000.0,
+                                value=min(70000.0, max_mjd),
                                 id="max-mjd",
                                 type="number",
                                 placeholder=67890.1 if short_max_mjd == INF else short_max_mjd,

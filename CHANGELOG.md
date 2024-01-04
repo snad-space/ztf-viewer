@@ -8,7 +8,8 @@ Version schema is `year.month.num_release`
 
 ### Added
 
-- Input fields for custom min/max MJD limits
+- Input fields for custom min/max MJD limits https://github.com/snad-space/ztf-viewer/pull/367
+- Object pages now support query parameters: `?min_mjd=58800&max_mjd=59000` https://github.com/snad-space/ztf-viewer/pull/367
 
 ### Changed
 

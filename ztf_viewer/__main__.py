@@ -316,9 +316,12 @@ def go_to_url(
         Output("input-coord-or-name", "value"),
         Output("input-search-radius", "value"),
     ],
-    [Input("url", "pathname")],
+    [
+        Input("url", "pathname"),
+        Input("url", "search"),
+    ],
 )
-def app_select_by_url(pathname):
+def app_select_by_url(pathname, search):
     if not isinstance(pathname, str):
         raise PreventUpdate
     # DR7 is not supported anymore:
@@ -486,13 +489,13 @@ archivePrefix = {arXiv},
         ]
     if match := re.search(r"^/+view/+(\d+)", pathname):
         return [
-            get_viewer_layout(f"/{DEFAULT_DR}/view/{match.group(1)}"),
+            get_viewer_layout(f"/{DEFAULT_DR}/view/{match.group(1)}", search),
             no_update,
             no_update,
         ]
     if re.search(r"^/+dr\d{1,2}/+view/+(\d+)", pathname):
         return [
-            get_viewer_layout(pathname),
+            get_viewer_layout(pathname, search),
             no_update,
             no_update,
         ]
@@ -543,19 +546,19 @@ archivePrefix = {arXiv},
         ]
     if re.search(r"^/+login/*$", pathname):
         return [
-            get_login_layout(pathname),
+            get_login_layout(pathname, search),
             no_update,
             no_update,
         ]
     if re.search("^/+(?:(?:anomalies)|(?:akb))/*$", pathname):
         return [
-            get_anomalies_layout(pathname),
+            get_anomalies_layout(pathname, search),
             no_update,
             no_update,
         ]
     if re.search("^/+tags/*$", pathname):
         return [
-            get_tags_layout(pathname),
+            get_tags_layout(pathname, search),
             no_update,
             no_update,
         ]
