@@ -1,6 +1,6 @@
 import logging
 
-from astropy.coordinates import SkyCoord
+from astropy.coordinates import SkyCoord, Angle
 from astropy.time import Time
 from astroquery.imcce import Skybot
 
@@ -13,15 +13,21 @@ class SkybotQuery:
     def __init__(self):
         self._query = Skybot()
 
+    query_radius = Angle(120, "arcsec")
+    """Radius to use for Skybot queries, results will be sub-sampled to the requested radius"""
+
     @cache()
     def find(self, ra, dec, observatory_mjd, radius_arcsec):
         logging.info(f"Querying Skybot ra={ra}, dec={dec}, mjd={observatory_mjd}, r={radius_arcsec}")
         coord = SkyCoord(ra, dec, unit="deg", frame="icrs")
-        radius = f"{radius_arcsec}s"
+        radius = Angle(radius_arcsec, "arcsec")
+        if radius > self.query_radius:
+            raise ValueError(f"Radius {radius} is too large, maximum is {self.query_radius}")
         try:
             table = self._query.cone_search(
                 coord,
-                rad=radius,
+                # We've found that it is better to use a larger radius than required
+                rad=Angle(120, "arcsec"),
                 epoch=observatory_mjd,
                 location=PALOMAR_OBS_CODE,
                 find_planets=True,
@@ -30,6 +36,9 @@ class SkybotQuery:
             )
         except RuntimeError:
             raise NotFound("Skybot query failed")
+
+        # Filter down to requested radius, but include some margin for error
+        table = table[table["centerdist"] <= radius + 3.0 * table["posunc"]]
 
         if len(table) == 0:
             raise NotFound("Skybot query returned no results")
