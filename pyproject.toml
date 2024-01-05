@@ -28,7 +28,8 @@ dependencies = [
     "matplotlib>=3.3",
     "cachetools",
     "scipy",
-    "immutabledict",
+    # v4 brake our immutabledefaultdict implementation
+    "immutabledict<4",
     "alerce",
     # supports astropy 5
     "dustmaps>=1.0.10",

@@ -50,6 +50,7 @@ from ztf_viewer.util import (
     list_join,
     min_max_mjd_short,
     to_str,
+    DEFAULT_MIN_MAX_MJD,
 )
 
 LIGHT_CURVE_TABLE_COLUMNS = ("mjd", "mag", "magerr", "clrcoeff")
@@ -192,36 +193,42 @@ def get_layout(pathname, search):
                     ),
                     html.Div(
                         [
-                            "Min MJD ",
+                            "MJD range:",
                             dcc.Input(
-                                value=max(50000.0, min_mjd),
+                                value=max(DEFAULT_MIN_MAX_MJD[0], min_mjd),
                                 id="min-mjd",
                                 type="number",
                                 placeholder=56789.0 if short_min_mjd == -INF else short_min_mjd,
                                 style={"width": "8em"},
                             ),
-                            ", max MJD ",
+                            "—",
                             dcc.Input(
-                                value=min(70000.0, max_mjd),
+                                value=min(DEFAULT_MIN_MAX_MJD[1], max_mjd),
                                 id="max-mjd",
                                 type="number",
                                 placeholder=67890.1 if short_max_mjd == INF else short_max_mjd,
                                 style={"width": "8em"},
                             ),
                             " ",
-                            dcc.Checklist(
-                                id="short-light-curve-checkbox",
+                            dcc.RadioItems(
+                                id="min-max-mjd-radio",
                                 options=[
+                                    {
+                                        "label": f"{DEFAULT_MIN_MAX_MJD[0]} ≤ MJD ≤ {DEFAULT_MIN_MAX_MJD[1]}",
+                                        "value": "default",
+                                    }
+                                ]
+                                + (short_min_mjd != -INF and short_max_mjd != INF)
+                                * [
                                     {
                                         "label": f"ZTF Private Survey: {short_min_mjd} ≤ MJD ≤ {short_max_mjd}",
                                         "value": "short",
                                     },
                                 ],
-                                value=["short"] if is_short else [],
+                                value="short" if is_short else None,
                                 style={
-                                    "display": "none"
-                                    if short_min_mjd == -INF and short_max_mjd == INF
-                                    else "inline-block"
+                                    "display": "inline-block",
+                                    "vertical-align": "middle",
                                 },
                             ),
                         ],
@@ -908,31 +915,38 @@ def update_akb(n_clicks, oid, tags, description):
         Output("min-mjd", "value"),
         Output("max-mjd", "value"),
     ],
-    [Input("short-light-curve-checkbox", "value")],
+    [Input("min-max-mjd-radio", "value")],
     [State("dr", "children")],
 )
-def set_min_max_mjd(values, dr):
-    if values is None:
-        raise PreventUpdate
-    if "short" in values:
-        return min_max_mjd_short(dr)
+def set_min_max_mjd(value, dr):
+    match value:
+        case None:
+            raise PreventUpdate
+        case "short":
+            return min_max_mjd_short(dr)
+        case "default":
+            return DEFAULT_MIN_MAX_MJD
     raise PreventUpdate
 
 
 @app.callback(
-    Output("short-light-curve-checkbox", "value"),
+    Output("min-max-mjd-radio", "value"),
     [Input("min-mjd", "n_submit"), Input("max-mjd", "n_submit")],
     [State("min-mjd", "value"), State("max-mjd", "value"), State("dr", "children")],
 )
-def update_short_light_curve_checkbox(_n_min_mjd, _n_max_mjd, min_mjd, max_mjd, dr):
+def update_min_max_mjd_radio(_n_min_mjd, _n_max_mjd, min_mjd, max_mjd, dr):
     try:
         min_mjd, max_mjd = float(min_mjd), float(max_mjd)
     except (TypeError, ValueError):
         raise PreventUpdate
+    if min_mjd >= max_mjd:
+        raise PreventUpdate
     min_mjd_short, max_mjd_short = min_max_mjd_short(dr)
-    if abs(float(min_mjd) - min_mjd_short) < 1e-5 and abs(float(max_mjd) - max_mjd_short) < 1e-5:
-        return ["short"]
-    return []
+    if abs(min_mjd - min_mjd_short) < 1e-5 and abs(max_mjd - max_mjd_short) < 1e-5:
+        return "short"
+    if abs(min_mjd - DEFAULT_MIN_MAX_MJD[0]) < 1e-5 and abs(max_mjd - DEFAULT_MIN_MAX_MJD[1]) < 1e-5:
+        return "default"
+    return None
 
 
 @app.callback(
@@ -1393,6 +1407,9 @@ def set_figure(
     if lc_type == "folded" and not period:
         raise PreventUpdate
 
+    if min_mjd is not None and max_mjd is not None and min_mjd >= max_mjd:
+        raise PreventUpdate
+
     if brightness_type == "mag":
         bright = "mag"
         brighterr = "magerr"
@@ -1532,6 +1549,8 @@ def set_figure_link(
     cur_oid, dr, title, different_filter, different_field, min_mjd, max_mjd, lc_type, period, phase0, fmt
 ):
     if lc_type == "folded" and not period:
+        raise PreventUpdate
+    if min_mjd is not None and max_mjd is not None and min_mjd >= max_mjd:
         raise PreventUpdate
     other_oids = neighbour_oids(different_filter, different_field)
     data = [("other_oid", oid) for oid in other_oids]
@@ -1838,6 +1857,8 @@ def set_vizier_list(n_clicks, radius, oid, dr):
     ],
 )
 def set_features_list(oid, dr, version, min_mjd, max_mjd):
+    if min_mjd is not None and max_mjd is not None and min_mjd >= max_mjd:
+        raise PreventUpdate
     try:
         features = light_curve_features(oid, dr, version=version, min_mjd=min_mjd, max_mjd=max_mjd)
     except NotFound:
@@ -1861,4 +1882,6 @@ def set_features_list(oid, dr, version, min_mjd, max_mjd):
     ],
 )
 def set_lc_table(oid, dr, min_mjd, max_mjd):
+    if min_mjd is not None and max_mjd is not None and min_mjd >= max_mjd:
+        raise PreventUpdate
     return find_ztf_oid.get_lc(oid, dr, min_mjd=min_mjd, max_mjd=max_mjd)

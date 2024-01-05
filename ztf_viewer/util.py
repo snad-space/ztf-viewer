@@ -21,6 +21,9 @@ YEAR = datetime.datetime.now().year
 PALOMAR = EarthLocation(lon=-116.863, lat=33.356, height=1706)  # EarthLocation.of_site('Palomar')
 
 
+DEFAULT_MIN_MAX_MJD = 50000.0, 70000.0
+
+
 INF = float("inf")
 LN10_04 = 0.4 * np.log(10.0)
 LGE_25 = 2.5 / np.log(10.0)
