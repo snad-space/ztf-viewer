@@ -1,6 +1,6 @@
 alerce==1.0.1
 antares-client==1.2.0
-astropy==5.1.1
+astropy==6.0.0
 astroquery==0.4.6
 asttokens==2.2.1
 async-timeout==4.0.2
