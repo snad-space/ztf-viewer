@@ -196,48 +196,47 @@ def get_layout(pathname, search):
                                 ]
                             ),
                             html.Div(
-                        [
-                            "MJD range:",
-                            dcc.Input(
-                                value=max(DEFAULT_MIN_MAX_MJD[0], min_mjd),
-                                id="min-mjd",
-                                type="number",
-                                placeholder=56789.0 if short_min_mjd == -INF else short_min_mjd,
-                                style={"width": "8em"},
-                            ),
-                            "—",
-                            dcc.Input(
-                                value=min(DEFAULT_MIN_MAX_MJD[1], max_mjd),
-                                id="max-mjd",
-                                type="number",
-                                placeholder=67890.1 if short_max_mjd == INF else short_max_mjd,
-                                style={"width": "8em"},
-                            ),
-                            " ",
-                            dcc.RadioItems(
-                                id="min-max-mjd-radio",
-                                options=[
-                                    {
-                                        "label": f"{DEFAULT_MIN_MAX_MJD[0]} ≤ MJD ≤ {DEFAULT_MIN_MAX_MJD[1]}",
-                                        "value": "default",
-                                    }
-                                ]
-                                + (short_min_mjd != -INF and short_max_mjd != INF)
-                                * [
-                                    {
-                                        "label": f"ZTF Private Survey: {short_min_mjd} ≤ MJD ≤ {short_max_mjd}",
-                                        "value": "short",
-                                    },
+                                [
+                                    "MJD range:",
+                                    dcc.Input(
+                                        value=max(DEFAULT_MIN_MAX_MJD[0], min_mjd),
+                                        id="min-mjd",
+                                        type="number",
+                                        placeholder=56789.0 if short_min_mjd == -INF else short_min_mjd,
+                                        style={"width": "8em"},
+                                    ),
+                                    "—",
+                                    dcc.Input(
+                                        value=min(DEFAULT_MIN_MAX_MJD[1], max_mjd),
+                                        id="max-mjd",
+                                        type="number",
+                                        placeholder=67890.1 if short_max_mjd == INF else short_max_mjd,
+                                        style={"width": "8em"},
+                                    ),
+                                    " ",
+                                    dcc.RadioItems(
+                                        id="min-max-mjd-radio",
+                                        options=[
+                                            {
+                                                "label": f"{DEFAULT_MIN_MAX_MJD[0]} ≤ MJD ≤ {DEFAULT_MIN_MAX_MJD[1]}",
+                                                "value": "default",
+                                            }
+                                        ]
+                                        + (short_min_mjd != -INF and short_max_mjd != INF)
+                                        * [
+                                            {
+                                                "label": f"ZTF Private Survey: {short_min_mjd} ≤ MJD ≤ {short_max_mjd}",
+                                                "value": "short",
+                                            },
+                                        ],
+                                        value="short" if is_short else None,
+                                        style={
+                                            "display": "inline-block",
+                                            "vertical-align": "middle",
+                                        },
+                                    ),
                                 ],
-                                value="short" if is_short else None,
-                                style={
-                                    "display": "inline-block",
-                                    "vertical-align": "middle",
-                                },
-                            ),
-                        ],
-                        style={"display": "inline-block"
-                                },
+                                style={"display": "inline-block"},
                             ),
                             dcc.RadioItems(
                                 options=[
