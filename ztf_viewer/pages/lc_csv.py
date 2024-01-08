@@ -8,10 +8,10 @@ from ztf_viewer.catalogs import find_ztf_oid
 from ztf_viewer.exceptions import NotFound
 
 
-def get_csv(dr, oids):
+def get_csv(dr, oids, min_mjd=None, max_mjd=None):
     dfs = []
     for oid in oids:
-        lc = find_ztf_oid.get_lc(oid, dr)
+        lc = find_ztf_oid.get_lc(oid, dr, min_mjd=min_mjd, max_mjd=max_mjd)
         if lc is None:
             raise NotFound
         meta = find_ztf_oid.get_meta(oid, dr)
@@ -35,8 +35,23 @@ def response_csv(dr, oid):
     except ValueError:
         return "other_oid query parameter must be an integer", 400
     oids = set.union({oid}, other_oids)
+
+    min_mjd = request.args.get("min_mjd", None)
+    if min_mjd is not None:
+        try:
+            min_mjd = float(min_mjd)
+        except ValueError:
+            return "min_mjd query parameter must be a float", 400
+
+    max_mjd = request.args.get("max_mjd", None)
+    if max_mjd is not None:
+        try:
+            max_mjd = float(max_mjd)
+        except ValueError:
+            return "max_mjd query parameter must be a float", 400
+
     try:
-        csv = get_csv(dr, oids)
+        csv = get_csv(dr, oids, min_mjd=min_mjd, max_mjd=max_mjd)
     except NotFound:
         return "", 404
     return Response(

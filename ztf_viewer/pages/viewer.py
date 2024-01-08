@@ -1612,13 +1612,23 @@ app.callback(
         Input("dr", "children"),
         Input("different_filter_neighbours", "children"),
         Input("different_field_neighbours", "children"),
+        Input("min-mjd", "value"),
+        Input("max-mjd", "value"),
     ],
 )
-def set_csv_link(oid, dr, different_filter, different_field):
+def set_csv_link(oid, dr, different_filter, different_field, min_mjd, max_mjd):
     url = f"/{dr}/csv/{oid}"
+    query = {}
+
     if other_oids := neighbour_oids(different_filter, different_field):
-        part = [f"other_oid={other}" for other in other_oids]
-        url += "?" + "&".join(part)
+        query |= {"other_oid": list(other_oids)}
+    if min_mjd is not None:
+        query["min_mjd"] = [min_mjd]
+    if max_mjd is not None:
+        query["max_mjd"] = [max_mjd]
+
+    if len(query) > 0:
+        url += "?" + urlencode(query, doseq=True)
     return url
 
 
