@@ -6,6 +6,8 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
+## [2024.1.0] 2024 January 15
+
 ### Added
 
 - Viewer looks for the minor planets when observation is clicked. The result is shown bellow the FITS viewer. https://github.com/snad-space/ztf-viewer/pull/368
