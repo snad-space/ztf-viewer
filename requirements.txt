@@ -34,7 +34,7 @@ Flask==2.3.2
 fonttools==4.43.0
 gunicorn==20.1.0
 h5py==3.7.0
-healpy==1.16.1
+healpy==1.16.6
 html5lib==1.1
 idna==3.4
 immutabledict==2.2.3

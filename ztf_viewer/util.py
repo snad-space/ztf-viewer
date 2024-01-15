@@ -19,6 +19,8 @@ YEAR = datetime.datetime.now().year
 
 
 PALOMAR = EarthLocation(lon=-116.863, lat=33.356, height=1706)  # EarthLocation.of_site('Palomar')
+# https://www.minorplanetcenter.net/iau/lists/ObsCodes.html
+PALOMAR_OBS_CODE = "I41"
 
 
 DEFAULT_MIN_MAX_MJD = 50000.0, 70000.0
