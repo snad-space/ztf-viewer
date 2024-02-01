@@ -96,7 +96,7 @@ SecretStorage==3.3.3
 six==1.16.0
 soupsieve==2.3.2.post1
 stack-data==0.6.1
-tenacity==8.1.0
+tenacity==8.2.3
 tomli==2.0.1
 tornado==6.3.3
 traitlets==5.9.0
