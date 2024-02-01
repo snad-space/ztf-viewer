@@ -252,9 +252,11 @@ def get_layout(pathname, search):
                                     html.Div(
                                         [
                                             dcc.Input(
-                                                value=features.get("period_0_magn", features.get("period_0", None))
-                                                if features is not None
-                                                else None,
+                                                value=(
+                                                    features.get("period_0_magn", features.get("period_0", None))
+                                                    if features is not None
+                                                    else None
+                                                ),
                                                 id="fold-period",
                                                 placeholder="Period, days",
                                                 type="number",
@@ -1050,9 +1052,9 @@ def get_panstarrs_lc_option(oid, dr, old):
         option["label"] = "MAST Pan-STARRS archive is unavailable now"
         option["disabled"] = False
     else:
-        option[
-            "label"
-        ] = f'Pan-STARRS {row[PANSTARRS_DR2_QUERY.id_column]} ({np.round(row["separation"], 1)}″), apparent'
+        option["label"] = (
+            f'Pan-STARRS {row[PANSTARRS_DR2_QUERY.id_column]} ({np.round(row["separation"], 1)}″), apparent'
+        )
         option["disabled"] = False
     return option
 
