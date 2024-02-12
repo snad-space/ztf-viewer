@@ -34,7 +34,7 @@ docker-compose -f docker-compose.dev.yml up --build
 This will run Dash/Flask server in debug mode and will reload the server on code changes if you mount the source code directory `ztf_viewer` as a volume:
 
 ```sh
-docker-compose -f docker-compose.dev.yml -f docker-compose.dev.local.yml up --build
+docker compose -f docker-compose.dev.yml -f docker-compose.dev.local.yml up --build
 ```
 
 ### Running without docker
