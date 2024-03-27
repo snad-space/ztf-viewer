@@ -6,6 +6,7 @@ from flask import Response, request
 from ztf_viewer.app import app
 from ztf_viewer.catalogs import find_ztf_oid
 from ztf_viewer.exceptions import NotFound
+from ztf_viewer.catalogs.ztf_ref import ztf_ref
 
 
 def get_csv(dr, oids, min_mjd=None, max_mjd=None):
@@ -18,10 +19,25 @@ def get_csv(dr, oids, min_mjd=None, max_mjd=None):
         oid_df = pd.DataFrame.from_records(lc)
         oid_df["oid"] = oid
         oid_df["filter"] = meta["filter"]
+
+        try:
+            ref = ztf_ref.get(oid, dr)
+        except NotFound:
+            pass
+        else:
+            ref_mag = ref["mag"] + ref["magzp"]
+            ref_err = ref["sigmag"]
+            oid_df["ref"] = ref_mag
+            oid_df["ref_err"] = ref_err
+
         dfs.append(oid_df)
     df = pd.concat(dfs, axis="index")
     df.sort_values(by="mjd", inplace=True)
-    df = df[["oid", "filter", "mjd", "mag", "magerr", "clrcoeff"]]
+    # df = df[["oid", "filter", "mjd", "mag", "magerr", "clrcoeff", "ref", "ref_err"]]
+    try:
+        df = df[["oid", "filter", "mjd", "mag", "magerr", "clrcoeff", "ref", "ref_err"]]
+    except KeyError:
+        df = df[["oid", "filter", "mjd", "mag", "magerr", "clrcoeff"]]
 
     string_io = StringIO()
     df.to_csv(string_io, index=False)
