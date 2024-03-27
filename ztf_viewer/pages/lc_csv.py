@@ -33,7 +33,6 @@ def get_csv(dr, oids, min_mjd=None, max_mjd=None):
         dfs.append(oid_df)
     df = pd.concat(dfs, axis="index")
     df.sort_values(by="mjd", inplace=True)
-    # df = df[["oid", "filter", "mjd", "mag", "magerr", "clrcoeff", "ref", "ref_err"]]
     try:
         df = df[["oid", "filter", "mjd", "mag", "magerr", "clrcoeff", "ref", "ref_err"]]
     except KeyError:
