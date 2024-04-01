@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from utllib.error import HTTPError, URLError
+from urllib.error import HTTPError, URLError
 
 import numpy as np
 import requests
