@@ -23,7 +23,8 @@ def get_csv(dr, oids, min_mjd=None, max_mjd=None):
         try:
             ref = ztf_ref.get(oid, dr)
         except NotFound:
-            pass
+            oid_df["ref"] = [None] * oid_df.shape[0]
+            oid_df["ref_err"] = [None] * oid_df.shape[0]
         else:
             ref_mag = ref["mag"] + ref["magzp"]
             ref_err = ref["sigmag"]
@@ -33,10 +34,7 @@ def get_csv(dr, oids, min_mjd=None, max_mjd=None):
         dfs.append(oid_df)
     df = pd.concat(dfs, axis="index")
     df.sort_values(by="mjd", inplace=True)
-    try:
-        df = df[["oid", "filter", "mjd", "mag", "magerr", "clrcoeff", "ref", "ref_err"]]
-    except KeyError:
-        df = df[["oid", "filter", "mjd", "mag", "magerr", "clrcoeff"]]
+    df = df[["oid", "filter", "mjd", "mag", "magerr", "clrcoeff", "ref", "ref_err"]]
 
     string_io = StringIO()
     df.to_csv(string_io, index=False)
