@@ -5,7 +5,7 @@ from flask import Response, request
 
 from ztf_viewer.app import app
 from ztf_viewer.catalogs import find_ztf_oid
-from ztf_viewer.exceptions import NotFound
+from ztf_viewer.exceptions import NotFound, CatalogUnavailable
 from ztf_viewer.catalogs.ztf_ref import ztf_ref
 
 
@@ -22,7 +22,7 @@ def get_csv(dr, oids, min_mjd=None, max_mjd=None):
 
         try:
             ref = ztf_ref.get(oid, dr)
-        except NotFound:
+        except (NotFound, CatalogUnavailable):
             oid_df["ref"] = [None] * oid_df.shape[0]
             oid_df["ref_err"] = [None] * oid_df.shape[0]
         else:
