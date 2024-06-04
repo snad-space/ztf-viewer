@@ -1,4 +1,4 @@
-FROM python:3.10-bookworm
+FROM python:3.11-bookworm
 
 # Timezone settings
 ENV TZ=Europe/Moscow
@@ -29,25 +29,13 @@ RUN echo "main_memory = 50000000" > /etc/texmf/texmf.d/10main_memory.cnf \
     && texhash \
     && fmtutil-sys --all || test 1
 
-# Install Python build deps for ARM64:
+# Install Python build deps, mostly needed for ARM64
 # healpy: cfitsio
-# confluence-kafka: z, ssl, sasl2, zstd, rdkafka
-RUN [ $(arch) = "x86_64" ] \
-    || ( \
-        apt-get update \
-        && apt-get install -y --no-install-recommends libcfitsio-dev libz-dev libssl-dev libsasl2-dev libzstd-dev \
-        && rm -rf /var/lib/apt/lists/* \
-        && curl -LOJ https://github.com/edenhill/librdkafka/archive/refs/tags/v1.9.2.tar.gz \
-        && tar -xzvf librdkafka-1.9.2.tar.gz \
-        && rm librdkafka-1.9.2.tar.gz \
-        && cd /librdkafka-1.9.2 \
-        && ./configure --prefix=/usr \
-        && make \
-        && make install \
-        && cd / \
-        && rm -rf /librdkafka-1.9.2 \
-        && ldconfig \
-    )
+# h5py: hdf5
+# confluence-kafka: rdkafka
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libhdf5-dev libcfitsio-dev librdkafka-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install dependencies
 COPY requirements.txt /app/
