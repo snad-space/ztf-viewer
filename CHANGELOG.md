@@ -6,6 +6,8 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
+## [2024.7.0] 2024 July 11
+
 ### Added
 
 - CSV file (link under the graph) now includes reference magnitude and error, thanks @GaneevRizvan for their first contribution https://github.com/snad-space/ztf-viewer/pull/401
