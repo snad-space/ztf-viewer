@@ -1,7 +1,7 @@
 version: '2'
 services:
   redis:
-    image: redis
+    image: redis:32bit
     networks:
       - app
     restart: always
