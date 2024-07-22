@@ -107,4 +107,4 @@ webencodings==0.5.1
 Werkzeug==3.0.3
 widgetsnbextension==4.0.3
 wrapt==1.14.1
-zipp==3.10.0
+zipp==3.19.1
