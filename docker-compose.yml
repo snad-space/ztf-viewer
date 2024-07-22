@@ -1,7 +1,8 @@
 version: '2'
 services:
   redis:
-    image: redis:32bit
+    image: redis
+    command: ["redis-server", "--maxmemory", "2048mb", "--maxmemory-policy", "allkeys-lru"]
     networks:
       - app
     restart: always
