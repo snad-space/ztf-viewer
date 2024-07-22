@@ -89,7 +89,7 @@ PyYAML==6.0
 pyzmq==24.0.1
 redis==4.4.4
 redis-lru==0.1.2
-requests==2.31.0
+requests==2.32.0
 requests-mock==1.10.0
 scipy==1.11.1
 SecretStorage==3.3.3
