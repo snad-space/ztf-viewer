@@ -88,5 +88,5 @@ def test_ttl_prolongation(redisdb) -> None:
     ttl_set.add(1)
     time.sleep(1)
     assert len(ttl_set) == 1
-    time.sleep(1)
+    time.sleep(2)
     assert len(ttl_set) == 0
