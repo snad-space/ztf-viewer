@@ -1,5 +1,5 @@
 alerce==1.2.0
-antares-client==1.2.0
+antares-client==1.8.0
 astropy==6.1.0
 astroquery==0.4.6
 asttokens==2.2.1
