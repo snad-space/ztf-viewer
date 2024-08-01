@@ -75,7 +75,7 @@ progressbar2==4.2.0
 prompt-toolkit==3.0.38
 psutil==5.9.4
 ptyprocess==0.7.0
-pure-eval==0.2.2
+pure-eval==0.2.3
 pycparser==2.21
 pyerfa==2.0.1.4
 Pygments==2.15.1
