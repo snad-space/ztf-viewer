@@ -68,7 +68,7 @@ parso==0.8.3
 pexpect==4.8.0
 pickleshare==0.7.5
 Pillow==10.3.0
-platformdirs==2.5.4
+platformdirs==4.2.2
 plotly==5.11.0
 pluggy==1.0.0
 progressbar2==4.2.0
