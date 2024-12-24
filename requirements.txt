@@ -47,7 +47,7 @@ itsdangerous==2.1.2
 jaraco.classes==3.2.3
 jedi==0.18.2
 jeepney==0.8.0
-Jinja2==3.1.4
+Jinja2==3.1.5
 jupyter_client==8.6.2
 jupyter_core==5.7.2
 jupyterlab-widgets==3.0.3
