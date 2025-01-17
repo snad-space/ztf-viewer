@@ -86,7 +86,7 @@ python-utils==3.4.5
 pytz==2023.4
 pyvo==1.5.1
 PyYAML==6.0
-pyzmq==24.0.1
+pyzmq==26.2.0
 redis==4.4.4
 redis-lru==0.1.2
 requests==2.32.3
