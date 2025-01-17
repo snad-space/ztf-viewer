@@ -98,7 +98,7 @@ soupsieve==2.3.2.post1
 stack-data==0.6.1
 tenacity==8.2.3
 tomli==2.0.1
-tornado==6.4.1
+tornado==6.4.2
 traitlets==5.9.0
 typing_extensions==4.4.0
 urllib3==2.2.2
