@@ -9,7 +9,7 @@ description = "ZTF data releases viewer"
 readme = "README.md"
 license = {text = "MIT"}
 keywords = ["science", "astrophysics"]
-requires-python = ">=3.9"
+requires-python = ">=3.12"
 dependencies = [
     "dash>=2.3.1",
     "dash_defer_js_import",

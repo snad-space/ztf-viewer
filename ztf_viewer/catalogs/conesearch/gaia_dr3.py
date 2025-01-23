@@ -70,7 +70,7 @@ class GaiaDr3Query(_BaseVizierQuery, _BaseLightCurveQuery):
         ValueWithIntervalColumn(value="A0"),
         ValueWithIntervalColumn(value="Teff", float_decimal_digits=1),
         ValueWithIntervalColumn(value="logg"),
-        ValueWithIntervalColumn(name="_[Fe/H]", value="__Fe_H_", lower="b__Fe_H_", upper="B__Fe_H_"),
+        ValueWithIntervalColumn(name="_[Fe/H]", value="[Fe/H]", lower="b_[Fe/H]", upper="B_[Fe/H]"),
     ]
     _value_with_uncertainty_columns = [
         ValueWithUncertaintyColumn(value="Plx"),
