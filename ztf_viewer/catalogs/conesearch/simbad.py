@@ -27,7 +27,7 @@ class SimbadQuery(_BaseCatalogQuery):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._query = Simbad()
-        self._query.add_votable_fields("distance", "fluxdata(R)", "fluxdata(V)", "otype", "otypes", "v*")
+        self._query.add_votable_fields("distance", "R", "V", "otype", "otypes", "mesvar")
         self._query_region = self._query.query_region
 
     def get_url(self, id, row=None):
