@@ -5,12 +5,13 @@ from typing import Dict, Tuple
 import packaging.version
 import pandas as pd
 from alerce.core import Alerce
+from alerce.exceptions import APIError
 from astropy.table import Table
 from requests import RequestException
 
 from ztf_viewer.cache import cache
 from ztf_viewer.catalogs.conesearch._base import _BaseCatalogApiQuery
-from ztf_viewer.exceptions import NotFound
+from ztf_viewer.exceptions import CatalogUnavailable, NotFound
 
 
 class AlerceQuery(_BaseCatalogApiQuery):
@@ -47,7 +48,10 @@ class AlerceQuery(_BaseCatalogApiQuery):
 
     @cache()
     def _get_classifications(self, alerce_id) -> pd.DataFrame:
-        df = self._client.query_probabilities(alerce_id, format="pandas")
+        try:
+            df = self._client.query_probabilities(alerce_id, format="pandas")
+        except APIError:
+            raise CatalogUnavailable(catalog="Alerce")
         # Get the highest versions of classifiers only
         highest_versions = df.groupby("classifier_name").aggregate(
             {"classifier_version": self.__aggregate_max_classifier_version},
@@ -75,7 +79,10 @@ class AlerceQuery(_BaseCatalogApiQuery):
         if not (isinstance(radius, str) and radius.endswith("s")):
             raise ValueError('radius argument should be strings that ends with "s" letter')
         radius_arcsec = float(radius[:-1])
-        df = self._client.query_objects(format="pandas", ra=ra, dec=dec, radius=radius_arcsec, page_size=128)
+        try:
+            df = self._client.query_objects(format="pandas", ra=ra, dec=dec, radius=radius_arcsec, page_size=128)
+        except APIError:
+            raise CatalogUnavailable(catalog="Alerce")
         if df.empty:
             raise NotFound
         for classifier in self._classifiers.values():
