@@ -88,7 +88,7 @@ importlib-metadata==8.6.1
     # via dash
 iniconfig==2.0.0
     # via pytest
-ipython==8.31.0
+ipython==8.32.0
     # via ipywidgets
 ipywidgets==8.1.5
     # via ztf-viewer (pyproject.toml)
