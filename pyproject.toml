@@ -29,7 +29,7 @@ dependencies = [
     "cachetools",
     "scipy",
     # v4 brake our immutabledefaultdict implementation
-    "immutabledict<4",
+    "immutabledict<5",
     "alerce",
     # supports astropy 5
     "dustmaps>=1.0.10",

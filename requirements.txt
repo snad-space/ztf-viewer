@@ -82,7 +82,7 @@ html5lib==1.1
     # via astroquery
 idna==3.10
     # via requests
-immutabledict==3.0.0
+immutabledict==4.2.1
     # via ztf-viewer (pyproject.toml)
 importlib-metadata==8.6.1
     # via dash
