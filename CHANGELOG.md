@@ -12,6 +12,14 @@ Version schema is `year.month.num_release`
 
 - CSV file (link under the graph) now includes reference magnitude and error, thanks @GaneevRizvan for their first contribution https://github.com/snad-space/ztf-viewer/pull/401
 
+### Changed
+
+- ZTF DR23, it is not default data release yet
+
+### Fixed
+
+- Fink API URLs are changed to the up-to-date ones https://github.com/snad-space/ztf-viewer/pull/461
+
 ## [2024.1.0] 2024 January 15
 
 ### Added
