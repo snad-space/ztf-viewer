@@ -39,6 +39,8 @@ class AlerceQuery(_BaseCatalogApiQuery):
     @staticmethod
     def __parse_classifier_version(s):
         # s is like 'stamp_classifier_1.0.4'
+        if "_" not in s:
+            return packaging.version.Version("0.0.0")
         _, s = s.rsplit("_", 1)
         return packaging.version.parse(s)
 

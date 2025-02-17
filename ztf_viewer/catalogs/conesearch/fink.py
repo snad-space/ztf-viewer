@@ -56,7 +56,7 @@ class FinkQuery(_BaseCatalogApiQuery):
         # Select the latest classification for each object
         df = df.loc[df.groupby(self.id_column)[time_column].idxmin()]
         del df[time_column]
-        return df.reset_index()
+        return df.reset_index(drop=True)
 
     def _api_query_region(self, ra, dec, radius_arcsec):
         json_dict = {
