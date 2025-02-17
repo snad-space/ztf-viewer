@@ -121,7 +121,7 @@ app.layout = html.Div(
                 html.A("this paper", href="https://ui.adsabs.harvard.edu/abs/2022arXiv221107605M"),
                 " ",
                 dcc.Clipboard(
-                    content="""@ARTICLE{2023PASP..135b4503M,
+                    content=r"""@ARTICLE{2023PASP..135b4503M,
        author = {{Malanchev}, Konstantin and {Kornilov}, Matwey V. and {Pruzhinskaya}, Maria V. and {Ishida}, Emille E.~O. and {Aleo}, Patrick D. and {Korolev}, Vladimir S. and {Lavrukhina}, Anastasia and {Russeil}, Etienne and {Sreejith}, Sreevarsha and {Volnova}, Alina A. and {Voloshina}, Anastasiya and {Krone-Martins}, Alberto},
         title = "{The SNAD Viewer: Everything You Want to Know about Your Favorite ZTF Object}",
       journal = {\pasp},
@@ -445,7 +445,7 @@ def app_select_by_url(pathname, search):
                 html.Div(
                     [
                         dcc.Markdown(
-                            """```latex
+                            r"""```latex
 @ARTICLE{2023PASP..135b4503M,
        author = {{Malanchev}, Konstantin and {Kornilov}, Matwey V. and {Pruzhinskaya}, Maria V. and {Ishida}, Emille E.~O. and {Aleo}, Patrick D. and {Korolev}, Vladimir S. and {Lavrukhina}, Anastasia and {Russeil}, Etienne and {Sreejith}, Sreevarsha and {Volnova}, Alina A. and {Voloshina}, Anastasiya and {Krone-Martins}, Alberto},
         title = "{The SNAD Viewer: Everything You Want to Know about Your Favorite ZTF Object}",
