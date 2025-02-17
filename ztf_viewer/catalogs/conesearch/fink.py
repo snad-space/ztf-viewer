@@ -5,6 +5,7 @@ import pandas as pd
 from astropy.table import Table
 
 from ztf_viewer.catalogs.conesearch._base import _BaseCatalogApiQuery
+from ztf_viewer.exceptions import NotFound
 
 
 class FinkQuery(_BaseCatalogApiQuery):
@@ -15,7 +16,7 @@ class FinkQuery(_BaseCatalogApiQuery):
     columns = {
         "__link": "Name",
         "separation": "Separation, arcsec",
-        "v:classification": "Class",
+        "d:classification": "Class",
         "d:mulens": "Prob to be a μLens",
         "d:rf_kn_vs_nonkn": "Prob of KN vs all",
         "d:rf_snia_vs_nonia": "Prob of SN Ia vs all",
@@ -39,13 +40,43 @@ class FinkQuery(_BaseCatalogApiQuery):
 
     _base_url = "https://api.fink-portal.org/"
     _api_url = urljoin(_base_url, "/api/v1/conesearch")
+    _api_url_objects = urljoin(_base_url, "/api/v1/objects")
+
+    def _get_classifications(self, object_ids) -> pd.DataFrame:
+        time_column = "i:jd"
+        columns = [time_column, self.id_column] + list(c for c in self.columns if c.startswith("d:"))
+        json_dict = {
+            "objectId": ",".join(object_ids),
+            "columns": ",".join(columns),
+            "output-format": "json",
+        }
+        response = self._api_session.post(self._api_url_objects, json=json_dict, timeout=10)
+        self._raise_if_not_ok(response)
+        df = pd.read_json(BytesIO(response.content))
+        # Select the latest classification for each object
+        df = df.loc[df.groupby(self.id_column)[time_column].idxmin()]
+        del df[time_column]
+        return df.reset_index()
 
     def _api_query_region(self, ra, dec, radius_arcsec):
-        params = {"ra": ra, "dec": dec, "radius": radius_arcsec}
-        response = self._api_session.get(self._api_url, params=params, timeout=10)
+        json_dict = {
+            "ra": ra,
+            "dec": dec,
+            "radius": radius_arcsec,
+            "output-format": "json",
+        }
+        response = self._api_session.post(self._api_url, json=json_dict, timeout=10)
         self._raise_if_not_ok(response)
-        table = Table.from_pandas(pd.read_json(BytesIO(response.content)))
-        return table
+        df = pd.read_json(BytesIO(response.content))
+        if len(df) == 0:
+            raise NotFound
+        classifications = self._get_classifications(df[self.id_column])
+        df = df.join(
+            classifications.reset_index(drop=True).set_index(self.id_column),
+            on=self.id_column,
+            how="left",
+        )
+        return Table.from_pandas(df)
 
     def add_prob_class_columns(self, table):
         for column in self._prob_class_columns.values():
