@@ -14,7 +14,7 @@ Version schema is `year.month.num_release`
 
 ### Changed
 
-- ZTF DR23, it is not default data release yet
+- ZTF DR23, it is not default data release yet https://github.com/snad-space/ztf-viewer/pull/469
 
 ### Fixed
 
