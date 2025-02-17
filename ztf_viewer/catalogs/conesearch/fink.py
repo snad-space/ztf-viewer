@@ -37,8 +37,8 @@ class FinkQuery(_BaseCatalogApiQuery):
     }
     _prob_class_columns = {k: f"{v}_classifications" for k, v in _classifiers.items()}
 
-    _base_url = "https://fink-portal.org/"
-    _api_url = urljoin(_base_url, "/api/v1/explorer")
+    _base_url = "https://api.fink-portal.org/"
+    _api_url = urljoin(_base_url, "/api/v1/conesearch")
 
     def _api_query_region(self, ra, dec, radius_arcsec):
         params = {"ra": ra, "dec": dec, "radius": radius_arcsec}
