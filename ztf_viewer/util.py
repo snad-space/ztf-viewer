@@ -66,6 +66,7 @@ available_drs = (
     "dr8",
     "dr13",
     "dr17",
+    "dr23",
 )
 
 
