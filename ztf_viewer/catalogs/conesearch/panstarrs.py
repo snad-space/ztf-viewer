@@ -124,7 +124,7 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
         self._raise_if_unavailable()
         try:
             table = self._catalogs.query_criteria(
-                objID=row["objID"], catalog="Panstarrs", data_release="dr2", table="detection"
+                objID=int(row["objID"]), catalog="Panstarrs", data_release="dr2", table="detection"
             )
         except RequestException as e:
             logging.info(str(e))
