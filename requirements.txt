@@ -4,7 +4,7 @@ alerce==1.4.0
     # via ztf-viewer (pyproject.toml)
 antares-client==1.8.0
     # via ztf-viewer (pyproject.toml)
-astropy==7.0.0
+astropy==7.0.1
     # via
     #   ztf-viewer (pyproject.toml)
     #   alerce
