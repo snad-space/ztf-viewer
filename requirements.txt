@@ -22,7 +22,7 @@ astroquery==0.4.8
     # via ztf-viewer (pyproject.toml)
 asttokens==3.0.0
     # via stack-data
-beautifulsoup4==4.12.3
+beautifulsoup4==4.13.3
     # via astroquery
 blinker==1.9.0
     # via flask
