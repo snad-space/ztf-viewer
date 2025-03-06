@@ -6,6 +6,16 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
+## [2025.3.1] 2025 March 6
+
+### Changed
+
+- Smaller gunicorn timeout, should fix timeout error
+
+### Fixed
+
+- Few bugs
+
 ## [2025.3.0] 2025 March 6
 
 ### Changed
