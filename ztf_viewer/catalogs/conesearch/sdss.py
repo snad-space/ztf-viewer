@@ -44,5 +44,5 @@ class SdssQuasarsQuery(_BaseVizierQuery):
 
     def get_url(self, id, row=None):
         print(row)
-        params = urllib.parse.urlencode({"plateid": row["Plate"], "mjd": row["_tab2_6"], "fiberid": row["Fiber"]})
+        params = urllib.parse.urlencode({"plateid": row["Plate"], "mjd": row["MJD"], "fiberid": row["Fiber"]})
         return f"//dr16.sdss.org/optical/spectrum/view?{params}"
