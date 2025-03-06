@@ -279,8 +279,8 @@ def plot_data(oid, data, fmt="png", caption=True, title=None):
     legend_anchor_y = -0.026 if usetex else -0.032
     handles, labels = zip(*sorted(zip(*ax.get_legend_handles_labels()), key=lambda hl: FILTERS_ORDER[hl[1]]))
     ax.legend(
-        flip(handles, 3),
-        flip(labels, 3),
+        list(flip(handles, 3)),
+        list(flip(labels, 3)),
         bbox_to_anchor=(1, legend_anchor_y),
         ncol=min(3, len(seen_filters)),
         columnspacing=0.5,
