@@ -4,6 +4,8 @@ alerce==1.4.0
     # via ztf-viewer (pyproject.toml)
 antares-client==1.8.0
     # via ztf-viewer (pyproject.toml)
+anywidget==0.9.15
+    # via ztf-viewer (pyproject.toml)
 astropy==7.0.1
     # via
     #   ztf-viewer (pyproject.toml)
@@ -93,7 +95,9 @@ ipython==9.0.1
 ipython-pygments-lexers==1.1.1
     # via ipython
 ipywidgets==8.1.5
-    # via ztf-viewer (pyproject.toml)
+    # via
+    #   ztf-viewer (pyproject.toml)
+    #   anywidget
 itsdangerous==2.2.0
     # via flask
 jaraco-classes==3.4.0
@@ -186,6 +190,8 @@ progressbar2==4.5.0
     # via dustmaps
 prompt-toolkit==3.0.50
     # via ipython
+psygnal==0.12.0
+    # via anywidget
 ptyprocess==0.7.0
     # via pexpect
 pure-eval==0.2.3
@@ -265,6 +271,7 @@ traitlets==5.14.3
 typing-extensions==4.12.2
     # via
     #   antares-client
+    #   anywidget
     #   beautifulsoup4
     #   dash
     #   python-utils

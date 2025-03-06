@@ -35,6 +35,8 @@ dependencies = [
     "dustmaps>=1.0.10",
     "antares-client>=1.2.0",
     "plotly[express]",
+    # required by plotly
+    "anywidget",
 ]
 classifiers = [
     "Intended Audience :: Science/Research",
