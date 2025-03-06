@@ -4,6 +4,8 @@ alerce==1.4.0
     # via ztf-viewer (pyproject.toml)
 antares-client==1.8.0
     # via ztf-viewer (pyproject.toml)
+anywidget==0.9.15
+    # via ztf-viewer (pyproject.toml)
 astropy==7.0.1
     # via
     #   ztf-viewer (pyproject.toml)
@@ -11,8 +13,10 @@ astropy==7.0.1
     #   antares-client
     #   astropy-healpix
     #   astroquery
+    #   cdshealpix
     #   dustmaps
     #   healpy
+    #   mocpy
     #   pyvo
 astropy-healpix==1.1.2
     # via antares-client
@@ -30,6 +34,8 @@ bson==0.5.10
     # via antares-client
 cachetools==5.5.2
     # via ztf-viewer (pyproject.toml)
+cdshealpix==0.7.1
+    # via mocpy
 certifi==2025.1.31
     # via requests
 cffi==1.17.1
@@ -93,7 +99,9 @@ ipython==9.0.1
 ipython-pygments-lexers==1.1.1
     # via ipython
 ipywidgets==8.1.5
-    # via ztf-viewer (pyproject.toml)
+    # via
+    #   ztf-viewer (pyproject.toml)
+    #   anywidget
 itsdangerous==2.2.0
     # via flask
 jaraco-classes==3.4.0
@@ -129,9 +137,13 @@ marshmallow==3.26.1
 marshmallow-jsonapi==0.24.0
     # via antares-client
 matplotlib==3.10.1
-    # via ztf-viewer (pyproject.toml)
+    # via
+    #   ztf-viewer (pyproject.toml)
+    #   mocpy
 matplotlib-inline==0.1.7
     # via ipython
+mocpy==0.17.1
+    # via ztf-viewer (pyproject.toml)
 more-itertools==10.6.0
     # via
     #   jaraco-classes
@@ -140,6 +152,8 @@ narwhals==1.29.1
     # via plotly
 nest-asyncio==1.6.0
     # via dash
+networkx==3.4.2
+    # via mocpy
 numpy==2.2.3
     # via
     #   ztf-viewer (pyproject.toml)
@@ -152,7 +166,9 @@ numpy==2.2.3
     #   h5py
     #   healpy
     #   matplotlib
+    #   mocpy
     #   pandas
+    #   plotly
     #   pyerfa
     #   scipy
 orjson==3.10.15
@@ -176,13 +192,17 @@ pexpect==4.9.0
 pillow==11.1.0
     # via matplotlib
 plotly==6.0.0
-    # via dash
+    # via
+    #   ztf-viewer (pyproject.toml)
+    #   dash
 pluggy==1.5.0
     # via pytest
 progressbar2==4.5.0
     # via dustmaps
 prompt-toolkit==3.0.50
     # via ipython
+psygnal==0.12.0
+    # via anywidget
 ptyprocess==0.7.0
     # via pexpect
 pure-eval==0.2.3
@@ -262,6 +282,7 @@ traitlets==5.14.3
 typing-extensions==4.12.2
     # via
     #   antares-client
+    #   anywidget
     #   beautifulsoup4
     #   dash
     #   python-utils
