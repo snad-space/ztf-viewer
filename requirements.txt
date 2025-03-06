@@ -153,6 +153,7 @@ numpy==2.2.3
     #   healpy
     #   matplotlib
     #   pandas
+    #   plotly
     #   pyerfa
     #   scipy
 orjson==3.10.15
@@ -176,7 +177,9 @@ pexpect==4.9.0
 pillow==11.1.0
     # via matplotlib
 plotly==6.0.0
-    # via dash
+    # via
+    #   ztf-viewer (pyproject.toml)
+    #   dash
 pluggy==1.5.0
     # via pytest
 progressbar2==4.5.0
