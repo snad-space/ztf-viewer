@@ -13,8 +13,10 @@ astropy==7.0.1
     #   antares-client
     #   astropy-healpix
     #   astroquery
+    #   cdshealpix
     #   dustmaps
     #   healpy
+    #   mocpy
     #   pyvo
 astropy-healpix==1.1.2
     # via antares-client
@@ -32,6 +34,8 @@ bson==0.5.10
     # via antares-client
 cachetools==5.5.2
     # via ztf-viewer (pyproject.toml)
+cdshealpix==0.7.1
+    # via mocpy
 certifi==2025.1.31
     # via requests
 cffi==1.17.1
@@ -133,9 +137,13 @@ marshmallow==3.26.1
 marshmallow-jsonapi==0.24.0
     # via antares-client
 matplotlib==3.10.1
-    # via ztf-viewer (pyproject.toml)
+    # via
+    #   ztf-viewer (pyproject.toml)
+    #   mocpy
 matplotlib-inline==0.1.7
     # via ipython
+mocpy==0.17.1
+    # via ztf-viewer (pyproject.toml)
 more-itertools==10.6.0
     # via
     #   jaraco-classes
@@ -144,6 +152,8 @@ narwhals==1.29.1
     # via plotly
 nest-asyncio==1.6.0
     # via dash
+networkx==3.4.2
+    # via mocpy
 numpy==2.2.3
     # via
     #   ztf-viewer (pyproject.toml)
@@ -156,6 +166,7 @@ numpy==2.2.3
     #   h5py
     #   healpy
     #   matplotlib
+    #   mocpy
     #   pandas
     #   plotly
     #   pyerfa

@@ -37,6 +37,7 @@ dependencies = [
     "plotly[express]",
     # required by plotly
     "anywidget",
+    "mocpy",
 ]
 classifiers = [
     "Intended Audience :: Science/Research",
