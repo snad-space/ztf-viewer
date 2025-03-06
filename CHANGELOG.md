@@ -6,6 +6,12 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
+## [2025.3.0] 2025 March 6
+
+### Changed
+
+- ZTF DR23 is the default data release now https://github.com/snad-space/ztf-viewer/pull/484
+
 ### Fixed
 
 - Fix PS1 light curve representation https://github.com/snad-space/ztf-viewer/pull/474 https://github.com/snad-space/ztf-viewer/issues/473
