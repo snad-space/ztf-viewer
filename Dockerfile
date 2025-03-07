@@ -57,4 +57,4 @@ ARG GITHUB_SHA
 RUN if [ -z ${GITHUB_SHA+x} ]; then echo "$GITHUB_SHA is not set"; else echo "github_sha = \"${GITHUB_SHA}\"" >> /app/ztf_viewer/_version.py; fi
 RUN pip install /app
 
-ENTRYPOINT ["gunicorn", "-w6", "-t70", "-b0.0.0.0:80", "ztf_viewer.__main__:server()"]
+ENTRYPOINT ["gunicorn", "-w3", "--threads=8", "-t70", "-b0.0.0.0:80", "ztf_viewer.__main__:server()"]
