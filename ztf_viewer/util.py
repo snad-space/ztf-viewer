@@ -4,8 +4,10 @@ import logging
 import math
 import re
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from functools import wraps
 from itertools import chain, count
+from typing import Callable
 
 import astropy.table
 import numpy as np
@@ -247,3 +249,23 @@ def compose_plus_minus_expression(value, lower, upper, **to_str_kwargs):
             </span>
             </div>
     """
+
+
+def timeout(seconds: float, exception=TimeoutError, exception_kwargs=None) -> Callable:
+    """A decorator to limit the execution time of a function"""
+
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(func, *args, **kwargs)
+                try:
+                    return future.result(timeout=seconds)
+                except TimeoutError:
+                    if exception_kwargs is None:
+                        raise exception
+                    raise exception(**exception_kwargs)
+
+        return wrapper
+
+    return decorator
