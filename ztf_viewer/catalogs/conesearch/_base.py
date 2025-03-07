@@ -98,7 +98,7 @@ class _BaseCatalogQuery:
     def __init__(self, query_name):
         self.__query_name = query_name
         self._timeout_decorator = timeout(
-            seconds=20.0,
+            seconds=10.0,
             exception=CatalogUnavailable,
             exception_kwargs=dict(catalog=self),
         )
