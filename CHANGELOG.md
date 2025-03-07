@@ -6,6 +6,12 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
+## [2025.3.2] 2025 March 7
+
+### Changed
+
+- More aggressive timeout for external catalogs https://github.com/snad-space/ztf-viewer/pull/488
+
 ## [2025.3.1] 2025 March 6
 
 ### Changed
