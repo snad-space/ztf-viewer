@@ -6,6 +6,12 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
+## [2025.3.3] 2025 March 12
+
+### Fixed
+
+- Gaia light curve loading https://github.com/snad-space/ztf-viewer/pull/491
+
 ## [2025.3.2] 2025 March 7
 
 ### Changed
