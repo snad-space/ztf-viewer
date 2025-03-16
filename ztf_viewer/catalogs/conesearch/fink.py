@@ -38,7 +38,7 @@ class FinkQuery(_BaseCatalogApiQuery):
     }
     _prob_class_columns = {k: f"{v}_classifications" for k, v in _classifiers.items()}
 
-    _base_url = "https://api.fink-portal.org/"
+    _base_url = "https://fink-portal.org/"
     _api_url = urljoin(_base_url, "/api/v1/conesearch")
     _api_url_objects = urljoin(_base_url, "/api/v1/objects")
 
