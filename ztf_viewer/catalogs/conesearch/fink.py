@@ -38,7 +38,8 @@ class FinkQuery(_BaseCatalogApiQuery):
     }
     _prob_class_columns = {k: f"{v}_classifications" for k, v in _classifiers.items()}
 
-    _base_url = "https://api.fink-portal.org/"
+    _base_url = "https://api.fink-portal.org"
+    _portal_url = "https://fink-portal.org"
     _api_url = urljoin(_base_url, "/api/v1/conesearch")
     _api_url_objects = urljoin(_base_url, "/api/v1/objects")
 
@@ -90,4 +91,4 @@ class FinkQuery(_BaseCatalogApiQuery):
                 row[column][class_name] = prob
 
     def get_url(self, id, row=None):
-        return urljoin(self._base_url, id)
+        return urljoin(self._portal_url, id)
