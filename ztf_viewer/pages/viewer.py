@@ -11,6 +11,8 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import requests
+import json
 from astropy.coordinates import SkyCoord
 from astropy.table import QTable
 from dash import ALL, MATCH, Input, Output, State, dcc, html
@@ -18,6 +20,7 @@ from dash.dash_table import DataTable
 from dash.exceptions import PreventUpdate
 from immutabledict import immutabledict
 from requests import ConnectionError
+from typing import  List
 
 from ztf_viewer import brokers
 from ztf_viewer.akb import akb
@@ -165,7 +168,9 @@ def get_layout(pathname, search):
         features = light_curve_features(oid, dr, version="latest", min_mjd=min_mjd, max_mjd=max_mjd)
     except NotFound:
         features = None
-
+    url = f"http://host.docker.internal:8000/api/v1/models"
+    models = requests.get(url).json()
+    print(models)
     layout = html.Div(
         [
             html.Div("", id="placeholder", style={"display": "none"}),
@@ -348,6 +353,23 @@ def get_layout(pathname, search):
                 [
                     html.Div(
                         [
+                            html.Div([
+                                dcc.Dropdown(models['models'], id='models-fit-dd'),
+                                html.Div(id='dd-chosen-model')
+                            ]),
+                            # html.Div(
+                            #     [
+                            #         html.Div(id="results-fit"),
+                            #     ],
+                            #     # id="summary-layout",
+                            # ),
+                            html.Div(
+                                [
+                                    html.H2("Results_fit"),
+                                    html.Div(id="results-fit"),
+                                ],
+                                id="results-fit-layout",
+                            ),
                             html.Div(
                                 [
                                     html.H2("Summary"),
@@ -772,6 +794,195 @@ def set_title(oid, dr):
     except NotFound:
         snad_name = ""
     return f"{snad_name}{oid}"
+
+
+@app.callback(
+    Output('results-fit', 'children'),
+    [
+        Input("oid", "children"),
+        Input("dr", "children"),
+        Input("different_filter_neighbours", "children"),
+        Input("different_field_neighbours", "children"),
+        Input("min-mjd", "value"),
+        Input("max-mjd", "value"),
+        Input("light-curve-brightness", "value"),
+        Input("light-curve-type", "value"),
+        Input("fold-period", "value"),
+        Input("fold-zero-phase", "value"),
+        Input(dict(type="ref-mag-input", index=ALL), "id"),
+        Input(dict(type="ref-mag-input", index=ALL), "value"),
+        Input(dict(type="ref-magerr-input", index=ALL), "id"),
+        Input(dict(type="ref-magerr-input", index=ALL), "value"),
+        Input("additional-light-curves", "value"),
+        Input("webgl-is-available", "children"),
+        Input("models-fit-dd", "value")
+    ],
+)
+def update_output(
+    cur_oid,
+    dr,
+    different_filter,
+    different_field,
+    min_mjd,
+    max_mjd,
+    brightness_type,
+    lc_type,
+    period,
+    phase0,
+    ref_mag_ids,
+    ref_mag_values,
+    ref_magerr_ids,
+    ref_magerr_values,
+    additional_lc_types,
+    webgl_available,
+    fit_model
+):
+    if lc_type == "folded" and not period:
+        raise PreventUpdate
+
+    if min_mjd is not None and max_mjd is not None and min_mjd >= max_mjd:
+        raise PreventUpdate
+
+    if brightness_type == "mag":
+        bright = "mag"
+        brighterr = "magerr"
+        brighterr_minus = None
+    elif brightness_type == "flux":
+        bright = "flux_Jy"
+        brighterr = "fluxerr_Jy"
+        brighterr_minus = None
+    elif brightness_type == "diffmag":
+        bright = "diffmag"
+        brighterr = "diffmagerr_plus"
+        brighterr_minus = "diffmagerr_minus"
+    elif brightness_type == "diffflux":
+        bright = "diffflux_Jy"
+        brighterr = "difffluxerr_Jy"
+        brighterr_minus = None
+    else:
+        raise ValueError(f'Wrong brightness_type "{brightness_type}"')
+
+    ref_mag = immutabledefaultdict(
+        lambda: np.inf, {id["index"]: value for id, value in zip(ref_mag_ids, ref_mag_values) if value is not None}
+    )
+    ref_magerr = immutabledefaultdict(
+        float, {id["index"]: value for id, value in zip(ref_magerr_ids, ref_magerr_values) if value is not None}
+    )
+
+    external_data = immutabledict(
+        {value: immutabledict({"radius_arcsec": ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC}) for value in additional_lc_types}
+    )
+
+    # It is "0" or "1" or None
+    webgl_available = True if webgl_available is None else bool(int(webgl_available))
+    render_mode = "auto" if webgl_available else "svg"
+
+    other_oids = neighbour_oids(different_filter, different_field)
+    if lc_type == "full":
+        lcs = get_plot_data(
+            cur_oid,
+            dr,
+            other_oids=other_oids,
+            min_mjd=min_mjd,
+            max_mjd=max_mjd,
+            ref_mag=ref_mag,
+            ref_magerr=ref_magerr,
+            external_data=external_data,
+        )
+    elif lc_type == "folded":
+        offset = -(phase0 or 0.0) * period
+        lcs = get_folded_plot_data(
+            cur_oid,
+            dr,
+            period=period,
+            offset=offset,
+            other_oids=other_oids,
+            min_mjd=min_mjd,
+            max_mjd=max_mjd,
+            ref_mag=ref_mag,
+            ref_magerr=ref_magerr,
+            external_data=external_data,
+        )
+    else:
+        raise ValueError(f"{lc_type = } is unknown")
+
+    lcs = list(chain.from_iterable(lcs.values()))
+    if brightness_type in {"mag", "diffmag"}:
+        y_min = min(obs[bright] - obs[brighterr] for obs in lcs if np.isfinite(obs[bright]) and obs[brighterr] < 1)
+        y_max = max(obs[bright] + obs[brighterr] for obs in lcs if np.isfinite(obs[bright]) and obs[brighterr] < 1)
+        y_ampl = y_max - y_min
+        range_y = [y_max + 0.1 * y_ampl, y_min - 0.1 * y_ampl]
+    elif brightness_type in {"flux", "diffflux"}:
+        y_min = min(obs[bright] - obs[brighterr] for obs in lcs)
+        y_max = max(obs[bright] + obs[brighterr] for obs in lcs)
+        y_ampl = y_max - y_min
+        range_y = [min(0.0, y_min - 0.1 * y_ampl), y_max + 0.1 * y_ampl]
+    else:
+        raise ValueError(f'Wrong brightness_type "{brightness_type}"')
+        # if brightness_type == "diffflux":
+        #     print(fit_model, type(fit_model))
+        #     if fit_model:
+        #         url = f"http://host.docker.internal:8000/api/v1/sncosmo"
+        #         print('You have selected', fit_model)
+        #         #df = df.head(100)
+        #         print((df[bright][0]), (df[f"mjd"][0]), (df[brighterr][0]), ('ztf'+df[f"filter"][0][1:]))
+        #         # res_fit = requests.post(url, json={'light_curve': [{'mjd': float(mjd), 'flux': float(br), 'fluxerr': float(br_err),
+        #         #                                                     "zp": 8.9, "zpsys": "ab", 'band': str(band)}
+        #         #                                               for br, mjd, br_err, band in zip(df[bright], df[f"mjd"], df[brighterr], df[f"filter"])],
+        #         #
+        #         #                               'ebv': 0.03, 't_min': float(df[f"mjd"].min()), 't_max': float(df[f"mjd"].max()),
+        #         #                               'count': 2000, 'name_model': "nugent-sn1a", 'redshift': [0.05, 0.3]})
+        #         res_fit = requests.post(url, json={'light_curve': [{'mjd': float(mjd), 'flux': float(br), 'fluxerr': float(br_err),
+        #                                                             "zp": 8.9, "zpsys": "ab", 'band': 'ztf'+str(band[1:])} for br, mjd, br_err, band
+        #                                                            in zip(df[bright], df["mjd"], df[brighterr], df["filter"])],
+        #                                            'ebv': 0.03, 't_min': df["mjd"].min(), 't_max': df["mjd"].max(),
+        #                                            'count': 2000, 'name_model': "nugent-sn1a", 'redshift': [0.05, 0.3]})
+        #         print('code and res', res_fit.status_code, res_fit.json()['parameters'])
+        #         df_fit = pd.DataFrame.from_records(res_fit.json()['flux_jansky'])
+        #         df_fit['time'] = df_fit['time'] - 58000
+        #         # df_fit['flux'] = df_fit['flux'] * 10**6
+        #         print(df_fit['band'].unique())
+        #         # figure.add_scatter(x=[f['time']-58000 for f in res_fit.json()['flux_jansky']],
+        #         #                    y=[f['flux']*(10**6) for f in res_fit.json()['flux_jansky']],
+        #         #                    fillcolor=[f['band'] for f in res_fit.json()['flux_jansky']])
+        #         for band in df_fit['band'].unique():
+        #             # figure.add_scatter(x=df_fit[df_fit['band']==band]['time']-58000,
+        #             #                                        y=df_fit[df_fit['band']==band]['flux']*(10**6))
+        #             band_color = {'ztfr': 'red', 'ztfg': 'green', 'ztfi': 'black'}
+        #             df_fit_b = df_fit[df_fit['band'] == band]
+        #             figure.add_trace(
+        #                 go.Scatter(
+        #                     x=df_fit_b['time'],
+        #                     y=df_fit_b['flux'],
+        #                     mode="lines",
+        #                     line=go.scatter.Line(color=band_color[band]),
+        #                     #legend=band
+        #                 )
+        #             )
+        #         print(res_fit.json()['parameters'])
+    df = pd.DataFrame.from_records(lcs)
+    items = []
+    column_width = 0
+    bright_fit = "diffflux_Jy"
+    brighterr_fit = "difffluxerr_Jy"
+    if fit_model:
+        url = f"http://host.docker.internal:8000/api/v1/sncosmo/fit"
+        print('You have selected', fit_model)
+        print((df[bright_fit][0]), (df[f"mjd"][0]), (df[brighterr_fit][0]), ('ztf'+df[f"filter"][0][1:]))
+        res_fit = requests.post(url, json={'light_curve': [{'mjd': float(mjd), 'flux': float(br), 'fluxerr': float(br_err),
+                                                            "zp": 8.9, "zpsys": "ab", 'band': 'ztf'+str(band[1:])} for br, mjd, br_err, band
+                                                           in zip(df[bright_fit], df["mjd"], df[brighterr_fit], df["filter"])],
+                                           'ebv': 0.03, 't_min': df["mjd"].min(), 't_max': df["mjd"].max(),
+                                           'count': 2000, 'name_model': fit_model, 'redshift': [0.05, 0.3]})
+        print('code and res for result_fit', res_fit.status_code, res_fit.json()['parameters'])
+        # df_fit = pd.DataFrame.from_records(res_fit.json()['flux_jansky'])
+        # df_fit['time'] = df_fit['time'] - 58000
+        params = res_fit.json()['parameters']
+        items = [f"**{k}**: {float(params[k])}" for k in params.keys()]
+        column_width = max(map(len, items)) - 2
+    print(items, column_width)
+    params = (html.Div(html.Ul([html.Li(dcc.Markdown(text)) for text in items], style={"list-style-type": "none"}), style={"columns": f"{column_width}ch"},))
+    return params
 
 
 @app.callback(
@@ -1363,6 +1574,10 @@ def get_metadata(oid, dr):
 
     items = [f"**{k}**: {to_str(meta[k])}" for k in METADATA_FIELDS if k in meta]
     column_width = max(map(len, items)) - 2
+
+    print(items, type(items))
+    print(column_width, type(column_width))
+
     div = html.Div(
         html.Ul([html.Li(dcc.Markdown(text)) for text in items], style={"list-style-type": "none"}),
         style={"columns": f"{column_width}ch"},
@@ -1381,6 +1596,28 @@ def neighbour_oids(different_filter, different_field) -> frozenset:
         if isinstance(div, dict)
     )
     return oids
+
+
+def extract_values(data):
+    values = {}
+    if isinstance(data, dict):
+        # Если это словарь, проверяем ключи
+        for key, value in data.items():
+            if isinstance(value, str) and ':' in value:
+                # Если это строка с двоеточием, разбиваем на ключ и значение
+                k, v = value.split(':', 1)
+                values[k.strip()] = v.strip()
+            elif key == "children":
+                # Если нашли "children", рекурсивно вызываем функцию
+                if isinstance(value, dict):
+                    values.update(extract_values(value))
+                elif isinstance(value, list):
+                    for item in value:
+                        values.update(extract_values(item))
+            elif isinstance(value, dict):
+                values.update(extract_values(value))
+
+    return values
 
 
 @app.callback(
@@ -1402,6 +1639,8 @@ def neighbour_oids(different_filter, different_field) -> frozenset:
         Input(dict(type="ref-magerr-input", index=ALL), "value"),
         Input("additional-light-curves", "value"),
         Input("webgl-is-available", "children"),
+        Input("models-fit-dd", "value"),
+        Input("results-fit", "children")
     ],
 )
 def set_figure(
@@ -1421,7 +1660,12 @@ def set_figure(
     ref_magerr_values,
     additional_lc_types,
     webgl_available,
+    fit_model,
+    fit_params
 ):
+    if fit_params:
+        print('We have fit params')
+        print(str(fit_params))
     if lc_type == "folded" and not period:
         raise PreventUpdate
 
@@ -1505,8 +1749,10 @@ def set_figure(
     else:
         raise ValueError(f'Wrong brightness_type "{brightness_type}"')
     if lc_type == "full":
+        #figure = px.scatter(
+        df = pd.DataFrame.from_records(lcs)
         figure = px.scatter(
-            pd.DataFrame.from_records(lcs),
+            df,
             x=f"mjd_{MJD_OFFSET}",
             y=bright,
             error_y=brighterr,
@@ -1548,6 +1794,105 @@ def set_figure(
         )
     else:
         raise ValueError(f"{lc_type = } is unknown")
+    if fit_model and fit_params:
+        df = pd.DataFrame.from_records(lcs)
+        url = f"http://host.docker.internal:8000/api/v1/sncosmo/get_bright"
+        print('Try to get flux')
+        print(fit_params, type(fit_params))
+        params = extract_values(json.loads(
+            str(fit_params).replace("'", '"').replace('*', '')))  # json.loads(str(fit_params).replace('*', ''))
+        # params = {key.replace('*', ''): value for key, value in params.items()}
+        print(params, type(params))
+        res_fit = requests.post(url, json={'parameters': params, 'name_model': fit_model, "zp": 8.9, "zpsys": "ab",
+                                           'band_list': ['ztf' + str(band[1:]) for band in df["filter"].unique()],
+                                           't_min': df["mjd"].min(), 't_max': df["mjd"].max(),
+                                           'count': 2000})
+        print('code and res for get flux', res_fit.status_code)
+        df_fit = pd.DataFrame.from_records(res_fit.json()['flux_jansky'])
+        df_fit['time'] = df_fit['time'] - 58000
+        # df_fit['mag'] =
+        # if brightness_type == "mag":
+        #     bright = "mag"
+        #     brighterr = "magerr"
+        #     brighterr_minus = None
+        # elif brightness_type == "flux":
+        #     bright = "flux_Jy"
+        #     brighterr = "fluxerr_Jy"
+        #     brighterr_minus = None
+        # elif brightness_type == "diffmag":
+        #     bright = "diffmag"
+        #     brighterr = "diffmagerr_plus"
+        #     brighterr_minus = "diffmagerr_minus"
+        # elif brightness_type == "diffflux":
+        #     bright = "diffflux_Jy"
+        #     brighterr = "difffluxerr_Jy"
+        #     brighterr_minus = None
+        # else:
+        #     raise ValueError(f'Wrong brightness_type "{brightness_type}"')
+        print(df_fit['band'].unique())
+        for band in df_fit['band'].unique():
+            # figure.add_scatter(x=df_fit[df_fit['band']==band]['time']-58000,
+            #                                        y=df_fit[df_fit['band']==band]['flux']*(10**6))
+            band_color = {'ztfr': 'red', 'ztfg': 'green', 'ztfi': 'black'}
+            df_fit_b = df_fit[df_fit['band'] == band]
+            figure.add_trace(
+                go.Scatter(
+                    x=df_fit_b['time'],
+                    y=df_fit_b['flux'],
+                    mode="lines",
+                    line=go.scatter.Line(color=band_color[band]),
+                    # legend=band
+                )
+            )
+    # if brightness_type == "diffflux":
+    #     print(fit_model, type(fit_model))
+        # if fit_model and fit_params:
+        #     df = pd.DataFrame.from_records(lcs)
+        #     url = f"http://host.docker.internal:8000/api/v1/sncosmo/get_bright"
+        #     print('Try to get flux')
+        #     print(fit_params, type(fit_params))
+        #     params = extract_values(json.loads(str(fit_params).replace("'", '"').replace('*', ''))) # json.loads(str(fit_params).replace('*', ''))
+        #     #params = {key.replace('*', ''): value for key, value in params.items()}
+        #     print(params, type(params))
+        #     #df = df.head(100)
+        #     #print((df[bright][0]), (df[f"mjd"][0]), (df[brighterr][0]), ('ztf'+df[f"filter"][0][1:]))
+        #     # res_fit = requests.post(url, json={'light_curve': [{'mjd': float(mjd), 'flux': float(br), 'fluxerr': float(br_err),
+        #     #                                                     "zp": 8.9, "zpsys": "ab", 'band': str(band)}
+        #     #                                               for br, mjd, br_err, band in zip(df[bright], df[f"mjd"], df[brighterr], df[f"filter"])],
+        #     #
+        #     #                               'ebv': 0.03, 't_min': float(df[f"mjd"].min()), 't_max': float(df[f"mjd"].max()),
+        #     #                               'count': 2000, 'name_model': "nugent-sn1a", 'redshift': [0.05, 0.3]})
+        #     # res_fit = requests.post(url, json={'light_curve': [{'mjd': float(mjd), 'flux': float(br), 'fluxerr': float(br_err),
+        #     #                                                     "zp": 8.9, "zpsys": "ab", 'band': 'ztf'+str(band[1:])} for br, mjd, br_err, band
+        #     #                                                    in zip(df[bright], df["mjd"], df[brighterr], df["filter"])],
+        #     #                                    'ebv': 0.03, 't_min': df["mjd"].min(), 't_max': df["mjd"].max(),
+        #     #                                    'count': 2000, 'name_model': "nugent-sn1a", 'redshift': [0.05, 0.3]})
+        #     res_fit = requests.post(url, json={'parameters': params, 'name_model': fit_model, "zp": 8.9, "zpsys": "ab",
+        #                                        'band_list': ['ztf'+str(band[1:]) for band in df["filter"].unique()],
+        #                                         't_min': df["mjd"].min(), 't_max': df["mjd"].max(),
+        #                                         'count': 2000})
+        #     print('code and res for get flux', res_fit.status_code)
+        #     df_fit = pd.DataFrame.from_records(res_fit.json()['flux_jansky'])
+        #     df_fit['time'] = df_fit['time'] - 58000
+        #     # df_fit['flux'] = df_fit['flux'] * 10**6
+        #     print(df_fit['band'].unique())
+        #     # figure.add_scatter(x=[f['time']-58000 for f in res_fit.json()['flux_jansky']],
+        #     #                    y=[f['flux']*(10**6) for f in res_fit.json()['flux_jansky']],
+        #     #                    fillcolor=[f['band'] for f in res_fit.json()['flux_jansky']])
+        #     for band in df_fit['band'].unique():
+        #         # figure.add_scatter(x=df_fit[df_fit['band']==band]['time']-58000,
+        #         #                                        y=df_fit[df_fit['band']==band]['flux']*(10**6))
+        #         band_color = {'ztfr': 'red', 'ztfg': 'green', 'ztfi': 'black'}
+        #         df_fit_b = df_fit[df_fit['band'] == band]
+        #         figure.add_trace(
+        #             go.Scatter(
+        #                 x=df_fit_b['time'],
+        #                 y=df_fit_b['flux'],
+        #                 mode="lines",
+        #                 line=go.scatter.Line(color=band_color[band]),
+        #                 #legend=band
+        #             )
+        #         )
     figure.update_traces(
         marker=dict(line=dict(width=0.5, color="black")),
         selector=dict(mode="markers"),
