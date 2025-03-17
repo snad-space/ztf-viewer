@@ -6,6 +6,10 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
+### Fixed
+
+- Fink links https://github.com/snad-space/ztf-viewer/pull/493
+
 ## [2025.3.3] 2025 March 12
 
 ### Fixed
