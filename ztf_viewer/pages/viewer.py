@@ -13,6 +13,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import requests
 import json
+import math
 from astropy.coordinates import SkyCoord
 from astropy.table import QTable
 from dash import ALL, MATCH, Input, Output, State, dcc, html
@@ -805,7 +806,7 @@ def set_title(oid, dr):
         Input("different_field_neighbours", "children"),
         Input("min-mjd", "value"),
         Input("max-mjd", "value"),
-        Input("light-curve-brightness", "value"),
+        #Input("light-curve-brightness", "value"),
         Input("light-curve-type", "value"),
         Input("fold-period", "value"),
         Input("fold-zero-phase", "value"),
@@ -825,7 +826,7 @@ def update_output(
     different_field,
     min_mjd,
     max_mjd,
-    brightness_type,
+    #brightness_type,
     lc_type,
     period,
     phase0,
@@ -843,24 +844,24 @@ def update_output(
     if min_mjd is not None and max_mjd is not None and min_mjd >= max_mjd:
         raise PreventUpdate
 
-    if brightness_type == "mag":
-        bright = "mag"
-        brighterr = "magerr"
-        brighterr_minus = None
-    elif brightness_type == "flux":
-        bright = "flux_Jy"
-        brighterr = "fluxerr_Jy"
-        brighterr_minus = None
-    elif brightness_type == "diffmag":
-        bright = "diffmag"
-        brighterr = "diffmagerr_plus"
-        brighterr_minus = "diffmagerr_minus"
-    elif brightness_type == "diffflux":
-        bright = "diffflux_Jy"
-        brighterr = "difffluxerr_Jy"
-        brighterr_minus = None
-    else:
-        raise ValueError(f'Wrong brightness_type "{brightness_type}"')
+    # if brightness_type == "mag":
+    #     bright = "mag"
+    #     brighterr = "magerr"
+    #     brighterr_minus = None
+    # elif brightness_type == "flux":
+    #     bright = "flux_Jy"
+    #     brighterr = "fluxerr_Jy"
+    #     brighterr_minus = None
+    # elif brightness_type == "diffmag":
+    #     bright = "diffmag"
+    #     brighterr = "diffmagerr_plus"
+    #     brighterr_minus = "diffmagerr_minus"
+    # elif brightness_type == "diffflux":
+    #     bright = "diffflux_Jy"
+    #     brighterr = "difffluxerr_Jy"
+    #     brighterr_minus = None
+    # else:
+    #     raise ValueError(f'Wrong brightness_type "{brightness_type}"')
 
     ref_mag = immutabledefaultdict(
         lambda: np.inf, {id["index"]: value for id, value in zip(ref_mag_ids, ref_mag_values) if value is not None}
@@ -907,18 +908,18 @@ def update_output(
         raise ValueError(f"{lc_type = } is unknown")
 
     lcs = list(chain.from_iterable(lcs.values()))
-    if brightness_type in {"mag", "diffmag"}:
-        y_min = min(obs[bright] - obs[brighterr] for obs in lcs if np.isfinite(obs[bright]) and obs[brighterr] < 1)
-        y_max = max(obs[bright] + obs[brighterr] for obs in lcs if np.isfinite(obs[bright]) and obs[brighterr] < 1)
-        y_ampl = y_max - y_min
-        range_y = [y_max + 0.1 * y_ampl, y_min - 0.1 * y_ampl]
-    elif brightness_type in {"flux", "diffflux"}:
-        y_min = min(obs[bright] - obs[brighterr] for obs in lcs)
-        y_max = max(obs[bright] + obs[brighterr] for obs in lcs)
-        y_ampl = y_max - y_min
-        range_y = [min(0.0, y_min - 0.1 * y_ampl), y_max + 0.1 * y_ampl]
-    else:
-        raise ValueError(f'Wrong brightness_type "{brightness_type}"')
+    # if brightness_type in {"mag", "diffmag"}:
+    #     y_min = min(obs[bright] - obs[brighterr] for obs in lcs if np.isfinite(obs[bright]) and obs[brighterr] < 1)
+    #     y_max = max(obs[bright] + obs[brighterr] for obs in lcs if np.isfinite(obs[bright]) and obs[brighterr] < 1)
+    #     y_ampl = y_max - y_min
+    #     range_y = [y_max + 0.1 * y_ampl, y_min - 0.1 * y_ampl]
+    # elif brightness_type in {"flux", "diffflux"}:
+    #     y_min = min(obs[bright] - obs[brighterr] for obs in lcs)
+    #     y_max = max(obs[bright] + obs[brighterr] for obs in lcs)
+    #     y_ampl = y_max - y_min
+    #     range_y = [min(0.0, y_min - 0.1 * y_ampl), y_max + 0.1 * y_ampl]
+    # else:
+    #     raise ValueError(f'Wrong brightness_type "{brightness_type}"')
         # if brightness_type == "diffflux":
         #     print(fit_model, type(fit_model))
         #     if fit_model:
@@ -1663,9 +1664,9 @@ def set_figure(
     fit_model,
     fit_params
 ):
-    if fit_params:
-        print('We have fit params')
-        print(str(fit_params))
+    # if fit_params:
+    #     print('We have fit params')
+    #     print(str(fit_params))
     if lc_type == "folded" and not period:
         raise PreventUpdate
 
@@ -1798,19 +1799,27 @@ def set_figure(
         df = pd.DataFrame.from_records(lcs)
         url = f"http://host.docker.internal:8000/api/v1/sncosmo/get_bright"
         print('Try to get flux')
-        print(fit_params, type(fit_params))
+        #print(fit_params, type(fit_params))
         params = extract_values(json.loads(
             str(fit_params).replace("'", '"').replace('*', '')))  # json.loads(str(fit_params).replace('*', ''))
         # params = {key.replace('*', ''): value for key, value in params.items()}
-        print(params, type(params))
+        print('We have fit params', params, type(params))
         res_fit = requests.post(url, json={'parameters': params, 'name_model': fit_model, "zp": 8.9, "zpsys": "ab",
                                            'band_list': ['ztf' + str(band[1:]) for band in df["filter"].unique()],
                                            't_min': df["mjd"].min(), 't_max': df["mjd"].max(),
                                            'count': 2000})
         print('code and res for get flux', res_fit.status_code)
         df_fit = pd.DataFrame.from_records(res_fit.json()['flux_jansky'])
+        print(df_fit.head())
         df_fit['time'] = df_fit['time'] - 58000
-        # df_fit['mag'] =
+        df_fit['diffmag'] = df_fit['diffflux_Jy'].apply(lambda x : math.log(x)/math.log(10)*(-2.5) + 8.9 if x is not None else None)
+        print(df['ref_flux'].unique())
+        band_ref = {}
+        for band in df['filter'].unique():
+            band_ref[band] = df[df['filter']==band]['ref_flux'].mean()
+        print(band_ref)
+        df_fit['flux_Jy'] = [f + band_ref[b[0]+b[-1]] for f, b in zip(df_fit['diffflux_Jy'], df_fit['band'])]
+        df_fit['mag'] = df_fit['flux_Jy'].apply(lambda x : math.log(x)/math.log(10)*(-2.5) + 8.9 if x is not None else None)
         # if brightness_type == "mag":
         #     bright = "mag"
         #     brighterr = "magerr"
@@ -1835,10 +1844,11 @@ def set_figure(
             #                                        y=df_fit[df_fit['band']==band]['flux']*(10**6))
             band_color = {'ztfr': 'red', 'ztfg': 'green', 'ztfi': 'black'}
             df_fit_b = df_fit[df_fit['band'] == band]
+            print(bright)
             figure.add_trace(
                 go.Scatter(
                     x=df_fit_b['time'],
-                    y=df_fit_b['flux'],
+                    y=df_fit_b[bright],
                     mode="lines",
                     line=go.scatter.Line(color=band_color[band]),
                     # legend=band
