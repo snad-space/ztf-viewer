@@ -45,7 +45,12 @@ RUN pip install -r /app/requirements.txt
 # Configure and download dustmaps
 RUN echo '{"data_dir": "/dustmaps"}' > /dustmapsrc
 ENV DUSTMAPS_CONFIG_FNAME /dustmapsrc
-RUN python -c 'from dustmaps import sfd, bayestar; sfd.fetch(); bayestar.fetch()'
+# sfd.fetch() doesn't work any more, download from another place
+RUN mkdir /dustmaps \
+    && cd /dustmaps \
+    && curl -LOJ https://github.com/guillochon/dustmap/raw/refs/heads/master/SFD_dust_4096_ngp.fits \
+    && curl -LOJ https://github.com/guillochon/dustmap/raw/refs/heads/master/SFD_dust_4096_sgp.fits
+RUN python -c 'from dustmaps import bayestar; bayestar.fetch()'
 
 EXPOSE 80
 
