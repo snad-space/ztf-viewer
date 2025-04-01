@@ -226,7 +226,7 @@ python-dateutil==2.9.0.post0
     #   pandas
 python-utils==3.9.1
     # via progressbar2
-pytz==2025.1
+pytz==2025.2
     # via pandas
 pyvo==1.6.1
     # via astroquery
