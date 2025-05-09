@@ -18,7 +18,13 @@ def get_layout(*args, **kwargs):
             html.P(
                 """In case of any kind of artefacts, tag «artefact».
             If type of artefact is known (e.g., «spike»), tag it as well.
-            If in doubt that it is an artefact, also tag «uncertain»."""
+	    If in doubt that it is an artefact, also tag «uncertain».
+            Tag «bright_star» is reserved for the cases when the light of
+            a nearby bright object affects the target light curve.
+            In case this influence is not stochastic but reflects the variability of the bright star, e.g. Mira echoes,
+            the tag should be «var_blend».
+            If the target object overlaps with a difraction spike from the bright star, we tag it as «spike»,
+            the tag «bright_star» is not needed (the same for «saturation» tag)."""
             ),
             html.H4("Variable stars and supernovae"),
             html.P(

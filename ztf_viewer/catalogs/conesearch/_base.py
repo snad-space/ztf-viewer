@@ -16,7 +16,7 @@ from requests import RequestException
 from ztf_viewer.cache import cache
 from ztf_viewer.catalogs import find_ztf_oid, unavailable_catalogs
 from ztf_viewer.exceptions import CatalogUnavailable, NotFound
-from ztf_viewer.util import compose_plus_minus_expression, to_str
+from ztf_viewer.util import compose_plus_minus_expression, to_str, timeout
 
 COSMO = FlatLambdaCDM(H0=70, Om0=0.3)
 
@@ -97,6 +97,11 @@ class _BaseCatalogQuery:
 
     def __init__(self, query_name):
         self.__query_name = query_name
+        self._timeout_decorator = timeout(
+            seconds=10.0,
+            exception=CatalogUnavailable,
+            exception_kwargs=dict(catalog=self),
+        )
 
     @classmethod
     def get_objects(self):
@@ -136,7 +141,7 @@ class _BaseCatalogQuery:
         radius = f"{radius_arcsec}s"
         logging.info(f"Querying ra={ra}, dec={dec}, r={radius_arcsec}")
         try:
-            table = self._query_region(coord, radius=radius)
+            table = self._timeout_decorator(self._query_region)(coord, radius=radius)
         except RequestException as e:  # this gives a good chance to catch network or service problem
             logging.warning(str(e))
             raise CatalogUnavailable(catalog=self)

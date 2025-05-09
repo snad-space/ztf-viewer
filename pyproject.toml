@@ -1,6 +1,6 @@
 [project]
 name = "ztf_viewer"
-version = "2024.1.0"
+version = "2025.3.4"
 authors = [
   {email = "hombit@gmail.com"},
   {name = "Konstantin Malanchev"}
@@ -9,7 +9,7 @@ description = "ZTF data releases viewer"
 readme = "README.md"
 license = {text = "MIT"}
 keywords = ["science", "astrophysics"]
-requires-python = ">=3.9"
+requires-python = ">=3.12"
 dependencies = [
     "dash>=2.3.1",
     "dash_defer_js_import",
@@ -34,6 +34,10 @@ dependencies = [
     # supports astropy 5
     "dustmaps>=1.0.10",
     "antares-client>=1.2.0",
+    "plotly[express]",
+    # required by plotly
+    "anywidget",
+    "mocpy",
 ]
 classifiers = [
     "Intended Audience :: Science/Research",

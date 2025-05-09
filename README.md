@@ -28,13 +28,13 @@ Environment variables to configure the server, see default values in `config.py`
 You could run a development version of the server at `http://127.0.0.1:8050` using `docker-compose.dev.yml` file:
 
 ```sh
-docker-compose -f docker-compose.dev.yml up --build
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 ```
 
 This will run Dash/Flask server in debug mode and will reload the server on code changes if you mount the source code directory `ztf_viewer` as a volume:
 
 ```sh
-docker compose -f docker-compose.dev.yml -f docker-compose.dev.local.yml up --build
+docker compose -f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.dev.local.yml up --build
 ```
 
 ### Running without docker
@@ -65,9 +65,35 @@ Some features like FITS viewer wouldn't work.
 - [SNAD ZTF Periodic Catalog API](http://periodic.ztf.snad.space) provides cone search within [ZTF Catalog of Periodic Variable Stars](http://variables.cn:88/ztf/). Source code: https://github.com/snad-space/ztf-periodic-catalog-db
 - [SNAD Transient Name Server API](http://tns.snad.space) provides cone search within [TNS](https://www.wis-tns.org). Source code: https://github.com/snad-space/snad-tns
 - [SNAD ZTF FITS Proxy](http://fits.ztf.snad.space/products/) is a FITS image service used by the embedded JS9 FITS viewer. Source code: https://github.com/snad-space/ztf-fits-proxy
-- SNAD Anomaly Knowledge Base is an internal database for experts. Source code: https://github.com/snad-space/akb-backend (private)
+- SNAD Anomaly Knowledge Base is an internal database for experts. Source code: https://github.com/snad-space/akb-backend
 - [NASA/IPAC Infrared Science Archive](https://irsa.ipac.caltech.edu/frontpage/) is a original source of ZTF FITS files
 - [Vizier](https://vizier.u-strasbg.fr) is used to access various catalogs
 - [Simbad](http://simbad.u-strasbg.fr) is used for both cone search and identifier queries
 - [Astrocats](https://astrocats.space) are used for cone search
 - [Astro-Colibri](https://astro-colibri.science) is used for multi-messenger events code search
+
+
+## Citation
+
+Please cite our paper as well as papers describing the data you accessed through the Viewer
+
+```bibtex
+@ARTICLE{2023PASP..135b4503M,
+       author = {{Malanchev}, Konstantin and {Kornilov}, Matwey V. and {Pruzhinskaya}, Maria V. and {Ishida}, Emille E.~O. and {Aleo}, Patrick D. and {Korolev}, Vladimir S. and {Lavrukhina}, Anastasia and {Russeil}, Etienne and {Sreejith}, Sreevarsha and {Volnova}, Alina A. and {Voloshina}, Anastasiya and {Krone-Martins}, Alberto},
+        title = "{The SNAD Viewer: Everything You Want to Know about Your Favorite ZTF Object}",
+      journal = {\pasp},
+     keywords = {Variable stars, Astronomy software, Open source software, Publicly available software, Astronomy web services, 1761, 1855, 1866, 1864, 1856, Astrophysics - Instrumentation and Methods for Astrophysics},
+         year = 2023,
+        month = feb,
+       volume = {135},
+       number = {1044},
+          eid = {024503},
+        pages = {024503},
+          doi = {10.1088/1538-3873/acb292},
+archivePrefix = {arXiv},
+       eprint = {2211.07605},
+ primaryClass = {astro-ph.IM},
+       adsurl = {https://ui.adsabs.harvard.edu/abs/2023PASP..135b4503M},
+      adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+}
+```

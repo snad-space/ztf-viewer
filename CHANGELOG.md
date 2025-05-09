@@ -6,6 +6,60 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
+## [2025.3.4] 2025 March 27
+
+### Fixed
+
+- Fink links fixed https://github.com/snad-space/ztf-viewer/pull/493
+
+## [2025.3.3] 2025 March 12
+
+### Fixed
+
+- Gaia light curve loading https://github.com/snad-space/ztf-viewer/pull/491
+
+## [2025.3.2] 2025 March 7
+
+### Changed
+
+- More aggressive timeout for external catalogs https://github.com/snad-space/ztf-viewer/pull/488
+
+## [2025.3.1] 2025 March 6
+
+### Changed
+
+- Smaller gunicorn timeout, should fix timeout error
+
+### Fixed
+
+- Few bugs
+
+## [2025.3.0] 2025 March 6
+
+### Changed
+
+- ZTF DR23 is the default data release now https://github.com/snad-space/ztf-viewer/pull/484
+
+### Fixed
+
+- Fix PS1 light curve representation https://github.com/snad-space/ztf-viewer/pull/474 https://github.com/snad-space/ztf-viewer/issues/473
+
+## [2025.2.0] 2025 February 17
+
+### Changed
+
+- ZTF DR23, it is not default data release yet https://github.com/snad-space/ztf-viewer/pull/469
+
+### Fixed
+
+- Fink API URLs are changed to the up-to-date ones https://github.com/snad-space/ztf-viewer/pull/461
+
+## [2024.7.0] 2024 July 11
+
+### Added
+
+- CSV file (link under the graph) now includes reference magnitude and error, thanks @GaneevRizvan for their first contribution https://github.com/snad-space/ztf-viewer/pull/401
+
 ## [2024.1.0] 2024 January 15
 
 ### Added

@@ -16,6 +16,7 @@ import json
 import math
 from astropy.coordinates import SkyCoord
 from astropy.table import QTable
+from astropy.units import Quantity
 from dash import ALL, MATCH, Input, Output, State, dcc, html
 from dash.dash_table import DataTable
 from dash.exceptions import PreventUpdate
@@ -1377,7 +1378,10 @@ def show_ref_mag_or_magerr(oid, dr, different_filter, different_field, brightnes
 )
 def set_ref_mag_magerr(dr, _n_clicks, ref_mag_link_id):
     objectid = ref_mag_link_id["index"]
-    ref = ztf_ref.get(objectid, dr)
+    try:
+        ref = ztf_ref.get(objectid, dr)
+    except (NotFound, CatalogUnavailable):
+        raise PreventUpdate
     ref_mag = np.round(ref["mag"] + ref["magzp"], decimals=3)
     ref_magerr = np.round(ref["sigmag"], decimals=3)
     return ref_mag, ref_magerr
@@ -1412,7 +1416,7 @@ def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_v
         for table_field, display_name in SUMMARY_FIELDS.items():
             try:
                 value = row[table_field]
-                if not value:
+                if not isinstance(value, np.ndarray) and not isinstance(value, Quantity) and not value:
                     continue
                 if table_field == "__distance" and table["__distance"].unit is not None:
                     value = value * table["__distance"].unit
@@ -1566,7 +1570,7 @@ def get_metadata(oid, dr):
 
     try:
         ref = ztf_ref.get(oid, dr)
-    except NotFound:
+    except (NotFound, CatalogUnavailable):
         pass
     else:
         meta["ref_mag"] = ref["mag"] + ref["magzp"]

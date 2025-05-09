@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+from urllib.error import HTTPError, URLError
 
 import numpy as np
 import requests
@@ -8,7 +9,7 @@ from astropy.io import fits
 from ztf_viewer.cache import cache
 from ztf_viewer.catalogs import find_ztf_oid
 from ztf_viewer.config import ZTF_FITS_PROXY_URL
-from ztf_viewer.exceptions import NotFound
+from ztf_viewer.exceptions import NotFound, CatalogUnavailable
 from ztf_viewer.util import ccdid_from_rcid, qid_from_rcid
 
 
@@ -41,18 +42,23 @@ class ZTFRef:
     def get(self, oid, dr):
         url = self.fits_url(oid, dr)
         sourceid = int(oid) % 10_000_000
-        with fits.open(url) as f:
-            header = f[0].header
-            data = f[1].data
-            where = np.where(data["sourceid"] == sourceid)[0]
-            if where.size == 0:
-                logging.warning(f"Object {oid} is not found in the reference catalog file {url}")
-                raise NotFound
-            idx = where.item()
-            record = dict(zip(data.names, data[idx]))
-            record["magzp"] = header["MAGZP"]
-            record["magzp_rms"] = header["MAGZPRMS"]
-            record["infobits"] = header["INFOBITS"]
+        try:
+            with fits.open(url) as f:
+                header = f[0].header
+                data = f[1].data
+                where = np.where(data["sourceid"] == sourceid)[0]
+                if where.size == 0:
+                    logging.warning(f"Object {oid} is not found in the reference catalog file {url}")
+                    raise NotFound
+                idx = where.item()
+                record = dict(zip(data.names, data[idx]))
+                record["magzp"] = header["MAGZP"]
+                record["magzp_rms"] = header["MAGZPRMS"]
+                record["infobits"] = header["INFOBITS"]
+        except HTTPError:
+            raise NotFound
+        except URLError:
+            raise CatalogUnavailable
 
         return record
 

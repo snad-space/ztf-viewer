@@ -3,7 +3,7 @@ from collections import namedtuple
 
 import numpy as np
 from astropy.coordinates import SkyCoord
-from astroquery.cds import cds
+from astroquery.mocserver import MOCServerClass
 from astroquery.vizier import Vizier
 
 from ztf_viewer.cache import cache
@@ -15,7 +15,7 @@ class VizierCatalogDetails:
     @cache()
     def _query_cds(catalog_id):
         try:
-            table = cds.find_datasets(f"ID=*{catalog_id}*")
+            table = MOCServerClass.find_datasets(f"ID=*{catalog_id}*")
         except np.ma.MaskError as e:
             logging.error(str(e))
             raise NotFound from e

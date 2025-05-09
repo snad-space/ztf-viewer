@@ -1,8 +1,4 @@
 import logging
-import os
-import random
-from string import ascii_lowercase
-from tempfile import TemporaryDirectory
 
 import numpy as np
 from astropy.time import Time, TimeDelta
@@ -70,7 +66,7 @@ class GaiaDr3Query(_BaseVizierQuery, _BaseLightCurveQuery):
         ValueWithIntervalColumn(value="A0"),
         ValueWithIntervalColumn(value="Teff", float_decimal_digits=1),
         ValueWithIntervalColumn(value="logg"),
-        ValueWithIntervalColumn(name="_[Fe/H]", value="__Fe_H_", lower="b__Fe_H_", upper="B__Fe_H_"),
+        ValueWithIntervalColumn(name="_[Fe/H]", value="[Fe/H]", lower="b_[Fe/H]", upper="B_[Fe/H]"),
     ]
     _value_with_uncertainty_columns = [
         ValueWithUncertaintyColumn(value="Plx"),
@@ -89,6 +85,7 @@ class GaiaDr3Query(_BaseVizierQuery, _BaseLightCurveQuery):
         "BP": 0.0023065687,
         "RP": 0.0015800349,
     }
+    BANDS = ["G", "BP", "RP"]
 
     def __init__(self, query_name):
         super().__init__(query_name)
@@ -102,47 +99,49 @@ class GaiaDr3Query(_BaseVizierQuery, _BaseLightCurveQuery):
                 raise NotFound
         return table[0]
 
-    def _table_to_light_curve(self, table):
+    def _table_to_light_curve(self, id, table):
         """https://gea.esac.esa.int/archive/documentation/GDR3/Gaia_archive/chap_datamodel/sec_dm_photometry/ssec_dm_epoch_photometry.html"""
 
-        bary_tcb = Time("2010-01-01T00:00:00", scale="tcb") + TimeDelta(table["time"], format="jd")
-        # We assume Barycentric time to be close enough to Heliocentric one
-        table["bmjd"] = Time(bary_tcb, scale="utc").mjd
+        tables = {band: table[~table[f"variability_flag_{band.lower()}_reject"]] for band in self.BANDS}
 
-        table["AB_zp"] = [self.AB_ZP[band] for band in table["band"]]
-        table["AB_zperr"] = [self.AB_ZP_ERR[band] for band in table["band"]]
-        table["mag_AB"] = table["AB_zp"] - 2.5 * np.log10(table["flux"])
-        table["magerr_AB"] = np.hypot(LGE_25 / table["flux_over_error"], table["AB_zperr"])
+        source_id = np.full(sum(map(len, tables.values())), id)
 
-        return [
-            {
-                "oid": row["source_id"],
-                "mjd": row["bmjd"],
-                "mag": row["mag_AB"],
-                "magerr": row["magerr_AB"],
-                "filter": f"gaia_{row['band']}",
-            }
-            for row in table
-        ]
+        band = np.concatenate([np.full(len(tab), band) for band, tab in tables.items()])
+
+        gaia_time = np.concatenate(
+            [tables["G"]["g_transit_time"]] + [tables[band][f"{band.lower()}_obs_time"] for band in ["BP", "RP"]]
+        )
+        tcb = Time("2010-01-01T00:00:00", scale="tcb") + TimeDelta(gaia_time, format="jd")
+        time = Time(tcb, scale="utc").mjd
+
+        ab_zp = np.vectorize(self.AB_ZP.get)(band)
+        gaia_flux = np.concatenate(
+            [tables["G"]["g_transit_flux"]] + [tables[band][f"{band.lower()}_flux"] for band in ["BP", "RP"]]
+        )
+        mag = ab_zp - 2.5 * np.log10(gaia_flux)
+
+        ab_zp_err = np.vectorize(self.AB_ZP_ERR.get)(band)
+        flux_over_error = np.concatenate(
+            [tables["G"]["g_transit_flux_over_error"]]
+            + [tables[band][f"{band.lower()}_flux_over_error"] for band in ["BP", "RP"]]
+        )
+        magerr = np.hypot(LGE_25 / flux_over_error, ab_zp_err)
+
+        keys = ["oid", "mjd", "mag", "magerr", "filter"]
+        return [dict(zip(keys, values)) for values in zip(source_id, time, mag, magerr, band)]
 
     def light_curve(self, id, row=None):
         self._raise_if_unavailable()
-        # By default, load_data creates temporary file in the current directory with time-based name. It could cause
-        # problems in multiprocessing scenario
-        with TemporaryDirectory() as output_dir:
-            filename = "".join(random.choices(ascii_lowercase, k=6))
-            output_file = os.path.join(output_dir, filename)
-            try:
-                result = self.gaia.load_data(
-                    ids=[id],
-                    data_release="Gaia DR3",
-                    retrieval_type="EPOCH_PHOTOMETRY",
-                    data_structure="INDIVIDUAL",
-                    output_file=output_file,
-                )
-            except RequestException as e:
-                logging.warning(str(e))
-                raise CatalogUnavailable(catalog=self)
+        try:
+            result = self.gaia.load_data(
+                ids=[id],
+                data_release="Gaia DR3",
+                retrieval_type="EPOCH_PHOTOMETRY",
+                data_structure="INDIVIDUAL",
+            )
+        except RequestException as e:
+            logging.warning(str(e))
+            raise CatalogUnavailable(catalog=self)
 
         if len(result) == 0:
             raise NotFound
@@ -155,7 +154,7 @@ class GaiaDr3Query(_BaseVizierQuery, _BaseLightCurveQuery):
         table = table[~table["rejected_by_photometry"]]
         if len(table) == 0:
             raise NotFound
-        return self._table_to_light_curve(table)
+        return self._table_to_light_curve(id, table)
 
     def add_prob_class_columns(self, table):
         table["classifications"] = [{} for _ in range(len(table))]

@@ -1,0 +1,24 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: SNAD ZTF DR web viewer
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Konstantin
+    family-names: Malanchev
+    email: hombit@gmail.com
+    orcid: 'https://orcid.org/0000-0001-7179-7406'
+identifiers:
+  - type: doi
+    value: 10.1088/1538-3873/acb292
+    description: PASP publication
+  - type: url
+    value: 'http://arxiv.org/abs/2211.07605'
+    description: arXiv pre-pritn
+repository-code: 'https://github.com/snad-space/ztf-viewer'
+url: 'https://ztf.snad.space'
+license: MIT
