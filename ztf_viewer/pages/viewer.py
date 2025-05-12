@@ -11,9 +11,6 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-import requests
-import json
-import math
 from astropy.coordinates import SkyCoord
 from astropy.table import QTable
 from astropy.units import Quantity
@@ -22,7 +19,6 @@ from dash.dash_table import DataTable
 from dash.exceptions import PreventUpdate
 from immutabledict import immutabledict
 from requests import ConnectionError
-from typing import  List
 
 from ztf_viewer import brokers
 from ztf_viewer.akb import akb
@@ -1519,26 +1515,6 @@ def neighbour_oids(different_filter, different_field) -> frozenset:
     return oids
 
 
-def extract_values(data):
-    data = json.loads(str(data).replace("'", '"').replace('*', ''))
-    values = {}
-    if isinstance(data, dict):
-        for key, value in data.items():
-            if isinstance(value, str) and ':' in value:
-                k, v = value.split(':', 1)
-                values[k.strip()] = v.strip()
-            elif key == "children":
-                if isinstance(value, dict):
-                    values.update(extract_values(value))
-                elif isinstance(value, list):
-                    for item in value:
-                        values.update(extract_values(item))
-            elif isinstance(value, dict):
-                values.update(extract_values(value))
-
-    return values
-
-
 @app.callback(
     Output("graph", "figure"),
     [
@@ -1710,8 +1686,7 @@ def set_figure(
     else:
         raise ValueError(f"{lc_type = } is unknown")
     if name_model and fit_params:
-        df_fit = model_fit.get_curve(df, dr, ref_mag_values, bright, extract_values(fit_params),
-                                     name_model)
+        df_fit = model_fit.get_curve(df, dr, ref_mag_values, bright, fit_params, name_model)
         df_fit['time'] = df_fit['time'] - 58000
         band_color = {'zr': 'red', 'zg': 'darkgreen', 'zi': 'black'}
         for band in df['filter'].unique():

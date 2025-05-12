@@ -1,9 +1,31 @@
+import json
 import numpy as np
 import pandas as pd
 import requests
 from ztf_viewer.cache import cache
 from ztf_viewer.catalogs.ztf_ref import ztf_ref
 from ztf_viewer.util import ABZPMAG_JY, LN10_04
+
+
+def extract_parameters(data):
+    data = json.loads(str(data).replace("'", '"').replace('*', ''))
+    values = {}
+    if isinstance(data, dict):
+        for key, value in data.items():
+            if isinstance(value, str) and ':' in value:
+                k, v = value.split(':', 1)
+                values[k.strip()] = v.strip()
+            elif key == "children":
+                if isinstance(value, dict):
+                    values.update(extract_parameters(value))
+                elif isinstance(value, list):
+                    for item in value:
+                        values.update(extract_parameters(item))
+            elif isinstance(value, dict):
+                values.update(extract_parameters(value))
+
+    return values
+
 
 class ModelFit:
     base_url = f"http://host.docker.internal:8000/api/v1"
@@ -37,6 +59,7 @@ class ModelFit:
 
     def get_curve(self, df, dr, ref_mag_values, bright, params, name_model):
         path = f"/sncosmo/get_curve"
+        params = extract_parameters(params)
         band_ref = {}
         band_list = ['ztf' + str(band[1:]) for band in df["filter"].unique()]
         mjd_min = df["mjd"].min()#.astype(float)
