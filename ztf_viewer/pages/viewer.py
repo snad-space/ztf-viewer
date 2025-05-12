@@ -349,10 +349,12 @@ def get_layout(pathname, search):
                 [
                     html.Div(
                         [
-                            html.Div([
-                                dcc.Dropdown(model_fit.get_list_models(), id="models-fit-dd"),
-                                html.Div(id="dd-chosen-model")
-                            ]),
+                            html.Div(
+                                [
+                                    dcc.Dropdown(model_fit.get_list_models(), id="models-fit-dd"),
+                                    html.Div(id="dd-chosen-model"),
+                                ]
+                            ),
                             html.Div(
                                 [
                                     html.H2("Parameters of fitting"),
@@ -819,7 +821,7 @@ def show_fit_params(value, old_style):
         Input(dict(type="ref-magerr-input", index=ALL), "value"),
         Input("additional-light-curves", "value"),
         Input("webgl-is-available", "children"),
-        Input("models-fit-dd", "value")
+        Input("models-fit-dd", "value"),
     ],
 )
 def fit_lc(
@@ -838,7 +840,7 @@ def fit_lc(
     ref_magerr_values,
     additional_lc_types,
     webgl_available,
-    name_model
+    name_model,
 ):
     if lc_type == "folded" and not period:
         raise PreventUpdate
@@ -899,7 +901,10 @@ def fit_lc(
         params = model_fit.fit(df, name_model, ref_mag_values, dr)
         items = [f"**{k}**: {float(params[k])}" for k in params.keys()]
         column_width = max(map(len, items)) - 2
-    params = (html.Div(html.Ul([html.Li(dcc.Markdown(text)) for text in items], style={"list-style-type": "none"}), style={"columns": f"{column_width}ch"},))
+    params = html.Div(
+        html.Ul([html.Li(dcc.Markdown(text)) for text in items], style={"list-style-type": "none"}),
+        style={"columns": f"{column_width}ch"},
+    )
     return params
 
 
@@ -1687,17 +1692,17 @@ def set_figure(
         raise ValueError(f"{lc_type = } is unknown")
     if name_model and fit_params:
         df_fit = model_fit.get_curve(df, dr, ref_mag_values, bright, fit_params, name_model)
-        df_fit['time'] = df_fit['time'] - 58000
-        band_color = {'zr': 'red', 'zg': 'darkgreen', 'zi': 'black'}
-        for band in df['filter'].unique():
-            df_fit_b = df_fit[df_fit['band'] == 'ztf' + str(band[1:])]
+        df_fit["time"] = df_fit["time"] - 58000
+        band_color = {"zr": "red", "zg": "darkgreen", "zi": "black"}
+        for band in df["filter"].unique():
+            df_fit_b = df_fit[df_fit["band"] == "ztf" + str(band[1:])]
             figure.add_trace(
                 go.Scatter(
-                    x=df_fit_b['time'],
-                    y=df_fit_b['bright'],
+                    x=df_fit_b["time"],
+                    y=df_fit_b["bright"],
                     mode="lines",
                     line=go.scatter.Line(color=band_color[band]),
-                    name=band
+                    name=band,
                 )
             )
     figure.update_traces(
