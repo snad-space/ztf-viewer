@@ -7,7 +7,6 @@ from ztf_viewer.exceptions import NotFound, CatalogUnavailable
 from ztf_viewer.util import ABZPMAG_JY, LN10_04
 
 
-
 def extract_parameters(data):
     data = json.loads(str(data).replace("'", '"').replace("*", ""))
     values = {}
