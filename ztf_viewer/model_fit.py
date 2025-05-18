@@ -2,7 +2,6 @@ import json
 import numpy as np
 import pandas as pd
 import requests
-from ztf_viewer.cache import cache
 from ztf_viewer.catalogs.ztf_ref import ztf_ref
 from ztf_viewer.exceptions import NotFound, CatalogUnavailable
 from ztf_viewer.util import ABZPMAG_JY, LN10_04
@@ -14,8 +13,8 @@ def extract_parameters(data):
     values = {}
     if isinstance(data, dict):
         for key, value in data.items():
-            if isinstance(value, str) and ':' in value:
-                k, v = value.split(':', 1)
+            if isinstance(value, str) and ":" in value:
+                k, v = value.split(":", 1)
                 values[k.strip()] = v.strip()
             elif key == "children":
                 if isinstance(value, dict):
