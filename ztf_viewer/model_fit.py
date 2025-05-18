@@ -4,7 +4,9 @@ import pandas as pd
 import requests
 from ztf_viewer.cache import cache
 from ztf_viewer.catalogs.ztf_ref import ztf_ref
+from ztf_viewer.exceptions import NotFound, CatalogUnavailable
 from ztf_viewer.util import ABZPMAG_JY, LN10_04
+
 
 
 def extract_parameters(data):
@@ -39,15 +41,18 @@ class ModelFit:
         path = f"/sncosmo/fit"
         if not ref_mag_values:
             oid_ref = {}
-            for objectid in df['oid'].unique():
-                ref = ztf_ref.get(objectid, dr)
-                ref_mag = np.round(ref["mag"] + ref["magzp"], decimals=3)
-                ref_magerr = np.round(ref["sigmag"], decimals=3)
-                oid_ref[objectid] = {'mag': ref_mag, 'err': ref_magerr}
-            df['ref_flux'] = df['oid'].apply(lambda x: 10 ** (-0.4 * (oid_ref[x]['mag'] - ABZPMAG_JY)))
-            df['diffflux_Jy'] = df['flux_Jy'] - df['ref_flux']
-            df["difffluxerr_Jy"] = [np.hypot(fluxerr, LN10_04 * ref_flux * oid_ref[oid]['err'])
-                                    for fluxerr, ref_flux, oid in zip(df["fluxerr_Jy"], df['ref_flux'], df['oid'])]
+            try:
+                for objectid in df['oid'].unique():
+                    ref = ztf_ref.get(objectid, dr)
+                    ref_mag = np.round(ref["mag"] + ref["magzp"], decimals=3)
+                    ref_magerr = np.round(ref["sigmag"], decimals=3)
+                    oid_ref[objectid] = {'mag': ref_mag, 'err': ref_magerr}
+                df['ref_flux'] = df['oid'].apply(lambda x: 10 ** (-0.4 * (oid_ref[x]['mag'] - ABZPMAG_JY)))
+                df['diffflux_Jy'] = df['flux_Jy'] - df['ref_flux']
+                df["difffluxerr_Jy"] = [np.hypot(fluxerr, LN10_04 * ref_flux * oid_ref[oid]['err'])
+                                        for fluxerr, ref_flux, oid in zip(df["fluxerr_Jy"], df['ref_flux'], df['oid'])]
+            except (NotFound, CatalogUnavailable):
+                pass
         res_fit = requests.post(self.base_url + path,
                                 json={'light_curve': [{'mjd': float(mjd), 'flux': float(br), 'fluxerr': float(br_err),
                                                        "zp": 8.9, "zpsys": "ab", 'band': 'ztf' + str(band[1:])} for
@@ -64,18 +69,18 @@ class ModelFit:
         band_list = ['ztf' + str(band[1:]) for band in df["filter"].unique()]
         mjd_min = df["mjd"].min()#.astype(float)
         mjd_max = df["mjd"].max()#.astype(float)
-        if ref_mag_values:
-            for band in df['filter'].unique():
-                band_ref[band] = df[df['filter'] == band]['ref_flux'].mean()
-        else:
+        if not ref_mag_values:
             oid_ref = {}
-            for objectid in df['oid'].unique():
-                ref = ztf_ref.get(objectid, dr)
-                ref_mag = np.round(ref["mag"] + ref["magzp"], decimals=3)
-                oid_ref[objectid] = ref_mag
-            df['ref_flux'] = df['oid'].apply(lambda x: 10 ** (-0.4 * (oid_ref[x] - ABZPMAG_JY)))
-            for band in df['filter'].unique():
-                band_ref[band] = df[df['filter'] == band]['ref_flux'].mean().astype(float)
+            try:
+                for objectid in df['oid'].unique():
+                    ref = ztf_ref.get(objectid, dr)
+                    ref_mag = np.round(ref["mag"] + ref["magzp"], decimals=3)
+                    oid_ref[objectid] = ref_mag
+                df['ref_flux'] = df['oid'].apply(lambda x: 10 ** (-0.4 * (oid_ref[x] - ABZPMAG_JY)))
+            except (NotFound, CatalogUnavailable):
+                pass
+        for band in df['filter'].unique():
+            band_ref[band] = df[df['filter'] == band]['ref_flux'].mean().astype(float)
         res_fit = requests.post(self.base_url + path, json={'parameters': params, 'name_model': name_model, "zp": 8.9, "zpsys": "ab",
                                            'band_list': band_list,
                                            't_min': mjd_min, 't_max': mjd_max,

@@ -892,7 +892,6 @@ def fit_lc(
 
     lcs = list(chain.from_iterable(lcs.values()))
     df = pd.DataFrame.from_records(lcs)
-
     items = []
     column_width = 0
     if name_model:
