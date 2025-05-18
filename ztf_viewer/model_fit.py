@@ -10,7 +10,7 @@ from ztf_viewer.util import ABZPMAG_JY, LN10_04
 
 
 def extract_parameters(data):
-    data = json.loads(str(data).replace("'", '"').replace('*', ''))
+    data = json.loads(str(data).replace("'", '"').replace("*", ""))
     values = {}
     if isinstance(data, dict):
         for key, value in data.items():
