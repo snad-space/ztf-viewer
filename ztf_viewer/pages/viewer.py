@@ -810,9 +810,10 @@ def show_fit_params(value, old_style):
 
 
 @app.callback(
-    [Output("results-fit", "children"),
-    Output("results-fit-hidden", "children"),
-     ],
+    [
+        Output("results-fit", "children"),
+        Output("results-fit-hidden", "children"),
+    ],
     [
         Input("oid", "children"),
         Input("dr", "children"),
