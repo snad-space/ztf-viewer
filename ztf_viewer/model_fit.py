@@ -7,26 +7,6 @@ from ztf_viewer.exceptions import NotFound, CatalogUnavailable
 from ztf_viewer.util import ABZPMAG_JY, LN10_04
 
 
-def extract_parameters(data):
-    data = json.loads(str(data).replace("'", '"').replace("*", ""))
-    values = {}
-    if isinstance(data, dict):
-        for key, value in data.items():
-            if isinstance(value, str) and ":" in value:
-                k, v = value.split(":", 1)
-                values[k.strip()] = v.strip()
-            elif key == "children":
-                if isinstance(value, dict):
-                    values.update(extract_parameters(value))
-                elif isinstance(value, list):
-                    for item in value:
-                        values.update(extract_parameters(item))
-            elif isinstance(value, dict):
-                values.update(extract_parameters(value))
-
-    return values
-
-
 class ModelFit:
     base_url = f"http://host.docker.internal:8000/api/v1"
     bright_fit = "diffflux_Jy"
@@ -35,7 +15,7 @@ class ModelFit:
     def __init__(self):
         self._api_session = requests.Session()
 
-    def fit(self, df, fit_model, ref_mag_values, dr):
+    def fit(self, df, fit_model, ref_mag_values, dr, ebv):
         path = f"/sncosmo/fit"
         if not ref_mag_values:
             oid_ref = {}
@@ -56,17 +36,16 @@ class ModelFit:
                                                        "zp": 8.9, "zpsys": "ab", 'band': 'ztf' + str(band[1:])} for
                                                       br, mjd, br_err, band
                                                       in zip(df[self.bright_fit], df["mjd"], df[self.brighterr_fit], df["filter"])],
-                                      'ebv': 0.03, 'name_model': fit_model, 'redshift': [0.05, 0.3]})
+                                      'ebv': ebv, 'name_model': fit_model, 'redshift': [0.05, 0.3]})
         params = res_fit.json()['parameters']
         return params
 
     def get_curve(self, df, dr, ref_mag_values, bright, params, name_model):
         path = f"/sncosmo/get_curve"
-        params = extract_parameters(params)
         band_ref = {}
         band_list = ['ztf' + str(band[1:]) for band in df["filter"].unique()]
-        mjd_min = df["mjd"].min()#.astype(float)
-        mjd_max = df["mjd"].max()#.astype(float)
+        mjd_min = df["mjd"].min()
+        mjd_max = df["mjd"].max()
         if not ref_mag_values:
             oid_ref = {}
             try:

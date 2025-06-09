@@ -7,6 +7,7 @@ from urllib.parse import parse_qs, urlencode, urljoin, urlparse
 
 import dash_dangerously_set_inner_html as ddsih
 import dash_defer_js_import as dji
+import json
 import numpy as np
 import pandas as pd
 import plotly.express as px
@@ -351,6 +352,7 @@ def get_layout(pathname, search):
                         [
                             html.Div(
                                 [
+                                    html.H2("Model to fit"),
                                     dcc.Dropdown(model_fit.get_list_models(), id="models-fit-dd"),
                                     html.Div(id="dd-chosen-model"),
                                 ]
@@ -361,6 +363,10 @@ def get_layout(pathname, search):
                                     html.Div(id="results-fit"),
                                 ],
                                 id="results-fit-layout",
+                                style={"display": "none"},
+                            ),
+                            html.Div(
+                                id="results-fit-hidden",
                                 style={"display": "none"},
                             ),
                             html.Div(
@@ -804,7 +810,9 @@ def show_fit_params(value, old_style):
 
 
 @app.callback(
-    Output("results-fit", "children"),
+    [Output("results-fit", "children"),
+    Output("results-fit-hidden", "children"),
+     ],
     [
         Input("oid", "children"),
         Input("dr", "children"),
@@ -894,17 +902,21 @@ def fit_lc(
 
     lcs = list(chain.from_iterable(lcs.values()))
     df = pd.DataFrame.from_records(lcs)
+    coord = find_ztf_oid.get_sky_coord(cur_oid, dr)
+    ebv = sfd.ebv(coord).astype(float)
     items = []
     column_width = 0
+    params = {}
     if name_model:
-        params = model_fit.fit(df, name_model, ref_mag_values, dr)
+        params = model_fit.fit(df, name_model, ref_mag_values, dr, ebv)
         items = [f"**{k}**: {float(params[k])}" for k in params.keys()]
+        params = json.dumps(params)
         column_width = max(map(len, items)) - 2
-    params = html.Div(
+    params_show = html.Div(
         html.Ul([html.Li(dcc.Markdown(text)) for text in items], style={"list-style-type": "none"}),
         style={"columns": f"{column_width}ch"},
     )
-    return params
+    return params_show, params
 
 
 @app.callback(
@@ -1539,7 +1551,7 @@ def neighbour_oids(different_filter, different_field) -> frozenset:
         Input("additional-light-curves", "value"),
         Input("webgl-is-available", "children"),
         Input("models-fit-dd", "value"),
-        Input("results-fit", "children"),
+        Input("results-fit-hidden", "children"),
     ],
 )
 def set_figure(
@@ -1690,7 +1702,7 @@ def set_figure(
     else:
         raise ValueError(f"{lc_type = } is unknown")
     if name_model and fit_params:
-        df_fit = model_fit.get_curve(df, dr, ref_mag_values, bright, fit_params, name_model)
+        df_fit = model_fit.get_curve(df, dr, ref_mag_values, bright, json.loads(fit_params), name_model)
         df_fit["time"] = df_fit["time"] - 58000
         band_color = {"zr": "red", "zg": "darkgreen", "zi": "black"}
         for band in df["filter"].unique():
@@ -1701,7 +1713,7 @@ def set_figure(
                     y=df_fit_b["bright"],
                     mode="lines",
                     line=go.scatter.Line(color=band_color[band]),
-                    name=band,
+                    name=f"{name_model}_{band}",
                 )
             )
     figure.update_traces(
