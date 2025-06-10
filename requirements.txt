@@ -238,7 +238,7 @@ redis==5.2.1
     #   redis-lru
 redis-lru==0.1.2
     # via ztf-viewer (pyproject.toml)
-requests==2.32.3
+requests==2.32.4
     # via
     #   ztf-viewer (pyproject.toml)
     #   alerce
