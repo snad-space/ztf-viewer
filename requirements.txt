@@ -154,7 +154,7 @@ nest-asyncio==1.6.0
     # via dash
 networkx==3.4.2
     # via mocpy
-numpy==2.2.3
+numpy==2.3.1
     # via
     #   ztf-viewer (pyproject.toml)
     #   antares-client
