@@ -1,6 +1,9 @@
 # SNAD ZTF DR web viewer
+#### https://ztf.snad.space
 
 This projects contains a source of [ZTF](http://ztf.caltech.edu) Data Releases light curve viewer developed by [the SNAD team](http://snad.space).
+
+Please use [the GitHub issue tracker](https://github.com/snad-space/ztf-viewer/issues) for suggestions and bug reports. If the Portal is unavailable or some functionality doesn’t work, please check the [status page](https://status.snad.space/status/viewer). If it’s red, we are already aware of the problem; if not, please report it to us!
 
 ## Evaluation
 
