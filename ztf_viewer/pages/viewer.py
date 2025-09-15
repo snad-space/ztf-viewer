@@ -910,7 +910,7 @@ def fit_lc(
     params = {}
     if name_model:
         params = model_fit.fit(df, name_model, ref_mag_values, dr, ebv)
-        items = [f"**{k}**: {float(params[k])}" for k in params.keys()]
+        items = [f"**{k}**: {np.round(float(params[k]), decimal=3)}" for k in params.keys()]
         params = json.dumps(params)
         column_width = max(map(len, items)) - 2
     params_show = html.Div(
