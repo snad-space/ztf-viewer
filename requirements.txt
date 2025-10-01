@@ -185,7 +185,7 @@ pandas==2.2.3
     #   ztf-viewer (pyproject.toml)
     #   alerce
     #   antares-client
-parso==0.8.4
+parso==0.8.5
     # via jedi
 pexpect==4.9.0
     # via ipython
