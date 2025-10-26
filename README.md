@@ -1,12 +1,15 @@
 # SNAD ZTF DR web viewer
+#### https://ztf.snad.space
 
 This projects contains a source of [ZTF](http://ztf.caltech.edu) Data Releases light curve viewer developed by [the SNAD team](http://snad.space).
+
+Please use [the GitHub issue tracker](https://github.com/snad-space/ztf-viewer/issues) for suggestions and bug reports. If the Portal is unavailable or some functionality doesn’t work, please check the [status page](https://status.snad.space/status/viewer). If it’s red, we are already aware of the problem; if not, please report it to us!
 
 ## Evaluation
 
  Both production and development versions can be started via [Docker compose](https://docs.docker.com/compose/) using `docker-compose.yml` and `docker-compose.dev.yml` correspondingly.
  Current production configuration assumes that there is a Docker `proxy` network shared with [`jwilder/nginx-proxy`](https://github.com/nginx-proxy/nginx-proxy) which proxies the webserver to the outer world.
- Also, this configuration require `secret.env` file containing secret environment variables, such as API keys.
+ Also, this configuration requires `secret.env` file containing secret environment variables, such as API keys.
 
 ### Environment variables
 
