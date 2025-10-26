@@ -904,13 +904,13 @@ def fit_lc(
     lcs = list(chain.from_iterable(lcs.values()))
     df = pd.DataFrame.from_records(lcs)
     coord = find_ztf_oid.get_sky_coord(cur_oid, dr)
-    ebv = sfd.ebv(coord).astype(float)
+    ebv = sfd.ebv(coord)
     items = []
     column_width = 0
     params = {}
     if name_model:
         params = model_fit.fit(df, name_model, ref_mag_values, dr, ebv)
-        items = [f"**{k}**: {np.round(float(params[k]), decimal=3)}" for k in params.keys()]
+        items = [f"**{k}**: {np.round(float(params[k]), 3)}" for k in params.keys()]
         params = json.dumps(params)
         column_width = max(map(len, items)) - 2
     params_show = html.Div(
