@@ -1,4 +1,3 @@
-version: '2'
 services:
   ztf-web-viewer-app:
     build: .
