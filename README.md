@@ -59,6 +59,15 @@ CACHE_TYPE="memory" UNAVAILABLE_CATALOGS_CACHE_TYPE="memory" python -m ztf_viewe
 Go to the url specified in the command line output, it should be something like http://localhost:8050/
 Some features like FITS viewer wouldn't work.
 
+### Dependencies
+
+Update JS9 version in `Dockerfile`.
+
+Add new Python dependencies and update version ranges in `pyproject.toml`, then run the following command to update (requires [`uv`](https://docs.astral.sh/uv/)) `requirements.txt`:
+```sh
+uv pip compile --python-platform=x86_64-unknown-linux-gnu pyproject.toml > requirements.txt
+```
+
 ## Web-services used by the viewer
 
 - [SNAD catalog](https://snad.space/catalog)
