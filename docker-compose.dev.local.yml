@@ -3,5 +3,3 @@ services:
   ztf-web-viewer-app:
     volumes:
       - ./ztf_viewer:/app/ztf_viewer
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
