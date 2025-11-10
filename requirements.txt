@@ -126,7 +126,7 @@ markupsafe==3.0.3
     # via
     #   jinja2
     #   werkzeug
-marshmallow==3.26.1
+marshmallow==4.1.0
     # via
     #   antares-client
     #   marshmallow-jsonapi
