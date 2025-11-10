@@ -41,7 +41,7 @@ def antares_tag(ra, dec, radius_arcsec=DEFAULT_SEARCH_RADIUS_ARCSEC, *, oid):
 
 
 def fink_conesearch_url(ra, dec, radius_arcsec=DEFAULT_SEARCH_RADIUS_ARCSEC):
-    return f"https://fink-portal.org/?action=conesearch&ra={ra}&dec={dec}&radius={radius_arcsec}"
+    return f"https://ztf.fink-portal.org/?action=conesearch&ra={ra}&dec={dec}&radius={radius_arcsec}"
 
 
 def fink_tag(ra, dec, radius_arcsec=DEFAULT_SEARCH_RADIUS_ARCSEC):
