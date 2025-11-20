@@ -909,10 +909,10 @@ def fit_lc(
     column_width = 0
     params = {}
     if name_model:
-        params = model_fit.fit(df, name_model, ref_mag_values, dr, ebv)
+        params = model_fit.fit(df, name_model, dr, ebv)
         items = [f"**{k}**: {np.round(float(params[k]), 3)}" for k in params.keys()]
         params = json.dumps(params)
-        column_width = max(map(len, items)) - 2
+        column_width = max(map(len, items), default=2) - 2
     params_show = html.Div(
         html.Ul([html.Li(dcc.Markdown(text)) for text in items], style={"list-style-type": "none"}),
         style={"columns": f"{column_width}ch"},
@@ -1703,20 +1703,20 @@ def set_figure(
     else:
         raise ValueError(f"{lc_type = } is unknown")
     if name_model and fit_params:
-        df_fit = model_fit.get_curve(df, dr, ref_mag_values, bright, json.loads(fit_params), name_model)
-        df_fit["time"] = df_fit["time"] - 58000
-        band_color = {"zr": "red", "zg": "darkgreen", "zi": "black"}
-        for band in df["filter"].unique():
-            df_fit_b = df_fit[df_fit["band"] == "ztf" + str(band[1:])]
-            figure.add_trace(
-                go.Scatter(
-                    x=df_fit_b["time"],
-                    y=df_fit_b["bright"],
-                    mode="lines",
-                    line=go.scatter.Line(color=band_color[band]),
-                    name=f"{name_model}_{band}",
+        df_fit = model_fit.get_curve(df, dr, bright, json.loads(fit_params), name_model)
+        if not df_fit.empty:
+            band_color = {"zr": "red", "zg": "darkgreen", "zi": "black"}
+            for band in df["filter"].unique():
+                df_fit_b = df_fit[df_fit["band"] == "ztf" + str(band[1:])]
+                figure.add_trace(
+                    go.Scatter(
+                        x=df_fit_b["time"],
+                        y=df_fit_b["bright"],
+                        mode="lines",
+                        line=go.scatter.Line(color=band_color[band]),
+                        name=f"{name_model}_{band}",
+                    )
                 )
-            )
     figure.update_traces(
         marker=dict(line=dict(width=0.5, color="black")),
         selector=dict(mode="markers"),
