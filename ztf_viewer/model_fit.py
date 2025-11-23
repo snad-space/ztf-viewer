@@ -10,7 +10,7 @@ from ztf_viewer.util import ABZPMAG_JY, LN10_04
 
 def post_request(url, data):
     try:
-        response = requests.post(url, json=data.model_dump(), timeout=10)
+        response = requests.post(url, json=data.model_dump())
         response.raise_for_status()
         return response.status_code, response.json()
     except requests.exceptions.HTTPError as e:
@@ -28,7 +28,7 @@ def post_request(url, data):
 
 def get_request(url):
     try:
-        response = requests.get(url, timeout=10)
+        response = requests.get(url)
         response.raise_for_status()
         return response.status_code, response.json()
     except requests.exceptions.HTTPError as e:
@@ -96,7 +96,8 @@ class ModelFit:
                     for fluxerr, ref_flux, oid in zip(df["fluxerr_Jy"], df["ref_flux"], df["oid"])
                 ]
             except (NotFound, CatalogUnavailable):
-                pass
+                pprint(f"Catalog error")
+                return {}
         status_code, res_fit = post_request(
             self.base_url + path,
             Target(
@@ -136,7 +137,9 @@ class ModelFit:
                     oid_ref[objectid] = ref_mag
                 df["ref_flux"] = df["oid"].apply(lambda x: 10 ** (-0.4 * (oid_ref[x] - ABZPMAG_JY)))
             except (NotFound, CatalogUnavailable):
-                pass
+                print(f"Catalog error")
+                return pd.DataFrame.from_records([])
+
         for band in df["filter"].unique():
             band_ref[band] = df[df["filter"] == band]["ref_flux"].mean().astype(float)
         status_code, res_fit = post_request(
