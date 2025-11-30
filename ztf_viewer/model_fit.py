@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 import requests
-import pydantic
 from pydantic import BaseModel
 from typing import Literal, List, Dict
 from ztf_viewer.catalogs.ztf_ref import ztf_ref
@@ -77,9 +76,13 @@ class ModelFit:
 
     def __init__(self):
         self._api_session = requests.Session()
+        self.path = None
+
+    def set_path(self, path):
+        self.path = path
 
     def fit(self, df, fit_model, dr, ebv):
-        path = "/sncosmo/fit"
+        self.set_path("/sncosmo/fit")
         df = df.copy()
         if 'ref_flux' not in df.columns:
             oid_ref = {}
@@ -96,10 +99,10 @@ class ModelFit:
                     for fluxerr, ref_flux, oid in zip(df["fluxerr_Jy"], df["ref_flux"], df["oid"])
                 ]
             except (NotFound, CatalogUnavailable):
-                pprint(f"Catalog error")
+                print(f"Catalog error")
                 return {}
         status_code, res_fit = post_request(
-            self.base_url + path,
+            self.base_url + self.path,
             Target(
                 light_curve=[
                     Observation(
@@ -122,7 +125,7 @@ class ModelFit:
             return {}
 
     def get_curve(self, df, dr, bright, params, name_model):
-        path = "/sncosmo/get_curve"
+        self.set_path("/sncosmo/get_curve")
         band_ref = {}
         band_list = ["ztf" + str(band[1:]) for band in df["filter"].unique()]
         mjd_min = df["mjd"].min()
@@ -143,7 +146,7 @@ class ModelFit:
         for band in df["filter"].unique():
             band_ref[band] = df[df["filter"] == band]["ref_flux"].mean().astype(float)
         status_code, res_fit = post_request(
-            self.base_url + path,
+            self.base_url + self.path,
             ModelData(
                 parameters=params,
                 name_model=name_model,
@@ -162,8 +165,8 @@ class ModelFit:
             return pd.DataFrame.from_records([])
 
     def get_list_models(self):
-        path = "/models"
-        status_code, list_models = get_request(self.base_url + path)
+        self.set_path("/models")
+        status_code, list_models = get_request(self.base_url + self.path)
         if status_code == 200:
             return list_models["models"]
         else: return []
