@@ -76,7 +76,7 @@ flask==3.0.3
     # via
     #   ztf-viewer (pyproject.toml)
     #   dash
-fonttools==4.60.1
+fonttools==4.61.0
     # via matplotlib
 h5py==3.15.1
     # via dustmaps
