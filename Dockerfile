@@ -4,8 +4,12 @@ FROM python:3.12-bookworm
 ENV TZ=Europe/Moscow
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
+# Install uv
+RUN pip install uv
+ENV UV_SYSTEM_PYTHON=True
+
 # Install gunicorn to run a web-server
-RUN pip install gunicorn
+RUN uv pip install gunicorn
 
 # Install JS9 for FITS viewer
 # Original repo: https://github.com/ericmandel/js9
@@ -40,7 +44,7 @@ RUN apt-get update \
 
 # Install dependencies
 COPY requirements.txt /app/
-RUN pip install -r /app/requirements.txt
+RUN uv pip install  -r /app/requirements.txt
 
 # Configure and download dustmaps
 RUN echo '{"data_dir": "/dustmaps"}' > /dustmapsrc
@@ -56,10 +60,10 @@ EXPOSE 80
 
 ENV PYTHONUNBUFFERED TRUE
 
-COPY pyproject.toml setup.py MANIFEST.in /app/
+COPY pyproject.toml MANIFEST.in /app/
 COPY ztf_viewer /app/ztf_viewer/
 ARG GITHUB_SHA
 RUN if [ -z ${GITHUB_SHA+x} ]; then echo "$GITHUB_SHA is not set"; else echo "github_sha = \"${GITHUB_SHA}\"" >> /app/ztf_viewer/_version.py; fi
-RUN pip install /app
+RUN uv pip install --no-deps /app
 
 ENTRYPOINT ["gunicorn", "-w3", "--threads=8", "-t70", "-b0.0.0.0:80", "ztf_viewer.__main__:server()"]

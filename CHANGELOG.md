@@ -6,6 +6,12 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
+## [2025.11.0] 2025 November 10
+
+### Fixed
+
+- Fink domain names changed https://github.com/snad-space/ztf-viewer/pull/533
+
 ## [2025.3.4] 2025 March 27
 
 ### Fixed
