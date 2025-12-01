@@ -7,6 +7,7 @@ from ztf_viewer.catalogs.ztf_ref import ztf_ref
 from ztf_viewer.exceptions import NotFound, CatalogUnavailable
 from ztf_viewer.util import ABZPMAG_JY, LN10_04
 
+
 def post_request(url, data):
     try:
         response = requests.post(url, json=data.model_dump())
@@ -24,6 +25,7 @@ def post_request(url, data):
     except requests.exceptions.RequestException as e:
         print(f"An error occurred: {e}")
         return -2, None
+
 
 def get_request(url):
     try:
@@ -43,6 +45,7 @@ def get_request(url):
         print(f"An error occurred: {e}")
         return -2, None
 
+
 class Observation(BaseModel):
     mjd: float
     band: str
@@ -51,11 +54,13 @@ class Observation(BaseModel):
     zp: float = ABZPMAG_JY
     zpsys: Literal["ab", "vega"] = "ab"
 
+
 class Target(BaseModel):
     light_curve: List[Observation]
     ebv: float
     name_model: str
     redshift: List[float] = [0.05, 0.3]
+
 
 class ModelData(BaseModel):
     parameters: Dict[str, float]
@@ -68,6 +73,7 @@ class ModelData(BaseModel):
     count: int = 2000
     brightness_type: str
     band_ref: Dict[str, float]
+
 
 class ModelFit:
     base_url = "http://host.docker.internal:8000/api/v1"
@@ -84,7 +90,7 @@ class ModelFit:
     def fit(self, df, fit_model, dr, ebv):
         self.set_path("/sncosmo/fit")
         df = df.copy()
-        if 'ref_flux' not in df.columns:
+        if "ref_flux" not in df.columns:
             oid_ref = {}
             try:
                 for objectid in df["oid"].unique():
@@ -99,7 +105,7 @@ class ModelFit:
                     for fluxerr, ref_flux, oid in zip(df["fluxerr_Jy"], df["ref_flux"], df["oid"])
                 ]
             except (NotFound, CatalogUnavailable):
-                print(f"Catalog error")
+                print("Catalog error")
                 return {}
         status_code, res_fit = post_request(
             self.base_url + self.path,
@@ -131,7 +137,7 @@ class ModelFit:
         mjd_min = df["mjd"].min()
         mjd_max = df["mjd"].max()
         df = df.copy()
-        if 'ref_flux' not in df.columns:
+        if "ref_flux" not in df.columns:
             oid_ref = {}
             try:
                 for objectid in df["oid"].unique():
@@ -140,7 +146,7 @@ class ModelFit:
                     oid_ref[objectid] = ref_mag
                 df["ref_flux"] = df["oid"].apply(lambda x: 10 ** (-0.4 * (oid_ref[x] - ABZPMAG_JY)))
             except (NotFound, CatalogUnavailable):
-                print(f"Catalog error")
+                print("Catalog error")
                 return pd.DataFrame.from_records([])
 
         for band in df["filter"].unique():
@@ -169,7 +175,8 @@ class ModelFit:
         status_code, list_models = get_request(self.base_url + self.path)
         if status_code == 200:
             return list_models["models"]
-        else: return []
+        else:
+            return []
 
 
 model_fit = ModelFit()
