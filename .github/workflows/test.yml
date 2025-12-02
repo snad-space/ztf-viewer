@@ -10,7 +10,7 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v5
+      uses: actions/checkout@v6
     - name: Build base docker image
       run: docker build --tag ztf-viewer .
     - name: Build test docker image
