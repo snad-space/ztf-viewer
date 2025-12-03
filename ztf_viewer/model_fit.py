@@ -76,7 +76,7 @@ class ModelData(BaseModel):
 
 
 class ModelFit:
-    base_url = "http://host.docker.internal:8000/api/v1"
+    base_url = "https://fit.lc.snad.space/api/v1"
     bright_fit = "diffflux_Jy"
     brighterr_fit = "difffluxerr_Jy"
 
