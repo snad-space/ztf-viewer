@@ -22,7 +22,7 @@ jobs:
         if: ${{ github.event_name == 'pull_request_review' && github.event.review.state != 'approved' }}
         run: exit 1
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
       - name: Set SUBDOMAIN=pr#
         if: ${{ github.event_name != 'push' }}
         run: echo "SUBDOMAIN=pr${{ github.event.pull_request.number }}" >> $GITHUB_ENV
@@ -50,7 +50,7 @@ jobs:
       if: ${{ github.event_name == 'pull_request_review' && github.event.review.state != 'approved' }}
       run: exit 1
     - name: Checkout repository
-      uses: actions/checkout@v5
+      uses: actions/checkout@v6
     - name: Set SUBDOMAIN env var
       run: echo "SUBDOMAIN=${{ needs.subdomain.outputs.output }}" >> $GITHUB_ENV
     - name: Generate docker-compose.yml
