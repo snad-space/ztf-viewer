@@ -7,25 +7,36 @@ from ztf_viewer.catalogs.ztf_ref import ztf_ref
 from ztf_viewer.exceptions import NotFound, CatalogUnavailable
 from ztf_viewer.util import ABZPMAG_JY, LN10_04
 
+
 def post_request(url, data):
     try:
         response = requests.post(url, json=data.model_dump())
         response.raise_for_status()
         return response.status_code, response.json()
-    except (requests.exceptions.HTTPError, requests.exceptions.ConnectionError,
-            requests.exceptions.Timeout, requests.exceptions.RequestException) as e:
+    except (
+        requests.exceptions.HTTPError,
+        requests.exceptions.ConnectionError,
+        requests.exceptions.Timeout,
+        requests.exceptions.RequestException,
+    ) as e:
         print(f"A model-fit-api error occurred: {e}")
         return -1, {"error": "API is unavailable"}
+
 
 def get_request(url):
     try:
         response = requests.get(url)
         response.raise_for_status()
         return response.status_code, response.json()
-    except (requests.exceptions.HTTPError, requests.exceptions.ConnectionError,
-            requests.exceptions.Timeout, requests.exceptions.RequestException) as e:
+    except (
+        requests.exceptions.HTTPError,
+        requests.exceptions.ConnectionError,
+        requests.exceptions.Timeout,
+        requests.exceptions.RequestException,
+    ) as e:
         print(f"A model-fit-api error occurred: {e}")
-        return -1,{"error": "API is unavailable"}
+        return -1, {"error": "API is unavailable"}
+
 
 class Observation(BaseModel):
     mjd: float
@@ -35,11 +46,13 @@ class Observation(BaseModel):
     zp: float = ABZPMAG_JY
     zpsys: Literal["ab", "vega"] = "ab"
 
+
 class Target(BaseModel):
     light_curve: List[Observation]
     ebv: float
     name_model: str
     redshift: List[float] = [0.05, 0.3]
+
 
 class ModelData(BaseModel):
     parameters: Dict[str, float]
@@ -52,6 +65,7 @@ class ModelData(BaseModel):
     count: int = 2000
     brightness_type: str
     band_ref: Dict[str, float]
+
 
 class ModelFit:
     base_url = "https://fit.lc.snad.space/api/v1"
@@ -68,7 +82,7 @@ class ModelFit:
     def fit(self, df, fit_model, dr, ebv):
         self.set_path("/sncosmo/fit")
         df = df.copy()
-        if 'ref_flux' not in df.columns:
+        if "ref_flux" not in df.columns:
             oid_ref = {}
             try:
                 for objectid in df["oid"].unique():
@@ -83,8 +97,8 @@ class ModelFit:
                     for fluxerr, ref_flux, oid in zip(df["fluxerr_Jy"], df["ref_flux"], df["oid"])
                 ]
             except (NotFound, CatalogUnavailable):
-                print(f"Catalog error")
-                return {'error': 'Catalog is unavailable'}
+                print("Catalog error")
+                return {"error": "Catalog is unavailable"}
         status_code, res_fit = post_request(
             self.base_url + self.path,
             Target(
@@ -110,14 +124,14 @@ class ModelFit:
 
     def get_curve(self, df, dr, bright, params, name_model):
         self.set_path("/sncosmo/get_curve")
-        if 'error' in params.keys():
+        if "error" in params.keys():
             return pd.DataFrame.from_records([])
         band_ref = {}
         band_list = ["ztf" + str(band[1:]) for band in df["filter"].unique()]
         mjd_min = df["mjd"].min()
         mjd_max = df["mjd"].max()
         df = df.copy()
-        if 'ref_flux' not in df.columns:
+        if "ref_flux" not in df.columns:
             oid_ref = {}
             try:
                 for objectid in df["oid"].unique():
@@ -126,7 +140,7 @@ class ModelFit:
                     oid_ref[objectid] = ref_mag
                 df["ref_flux"] = df["oid"].apply(lambda x: 10 ** (-0.4 * (oid_ref[x] - ABZPMAG_JY)))
             except (NotFound, CatalogUnavailable):
-                print(f"Catalog error")
+                print("Catalog error")
                 return pd.DataFrame.from_records([])
 
         for band in df["filter"].unique():
@@ -155,7 +169,8 @@ class ModelFit:
         status_code, list_models = get_request(self.base_url + self.path)
         if status_code == 200:
             return list_models["models"]
-        else: return []
+        else:
+            return []
 
 
 model_fit = ModelFit()
