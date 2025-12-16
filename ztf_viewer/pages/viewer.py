@@ -848,7 +848,6 @@ def fit_lc(
     ref_magerr_ids,
     ref_magerr_values,
     additional_lc_types,
-    webgl_available,
     name_model,
 ):
     if lc_type == "folded" and not period:
@@ -867,10 +866,6 @@ def fit_lc(
     external_data = immutabledict(
         {value: immutabledict({"radius_arcsec": ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC}) for value in additional_lc_types}
     )
-
-    # It is "0" or "1" or None
-    webgl_available = True if webgl_available is None else bool(int(webgl_available))
-    render_mode = "auto" if webgl_available else "svg"
 
     other_oids = neighbour_oids(different_filter, different_field)
     if lc_type == "full":
@@ -910,7 +905,7 @@ def fit_lc(
     params = {}
     if name_model:
         params = model_fit.fit(df, name_model, dr, ebv)
-        items = [f"**{k}**: {np.round(float(params[k]), 3) if k!='error' else params[k]}" for k in params.keys()]
+        items = [f"**{k}**: {np.round(float(v), 3) if k!='error' else params[k]}" for k, v in params.items()]
         params = json.dumps(params)
         column_width = max(map(len, items), default=2) - 2
     params_show = html.Div(

@@ -3,7 +3,9 @@ import pandas as pd
 import requests
 from pydantic import BaseModel
 from typing import Literal, List, Dict
+from urllib.parse import urljoin
 from ztf_viewer.catalogs.ztf_ref import ztf_ref
+from ztf_viewer.config import MODEL_FIT_API_URL
 from ztf_viewer.exceptions import NotFound, CatalogUnavailable
 from ztf_viewer.util import ABZPMAG_JY, LN10_04
 
@@ -68,39 +70,37 @@ class ModelData(BaseModel):
 
 
 class ModelFit:
-    base_url = "https://fit.lc.snad.space/api/v1"
+    _base_api_url = f"{MODEL_FIT_API_URL}/api/v1"
+    _models_api_url = urljoin(_base_api_url, "/models")
+    _fit_api_url = urljoin(_base_api_url, "/sncosmo/fit")
+    _get_curve_api_url = urljoin(_base_api_url, "/sncosmo/get_curve")
     bright_fit = "diffflux_Jy"
     brighterr_fit = "difffluxerr_Jy"
 
     def __init__(self):
         self._api_session = requests.Session()
-        self.path = None
-
-    def set_path(self, path):
-        self.path = path
 
     def fit(self, df, fit_model, dr, ebv):
-        self.set_path("/sncosmo/fit")
         df = df.copy()
         if "ref_flux" not in df.columns:
             oid_ref = {}
-            try:
-                for objectid in df["oid"].unique():
+            for objectid in df["oid"].unique():
+                try:
                     ref = ztf_ref.get(objectid, dr)
-                    ref_mag = ref["mag"] + ref["magzp"]
-                    ref_magerr = ref["sigmag"]
-                    oid_ref[objectid] = {"mag": ref_mag, "err": ref_magerr}
-                df["ref_flux"] = df["oid"].apply(lambda x: 10 ** (-0.4 * (oid_ref[x]["mag"] - ABZPMAG_JY)))
-                df["diffflux_Jy"] = df["flux_Jy"] - df["ref_flux"]
-                df["difffluxerr_Jy"] = [
-                    np.hypot(fluxerr, LN10_04 * ref_flux * oid_ref[oid]["err"])
-                    for fluxerr, ref_flux, oid in zip(df["fluxerr_Jy"], df["ref_flux"], df["oid"])
-                ]
-            except (NotFound, CatalogUnavailable):
-                print("Catalog error")
-                return {"error": "Catalog is unavailable"}
+                except (NotFound, CatalogUnavailable):
+                    print("Catalog error")
+                    return {"error": "ZTF Reference catalog is unavailable"}
+                ref_mag = ref["mag"] + ref["magzp"]
+                ref_magerr = ref["sigmag"]
+                oid_ref[objectid] = {"mag": ref_mag, "err": ref_magerr}
+            df["ref_flux"] = df["oid"].apply(lambda x: 10 ** (-0.4 * (oid_ref[x]["mag"] - ABZPMAG_JY)))
+            df["diffflux_Jy"] = df["flux_Jy"] - df["ref_flux"]
+            df["difffluxerr_Jy"] = [
+                np.hypot(fluxerr, LN10_04 * ref_flux * oid_ref[oid]["err"])
+                for fluxerr, ref_flux, oid in zip(df["fluxerr_Jy"], df["ref_flux"], df["oid"])
+            ]
         status_code, res_fit = post_request(
-            self.base_url + self.path,
+            self._fit_api_url,
             Target(
                 light_curve=[
                     Observation(
@@ -123,7 +123,6 @@ class ModelFit:
             return res_fit
 
     def get_curve(self, df, dr, bright, params, name_model):
-        self.set_path("/sncosmo/get_curve")
         if "error" in params.keys():
             return pd.DataFrame.from_records([])
         band_ref = {}
@@ -146,7 +145,7 @@ class ModelFit:
         for band in df["filter"].unique():
             band_ref[band] = df[df["filter"] == band]["ref_flux"].mean().astype(float)
         status_code, res_curve = post_request(
-            self.base_url + self.path,
+            self._get_curve_api_url,
             ModelData(
                 parameters=params,
                 name_model=name_model,
@@ -165,8 +164,7 @@ class ModelFit:
             return pd.DataFrame.from_records([])
 
     def get_list_models(self):
-        self.set_path("/models")
-        status_code, list_models = get_request(self.base_url + self.path)
+        status_code, list_models = get_request(self._models_api_url)
         if status_code == 200:
             return list_models["models"]
         else:
