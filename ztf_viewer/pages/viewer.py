@@ -7,6 +7,7 @@ from urllib.parse import parse_qs, urlencode, urljoin, urlparse
 
 import dash_dangerously_set_inner_html as ddsih
 import dash_defer_js_import as dji
+import json
 import numpy as np
 import pandas as pd
 import plotly.express as px
@@ -39,6 +40,7 @@ from ztf_viewer.catalogs.ztf_ref import ztf_ref
 from ztf_viewer.config import JS9_URL, ZTF_FITS_PROXY_URL
 from ztf_viewer.date_with_frac import DateWithFrac, correct_date
 from ztf_viewer.exceptions import CatalogUnavailable, NotFound
+from ztf_viewer.model_fit import model_fit
 from ztf_viewer.lc_data.plot_data import MJD_OFFSET, get_folded_plot_data, get_plot_data
 from ztf_viewer.lc_features import light_curve_features
 from ztf_viewer.util import (
@@ -166,7 +168,6 @@ def get_layout(pathname, search):
         features = light_curve_features(oid, dr, version="latest", min_mjd=min_mjd, max_mjd=max_mjd)
     except NotFound:
         features = None
-
     layout = html.Div(
         [
             html.Div("", id="placeholder", style={"display": "none"}),
@@ -349,6 +350,25 @@ def get_layout(pathname, search):
                 [
                     html.Div(
                         [
+                            html.Div(
+                                [
+                                    html.H2("Model to fit"),
+                                    dcc.Dropdown(model_fit.get_list_models(), id="models-fit-dd"),
+                                    html.Div(id="dd-chosen-model"),
+                                ]
+                            ),
+                            html.Div(
+                                [
+                                    html.H2("Parameters of fitting"),
+                                    html.Div(id="results-fit"),
+                                ],
+                                id="results-fit-layout",
+                                style={"display": "none"},
+                            ),
+                            html.Div(
+                                id="results-fit-hidden",
+                                style={"display": "none"},
+                            ),
                             html.Div(
                                 [
                                     html.H2("Summary"),
@@ -773,6 +793,126 @@ def set_title(oid, dr):
     except NotFound:
         snad_name = ""
     return f"{snad_name}{oid}"
+
+
+@app.callback(
+    Output("results-fit-layout", "style"),
+    [Input("models-fit-dd", "value")],
+    [State("results-fit-layout", "style")],
+)
+def show_fit_params(value, old_style):
+    style = old_style.copy()
+    if value:
+        style["display"] = "inline"
+    else:
+        style["display"] = "none"
+    return style
+
+
+@app.callback(
+    [
+        Output("results-fit", "children"),
+        Output("results-fit-hidden", "children"),
+    ],
+    [
+        Input("oid", "children"),
+        Input("dr", "children"),
+        Input("different_filter_neighbours", "children"),
+        Input("different_field_neighbours", "children"),
+        Input("min-mjd", "value"),
+        Input("max-mjd", "value"),
+        Input("light-curve-type", "value"),
+        Input("fold-period", "value"),
+        Input("fold-zero-phase", "value"),
+        Input(dict(type="ref-mag-input", index=ALL), "id"),
+        Input(dict(type="ref-mag-input", index=ALL), "value"),
+        Input(dict(type="ref-magerr-input", index=ALL), "id"),
+        Input(dict(type="ref-magerr-input", index=ALL), "value"),
+        Input("additional-light-curves", "value"),
+        Input("webgl-is-available", "children"),
+        Input("models-fit-dd", "value"),
+    ],
+)
+def fit_lc(
+    cur_oid,
+    dr,
+    different_filter,
+    different_field,
+    min_mjd,
+    max_mjd,
+    lc_type,
+    period,
+    phase0,
+    ref_mag_ids,
+    ref_mag_values,
+    ref_magerr_ids,
+    ref_magerr_values,
+    additional_lc_types,
+    name_model,
+):
+    if lc_type == "folded" and not period:
+        raise PreventUpdate
+
+    if min_mjd is not None and max_mjd is not None and min_mjd >= max_mjd:
+        raise PreventUpdate
+
+    ref_mag = immutabledefaultdict(
+        lambda: np.inf, {id["index"]: value for id, value in zip(ref_mag_ids, ref_mag_values) if value is not None}
+    )
+    ref_magerr = immutabledefaultdict(
+        float, {id["index"]: value for id, value in zip(ref_magerr_ids, ref_magerr_values) if value is not None}
+    )
+
+    external_data = immutabledict(
+        {value: immutabledict({"radius_arcsec": ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC}) for value in additional_lc_types}
+    )
+
+    other_oids = neighbour_oids(different_filter, different_field)
+    if lc_type == "full":
+        lcs = get_plot_data(
+            cur_oid,
+            dr,
+            other_oids=other_oids,
+            min_mjd=min_mjd,
+            max_mjd=max_mjd,
+            ref_mag=ref_mag,
+            ref_magerr=ref_magerr,
+            external_data=external_data,
+        )
+    elif lc_type == "folded":
+        offset = -(phase0 or 0.0) * period
+        lcs = get_folded_plot_data(
+            cur_oid,
+            dr,
+            period=period,
+            offset=offset,
+            other_oids=other_oids,
+            min_mjd=min_mjd,
+            max_mjd=max_mjd,
+            ref_mag=ref_mag,
+            ref_magerr=ref_magerr,
+            external_data=external_data,
+        )
+    else:
+        raise ValueError(f"{lc_type = } is unknown")
+
+    lcs = list(chain.from_iterable(lcs.values()))
+    df = pd.DataFrame.from_records(lcs)
+    coord = find_ztf_oid.get_sky_coord(cur_oid, dr)
+    ebv = sfd.ebv(coord)
+    items = []
+    column_width = 0
+    params = {}
+    if name_model:
+        params = model_fit.fit(df, name_model, dr, ebv)
+        items = [f"**{k}**: {np.round(float(v), 3) if k!='error' else params[k]}" for k, v in params.items()]
+        params = json.dumps(params)
+        column_width = max(map(len, items), default=2) - 2
+    params_show = html.Div(
+        html.Ul([html.Li(dcc.Markdown(text)) for text in items], style={"list-style-type": "none"}),
+        style={"columns": f"{column_width}ch"},
+    )
+    return params_show, params
 
 
 @app.callback(
@@ -1406,6 +1546,8 @@ def neighbour_oids(different_filter, different_field) -> frozenset:
         Input(dict(type="ref-magerr-input", index=ALL), "value"),
         Input("additional-light-curves", "value"),
         Input("webgl-is-available", "children"),
+        Input("models-fit-dd", "value"),
+        Input("results-fit-hidden", "children"),
     ],
 )
 def set_figure(
@@ -1425,6 +1567,8 @@ def set_figure(
     ref_magerr_values,
     additional_lc_types,
     webgl_available,
+    name_model,
+    fit_params,
 ):
     if lc_type == "folded" and not period:
         raise PreventUpdate
@@ -1508,9 +1652,10 @@ def set_figure(
         range_y = [min(0.0, y_min - 0.1 * y_ampl), y_max + 0.1 * y_ampl]
     else:
         raise ValueError(f'Wrong brightness_type "{brightness_type}"')
+    df = pd.DataFrame.from_records(lcs)
     if lc_type == "full":
         figure = px.scatter(
-            pd.DataFrame.from_records(lcs),
+            df,
             x=f"mjd_{MJD_OFFSET}",
             y=bright,
             error_y=brighterr,
@@ -1533,7 +1678,7 @@ def set_figure(
         )
     elif lc_type == "folded":
         figure = px.scatter(
-            pd.DataFrame.from_records(lcs),
+            df,
             x="phase",
             y=bright,
             error_y=brighterr,
@@ -1552,6 +1697,21 @@ def set_figure(
         )
     else:
         raise ValueError(f"{lc_type = } is unknown")
+    if name_model and fit_params:
+        df_fit = model_fit.get_curve(df, dr, bright, json.loads(fit_params), name_model)
+        if not df_fit.empty:
+            band_color = {"zr": "red", "zg": "darkgreen", "zi": "black"}
+            for band in df["filter"].unique():
+                df_fit_b = df_fit[df_fit["band"] == "ztf" + str(band[1:])]
+                figure.add_trace(
+                    go.Scatter(
+                        x=df_fit_b["time"],
+                        y=df_fit_b["bright"],
+                        mode="lines",
+                        line=go.scatter.Line(color=band_color[band]),
+                        name=f"{name_model}_{band}",
+                    )
+                )
     figure.update_traces(
         marker=dict(line=dict(width=0.5, color="black")),
         selector=dict(mode="markers"),
