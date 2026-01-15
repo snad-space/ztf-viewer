@@ -829,7 +829,6 @@ def show_fit_params(value, old_style):
         Input(dict(type="ref-magerr-input", index=ALL), "id"),
         Input(dict(type="ref-magerr-input", index=ALL), "value"),
         Input("additional-light-curves", "value"),
-        Input("webgl-is-available", "children"),
         Input("models-fit-dd", "value"),
     ],
 )
