@@ -3,7 +3,6 @@ import pandas as pd
 import requests
 from pydantic import BaseModel
 from typing import Literal, List, Dict
-from urllib.parse import urljoin
 from ztf_viewer.catalogs.ztf_ref import ztf_ref
 from ztf_viewer.config import MODEL_FIT_API_URL
 from ztf_viewer.exceptions import NotFound, CatalogUnavailable
@@ -71,9 +70,9 @@ class ModelData(BaseModel):
 
 class ModelFit:
     _base_api_url = f"{MODEL_FIT_API_URL}/api/v1"
-    _models_api_url = urljoin(_base_api_url, "/models")
-    _fit_api_url = urljoin(_base_api_url, "/sncosmo/fit")
-    _get_curve_api_url = urljoin(_base_api_url, "/sncosmo/get_curve")
+    _models_api_url = _base_api_url + "/models"
+    _fit_api_url = _base_api_url + "/sncosmo/fit"
+    _get_curve_api_url = _base_api_url + "/sncosmo/get_curve"
     bright_fit = "diffflux_Jy"
     brighterr_fit = "difffluxerr_Jy"
 
