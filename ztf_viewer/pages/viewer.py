@@ -353,9 +353,10 @@ def get_layout(pathname, search):
                             html.Div(
                                 [
                                     html.H2("Model to fit"),
-                                    dcc.Dropdown(model_fit.get_list_models(), id="models-fit-dd"),
+                                    dcc.Dropdown(model_fit.get_list_models(), id="models-fit-dd", style={'width': '200px', 'marginLeft': '20px'}),
                                     html.Div(id="dd-chosen-model"),
-                                ]
+                                ],
+                                style={'display': 'flex', 'alignItems': 'center'}
                             ),
                             html.Div(
                                 [
@@ -907,9 +908,45 @@ def fit_lc(
         items = [f"**{k}**: {np.round(float(v), 3) if k!='error' else params[k]}" for k, v in params.items()]
         params = json.dumps(params)
         column_width = max(map(len, items), default=2) - 2
+    # params_show = html.Div(
+    #     html.Ul([html.Li(dcc.Markdown(text)) for text in items], style={"list-style-type": "none"}),
+    #     style={"columns": f"{column_width}ch"},
+    # )
+
+    # params_show = html.Div(
+    #     [
+    #         dcc.Markdown(
+    #             item,
+    #             style={
+    #                 "display": "inline-block",
+    #             }
+    #         )
+    #         for item in items
+    #     ],
+    #     style={
+    #         "display": "flex",
+    #         "flexWrap": "wrap",
+    #         "gap": "16px",
+    #         "fontFamily": "monospace"
+    #     }
+    # )
+
     params_show = html.Div(
-        html.Ul([html.Li(dcc.Markdown(text)) for text in items], style={"list-style-type": "none"}),
-        style={"columns": f"{column_width}ch"},
+        [
+            dcc.Markdown(
+                item,
+                style={"display": "inline-block"}
+            )
+            for item in items
+        ],
+        style={
+            "display": "flex",
+            "gap": "30px",  # ← одинаковое расстояние между парами
+            "flexWrap": "wrap",  # ← перенос, если не влезает
+            "fontFamily": "monospace",
+            "fontSize": "15px",
+            "alignItems": "center",
+        }
     )
     return params_show, params
 
