@@ -901,36 +901,11 @@ def fit_lc(
     coord = find_ztf_oid.get_sky_coord(cur_oid, dr)
     ebv = sfd.ebv(coord)
     items = []
-    column_width = 0
     params = {}
     if name_model:
         params = model_fit.fit(df, name_model, dr, ebv)
         items = [f"**{k}**: {np.round(float(v), 3) if k!='error' else params[k]}" for k, v in params.items()]
         params = json.dumps(params)
-        column_width = max(map(len, items), default=2) - 2
-    # params_show = html.Div(
-    #     html.Ul([html.Li(dcc.Markdown(text)) for text in items], style={"list-style-type": "none"}),
-    #     style={"columns": f"{column_width}ch"},
-    # )
-
-    # params_show = html.Div(
-    #     [
-    #         dcc.Markdown(
-    #             item,
-    #             style={
-    #                 "display": "inline-block",
-    #             }
-    #         )
-    #         for item in items
-    #     ],
-    #     style={
-    #         "display": "flex",
-    #         "flexWrap": "wrap",
-    #         "gap": "16px",
-    #         "fontFamily": "monospace"
-    #     }
-    # )
-
     params_show = html.Div(
         [
             dcc.Markdown(
@@ -941,8 +916,8 @@ def fit_lc(
         ],
         style={
             "display": "flex",
-            "gap": "30px",  # ← одинаковое расстояние между парами
-            "flexWrap": "wrap",  # ← перенос, если не влезает
+            "gap": "40px",
+            "flexWrap": "wrap",
             "fontFamily": "monospace",
             "fontSize": "15px",
             "alignItems": "center",
