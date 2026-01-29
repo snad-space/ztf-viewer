@@ -353,10 +353,14 @@ def get_layout(pathname, search):
                             html.Div(
                                 [
                                     html.H2("Model to fit"),
-                                    dcc.Dropdown(model_fit.get_list_models(), id="models-fit-dd", style={'width': '200px', 'marginLeft': '20px'}),
+                                    dcc.Dropdown(
+                                        model_fit.get_list_models(),
+                                        id="models-fit-dd",
+                                        style={"width": "200px", "marginLeft": "20px"},
+                                    ),
                                     html.Div(id="dd-chosen-model"),
                                 ],
-                                style={'display': 'flex', 'alignItems': 'center'}
+                                style={"display": "flex", "alignItems": "center"},
                             ),
                             html.Div(
                                 [
@@ -932,13 +936,7 @@ def fit_lc(
     # )
 
     params_show = html.Div(
-        [
-            dcc.Markdown(
-                item,
-                style={"display": "inline-block"}
-            )
-            for item in items
-        ],
+        [dcc.Markdown(item, style={"display": "inline-block"}) for item in items],
         style={
             "display": "flex",
             "gap": "30px",  # ← одинаковое расстояние между парами
@@ -946,7 +944,7 @@ def fit_lc(
             "fontFamily": "monospace",
             "fontSize": "15px",
             "alignItems": "center",
-        }
+        },
     )
     return params_show, params
 
