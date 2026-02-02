@@ -121,11 +121,7 @@ class ModelFit:
                 name_model=fit_model,
             ),
         )
-        # if status_code == 200:
-        #     return res_fit["parameters"]
-        # else:
-        # return res_fit
-        if res_fit['success'] == True: #status_code == 200:
+        if res_fit['success'] == True:
             return Response(success=res_fit['success'], data=res_fit["body"])
         else:
             return Response(success=res_fit['success'], data={"parameters": {}}, message=res_fit["body"])
@@ -164,16 +160,14 @@ class ModelFit:
                 band_ref=band_ref,
             ),
         )
-        if res_curve['success'] == True: #status_code == 200:
-            # df_fit = pd.DataFrame.from_records(res_curve["body"]["bright"])
-            # df_fit["time"] = df_fit["time"] - 58000
+        if res_curve['success'] == True:
             return Response(success=res_curve['success'], data=res_curve["body"])
         else:
             return Response(success=res_curve['success'], data={"bright": {}}, message=res_curve["body"])
 
     def get_list_models(self):
         res_models = get_request(self._models_api_url)
-        if res_models['success'] == True: #status_code == 200:
+        if res_models['success'] == True:
             return Response(success=res_models['success'], data=res_models["body"])
         else:
             return Response(success=res_models['success'], data={"models": []}, message=res_models["body"])
