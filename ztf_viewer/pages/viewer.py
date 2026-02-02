@@ -810,10 +810,7 @@ def set_title(oid, dr):
 
 @app.callback(
     Output("results-fit-layout", "style"),
-    [
-        Input("models-fit-dd", "value"),
-        Input("models-fit-dd", "options")
-    ],
+    [Input("models-fit-dd", "value"), Input("models-fit-dd", "options")],
     [State("results-fit-layout", "style")],
 )
 def show_fit_params(value, list_models, old_style):
