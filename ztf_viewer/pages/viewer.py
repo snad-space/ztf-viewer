@@ -354,7 +354,7 @@ def get_layout(pathname, search):
                                 [
                                     html.H2("Model to fit"),
                                     dcc.Dropdown(
-                                        model_fit.get_list_models(),
+                                        model_fit.get_list_models().data["models"],
                                         id="models-fit-dd",
                                         style={"width": "200px", "marginLeft": "20px"},
                                     ),
@@ -364,7 +364,7 @@ def get_layout(pathname, search):
                             ),
                             html.Div(
                                 [
-                                    html.H2("Parameters of fitting"),
+                                    html.H2(id="results-fit-header", children="Parameters of fitting"),
                                     html.Div(id="results-fit"),
                                 ],
                                 id="results-fit-layout",
@@ -372,6 +372,14 @@ def get_layout(pathname, search):
                             ),
                             html.Div(
                                 id="results-fit-hidden",
+                                style={"display": "none"},
+                            ),
+                            html.Div(
+                                id="error-fit-curve-message-hidden",
+                                style={"display": "none"},
+                            ),
+                            html.Div(
+                                id="error-fitting-message-hidden",
                                 style={"display": "none"},
                             ),
                             html.Div(
@@ -802,12 +810,15 @@ def set_title(oid, dr):
 
 @app.callback(
     Output("results-fit-layout", "style"),
-    [Input("models-fit-dd", "value")],
+    [
+    Input("models-fit-dd", "value"),
+    Input("models-fit-dd", "options")
+    ],
     [State("results-fit-layout", "style")],
 )
-def show_fit_params(value, old_style):
+def show_fit_params(value, list_models, old_style):
     style = old_style.copy()
-    if value:
+    if value or len(list_models) == 0:
         style["display"] = "inline"
     else:
         style["display"] = "none"
@@ -815,9 +826,31 @@ def show_fit_params(value, old_style):
 
 
 @app.callback(
+        Output("results-fit-header", "children"),
+    [
+        Input("error-fitting-message-hidden", "value"),
+        Input("error-fit-curve-message-hidden", "value"),
+        Input("models-fit-dd", "options")
+    ],
+    State("results-fit-header", "children"),
+    prevent_initial_call=True
+)
+def show_error_message(message_fit, message_curve, list_models, old_header):
+    new_header = old_header
+    if len(list_models) == 0:
+        new_header = "API is unavailable"
+    elif len(message_fit)>0:
+        new_header = message_fit
+    elif len(message_curve)>0:
+        new_header = message_curve
+    return new_header
+
+
+@app.callback(
     [
         Output("results-fit", "children"),
         Output("results-fit-hidden", "children"),
+        Output("error-fitting-message-hidden", "value")
     ],
     [
         Input("oid", "children"),
@@ -906,8 +939,11 @@ def fit_lc(
     ebv = sfd.ebv(coord)
     items = []
     params = {}
+    message = ""
     if name_model:
-        params = model_fit.fit(df, name_model, dr, ebv)
+        response = model_fit.fit(df, name_model, dr, ebv)
+        params = response.data["parameters"]
+        message = response.message
         items = [f"**{k}**: {np.round(float(v), 3) if k!='error' else params[k]}" for k, v in params.items()]
         params = json.dumps(params)
     params_show = html.Div(
@@ -921,7 +957,7 @@ def fit_lc(
             "alignItems": "center",
         },
     )
-    return params_show, params
+    return params_show, params, message
 
 
 @app.callback(
@@ -1537,7 +1573,10 @@ def neighbour_oids(different_filter, different_field) -> frozenset:
 
 
 @app.callback(
-    Output("graph", "figure"),
+    [
+        Output("graph", "figure"),
+        Output("error-fit-curve-message-hidden", "value")
+    ],
     [
         Input("oid", "children"),
         Input("dr", "children"),
@@ -1706,9 +1745,13 @@ def set_figure(
         )
     else:
         raise ValueError(f"{lc_type = } is unknown")
-    if name_model and fit_params:
-        df_fit = model_fit.get_curve(df, dr, bright, json.loads(fit_params), name_model)
-        if not df_fit.empty:
+    message_fit = ""
+    if str(fit_params) != "{}":
+        response = model_fit.get_curve(df, dr, bright, json.loads(fit_params), name_model)
+        df_fit = pd.DataFrame.from_records(response.data["bright"])
+        message_fit = response.message
+        if len(df_fit) > 0:
+            df_fit["time"] = df_fit["time"] - 58000
             band_color = {"zr": "red", "zg": "darkgreen", "zi": "black"}
             for band in df["filter"].unique():
                 df_fit_b = df_fit[df_fit["band"] == "ztf" + str(band[1:])]
@@ -1733,7 +1776,7 @@ def set_figure(
     fw.layout.legend.xanchor = "left"
     fw.layout.legend.y = -0.1
     fw.layout.plot_bgcolor = "#E8E8E8"
-    return fw
+    return fw, message_fit
 
 
 def set_figure_link(

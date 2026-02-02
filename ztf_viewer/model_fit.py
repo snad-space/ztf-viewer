@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import requests
 from pydantic import BaseModel
-from typing import Literal, List, Dict
+from typing import Literal, List, Dict, Optional
 from ztf_viewer.catalogs.ztf_ref import ztf_ref
 from ztf_viewer.config import MODEL_FIT_API_URL
 from ztf_viewer.exceptions import NotFound, CatalogUnavailable
@@ -13,7 +13,7 @@ def post_request(url, data):
     try:
         response = requests.post(url, json=data.model_dump())
         response.raise_for_status()
-        return response.status_code, response.json()
+        return {"success": True, "body": response.json()}
     except (
         requests.exceptions.HTTPError,
         requests.exceptions.ConnectionError,
@@ -21,14 +21,14 @@ def post_request(url, data):
         requests.exceptions.RequestException,
     ) as e:
         print(f"A model-fit-api error occurred: {e}")
-        return -1, {"error": "API is unavailable"}
+        return {"success": False, "body": "API is unavailable"}
 
 
 def get_request(url):
     try:
         response = requests.get(url)
         response.raise_for_status()
-        return response.status_code, response.json()
+        return {"success": True, "body": response.json()}
     except (
         requests.exceptions.HTTPError,
         requests.exceptions.ConnectionError,
@@ -36,7 +36,7 @@ def get_request(url):
         requests.exceptions.RequestException,
     ) as e:
         print(f"A model-fit-api error occurred: {e}")
-        return -1, {"error": "API is unavailable"}
+        return {"success": False, "body": "API is unavailable"}
 
 
 class Observation(BaseModel):
@@ -68,6 +68,12 @@ class ModelData(BaseModel):
     band_ref: Dict[str, float]
 
 
+class Response(BaseModel):
+    success: bool
+    data: Optional[dict] = {}
+    message: Optional[str] = []
+
+
 class ModelFit:
     _base_api_url = f"{MODEL_FIT_API_URL}/api/v1"
     _models_api_url = _base_api_url + "/models"
@@ -97,7 +103,7 @@ class ModelFit:
                 np.hypot(fluxerr, LN10_04 * ref_flux * oid_ref[oid]["err"])
                 for fluxerr, ref_flux, oid in zip(df["fluxerr_Jy"], df["ref_flux"], df["oid"])
             ]
-        status_code, res_fit = post_request(
+        res_fit = post_request(
             self._fit_api_url,
             Target(
                 light_curve=[
@@ -115,10 +121,14 @@ class ModelFit:
                 name_model=fit_model,
             ),
         )
-        if status_code == 200:
-            return res_fit["parameters"]
+        # if status_code == 200:
+        #     return res_fit["parameters"]
+        # else:
+        # return res_fit
+        if res_fit['success'] == True: #status_code == 200:
+            return Response(success=res_fit['success'], data=res_fit["body"])
         else:
-            return res_fit
+            return Response(success=res_fit['success'], data={"parameters": {}}, message=res_fit["body"])
 
     def get_curve(self, df, dr, bright, params, name_model):
         if "error" in params.keys():
@@ -142,7 +152,7 @@ class ModelFit:
 
         for band in df["filter"].unique():
             band_ref[band] = df[df["filter"] == band]["ref_flux"].mean().astype(float)
-        status_code, res_curve = post_request(
+        res_curve = post_request(
             self._get_curve_api_url,
             ModelData(
                 parameters=params,
@@ -154,19 +164,19 @@ class ModelFit:
                 band_ref=band_ref,
             ),
         )
-        if status_code == 200:
-            df_fit = pd.DataFrame.from_records(res_curve["bright"])
-            df_fit["time"] = df_fit["time"] - 58000
-            return df_fit
+        if res_curve['success'] == True: #status_code == 200:
+            # df_fit = pd.DataFrame.from_records(res_curve["body"]["bright"])
+            # df_fit["time"] = df_fit["time"] - 58000
+            return Response(success=res_curve['success'], data=res_curve["body"])
         else:
-            return pd.DataFrame.from_records([])
+            return Response(success=res_curve['success'], data={"bright": {}}, message=res_curve["body"])
 
     def get_list_models(self):
-        status_code, list_models = get_request(self._models_api_url)
-        if status_code == 200:
-            return list_models["models"]
+        res_models = get_request(self._models_api_url)
+        if res_models['success'] == True: #status_code == 200:
+            return Response(success=res_models['success'], data=res_models["body"])
         else:
-            return []
+            return Response(success=res_models['success'], data={"models": []}, message=res_models["body"])
 
 
 model_fit = ModelFit()
