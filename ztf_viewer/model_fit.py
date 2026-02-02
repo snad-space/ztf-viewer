@@ -125,10 +125,10 @@ class ModelFit:
         #     return res_fit["parameters"]
         # else:
         # return res_fit
-        if res_fit['success'] == True: #status_code == 200:
-            return Response(success=res_fit['success'], data=res_fit["body"])
+        if res_fit["success"] == True:  # status_code == 200:
+            return Response(success=res_fit["success"], data=res_fit["body"])
         else:
-            return Response(success=res_fit['success'], data={"parameters": {}}, message=res_fit["body"])
+            return Response(success=res_fit["success"], data={"parameters": {}}, message=res_fit["body"])
 
     def get_curve(self, df, dr, bright, params, name_model):
         if "error" in params.keys():
@@ -164,19 +164,19 @@ class ModelFit:
                 band_ref=band_ref,
             ),
         )
-        if res_curve['success'] == True: #status_code == 200:
+        if res_curve["success"] == True:  # status_code == 200:
             # df_fit = pd.DataFrame.from_records(res_curve["body"]["bright"])
             # df_fit["time"] = df_fit["time"] - 58000
-            return Response(success=res_curve['success'], data=res_curve["body"])
+            return Response(success=res_curve["success"], data=res_curve["body"])
         else:
-            return Response(success=res_curve['success'], data={"bright": {}}, message=res_curve["body"])
+            return Response(success=res_curve["success"], data={"bright": {}}, message=res_curve["body"])
 
     def get_list_models(self):
         res_models = get_request(self._models_api_url)
-        if res_models['success'] == True: #status_code == 200:
-            return Response(success=res_models['success'], data=res_models["body"])
+        if res_models["success"] == True:  # status_code == 200:
+            return Response(success=res_models["success"], data=res_models["body"])
         else:
-            return Response(success=res_models['success'], data={"models": []}, message=res_models["body"])
+            return Response(success=res_models["success"], data={"models": []}, message=res_models["body"])
 
 
 model_fit = ModelFit()
