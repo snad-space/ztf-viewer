@@ -810,10 +810,7 @@ def set_title(oid, dr):
 
 @app.callback(
     Output("results-fit-layout", "style"),
-    [
-    Input("models-fit-dd", "value"),
-    Input("models-fit-dd", "options")
-    ],
+    [Input("models-fit-dd", "value"), Input("models-fit-dd", "options")],
     [State("results-fit-layout", "style")],
 )
 def show_fit_params(value, list_models, old_style):
@@ -826,22 +823,22 @@ def show_fit_params(value, list_models, old_style):
 
 
 @app.callback(
-        Output("results-fit-header", "children"),
+    Output("results-fit-header", "children"),
     [
         Input("error-fitting-message-hidden", "value"),
         Input("error-fit-curve-message-hidden", "value"),
-        Input("models-fit-dd", "options")
+        Input("models-fit-dd", "options"),
     ],
     State("results-fit-header", "children"),
-    prevent_initial_call=True
+    prevent_initial_call=True,
 )
 def show_error_message(message_fit, message_curve, list_models, old_header):
     new_header = old_header
     if len(list_models) == 0:
         new_header = "API is unavailable"
-    elif len(message_fit)>0:
+    elif len(message_fit) > 0:
         new_header = message_fit
-    elif len(message_curve)>0:
+    elif len(message_curve) > 0:
         new_header = message_curve
     return new_header
 
@@ -850,7 +847,7 @@ def show_error_message(message_fit, message_curve, list_models, old_header):
     [
         Output("results-fit", "children"),
         Output("results-fit-hidden", "children"),
-        Output("error-fitting-message-hidden", "value")
+        Output("error-fitting-message-hidden", "value"),
     ],
     [
         Input("oid", "children"),
@@ -1573,10 +1570,7 @@ def neighbour_oids(different_filter, different_field) -> frozenset:
 
 
 @app.callback(
-    [
-        Output("graph", "figure"),
-        Output("error-fit-curve-message-hidden", "value")
-    ],
+    [Output("graph", "figure"), Output("error-fit-curve-message-hidden", "value")],
     [
         Input("oid", "children"),
         Input("dr", "children"),
