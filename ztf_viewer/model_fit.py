@@ -127,8 +127,6 @@ class ModelFit:
             return Response(success=res_fit['success'], data={"parameters": {}}, message=res_fit["body"])
 
     def get_curve(self, df, dr, bright, params, name_model):
-        if "error" in params.keys():
-            return pd.DataFrame.from_records([])
         band_ref = {}
         band_list = ["ztf" + str(band[1:]) for band in df["filter"].unique()]
         mjd_min = df["mjd"].min()
