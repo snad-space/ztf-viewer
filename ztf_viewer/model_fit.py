@@ -121,7 +121,7 @@ class ModelFit:
                 name_model=fit_model,
             ),
         )
-        if res_fit['success'] == True:
+        if res_fit['success']:
             return Response(success=res_fit['success'], data=res_fit["body"])
         else:
             return Response(success=res_fit['success'], data={"parameters": {}}, message=res_fit["body"])
@@ -158,14 +158,14 @@ class ModelFit:
                 band_ref=band_ref,
             ),
         )
-        if res_curve['success'] == True:
+        if res_curve['success']:
             return Response(success=res_curve['success'], data=res_curve["body"])
         else:
             return Response(success=res_curve['success'], data={"bright": {}}, message=res_curve["body"])
 
     def get_list_models(self):
         res_models = get_request(self._models_api_url)
-        if res_models['success'] == True:
+        if res_models['success']:
             return Response(success=res_models['success'], data=res_models["body"])
         else:
             return Response(success=res_models['success'], data={"models": []}, message=res_models["body"])
