@@ -364,7 +364,7 @@ def get_layout(pathname, search):
                             ),
                             html.Div(
                                 [
-                                    html.H2(id="results-fit-header", children="Parameters of fitting"),
+                                    html.H3(id="results-fit-header", children="Parameters of fitting"),
                                     html.Div(id="results-fit"),
                                 ],
                                 id="results-fit-layout",
@@ -944,8 +944,7 @@ def fit_lc(
         response = model_fit.fit(df, name_model, dr, ebv)
         params = response.data["parameters"]
         message = response.message
-        items = [f"**{k}**: {np.round(float(v), 3) if k!='error' else params[k]}" for k, v in params.items()]
-        params = json.dumps(params)
+        items = [f"**{k}**: {np.round(float(v), 3) if k!='amplitude' else f'{v:.2e}' }" for k, v in params.items()]
     params_show = html.Div(
         [dcc.Markdown(item, style={"display": "inline-block"}) for item in items],
         style={
@@ -957,7 +956,7 @@ def fit_lc(
             "alignItems": "center",
         },
     )
-    return params_show, params, message
+    return params_show, json.dumps(params), message
 
 
 @app.callback(
@@ -1247,7 +1246,9 @@ def get_panstarrs_lc_option(oid, dr, old):
 
 @app.callback(
     Output("ref-mag-layout", "style"),
-    [Input("light-curve-brightness", "value")],
+    [
+        Input("light-curve-brightness", "value"),
+    ],
     [State("ref-mag-layout", "style")],
 )
 def show_ref_mag_layout(brightness_type, old_style):
