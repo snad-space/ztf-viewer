@@ -87,8 +87,7 @@ def hms_to_deg(hms: str):
 
 
 def html_from_astropy_table(table: astropy.table.Table, columns: dict):
-    template = Template(
-        """
+    template = Template("""
         <table id="simbad-table">
         <tr>
         {% for column in columns %}
@@ -103,8 +102,7 @@ def html_from_astropy_table(table: astropy.table.Table, columns: dict):
             </tr>
         {% endfor %}
         </table>
-    """
-    )
+    """)
     table = table[list(columns.keys())].copy()
     for column in table.colnames:
         table[column] = [to_str(x) for x in table[column]]
