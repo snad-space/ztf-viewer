@@ -15,8 +15,7 @@ def get_layout(*args, **kwargs):
             html.H2("Anomaly knowledge database tags", id="header-tags"),
             html.H3("Instruction for attaching the labels (tags)"),
             html.H4("Artefacts"),
-            html.P(
-                """In case of any kind of artefacts, tag «artefact».
+            html.P("""In case of any kind of artefacts, tag «artefact».
             If type of artefact is known (e.g., «spike»), tag it as well.
 	    If in doubt that it is an artefact, also tag «uncertain».
             Tag «bright_star» is reserved for the cases when the light of
@@ -24,33 +23,22 @@ def get_layout(*args, **kwargs):
             In case this influence is not stochastic but reflects the variability of the bright star, e.g. Mira echoes,
             the tag should be «var_blend».
             If the target object overlaps with a difraction spike from the bright star, we tag it as «spike»,
-            the tag «bright_star» is not needed (the same for «saturation» tag)."""
-            ),
+            the tag «bright_star» is not needed (the same for «saturation» tag)."""),
             html.H4("Variable stars and supernovae"),
-            html.P(
-                """In case subtype (e.g., «CEP», «CCSN») is known, tag only it.
+            html.P("""In case subtype (e.g., «CEP», «CCSN») is known, tag only it.
             If subtype is not given (or not presented in tags), just tag the common type (e.g., «Eclipsing»).
-            If type/subtype is uncertain, the tag «uncertain» also has to be added."""
-            ),
-            html.P(
-                """If an object is not presented in any known catalogs and databases, tag «non-catalogued».
-            If an object is known to be variable without precise type, tag «VAR»."""
-            ),
-            html.P(
-                """Any additional comments and classification put in «Description».
-            """
-            ),
+            If type/subtype is uncertain, the tag «uncertain» also has to be added."""),
+            html.P("""If an object is not presented in any known catalogs and databases, tag «non-catalogued».
+            If an object is known to be variable without precise type, tag «VAR»."""),
+            html.P("""Any additional comments and classification put in «Description».
+            """),
             html.H4("Examples"),
             html.Ul(
                 [
-                    html.Li(
-                        """You found a variable object that is not listed in any catalogs.
-                        The tags will be «VAR», «non-catalogued»."""
-                    ),
-                    html.Li(
-                        """You found a Type Ia supernova candidate that is not listed in any catalogs.
-                        The tags will be «SN Ia», «non-catalogued», «uncertain»."""
-                    ),
+                    html.Li("""You found a variable object that is not listed in any catalogs.
+                        The tags will be «VAR», «non-catalogued»."""),
+                    html.Li("""You found a Type Ia supernova candidate that is not listed in any catalogs.
+                        The tags will be «SN Ia», «non-catalogued», «uncertain»."""),
                     html.Li("You found a plane track on the image. The tags will be «artefact», «track»."),
                     html.Li("You found a known transient of unknown nature. The tags will be «transient»."),
                 ],
