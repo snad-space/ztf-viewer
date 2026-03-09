@@ -1,4 +1,5 @@
 import math as m
+import pandas as pd
 
 import numpy as np
 from astropy.time import Time
@@ -44,6 +45,7 @@ def plot_data(
 
         obs["diffflux_Jy"] = obs["flux_Jy"] - ref_flux
         obs["difffluxerr_Jy"] = np.hypot(obs["fluxerr_Jy"], ref_fluxerr)
+        obs['ref_flux'] = ref_flux
 
         # we do both for a weird case of negative error
         if obs["diffflux_Jy"] <= 0 or obs["diffflux_Jy"] < obs["difffluxerr_Jy"]:
@@ -62,7 +64,8 @@ def plot_data(
         obs["date"] = time.strftime("%Y-%m-%d")
 
         data.append(obs)
-
+    df = pd.DataFrame(data)
+    print(df["oid"].unique(), df["ref_flux"].unique(), 'ref from plot_data')
     data = sorted(data, key=lambda obs: (FILTERS_ORDER[obs["filter"]], obs["mjd"]))
 
     return data
