@@ -1,5 +1,4 @@
 import math as m
-import pandas as pd
 
 import numpy as np
 from astropy.time import Time
@@ -64,8 +63,6 @@ def plot_data(
         obs["date"] = time.strftime("%Y-%m-%d")
 
         data.append(obs)
-    df = pd.DataFrame(data)
-    print(df["oid"].unique(), df["ref_flux"].unique(), 'ref from plot_data')
     data = sorted(data, key=lambda obs: (FILTERS_ORDER[obs["filter"]], obs["mjd"]))
 
     return data

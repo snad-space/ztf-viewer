@@ -88,18 +88,16 @@ class ModelFit:
     def fit(self, df, fit_model, dr, ebv):
         df = df.copy()
         refs = df["ref_flux"].unique()
-        print(df["ref_flux"].unique(), (len(refs) == 1 and refs[0] == 0.0), 'there is ref_flux in data')
-        oid_ref = {}
         if len(refs) == 1 and refs[0] == 0.0:
+            oid_ref = {}
             for objectid in df["oid"].unique():
                 try:
                     ref = ztf_ref.get(objectid, dr)
                 except (NotFound, CatalogUnavailable):
                     return {"error": "ZTF Reference catalog is unavailable"}
-                ref_mag = ref["mag"] + ref["magzp"]
-                ref_magerr = ref["sigmag"]
+                ref_mag = float(np.round(ref["mag"] + ref["magzp"], 3))
+                ref_magerr = float(np.round(ref["sigmag"], 3))
                 oid_ref[objectid] = {"mag": ref_mag, "err": ref_magerr}
-            print(oid_ref, 'oid_ref from modelfit')
             df["ref_flux"] = df["oid"].apply(lambda x: 10 ** (-0.4 * (oid_ref[x]["mag"] - ABZPMAG_JY)))
             df["diffflux_Jy"] = df["flux_Jy"] - df["ref_flux"]
             df["difffluxerr_Jy"] = [
@@ -125,7 +123,7 @@ class ModelFit:
             ),
         )
         if res_fit["success"]:
-            return Response(success=res_fit["success"], data={"parameters": res_fit["body"]["parameters"], "oid_ref_fit": oid_ref})
+            return Response(success=res_fit["success"], data=res_fit["body"])
         else:
             return Response(success=res_fit["success"], data={"parameters": {}}, message=res_fit["body"])
 
@@ -135,12 +133,13 @@ class ModelFit:
         mjd_min = df["mjd"].min()
         mjd_max = df["mjd"].max()
         df = df.copy()
-        if "ref_flux" not in df.columns:
+        refs = df["ref_flux"].unique()
+        if len(refs) == 1 and refs[0] == 0.0:
             oid_ref = {}
             try:
                 for objectid in df["oid"].unique():
                     ref = ztf_ref.get(objectid, dr)
-                    ref_mag = ref["mag"] + ref["magzp"]
+                    ref_mag = float(np.round(ref["mag"] + ref["magzp"], 3))
                     oid_ref[objectid] = ref_mag
                 df["ref_flux"] = df["oid"].apply(lambda x: 10 ** (-0.4 * (oid_ref[x] - ABZPMAG_JY)))
             except (NotFound, CatalogUnavailable):

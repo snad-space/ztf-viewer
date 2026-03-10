@@ -937,10 +937,9 @@ def fit_lc(
     items = []
     params = {}
     message = ""
-    print(ref_mag, 'ref_mag from v.py')
     if name_model:
         response = model_fit.fit(df, name_model, dr, ebv)
-        params, oid_ref_fit = response.data["parameters"], response.data["oid_ref_fit"]
+        params = response.data["parameters"]
         message = response.message
         items = [f"**{k}**: {np.round(float(v), 3) if k!='amplitude' else f'{v:.2e}' }" for k, v in params.items()]
     params_show = html.Div(
@@ -1246,14 +1245,12 @@ def get_panstarrs_lc_option(oid, dr, old):
     Output("ref-mag-layout", "style"),
     [
         Input("light-curve-brightness", "value"),
-        Input("results-fit-hidden", "children"),
     ],
     [State("ref-mag-layout", "style")],
 )
-def show_ref_mag_layout(brightness_type, params, old_style):
+def show_ref_mag_layout(brightness_type, old_style):
     style = old_style.copy()
-    if brightness_type in {"diffmag", "diffflux"} or params:
-        print(params)
+    if brightness_type in {"diffmag", "diffflux"}:
         style["display"] = "inline"
     else:
         style["display"] = "none"
@@ -1268,7 +1265,6 @@ def show_ref_mag_layout(brightness_type, params, old_style):
         Input("different_filter_neighbours", "children"),
         Input("different_field_neighbours", "children"),
         Input("light-curve-brightness", "value"),
-        Input("results-fit-hidden", "children"),
     ],
 )
 def show_ref_mag_or_magerr(oid, dr, different_filter, different_field, brightness_type):
