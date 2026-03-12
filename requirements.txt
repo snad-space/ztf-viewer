@@ -167,7 +167,7 @@ numpy==2.3.4
     #   plotly
     #   pyerfa
     #   scipy
-orjson==3.11.4
+orjson==3.11.6
     # via ztf-viewer (pyproject.toml)
 packaging==25.0
     # via
