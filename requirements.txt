@@ -144,7 +144,7 @@ more-itertools==10.8.0
     # via
     #   jaraco-classes
     #   jaraco-functools
-narwhals==2.10.0
+narwhals==2.10.1
     # via plotly
 nest-asyncio==1.6.0
     # via dash
