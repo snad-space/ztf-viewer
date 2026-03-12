@@ -419,7 +419,7 @@ def app_select_by_url(pathname, search):
                             "We acknowledge ",
                             "Sternberg Astronomical Institute and personally Alexander Belinski, ",
                             "University of California, Irvine and personally Alberto Krone-Martins, ",
-                            "and the Laboratoire de Physique de Clermont Auvergne (LPCA)",
+                            "and the Laboratoire de Physique de Clermont Auvergne (LPCA) ",
                             "for the computational and data storage resources provided for this project.",
                             html.Br(),
                             html.Br(),
