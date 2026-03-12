@@ -72,7 +72,7 @@ dustmaps==1.0.14
     # via ztf-viewer (pyproject.toml)
 executing==2.2.1
     # via stack-data
-flask==3.0.3
+flask==3.1.2
     # via
     #   ztf-viewer (pyproject.toml)
     #   dash
