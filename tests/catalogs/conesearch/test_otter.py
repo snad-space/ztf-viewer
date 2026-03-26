@@ -36,3 +36,14 @@ def test_get_url():
     otter_query = OtterQuery("Test Otter 2")
     url = otter_query.get_url("CSS071216:122109+125434")
     assert url == "https://otter.idies.jhu.edu/transient/CSS071216:122109+125434"
+
+
+def test_cone_search_not_found():
+    """Non-detection: 1-arcsec radius around the example coordinates returns nothing."""
+    import pytest
+    from ztf_viewer.catalogs.conesearch.otter import OtterQuery
+    from ztf_viewer.exceptions import NotFound
+
+    otter_query = OtterQuery("Test Otter 3")
+    with pytest.raises(NotFound):
+        otter_query._api_query_region(ra=185.0, dec=12.0, radius_arcsec=1.0)
