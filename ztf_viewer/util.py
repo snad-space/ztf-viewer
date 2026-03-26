@@ -131,6 +131,8 @@ def to_str(s, *, float_decimal_digits=3):
                 return str(s)
     if np.ma.is_masked(s):
         return ""
+    if s is None:
+        return ""
     raise ValueError(f"Argument should be str, bytes, int, float or unit.Quantity (distance), not {type(s)}")
 
 
