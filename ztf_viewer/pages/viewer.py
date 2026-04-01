@@ -7,7 +7,6 @@ from urllib.parse import parse_qs, urlencode, urljoin, urlparse
 
 import dash_dangerously_set_inner_html as ddsih
 import dash_defer_js_import as dji
-import json
 import numpy as np
 import pandas as pd
 import plotly.express as px
