@@ -63,6 +63,7 @@ def plot_data(
         obs["date"] = time.strftime("%Y-%m-%d")
 
         data.append(obs)
+
     data = sorted(data, key=lambda obs: (FILTERS_ORDER[obs["filter"]], obs["mjd"]))
 
     return data

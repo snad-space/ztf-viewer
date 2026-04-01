@@ -370,10 +370,7 @@ def get_layout(pathname, search):
                                 id="results-fit-layout",
                                 style={"display": "none"},
                             ),
-                            html.Div(
-                                id="results-fit-hidden",
-                                style={"display": "none"},
-                            ),
+                            dcc.Store(id="results-fit-hidden"),
                             html.Div(
                                 id="error-fit-curve-message-hidden",
                                 style={"display": "none"},
@@ -846,7 +843,7 @@ def show_error_message(message_fit, message_curve, list_models, old_header):
 @app.callback(
     [
         Output("results-fit", "children"),
-        Output("results-fit-hidden", "children"),
+        Output("results-fit-hidden", "data"),
         Output("error-fitting-message-hidden", "value"),
     ],
     [
@@ -953,7 +950,7 @@ def fit_lc(
             "alignItems": "center",
         },
     )
-    return params_show, json.dumps(params), message
+    return params_show, params, message
 
 
 @app.callback(
@@ -1590,7 +1587,7 @@ def neighbour_oids(different_filter, different_field) -> frozenset:
         Input("additional-light-curves", "value"),
         Input("webgl-is-available", "children"),
         Input("models-fit-dd", "value"),
-        Input("results-fit-hidden", "children"),
+        Input("results-fit-hidden", "data"),
     ],
 )
 def set_figure(
@@ -1741,8 +1738,8 @@ def set_figure(
     else:
         raise ValueError(f"{lc_type = } is unknown")
     message_fit = ""
-    if str(fit_params) != "{}":
-        response = model_fit.get_curve(df, dr, bright, json.loads(fit_params), name_model)
+    if fit_params:
+        response = model_fit.get_curve(df, dr, bright, fit_params, name_model)
         df_fit = pd.DataFrame.from_records(response.data["bright"])
         message_fit = response.message
         if len(df_fit) > 0:
