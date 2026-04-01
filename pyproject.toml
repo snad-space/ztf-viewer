@@ -19,6 +19,7 @@ dependencies = [
     "orjson",
     "flask",
     "pandas",
+    "pydantic",
     "numpy",
     "astropy",
     "astroquery",
