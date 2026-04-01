@@ -352,7 +352,7 @@ def get_layout(pathname, search):
                         [
                             html.Div(
                                 [
-                                    html.H2("Model to fit"),
+                                    html.H2("Supernova model"),
                                     dcc.Dropdown(
                                         model_fit.get_list_models().data["models"],
                                         id="models-fit-dd",
@@ -364,7 +364,7 @@ def get_layout(pathname, search):
                             ),
                             html.Div(
                                 [
-                                    html.H3(id="results-fit-header", children="Parameters of fitting"),
+                                    html.H3(id="results-fit-header", children="Parameters"),
                                     html.Div(id="results-fit"),
                                 ],
                                 id="results-fit-layout",
