@@ -44,7 +44,7 @@ def plot_data(
 
         obs["diffflux_Jy"] = obs["flux_Jy"] - ref_flux
         obs["difffluxerr_Jy"] = np.hypot(obs["fluxerr_Jy"], ref_fluxerr)
-        obs['ref_flux'] = ref_flux
+        obs["ref_flux"] = ref_flux
 
         # we do both for a weird case of negative error
         if obs["diffflux_Jy"] <= 0 or obs["diffflux_Jy"] < obs["difffluxerr_Jy"]:
