@@ -87,7 +87,7 @@ class ModelFit:
 
     def fit(self, df, fit_model, dr, ebv):
         df = df.copy()
-        if (df["ref_flux"] == 0.0).all(): #Checking for ref-values
+        if (df["ref_flux"] == 0.0).all():  # Checking for ref-values
             oid_ref = {}
             for objectid in df["oid"].unique():
                 try:
@@ -132,7 +132,7 @@ class ModelFit:
         mjd_min = df["mjd"].min()
         mjd_max = df["mjd"].max()
         df = df.copy()
-        if (df["ref_flux"] == 0.0).all(): #Checking for ref-values
+        if (df["ref_flux"] == 0.0).all():  # Checking for ref-values
             oid_ref = {}
             try:
                 for objectid in df["oid"].unique():
