@@ -45,17 +45,14 @@ class OtterQuery(_BaseCatalogApiQuery):
             if ra_min < 0:
                 # Box wraps past RA=0
                 ra_filter = "(t._ra >= @ra_min_w OR t._ra <= @ra_max)"
-                bind_vars = {"ra": ra, "dec": dec, "sep": radius_deg,
-                             "ra_min_w": ra_min + 360.0, "ra_max": ra_max}
+                bind_vars = {"ra": ra, "dec": dec, "sep": radius_deg, "ra_min_w": ra_min + 360.0, "ra_max": ra_max}
             elif ra_max > 360:
                 # Box wraps past RA=360
                 ra_filter = "(t._ra >= @ra_min OR t._ra <= @ra_max_w)"
-                bind_vars = {"ra": ra, "dec": dec, "sep": radius_deg,
-                             "ra_min": ra_min, "ra_max_w": ra_max - 360.0}
+                bind_vars = {"ra": ra, "dec": dec, "sep": radius_deg, "ra_min": ra_min, "ra_max_w": ra_max - 360.0}
             else:
                 ra_filter = "(t._ra >= @ra_min AND t._ra <= @ra_max)"
-                bind_vars = {"ra": ra, "dec": dec, "sep": radius_deg,
-                             "ra_min": ra_min, "ra_max": ra_max}
+                bind_vars = {"ra": ra, "dec": dec, "sep": radius_deg, "ra_min": ra_min, "ra_max": ra_max}
         query = {
             "query": (
                 "FOR t IN transients "
