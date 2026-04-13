@@ -1,3 +1,5 @@
+import math
+
 import astropy.table
 from requests.exceptions import RequestException
 
@@ -29,18 +31,26 @@ class OtterQuery(_BaseCatalogApiQuery):
 
     def _api_query_region(self, ra, dec, radius_arcsec):
         radius_deg = radius_arcsec / 3600.0
+        # Pre-filter box, see https://github.com/astro-otter/otter/issues/45#issuecomment-4188199127
+        # Use cos(|dec| + sep) as the RA scaling factor — the smallest cos over the cone's dec range,
+        # making the RA bound maximally conservative. If the cone reaches a pole, skip the RA filter.
+        if abs(dec) + radius_deg >= 90.0:
+            ra_filter = "true"
+            bind_vars = {"ra": ra, "dec": dec, "sep": radius_deg}
+        else:
+            cos_bound = math.cos(math.radians(abs(dec) + radius_deg))
+            ra_filter = "ABS(((t._ra - @ra + 180) % 360) - 180) * @cos_bound <= @sep"
+            bind_vars = {"ra": ra, "dec": dec, "sep": radius_deg, "cos_bound": cos_bound}
         query = {
             "query": (
                 "FOR t IN transients "
-                # Pre-filter box, see https://github.com/astro-otter/otter/issues/45#issuecomment-4188199127
-                "FILTER (ABS(((t._ra - @ra + 180) % 360) - 180) * COS(RADIANS(t._dec)) <= @sep "
-                "AND ABS(t._dec - @dec) <= @sep) "
+                f"FILTER ({ra_filter} AND ABS(t._dec - @dec) <= @sep) "
                 "FILTER ASTRO::CONE_SEARCH(t._ra, t._dec, @ra, @dec, @sep) "
                 "RETURN t"
             ),
             "count": True,
             "batchSize": 100,
-            "bindVars": {"ra": ra, "dec": dec, "sep": radius_deg},
+            "bindVars": bind_vars,
         }
         try:
             response = self._api_session.post(
