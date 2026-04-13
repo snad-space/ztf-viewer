@@ -34,11 +34,12 @@ class OtterQuery(_BaseCatalogApiQuery):
         # Pre-filter box, see https://github.com/astro-otter/otter/issues/45#issuecomment-4188199127
         # Use cos(|dec| + sep) as the RA scaling factor — the smallest cos over the cone's dec range,
         # making the RA bound maximally conservative. If the cone reaches a pole, skip the RA filter.
-        if abs(dec) + radius_deg >= 90.0:
+        abs_dec_plus_sep = abs(dec) + radius_deg
+        if abs_dec_plus_sep >= 90.0:
             ra_filter = "true"
             bind_vars = {"ra": ra, "dec": dec, "sep": radius_deg}
         else:
-            cos_bound = math.cos(math.radians(abs(dec) + radius_deg))
+            cos_bound = math.cos(math.radians(abs_dec_plus_sep))
             ra_filter = "ABS(((t._ra - @ra + 180) % 360) - 180) * @cos_bound <= @sep"
             bind_vars = {"ra": ra, "dec": dec, "sep": radius_deg, "cos_bound": cos_bound}
         query = {
