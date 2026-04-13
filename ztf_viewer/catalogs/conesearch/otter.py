@@ -32,6 +32,7 @@ class OtterQuery(_BaseCatalogApiQuery):
         query = {
             "query": (
                 "FOR t IN transients "
+                # Pre-filter box, see https://github.com/astro-otter/otter/issues/45#issuecomment-4188199127
                 "FILTER (ABS(((t._ra - @ra + 180) % 360) - 180) * COS(RADIANS(t._dec)) <= @sep "
                 "AND ABS(t._dec - @dec) <= @sep) "
                 "FILTER ASTRO::CONE_SEARCH(t._ra, t._dec, @ra, @dec, @sep) "
