@@ -34,18 +34,38 @@ class OtterQuery(_BaseCatalogApiQuery):
         # Exact maximum RA extent of a spherical cone: arcsin(sin(r) / cos(dec)).
         # When the ratio >= 1 the cone contains a pole and all RA values are possible.
         sin_ra_sep = math.sin(math.radians(radius_deg)) / math.cos(math.radians(dec))
-        ra_sep = 180.0 if sin_ra_sep >= 1.0 else math.degrees(math.asin(sin_ra_sep))
+        if sin_ra_sep >= 1.0:
+            # Cone contains a pole — no RA constraint needed
+            ra_filter = "true"
+            bind_vars = {"ra": ra, "dec": dec, "sep": radius_deg}
+        else:
+            ra_sep = math.degrees(math.asin(sin_ra_sep))
+            ra_min = ra - ra_sep
+            ra_max = ra + ra_sep
+            if ra_min < 0:
+                # Box wraps past RA=0
+                ra_filter = "(t._ra >= @ra_min_w OR t._ra <= @ra_max)"
+                bind_vars = {"ra": ra, "dec": dec, "sep": radius_deg,
+                             "ra_min_w": ra_min + 360.0, "ra_max": ra_max}
+            elif ra_max > 360:
+                # Box wraps past RA=360
+                ra_filter = "(t._ra >= @ra_min OR t._ra <= @ra_max_w)"
+                bind_vars = {"ra": ra, "dec": dec, "sep": radius_deg,
+                             "ra_min": ra_min, "ra_max_w": ra_max - 360.0}
+            else:
+                ra_filter = "(t._ra >= @ra_min AND t._ra <= @ra_max)"
+                bind_vars = {"ra": ra, "dec": dec, "sep": radius_deg,
+                             "ra_min": ra_min, "ra_max": ra_max}
         query = {
             "query": (
                 "FOR t IN transients "
-                "FILTER (t._ra >= @ra - @ra_sep AND t._ra <= @ra + @ra_sep "
-                "AND t._dec >= @dec - @sep AND t._dec <= @dec + @sep) "
+                f"FILTER ({ra_filter} AND t._dec >= @dec - @sep AND t._dec <= @dec + @sep) "
                 "FILTER ASTRO::CONE_SEARCH(t._ra, t._dec, @ra, @dec, @sep) "
                 "RETURN t"
             ),
             "count": True,
             "batchSize": 100,
-            "bindVars": {"ra": ra, "dec": dec, "sep": radius_deg, "ra_sep": ra_sep},
+            "bindVars": bind_vars,
         }
         try:
             response = self._api_session.post(
