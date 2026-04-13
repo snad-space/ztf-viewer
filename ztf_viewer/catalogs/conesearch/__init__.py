@@ -2,6 +2,7 @@ from ._base import _BaseCatalogQuery
 from .alerce import AlerceQuery
 from .antares import AntaresQuery
 from .astrocats import AstrocatsQuery
+from .otter import OtterQuery
 from .atlas import AtlasQuery
 from .colibri import ColibriQuery
 from .fink import FinkQuery
@@ -22,6 +23,7 @@ ALERCE_QUERY = AlerceQuery("Alerce")
 ATLAS_QUERY = AtlasQuery("ATLAS")
 ANTARES_QUERY = AntaresQuery("Antares")
 ASTROCATS_QUERY = AstrocatsQuery("Astrocats")
+OTTER_QUERY = OtterQuery("Otter")
 COLIBRI_QUERY = ColibriQuery("Astro-COLIBRI")
 FINK_QUERY = FinkQuery("Fink")
 GAIA2_DIS = Gaia2Dis("Gaia DR2 Distances")

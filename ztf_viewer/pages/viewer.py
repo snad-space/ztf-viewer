@@ -615,6 +615,21 @@ def get_layout(pathname, search):
             ),
             html.Div(
                 [
+                    html.H2("Otter"),
+                    dcc.Input(
+                        value="5",
+                        id=dict(type="search-radius", index="otter"),
+                        placeholder="Search radius, arcsec",
+                        type="number",
+                        step="1",
+                    ),
+                    " search radius, arcsec",
+                    html.Div(id="otter-table"),
+                ],
+                id="otter",
+            ),
+            html.Div(
+                [
                     html.H2("OGLE-III"),
                     dcc.Input(
                         value="10",
