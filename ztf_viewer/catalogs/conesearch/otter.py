@@ -1,3 +1,5 @@
+import math
+
 import astropy.table
 from requests.exceptions import RequestException
 
@@ -29,17 +31,20 @@ class OtterQuery(_BaseCatalogApiQuery):
 
     def _api_query_region(self, ra, dec, radius_arcsec):
         radius_deg = radius_arcsec / 3600.0
+        # Widen the RA bounding box by 1/cos(dec) to account for spherical geometry:
+        # at declination dec, 1 degree of RA spans cos(dec) degrees on the sky.
+        ra_sep = radius_deg / math.cos(math.radians(dec))
         query = {
             "query": (
                 "FOR t IN transients "
-                "FILTER (t._ra >= @ra - @sep AND t._ra <= @ra + @sep "
+                "FILTER (t._ra >= @ra - @ra_sep AND t._ra <= @ra + @ra_sep "
                 "AND t._dec >= @dec - @sep AND t._dec <= @dec + @sep) "
                 "FILTER ASTRO::CONE_SEARCH(t._ra, t._dec, @ra, @dec, @sep) "
                 "RETURN t"
             ),
             "count": True,
             "batchSize": 100,
-            "bindVars": {"ra": ra, "dec": dec, "sep": radius_deg},
+            "bindVars": {"ra": ra, "dec": dec, "sep": radius_deg, "ra_sep": ra_sep},
         }
         try:
             response = self._api_session.post(
