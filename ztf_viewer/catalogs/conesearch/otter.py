@@ -31,9 +31,10 @@ class OtterQuery(_BaseCatalogApiQuery):
 
     def _api_query_region(self, ra, dec, radius_arcsec):
         radius_deg = radius_arcsec / 3600.0
-        # Widen the RA bounding box by 1/cos(dec) to account for spherical geometry:
-        # at declination dec, 1 degree of RA spans cos(dec) degrees on the sky.
-        ra_sep = radius_deg / math.cos(math.radians(dec))
+        # Exact maximum RA extent of a spherical cone: arcsin(sin(r) / cos(dec)).
+        # When the ratio >= 1 the cone contains a pole and all RA values are possible.
+        sin_ra_sep = math.sin(math.radians(radius_deg)) / math.cos(math.radians(dec))
+        ra_sep = 180.0 if sin_ra_sep >= 1.0 else math.degrees(math.asin(sin_ra_sep))
         query = {
             "query": (
                 "FOR t IN transients "
