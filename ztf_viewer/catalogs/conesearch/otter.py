@@ -1,5 +1,3 @@
-import math
-
 import astropy.table
 from requests.exceptions import RequestException
 
@@ -31,38 +29,17 @@ class OtterQuery(_BaseCatalogApiQuery):
 
     def _api_query_region(self, ra, dec, radius_arcsec):
         radius_deg = radius_arcsec / 3600.0
-        # Exact maximum RA extent of a spherical cone: arcsin(sin(r) / cos(dec)).
-        # When the ratio >= 1 the cone contains a pole and all RA values are possible.
-        sin_ra_sep = math.sin(math.radians(radius_deg)) / math.cos(math.radians(dec))
-        if sin_ra_sep >= 1.0:
-            # Cone contains a pole — no RA constraint needed
-            ra_filter = "true"
-            bind_vars = {"ra": ra, "dec": dec, "sep": radius_deg}
-        else:
-            ra_sep = math.degrees(math.asin(sin_ra_sep))
-            ra_min = ra - ra_sep
-            ra_max = ra + ra_sep
-            if ra_min < 0:
-                # Box wraps past RA=0
-                ra_filter = "(t._ra >= @ra_min_w OR t._ra <= @ra_max)"
-                bind_vars = {"ra": ra, "dec": dec, "sep": radius_deg, "ra_min_w": ra_min + 360.0, "ra_max": ra_max}
-            elif ra_max > 360:
-                # Box wraps past RA=360
-                ra_filter = "(t._ra >= @ra_min OR t._ra <= @ra_max_w)"
-                bind_vars = {"ra": ra, "dec": dec, "sep": radius_deg, "ra_min": ra_min, "ra_max_w": ra_max - 360.0}
-            else:
-                ra_filter = "(t._ra >= @ra_min AND t._ra <= @ra_max)"
-                bind_vars = {"ra": ra, "dec": dec, "sep": radius_deg, "ra_min": ra_min, "ra_max": ra_max}
         query = {
             "query": (
                 "FOR t IN transients "
-                f"FILTER ({ra_filter} AND t._dec >= @dec - @sep AND t._dec <= @dec + @sep) "
+                "FILTER (ABS(((t._ra - @ra + 180) % 360) - 180) * COS(RADIANS(t._dec)) <= @sep "
+                "AND ABS(t._dec - @dec) <= @sep) "
                 "FILTER ASTRO::CONE_SEARCH(t._ra, t._dec, @ra, @dec, @sep) "
                 "RETURN t"
             ),
             "count": True,
             "batchSize": 100,
-            "bindVars": bind_vars,
+            "bindVars": {"ra": ra, "dec": dec, "sep": radius_deg},
         }
         try:
             response = self._api_session.post(
