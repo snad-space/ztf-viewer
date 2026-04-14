@@ -143,8 +143,7 @@ def test_ceres_integration():
     obs_mjd = Time(58923.0, format="mjd")
     query = SkybotQuery()
     try:
-        table = query.find(ra=320.7912, dec=-21.5888, observatory_mjd=obs_mjd,
-                           radius_arcsec=120.0)
+        table = query.find(ra=320.7912, dec=-21.5888, observatory_mjd=obs_mjd, radius_arcsec=120.0)
     except NotFound as exc:
         pytest.skip(f"SkyBot service unavailable: {exc}")
 
