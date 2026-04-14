@@ -73,10 +73,10 @@ def _mast_json_to_table(json_obj):
     return data_table
 
 
-def _panstarrs_request(release, table, **params):
+def _panstarrs_request(session, release, table, **params):
     """POST to the MAST PanSTARRS catalog API and return an astropy Table."""
     url = f"{_PANSTARRS_API}/{release}/{table}.json"
-    response = requests.post(
+    response = session.post(
         url,
         json=params,
         headers={"Content-Type": "application/json", "Accept": "application/json"},
@@ -113,6 +113,10 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
         ValueWithUncertaintyColumn(value=f"{b}PSFMag", uncertainty=f"{b}PSFMagErr") for b in _bands
     ]
 
+    def __init__(self, query_name):
+        super().__init__(query_name)
+        self._session = requests.Session()
+
     def __apply_groups(self, df):
         """Averaging stacked objects
 
@@ -147,7 +151,7 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
         else:
             radius_deg = float(radius.deg)
         try:
-            table = _panstarrs_request("dr2", "stack", ra=coord.ra.deg, dec=coord.dec.deg, radius=radius_deg)
+            table = _panstarrs_request(self._session, "dr2", "stack", ra=coord.ra.deg, dec=coord.dec.deg, radius=radius_deg)
         except RequestException as e:
             logging.warning(e)
             raise CatalogUnavailable(catalog=self)
@@ -189,7 +193,7 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
     def light_curve(self, id, row=None):
         self._raise_if_unavailable()
         try:
-            table = _panstarrs_request("dr2", "detection", objID=int(row["objID"]))
+            table = _panstarrs_request(self._session, "dr2", "detection", objID=int(row["objID"]))
         except RequestException as e:
             logging.info(str(e))
             raise CatalogUnavailable(catalog=self)

@@ -10,9 +10,11 @@ _RADIUS_DEG = 0.05
 
 @pytest.fixture(scope="module")
 def stack_table():
+    import requests as req
     from ztf_viewer.catalogs.conesearch.panstarrs import _panstarrs_request
 
-    return _panstarrs_request("dr2", "stack", ra=_RA, dec=_DEC, radius=_RADIUS_DEG)
+    with req.Session() as session:
+        return _panstarrs_request(session, "dr2", "stack", ra=_RA, dec=_DEC, radius=_RADIUS_DEG)
 
 
 def test_stack_returns_rows(stack_table):
