@@ -133,15 +133,18 @@ def test_ceres_integration():
 
     Skipped when the SkyBot service is unavailable (network issues, downtime).
 
-    Ceres ephemeris (JPL Horizons, observatory I41 = Palomar):
+    Ceres ephemeris (JPL Horizons id='Ceres', observatory I41 = Palomar):
         epoch  2020-03-15 00:00 UTC  (MJD 58923)
-        RA  331.0602°,  Dec  -11.4393°
+        RA  320.7912°,  Dec  -21.5888°
     """
     from ztf_viewer.catalogs.skybot import SkybotQuery
 
+    # observatory_mjd is a Time object in production (returned by hmjd_to_earth)
+    obs_mjd = Time(58923.0, format="mjd")
     query = SkybotQuery()
     try:
-        table = query.find(ra=331.0602, dec=-11.4393, observatory_mjd=58923.0, radius_arcsec=120.0)
+        table = query.find(ra=320.7912, dec=-21.5888, observatory_mjd=obs_mjd,
+                           radius_arcsec=120.0)
     except NotFound as exc:
         pytest.skip(f"SkyBot service unavailable: {exc}")
 
