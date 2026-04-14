@@ -16,7 +16,6 @@ class SkybotQuery:
     query_radius = Angle(120, "arcsec")
     """Radius to use for Skybot queries, results will be sub-sampled to the requested radius"""
 
-    @cache()
     def find(self, ra, dec, observatory_mjd, radius_arcsec):
         logging.info(f"Querying Skybot ra={ra}, dec={dec}, mjd={observatory_mjd}, r={radius_arcsec}")
         coord = SkyCoord(ra, dec, unit="deg", frame="icrs")
@@ -36,6 +35,7 @@ class SkybotQuery:
             )
         except RuntimeError:
             raise NotFound("Skybot query failed")
+
 
         # Filter down to requested radius, but include some margin for error
         table = table[table["centerdist"] <= radius + 3.0 * table["posunc"]]
