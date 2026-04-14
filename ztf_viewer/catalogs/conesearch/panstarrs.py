@@ -24,22 +24,23 @@ _PANSTARRS_API = "https://catalogs.mast.stsci.edu/api/v0.1/panstarrs"
 def _mast_json_to_table(json_obj):
     """Convert a MAST catalog JSON response to an astropy masked Table.
 
-    Handles null and NaN values in integer columns, which astroquery 0.4.x
-    fails to do (raises ValueError: cannot convert float NaN to integer).
+    The MAST PanSTARRS API returns rows as dicts and uses the string "None"
+    for missing values in numeric columns, which astroquery 0.4.x does not
+    handle (raises ValueError when casting to the column type).
     See https://github.com/snad-space/ztf-viewer/issues/565
     """
     data_table = Table(masked=True)
     type_key = "type" if json_obj["info"][0].get("type") else "db_type"
 
-    for idx, col in enumerate(json_obj["info"]):
+    for col in json_obj["info"]:
         col_name = col.get("column_name") or col.get("name")
         col_type = col[type_key].lower()
 
-        col_data = np.array([row[idx] for row in json_obj["data"]], dtype=object)
+        col_data = np.array([row.get(col_name) for row in json_obj["data"]], dtype=object)
 
-        # Identify missing values: JSON null → None, and stray float NaN
+        # Identify missing values: JSON null → None, float NaN, or the string "None"
         is_missing = np.array(
-            [v is None or (isinstance(v, float) and np.isnan(v)) for v in col_data]
+            [v is None or v == "None" or (isinstance(v, float) and np.isnan(v)) for v in col_data]
         )
 
         if col_type in ("char", "string", "null", "datetime") or "varchar" in col_type:
@@ -139,9 +140,14 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
         return row
 
     def _query_region(self, coord, radius):
+        # radius comes from the base class as a string like "18.0s" (arcseconds)
+        if isinstance(radius, str) and radius.endswith("s"):
+            radius_deg = float(radius[:-1]) / 3600.0
+        else:
+            radius_deg = float(radius.deg)
         try:
             table = _panstarrs_request(
-                "dr2", "stack", ra=coord.ra.deg, dec=coord.dec.deg, radius=radius.deg
+                "dr2", "stack", ra=coord.ra.deg, dec=coord.dec.deg, radius=radius_deg
             )
         except RequestException as e:
             logging.warning(e)
