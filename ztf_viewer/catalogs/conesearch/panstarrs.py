@@ -39,7 +39,10 @@ def _mast_json_to_table(json_obj):
         col_data = np.array([row.get(col_name) for row in json_obj["data"]], dtype=object)
 
         # Identify missing values: JSON null → None, float NaN, or the string "None"
-        is_missing = np.array([v is None or v == "None" or (isinstance(v, float) and np.isnan(v)) for v in col_data])
+        is_missing = np.array(
+            [v is None or v == "None" or (isinstance(v, float) and np.isnan(v)) for v in col_data],
+            dtype=bool,
+        )
 
         if col_type in ("char", "string", "null", "datetime") or "varchar" in col_type:
             col_data[is_missing] = ""
