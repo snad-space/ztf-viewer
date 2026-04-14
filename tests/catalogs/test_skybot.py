@@ -6,14 +6,14 @@ live are guarded with ``pytest.importorskip``-style logic: they catch the
 temporarily unavailable and re-raise as ``pytest.skip`` so CI stays green
 even when the upstream endpoint is down.
 """
+
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from astropy.coordinates import Angle
 from astropy.table import QTable, MaskedColumn
 from astropy.time import Time
 import astropy.units as u
-import numpy as np
 
 from ztf_viewer.exceptions import NotFound
 
@@ -28,8 +28,7 @@ def _make_empty_skybot_table():
     ``KeyError: 'centerdist'`` in issue #564.
     """
     t = QTable()
-    for name in ("Number", "Name", "RA", "DEC", "Type", "V", "errpos", "angdist",
-                 "RA_rate", "DEC_rate", "epoch"):
+    for name in ("Number", "Name", "RA", "DEC", "Type", "V", "errpos", "angdist", "RA_rate", "DEC_rate", "epoch"):
         t[name] = [] * (u.arcsec if name in ("errpos", "angdist") else u.one)
     return t
 
@@ -48,7 +47,7 @@ def _make_skybot_table_with_ceres(sep_arcsec=5.0):
     t["DEC"] = [-11.4] * u.deg
     t["Type"] = ["Asteroid"]
     t["V"] = [8.5] * u.mag
-    t["posunc"] = [0.1] * u.arcsec   # already renamed (non-empty path)
+    t["posunc"] = [0.1] * u.arcsec  # already renamed (non-empty path)
     t["centerdist"] = [sep_arcsec] * u.arcsec
     t["RA_rate"] = [0.0] * (u.arcsec / u.hour)
     t["DEC_rate"] = [0.0] * (u.arcsec / u.hour)
@@ -60,6 +59,7 @@ def _make_skybot_table_with_ceres(sep_arcsec=5.0):
 # ---------------------------------------------------------------------------
 # Unit tests (no network) — test the bug fix for issue #564
 # ---------------------------------------------------------------------------
+
 
 def test_empty_result_raises_not_found():
     """KeyError on empty SkyBot response should raise NotFound, not crash.
@@ -118,13 +118,15 @@ def test_radius_too_large_raises_value_error():
 
     obs_mjd = Time(58923.0, format="mjd")
     with pytest.raises(ValueError, match="too large"):
-        query.find(ra=331.0, dec=-11.4, observatory_mjd=obs_mjd,
-                   radius_arcsec=float(Angle(query.query_radius).arcsec) + 1)
+        query.find(
+            ra=331.0, dec=-11.4, observatory_mjd=obs_mjd, radius_arcsec=float(Angle(query.query_radius).arcsec) + 1
+        )
 
 
 # ---------------------------------------------------------------------------
 # Integration test — requires network access to vo.imcce.fr
 # ---------------------------------------------------------------------------
+
 
 def test_ceres_integration():
     """Query SkyBot for Ceres at a known epoch and verify it is returned.
@@ -139,8 +141,7 @@ def test_ceres_integration():
 
     query = SkybotQuery()
     try:
-        table = query.find(ra=331.0602, dec=-11.4393, observatory_mjd=58923.0,
-                           radius_arcsec=120.0)
+        table = query.find(ra=331.0602, dec=-11.4393, observatory_mjd=58923.0, radius_arcsec=120.0)
     except NotFound as exc:
         pytest.skip(f"SkyBot service unavailable: {exc}")
 
