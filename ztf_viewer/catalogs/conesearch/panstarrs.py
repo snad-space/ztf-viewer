@@ -39,9 +39,7 @@ def _mast_json_to_table(json_obj):
         col_data = np.array([row.get(col_name) for row in json_obj["data"]], dtype=object)
 
         # Identify missing values: JSON null → None, float NaN, or the string "None"
-        is_missing = np.array(
-            [v is None or v == "None" or (isinstance(v, float) and np.isnan(v)) for v in col_data]
-        )
+        is_missing = np.array([v is None or v == "None" or (isinstance(v, float) and np.isnan(v)) for v in col_data])
 
         if col_type in ("char", "string", "null", "datetime") or "varchar" in col_type:
             col_data[is_missing] = ""
@@ -146,9 +144,7 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
         else:
             radius_deg = float(radius.deg)
         try:
-            table = _panstarrs_request(
-                "dr2", "stack", ra=coord.ra.deg, dec=coord.dec.deg, radius=radius_deg
-            )
+            table = _panstarrs_request("dr2", "stack", ra=coord.ra.deg, dec=coord.dec.deg, radius=radius_deg)
         except RequestException as e:
             logging.warning(e)
             raise CatalogUnavailable(catalog=self)
@@ -190,9 +186,7 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
     def light_curve(self, id, row=None):
         self._raise_if_unavailable()
         try:
-            table = _panstarrs_request(
-                "dr2", "detection", objID=int(row["objID"])
-            )
+            table = _panstarrs_request("dr2", "detection", objID=int(row["objID"]))
         except RequestException as e:
             logging.info(str(e))
             raise CatalogUnavailable(catalog=self)
