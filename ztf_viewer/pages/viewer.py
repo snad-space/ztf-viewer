@@ -1987,14 +1987,14 @@ def update_skybot_for_graph_clicked(data, dr):
     point = points[0]
     mjd, oid, *_ = point["customdata"]
     coord = find_ztf_oid.get_sky_coord(oid, dr)
-    observatory_mjd = hmjd_to_earth(mjd, coord)
+    observatory_mjd = hmjd_to_earth(mjd, coord).mjd
     try:
         table = SKYBOT_QUERY.find(coord.ra.deg, coord.dec.deg, observatory_mjd, radius_arcsec=15.0)
     except NotFound:
         return html.Div("No minor planets found in 15″")
 
     return [html.B("Minor planets: ")] + list_join(
-        ", ", (f"{row['__name']} ({row['__separation']}, mV={row['V'].to_value('mag'):.1f})" for row in table)
+        ", ", (f"{row['__name']} ({row['__separation']}, mV={row['__v_mag']:.1f})" for row in table)
     )
 
 
