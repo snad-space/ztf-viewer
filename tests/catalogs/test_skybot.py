@@ -120,7 +120,9 @@ def test_radius_too_large_raises_value_error():
 
     with pytest.raises(ValueError, match="too large"):
         query.find(
-            ra=331.0, dec=-11.4, observatory_mjd=_OBS_MJD,
+            ra=331.0,
+            dec=-11.4,
+            observatory_mjd=_OBS_MJD,
             radius_arcsec=float(Angle(query.query_radius).arcsec) + 1,
         )
 

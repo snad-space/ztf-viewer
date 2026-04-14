@@ -67,8 +67,7 @@ class SkybotQuery:
             {
                 "__name": row["Name"] or f"#{row['Number']}",
                 "__separation": (
-                    f"{row['centerdist'].to_value('arcsec'):.02f}″"
-                    f"±{row['posunc'].to_value('arcsec'):.02f}″"
+                    f"{row['centerdist'].to_value('arcsec'):.02f}″" f"±{row['posunc'].to_value('arcsec'):.02f}″"
                 ),
                 "__delta_epoch": (epoch - Time(row["epoch"], format="jd")).to_value("day"),
                 "__v_mag": float(row["V"]),
