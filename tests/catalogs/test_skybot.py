@@ -46,7 +46,7 @@ def _make_skybot_table_with_ceres(sep_arcsec=5.0):
     t["RA"] = [331.0] * u.deg
     t["DEC"] = [-11.4] * u.deg
     t["Type"] = ["Asteroid"]
-    t["V"] = [8.5] * u.mag
+    t["V"] = [8.5]  # bare float, as returned by real SkyBot (no mag units)
     t["posunc"] = [0.1] * u.arcsec  # already renamed (non-empty path)
     t["centerdist"] = [sep_arcsec] * u.arcsec
     t["RA_rate"] = [0.0] * (u.arcsec / u.hour)
@@ -89,10 +89,13 @@ def test_result_within_radius_returned():
     query._query = MagicMock()
     query._query.cone_search.return_value = _make_skybot_table_with_ceres(sep_arcsec=5.0)
 
-    table = query.find(ra=331.0, dec=-11.4, observatory_mjd=_OBS_MJD, radius_arcsec=60.0)
+    result = query.find(ra=331.0, dec=-11.4, observatory_mjd=_OBS_MJD, radius_arcsec=60.0)
 
-    assert len(table) == 1
-    assert table["__name"][0] == "Ceres"
+    assert len(result) == 1
+    assert result[0]["__name"] == "Ceres"
+    assert "__separation" in result[0]
+    assert "__v_mag" in result[0]
+    assert isinstance(result[0]["__v_mag"], float)
 
 
 def test_result_outside_radius_raises_not_found():
@@ -140,9 +143,9 @@ def test_ceres_integration():
 
     query = SkybotQuery()
     try:
-        table = query.find(ra=320.7912, dec=-21.5888, observatory_mjd=_OBS_MJD, radius_arcsec=120.0)
+        result = query.find(ra=320.7912, dec=-21.5888, observatory_mjd=_OBS_MJD, radius_arcsec=120.0)
     except NotFound as exc:
         pytest.skip(f"SkyBot service unavailable: {exc}")
 
-    names = [row["__name"] for row in table]
+    names = [row["__name"] for row in result]
     assert "Ceres" in names, f"Expected Ceres in results, got: {names}"

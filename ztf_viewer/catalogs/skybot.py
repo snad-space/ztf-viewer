@@ -61,12 +61,20 @@ class SkybotQuery:
         if len(table) == 0:
             raise NotFound("Skybot query returned no results")
 
-        table["__name"] = [row["Name"] or f"#{row['Number']}" for row in table]
-        table["__separation"] = [
-            f"{row['centerdist'].to_value('arcsec'):.02f}″±{row['posunc'].to_value('arcsec'):.02f}″" for row in table
+        # Return plain dicts so the Redis LRU cache can pickle the result.
+        # astropy QTable / MaskedColumn objects are not picklable.
+        return [
+            {
+                "__name": row["Name"] or f"#{row['Number']}",
+                "__separation": (
+                    f"{row['centerdist'].to_value('arcsec'):.02f}″"
+                    f"±{row['posunc'].to_value('arcsec'):.02f}″"
+                ),
+                "__delta_epoch": (epoch - Time(row["epoch"], format="jd")).to_value("day"),
+                "__v_mag": float(row["V"]),
+            }
+            for row in table
         ]
-        table["__delta_epoch"] = epoch - Time(table["epoch"], format="jd")
-        return table
 
 
 SKYBOT_QUERY = SkybotQuery()

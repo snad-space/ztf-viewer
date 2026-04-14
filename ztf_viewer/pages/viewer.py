@@ -1994,7 +1994,7 @@ def update_skybot_for_graph_clicked(data, dr):
         return html.Div("No minor planets found in 15″")
 
     return [html.B("Minor planets: ")] + list_join(
-        ", ", (f"{row['__name']} ({row['__separation']}, mV={row['V'].to_value('mag'):.1f})" for row in table)
+        ", ", (f"{row['__name']} ({row['__separation']}, mV={row['__v_mag']:.1f})" for row in table)
     )
 
 
