@@ -82,7 +82,7 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
             table = self._catalogs.query_region(
                 coord, radius=radius, catalog="Panstarrs", data_release="dr2", table="stack"
             )
-        except RequestException as e:
+        except (RequestException, ValueError) as e:
             logging.warning(e)
             raise CatalogUnavailable(catalog=self)
         if len(table) == 0:
@@ -126,7 +126,7 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
             table = self._catalogs.query_criteria(
                 objID=int(row["objID"]), catalog="Panstarrs", data_release="dr2", table="detection"
             )
-        except RequestException as e:
+        except (RequestException, ValueError) as e:
             logging.info(str(e))
             raise CatalogUnavailable(catalog=self)
         if len(table) == 0:
