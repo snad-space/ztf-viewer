@@ -148,7 +148,7 @@ archivePrefix = {arXiv},
                 " as well as all relevant data source papers.",
             ],
             style={
-                "margin-top": "5em",
+                "marginTop": "5em",
             },
         ),
         html.Div(None, id="webgl-is-available", style={"display": "none"}),
@@ -298,7 +298,7 @@ def go_to_url(
     oid,
     coord_or_name,
     radius_arcsec,
-    current_pathaname,
+    current_pathname,
     dr,
 ):
     if (n_submit_oid != 0 or n_clicks_oid != 0) and oid is not None:
@@ -307,7 +307,7 @@ def go_to_url(
     if n_clicks_search != 0 or n_submit_coord_or_name != 0 or n_submit_radius != 0:
         coord_or_name = urllib.parse.quote(coord_or_name)
         return f"/{dr}/search/{coord_or_name}/{radius_arcsec}"
-    return current_pathaname
+    return current_pathname
 
 
 @app.callback(
@@ -433,7 +433,7 @@ def app_select_by_url(pathname, search):
                             "You can find the Viewer description and implementation details in the paper ",
                             html.A(
                                 """“The SNAD Viewer: Everything You Want to Know about Your Favorite ZTF Object”,
-                                Malanchev at al. 2022""",
+                                Malanchev et al. 2022""",
                                 href="https://ui.adsabs.harvard.edu/abs/2022arXiv221107605M",
                             ),
                             ", BibTeX citation:",
