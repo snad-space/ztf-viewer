@@ -151,7 +151,9 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
         else:
             radius_deg = float(radius.deg)
         try:
-            table = _panstarrs_request(self._session, "dr2", "stack", ra=coord.ra.deg, dec=coord.dec.deg, radius=radius_deg)
+            table = _panstarrs_request(
+                self._session, "dr2", "stack", ra=coord.ra.deg, dec=coord.dec.deg, radius=radius_deg
+            )
         except RequestException as e:
             logging.warning(e)
             raise CatalogUnavailable(catalog=self)
