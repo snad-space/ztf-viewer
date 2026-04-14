@@ -26,6 +26,7 @@ def _mast_json_to_table(json_obj):
 
     Handles null and NaN values in integer columns, which astroquery 0.4.x
     fails to do (raises ValueError: cannot convert float NaN to integer).
+    See https://github.com/snad-space/ztf-viewer/issues/565
     """
     data_table = Table(masked=True)
     type_key = "type" if json_obj["info"][0].get("type") else "db_type"
