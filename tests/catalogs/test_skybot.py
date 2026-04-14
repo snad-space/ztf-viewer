@@ -1,6 +1,6 @@
 """Tests for ztf_viewer.catalogs.skybot — covers the fix for issue #564.
 
-The SkyBot API (vo.imcce.fr) is an external service.  Tests that call it
+The SkyBot API (ssp.imcce.fr) is an external service.  Tests that call it
 live are guarded with ``pytest.importorskip``-style logic: they catch the
 ``NotFound`` exception that is raised when the service is unreachable or
 temporarily unavailable and re-raise as ``pytest.skip`` so CI stays green
@@ -60,6 +60,9 @@ def _make_skybot_table_with_ceres(sep_arcsec=5.0):
 # Unit tests (no network) — test the bug fix for issue #564
 # ---------------------------------------------------------------------------
 
+# observatory_mjd is passed as a plain float MJD throughout (see skybot.py)
+_OBS_MJD = 58923.0
+
 
 def test_empty_result_raises_not_found():
     """KeyError on empty SkyBot response should raise NotFound, not crash.
@@ -74,9 +77,8 @@ def test_empty_result_raises_not_found():
     query._query = MagicMock()
     query._query.cone_search.return_value = _make_empty_skybot_table()
 
-    obs_mjd = Time(58923.0, format="mjd")
     with pytest.raises(NotFound):
-        query.find(ra=331.0, dec=-11.4, observatory_mjd=obs_mjd, radius_arcsec=60.0)
+        query.find(ra=331.0, dec=-11.4, observatory_mjd=_OBS_MJD, radius_arcsec=60.0)
 
 
 def test_result_within_radius_returned():
@@ -87,9 +89,7 @@ def test_result_within_radius_returned():
     query._query = MagicMock()
     query._query.cone_search.return_value = _make_skybot_table_with_ceres(sep_arcsec=5.0)
 
-    # observatory_mjd is a Time object in production (returned by hmjd_to_earth)
-    obs_mjd = Time(58923.0, format="mjd")
-    table = query.find(ra=331.0, dec=-11.4, observatory_mjd=obs_mjd, radius_arcsec=60.0)
+    table = query.find(ra=331.0, dec=-11.4, observatory_mjd=_OBS_MJD, radius_arcsec=60.0)
 
     assert len(table) == 1
     assert table["__name"][0] == "Ceres"
@@ -104,9 +104,8 @@ def test_result_outside_radius_raises_not_found():
     # Object is 90 arcsec away; request is only 60 arcsec; posunc is 0.1 arcsec
     query._query.cone_search.return_value = _make_skybot_table_with_ceres(sep_arcsec=90.0)
 
-    obs_mjd = Time(58923.0, format="mjd")
     with pytest.raises(NotFound):
-        query.find(ra=331.0, dec=-11.4, observatory_mjd=obs_mjd, radius_arcsec=60.0)
+        query.find(ra=331.0, dec=-11.4, observatory_mjd=_OBS_MJD, radius_arcsec=60.0)
 
 
 def test_radius_too_large_raises_value_error():
@@ -116,15 +115,15 @@ def test_radius_too_large_raises_value_error():
     query = SkybotQuery.__new__(SkybotQuery)
     query._query = MagicMock()
 
-    obs_mjd = Time(58923.0, format="mjd")
     with pytest.raises(ValueError, match="too large"):
         query.find(
-            ra=331.0, dec=-11.4, observatory_mjd=obs_mjd, radius_arcsec=float(Angle(query.query_radius).arcsec) + 1
+            ra=331.0, dec=-11.4, observatory_mjd=_OBS_MJD,
+            radius_arcsec=float(Angle(query.query_radius).arcsec) + 1,
         )
 
 
 # ---------------------------------------------------------------------------
-# Integration test — requires network access to vo.imcce.fr
+# Integration test — requires network access to ssp.imcce.fr
 # ---------------------------------------------------------------------------
 
 
@@ -139,11 +138,9 @@ def test_ceres_integration():
     """
     from ztf_viewer.catalogs.skybot import SkybotQuery
 
-    # observatory_mjd is a Time object in production (returned by hmjd_to_earth)
-    obs_mjd = Time(58923.0, format="mjd")
     query = SkybotQuery()
     try:
-        table = query.find(ra=320.7912, dec=-21.5888, observatory_mjd=obs_mjd, radius_arcsec=120.0)
+        table = query.find(ra=320.7912, dec=-21.5888, observatory_mjd=_OBS_MJD, radius_arcsec=120.0)
     except NotFound as exc:
         pytest.skip(f"SkyBot service unavailable: {exc}")
 
