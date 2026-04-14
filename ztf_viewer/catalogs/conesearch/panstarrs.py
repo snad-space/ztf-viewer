@@ -1,13 +1,11 @@
 import logging
-import math
 from itertools import count
 
 import numpy as np
+import requests
 from astropy.coordinates import EarthLocation, SkyCoord
-from astropy.table import Table
+from astropy.table import MaskedColumn, Table
 from astropy.time import Time
-from astroquery.mast import Catalogs
-import astroquery.mast.services as _mast_services
 from requests import RequestException
 
 from ztf_viewer.catalogs.conesearch._base import (
@@ -18,35 +16,71 @@ from ztf_viewer.catalogs.conesearch._base import (
 from ztf_viewer.exceptions import CatalogUnavailable, NotFound
 from ztf_viewer.util import ABZPMAG_JY, LGE_25
 
-
-def _patch_astroquery_mast():
-    """Patch astroquery.mast to convert float NaN to None before type casting.
-
-    astroquery's _json_to_table replaces None with a sentinel (-999) before
-    casting integer columns, but float NaN values are not None and cause
-    ValueError: cannot convert float NaN to integer.  Normalise NaN → None
-    so the existing sentinel logic handles them correctly.
-    """
-    _original = _mast_services._json_to_table
-
-    def _patched(json_obj, data_key="data"):
-        data = json_obj.get(data_key)
-        if data and isinstance(next(iter(data), None), list):
-            json_obj = {
-                **json_obj,
-                data_key: [
-                    [None if isinstance(v, float) and math.isnan(v) else v for v in row]
-                    for row in data
-                ],
-            }
-        return _original(json_obj, data_key=data_key)
-
-    _mast_services._json_to_table = _patched
-
-
-_patch_astroquery_mast()
-
 HALEAKALA = EarthLocation(lon=-156.169, lat=20.71552, height=3048.0)  # EarthLocation.of_site('Haleakala')
+
+_PANSTARRS_API = "https://catalogs.mast.stsci.edu/api/v0.1/panstarrs"
+
+
+def _mast_json_to_table(json_obj):
+    """Convert a MAST catalog JSON response to an astropy masked Table.
+
+    Handles null and NaN values in integer columns, which astroquery 0.4.x
+    fails to do (raises ValueError: cannot convert float NaN to integer).
+    """
+    data_table = Table(masked=True)
+    type_key = "type" if json_obj["info"][0].get("type") else "db_type"
+
+    for idx, col in enumerate(json_obj["info"]):
+        col_name = col.get("column_name") or col.get("name")
+        col_type = col[type_key].lower()
+
+        col_data = np.array([row[idx] for row in json_obj["data"]], dtype=object)
+
+        # Identify missing values: JSON null → None, and stray float NaN
+        is_missing = np.array(
+            [v is None or (isinstance(v, float) and np.isnan(v)) for v in col_data]
+        )
+
+        if col_type in ("char", "string", "null", "datetime") or "varchar" in col_type:
+            col_data[is_missing] = ""
+            col_mask = col_data == ""
+            col_data = col_data.astype(str)
+        elif col_type in ("boolean", "binary"):
+            col_data[is_missing] = False
+            col_data = col_data.astype(bool)
+            col_mask = is_missing
+        elif col_type == "unsignedbyte":
+            col_data[is_missing] = 0
+            col_data = col_data.astype(np.ubyte)
+            col_mask = is_missing
+        elif col_type in ("int", "short", "long", "number", "integer"):
+            col_data[is_missing] = 0
+            col_data = col_data.astype(np.int64)
+            col_mask = is_missing
+        elif col_type in ("double", "float", "decimal"):
+            col_data[is_missing] = np.nan
+            col_data = col_data.astype(np.float64)
+            col_mask = is_missing
+        else:
+            col_mask = is_missing
+
+        if col_name not in data_table.colnames:
+            data_table.add_column(MaskedColumn(col_data, name=col_name, mask=col_mask))
+
+    return data_table
+
+
+def _panstarrs_request(release, table, **params):
+    """POST to the MAST PanSTARRS catalog API and return an astropy Table."""
+    url = f"{_PANSTARRS_API}/{release}/{table}.json"
+    response = requests.post(
+        url,
+        json=params,
+        headers={"Content-Type": "application/json", "Accept": "application/json"},
+        timeout=600,
+    )
+    response.raise_for_status()
+    return _mast_json_to_table(response.json())
 
 
 class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
@@ -75,10 +109,6 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
     _value_with_uncertainty_columns = [
         ValueWithUncertaintyColumn(value=f"{b}PSFMag", uncertainty=f"{b}PSFMagErr") for b in _bands
     ]
-
-    def __init__(self, query_name):
-        super().__init__(query_name)
-        self._catalogs = Catalogs()
 
     def __apply_groups(self, df):
         """Averaging stacked objects
@@ -109,8 +139,8 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
 
     def _query_region(self, coord, radius):
         try:
-            table = self._catalogs.query_region(
-                coord, radius=radius, catalog="Panstarrs", data_release="dr2", table="stack"
+            table = _panstarrs_request(
+                "dr2", "stack", ra=coord.ra.deg, dec=coord.dec.deg, radius=radius.deg
             )
         except RequestException as e:
             logging.warning(e)
@@ -153,8 +183,8 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
     def light_curve(self, id, row=None):
         self._raise_if_unavailable()
         try:
-            table = self._catalogs.query_criteria(
-                objID=int(row["objID"]), catalog="Panstarrs", data_release="dr2", table="detection"
+            table = _panstarrs_request(
+                "dr2", "detection", objID=int(row["objID"])
             )
         except RequestException as e:
             logging.info(str(e))
