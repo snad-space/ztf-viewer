@@ -1,4 +1,5 @@
 import logging
+import math
 from itertools import count
 
 import numpy as np
@@ -6,6 +7,7 @@ from astropy.coordinates import EarthLocation, SkyCoord
 from astropy.table import Table
 from astropy.time import Time
 from astroquery.mast import Catalogs
+import astroquery.mast.services as _mast_services
 from requests import RequestException
 
 from ztf_viewer.catalogs.conesearch._base import (
@@ -15,6 +17,34 @@ from ztf_viewer.catalogs.conesearch._base import (
 )
 from ztf_viewer.exceptions import CatalogUnavailable, NotFound
 from ztf_viewer.util import ABZPMAG_JY, LGE_25
+
+
+def _patch_astroquery_mast():
+    """Patch astroquery.mast to convert float NaN to None before type casting.
+
+    astroquery's _json_to_table replaces None with a sentinel (-999) before
+    casting integer columns, but float NaN values are not None and cause
+    ValueError: cannot convert float NaN to integer.  Normalise NaN → None
+    so the existing sentinel logic handles them correctly.
+    """
+    _original = _mast_services._json_to_table
+
+    def _patched(json_obj, data_key="data"):
+        data = json_obj.get(data_key)
+        if data and isinstance(next(iter(data), None), list):
+            json_obj = {
+                **json_obj,
+                data_key: [
+                    [None if isinstance(v, float) and math.isnan(v) else v for v in row]
+                    for row in data
+                ],
+            }
+        return _original(json_obj, data_key=data_key)
+
+    _mast_services._json_to_table = _patched
+
+
+_patch_astroquery_mast()
 
 HALEAKALA = EarthLocation(lon=-156.169, lat=20.71552, height=3048.0)  # EarthLocation.of_site('Haleakala')
 
@@ -82,7 +112,7 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
             table = self._catalogs.query_region(
                 coord, radius=radius, catalog="Panstarrs", data_release="dr2", table="stack"
             )
-        except (RequestException, ValueError) as e:
+        except RequestException as e:
             logging.warning(e)
             raise CatalogUnavailable(catalog=self)
         if len(table) == 0:
@@ -126,7 +156,7 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
             table = self._catalogs.query_criteria(
                 objID=int(row["objID"]), catalog="Panstarrs", data_release="dr2", table="detection"
             )
-        except (RequestException, ValueError) as e:
+        except RequestException as e:
             logging.info(str(e))
             raise CatalogUnavailable(catalog=self)
         if len(table) == 0:
