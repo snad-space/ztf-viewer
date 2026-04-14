@@ -34,8 +34,15 @@ class SkybotQuery:
                 find_asteroids=True,
                 find_comets=True,
             )
-        except RuntimeError:
+        except (RuntimeError, ValueError):
+            # RuntimeError: general Skybot failure
+            # ValueError("No table found"): Skybot returned an error VOTable (e.g. invalid epoch)
             raise NotFound("Skybot query failed")
+
+        # When Skybot returns zero rows, astroquery skips column renaming, so
+        # "centerdist" / "posunc" are not present — check length first.
+        if len(table) == 0:
+            raise NotFound("Skybot query returned no results")
 
         # Filter down to requested radius, but include some margin for error
         table = table[table["centerdist"] <= radius + 3.0 * table["posunc"]]
