@@ -7,9 +7,7 @@ from ztf_viewer.app import app
 from ztf_viewer.catalogs import find_ztf_oid
 from ztf_viewer.exceptions import NotFound, CatalogUnavailable
 from ztf_viewer.catalogs.ztf_ref import ztf_ref
-from ztf_viewer.lc_data.external import EXTERNAL_LC_DATA
-
-_AUXILIARY_SEARCH_RADIUS_ARCSEC = 5.0
+from ztf_viewer.catalogs.conesearch import ANTARES_QUERY, GAIA_DR3, PANSTARRS_DR2_QUERY
 
 
 def get_csv(dr, oids, min_mjd=None, max_mjd=None):
@@ -77,14 +75,8 @@ def response_csv(dr, oid):
     )
 
 
-@app.server.route("/<dr>/csv/<catalog>/<int:oid>")
-def response_auxiliary_csv(dr, catalog, oid):
-    if catalog not in EXTERNAL_LC_DATA:
-        return f"Unknown catalog '{catalog}'", 400
-    try:
-        lc = EXTERNAL_LC_DATA[catalog](oid, dr, radius_arcsec=_AUXILIARY_SEARCH_RADIUS_ARCSEC)
-    except (NotFound, CatalogUnavailable):
-        return "", 404
+def _lc_to_csv_response(lc, filename):
+    """Convert a list-of-dicts light curve to a CSV Flask Response."""
     if not lc:
         return "", 404
     df = pd.DataFrame.from_records(lc)
@@ -94,5 +86,35 @@ def response_auxiliary_csv(dr, catalog, oid):
     return Response(
         string_io.getvalue(),
         mimetype="text/csv",
-        headers={"Content-disposition": f"attachment; filename={oid}_{catalog}.csv"},
+        headers={"Content-disposition": f"attachment; filename={filename}"},
     )
+
+
+@app.server.route("/panstarrs/csv/<int:obj_id>")
+def response_panstarrs_csv(obj_id):
+    """Download Pan-STARRS DR2 light curve for a given objID as CSV."""
+    try:
+        lc = PANSTARRS_DR2_QUERY.light_curve(id=None, row={"objID": obj_id})
+    except (NotFound, CatalogUnavailable):
+        return "", 404
+    return _lc_to_csv_response(lc, f"panstarrs_{obj_id}.csv")
+
+
+@app.server.route("/gaia/csv/<int:source_id>")
+def response_gaia_csv(source_id):
+    """Download Gaia DR3 epoch photometry for a given Source ID as CSV."""
+    try:
+        lc = GAIA_DR3.light_curve(id=source_id)
+    except (NotFound, CatalogUnavailable):
+        return "", 404
+    return _lc_to_csv_response(lc, f"gaia_{source_id}.csv")
+
+
+@app.server.route("/antares/csv/<locus_id>")
+def response_antares_csv(locus_id):
+    """Download Antares light curve for a given locus ID as CSV."""
+    try:
+        lc = ANTARES_QUERY.light_curve(id=locus_id)
+    except (NotFound, CatalogUnavailable):
+        return "", 404
+    return _lc_to_csv_response(lc, f"antares_{locus_id}.csv")

@@ -1206,7 +1206,11 @@ def get_antares_lc_option(oid, dr, old):
         option["label"] = "Antares API is unavailable now"
         option["disabled"] = False
     else:
-        option["label"] = f'Antares {row[ANTARES_QUERY.id_column]} ({np.round(row["separation"], 1)}″), diff-photometry'
+        option["label"] = html.Span([
+            f'Antares {row[ANTARES_QUERY.id_column]} ({np.round(row["separation"], 1)}″), diff-photometry',
+            " ",
+            html.A("CSV", href=f"/antares/csv/{row[ANTARES_QUERY.id_column]}"),
+        ])
         option["disabled"] = False
     return option
 
@@ -1220,13 +1224,11 @@ def get_gaia_lc_option(oid, dr, old):
         option["label"] = f"Gaia object (not found in {ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC}″)"
         option["disabled"] = True
     else:
-        option["label"] = html.Span(
-            [
-                f'Gaia object {row[GAIA_DR3.id_column]} ({np.round(row["separation"], 1)}″), apparent',
-                " ",
-                html.A("CSV", href=f"/{dr}/csv/gaia/{oid}"),
-            ]
-        )
+        option["label"] = html.Span([
+            f'Gaia object {row[GAIA_DR3.id_column]} ({np.round(row["separation"], 1)}″), apparent',
+            " ",
+            html.A("CSV", href=f"/gaia/csv/{row[GAIA_DR3.id_column]}"),
+        ])
         option["disabled"] = False
     # Check if we can load data
     try:
@@ -1251,13 +1253,11 @@ def get_panstarrs_lc_option(oid, dr, old):
         option["label"] = "MAST Pan-STARRS archive is unavailable now"
         option["disabled"] = False
     else:
-        option["label"] = html.Span(
-            [
-                f'Pan-STARRS {row[PANSTARRS_DR2_QUERY.id_column]} ({np.round(row["separation"], 1)}″), apparent',
-                " ",
-                html.A("CSV", href=f"/{dr}/csv/panstarrs/{oid}"),
-            ]
-        )
+        option["label"] = html.Span([
+            f'Pan-STARRS {row[PANSTARRS_DR2_QUERY.id_column]} ({np.round(row["separation"], 1)}″), apparent',
+            " ",
+            html.A("CSV", href=f"/panstarrs/csv/{row['objID']}"),
+        ])
         option["disabled"] = False
     return option
 
