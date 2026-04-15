@@ -1220,9 +1220,13 @@ def get_gaia_lc_option(oid, dr, old):
         option["label"] = f"Gaia object (not found in {ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC}″)"
         option["disabled"] = True
     else:
-        option["label"] = f'Gaia object {row[GAIA_DR3.id_column]} ({np.round(row["separation"], 1)}″), apparent'
+        option["label"] = html.Span([
+            f'Gaia object {row[GAIA_DR3.id_column]} ({np.round(row["separation"], 1)}″), apparent',
+            " ",
+            html.A("CSV", href=f"/{dr}/csv/gaia/{oid}"),
+        ])
         option["disabled"] = False
-    # Checxk if we can load data
+    # Check if we can load data
     try:
         _ = GAIA_DR3.closest_light_curve(
             ra, dec, radius_arcsec=ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC, fail_on_empty=False, fail_on_unavailable=True
@@ -1245,9 +1249,11 @@ def get_panstarrs_lc_option(oid, dr, old):
         option["label"] = "MAST Pan-STARRS archive is unavailable now"
         option["disabled"] = False
     else:
-        option["label"] = (
-            f'Pan-STARRS {row[PANSTARRS_DR2_QUERY.id_column]} ({np.round(row["separation"], 1)}″), apparent'
-        )
+        option["label"] = html.Span([
+            f'Pan-STARRS {row[PANSTARRS_DR2_QUERY.id_column]} ({np.round(row["separation"], 1)}″), apparent',
+            " ",
+            html.A("CSV", href=f"/{dr}/csv/panstarrs/{oid}"),
+        ])
         option["disabled"] = False
     return option
 

@@ -7,6 +7,9 @@ from ztf_viewer.app import app
 from ztf_viewer.catalogs import find_ztf_oid
 from ztf_viewer.exceptions import NotFound, CatalogUnavailable
 from ztf_viewer.catalogs.ztf_ref import ztf_ref
+from ztf_viewer.lc_data.external import EXTERNAL_LC_DATA
+
+_AUXILIARY_SEARCH_RADIUS_ARCSEC = 5.0
 
 
 def get_csv(dr, oids, min_mjd=None, max_mjd=None):
@@ -71,4 +74,25 @@ def response_csv(dr, oid):
         csv,
         mimetype="text/csv",
         headers={"Content-disposition": f"attachment; filename={oid}.csv"},
+    )
+
+
+@app.server.route("/<dr>/csv/<catalog>/<int:oid>")
+def response_auxiliary_csv(dr, catalog, oid):
+    if catalog not in EXTERNAL_LC_DATA:
+        return f"Unknown catalog '{catalog}'", 400
+    try:
+        lc = EXTERNAL_LC_DATA[catalog](oid, dr, radius_arcsec=_AUXILIARY_SEARCH_RADIUS_ARCSEC)
+    except (NotFound, CatalogUnavailable):
+        return "", 404
+    if not lc:
+        return "", 404
+    df = pd.DataFrame.from_records(lc)
+    df.sort_values(by="mjd", inplace=True)
+    string_io = StringIO()
+    df.to_csv(string_io, index=False)
+    return Response(
+        string_io.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-disposition": f"attachment; filename={oid}_{catalog}.csv"},
     )
