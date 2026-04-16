@@ -38,11 +38,15 @@ class AlerceQuery(_BaseCatalogApiQuery):
 
     @staticmethod
     def __parse_classifier_version(s):
-        # s is like 'stamp_classifier_1.0.4'
+        # s is like 'stamp_classifier_1.0.4'; the trailing segment may be a
+        # non-PEP-440 string such as 'beta', so fall back to 0.0.0 on parse error.
         if "_" not in s:
             return packaging.version.Version("0.0.0")
         _, s = s.rsplit("_", 1)
-        return packaging.version.parse(s)
+        try:
+            return packaging.version.Version(s)
+        except packaging.version.InvalidVersion:
+            return packaging.version.Version("0.0.0")
 
     @staticmethod
     def __aggregate_max_classifier_version(column):
