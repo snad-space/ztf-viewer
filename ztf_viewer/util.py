@@ -201,7 +201,10 @@ def raise_if(condition, exception):
 
 def joiner(value, iterator):
     iterator = iter(iterator)
-    yield next(iterator)
+    try:
+        yield next(iterator)
+    except StopIteration:
+        return
     for item in iterator:
         yield value
         yield item

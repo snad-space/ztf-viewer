@@ -39,5 +39,8 @@ class _BaseLocalRemoteExtinctionQuery(_BaseExtinctionQuery):
             try:
                 return self.web_query(coord)
             except requests.exceptions.RequestException:
-                self.local_query = self.new_local_query()
+                try:
+                    self.local_query = self.new_local_query()
+                except OSError as e:
+                    raise OSError(f"Extinction web query failed and local data is unavailable: {e}") from e
         return self.local_query(coord)
