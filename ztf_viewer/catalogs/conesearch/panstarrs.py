@@ -161,7 +161,7 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
             raise NotFound
         df = table.to_pandas()
         df = df[df["primaryDetection"] == 1]
-        df = df.groupby("objID", sort=False).apply(self.__apply_groups)
+        df = df.groupby("objID", sort=False).apply(self.__apply_groups, include_groups=False)
         df = df.reset_index()
         table = Table.from_pandas(df)
         return table
