@@ -1532,7 +1532,7 @@ def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_v
     try:
         elements["Extinction"] = [f"SFD E(B-V) = {sfd.ebv(coord):.2f}"]
     except OSError:
-        elements["Extinction"] = []
+        pass
     try:
         table = get_catalog_query("Gaia EDR3 Distances").find(ra, dec, 1)
         row = QTable(table[np.argmin(table["separation"])])
