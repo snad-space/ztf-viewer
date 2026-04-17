@@ -946,7 +946,7 @@ def fit_lc(
     coord = find_ztf_oid.get_sky_coord(cur_oid, dr)
     try:
         ebv = sfd.ebv(coord)
-    except OSError:
+    except CatalogUnavailable:
         ebv = None
     items = []
     params = {}
@@ -1531,7 +1531,7 @@ def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_v
 
     try:
         elements["Extinction"] = [f"SFD E(B-V) = {sfd.ebv(coord):.2f}"]
-    except OSError:
+    except CatalogUnavailable:
         pass
     try:
         table = get_catalog_query("Gaia EDR3 Distances").find(ra, dec, 1)

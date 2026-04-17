@@ -2,6 +2,8 @@ from abc import ABC, abstractmethod
 
 import requests
 
+from ztf_viewer.exceptions import CatalogUnavailable
+
 
 class _BaseExtinctionQuery(ABC):
     # http://svo2.cab.inta-csic.es/svo/theory/fps3/index.php?mode=browse&gname=Palomar&gname2=ZTF&asttype=
@@ -39,5 +41,8 @@ class _BaseLocalRemoteExtinctionQuery(_BaseExtinctionQuery):
             try:
                 return self.web_query(coord)
             except requests.exceptions.RequestException:
-                self.local_query = self.new_local_query()
+                try:
+                    self.local_query = self.new_local_query()
+                except OSError as e:
+                    raise CatalogUnavailable(str(e)) from e
         return self.local_query(coord)
