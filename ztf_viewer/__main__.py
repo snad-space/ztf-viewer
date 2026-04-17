@@ -582,4 +582,4 @@ def parse_args(args):
 
 if __name__ == "__main__":
     args = parse_args(None)
-    app.run_server(host=args.host, debug=True)
+    app.run(host=args.host, debug=True)

@@ -38,6 +38,9 @@ class _BaseLocalRemoteExtinctionQuery(_BaseExtinctionQuery):
         if self.local_query is None:
             try:
                 return self.web_query(coord)
-            except requests.exceptions.RequestException:
+            except Exception:
+                # Web query can fail for various reasons (network, server errors,
+                # or internal library bugs like astropy/dustmaps serialization issues).
+                # Fall back to local data in all cases.
                 self.local_query = self.new_local_query()
         return self.local_query(coord)

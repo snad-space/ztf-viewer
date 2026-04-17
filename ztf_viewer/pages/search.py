@@ -1,10 +1,9 @@
-import dash_dangerously_set_inner_html as ddsih
 from astropy.table import Table
 from dash import html
 
 from ztf_viewer.catalogs import find_ztf_circle
 from ztf_viewer.exceptions import NotFound
-from ztf_viewer.util import html_from_astropy_table
+from ztf_viewer.util import dash_table_from_astropy_table
 
 COLUMNS = {
     "oid": "OID",
@@ -30,14 +29,18 @@ def get_layout(coordinates, radius_arcsec, dr):
         )
     table = Table(
         [
-            dict(oid=f'<a href="/{dr}/view/{oid}">{oid}</a>', separation=obj["separation"], **obj["meta"])
+            dict(oid=oid, separation=obj["separation"], **obj["meta"])
             for oid, obj in sorted(j.items(), key=lambda x: x[1]["separation"])
         ]
     )
     layout = html.Div(
         [
             html.H1(f"Objects inside cone {cone_str}"),
-            ddsih.DangerouslySetInnerHTML(html_from_astropy_table(table, COLUMNS)),
+            dash_table_from_astropy_table(
+                table,
+                COLUMNS,
+                cell_renderers={"oid": lambda oid: html.A(oid, href=f"/{dr}/view/{oid}")},
+            ),
         ],
     )
     return layout

@@ -5,8 +5,6 @@ from itertools import chain
 from typing import Any
 from urllib.parse import parse_qs, urlencode, urljoin, urlparse
 
-import dash_dangerously_set_inner_html as ddsih
-import dash_defer_js_import as dji
 import numpy as np
 import pandas as pd
 import plotly.express as px
@@ -48,7 +46,7 @@ from ztf_viewer.util import (
     ZTF_FILTERS,
     available_drs,
     format_sep,
-    html_from_astropy_table,
+    dash_table_from_astropy_table,
     immutabledefaultdict,
     list_join,
     min_max_mjd_short,
@@ -336,7 +334,7 @@ def get_layout(pathname, search):
                     html.Div(
                         [
                             html.Div(className="JS9", id="JS9"),
-                            dji.Import(src="/static/js/js9_helper.js"),
+                            html.Script(src="/static/js/js9_helper.js"),
                             html.Div(id="fits-to-show"),
                             html.Div(id="skybot"),
                         ],
@@ -444,7 +442,7 @@ def get_layout(pathname, search):
                                 id="aladin-lite-div",
                                 style={"width": "450px", "height": "450px"},
                             ),
-                            dji.Import(src="/static/js/aladin_helper.js"),
+                            html.Script(src="/static/js/aladin_helper.js"),
                         ],
                         style={"width": "20%", "display": "inline-block", "vertical-align": "top"},
                         id="aladin-layout",
@@ -2049,7 +2047,7 @@ def set_table(radius, oid, dr, catalog):
     table = table.copy()
     div = html.Div(
         [
-            ddsih.DangerouslySetInnerHTML(html_from_astropy_table(table, query.columns)),
+            dash_table_from_astropy_table(table, query.columns),
         ],
     )
     return div

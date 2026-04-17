@@ -6,6 +6,7 @@ import re
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from functools import wraps
+from html.parser import HTMLParser
 from itertools import chain, count
 from typing import Callable
 
@@ -14,8 +15,8 @@ import numpy as np
 from astropy import units
 from astropy.coordinates import EarthLocation
 from astropy.time import Time
+from dash import html
 from immutabledict import immutabledict
-from jinja2 import Template
 
 YEAR = datetime.datetime.now().year
 
@@ -86,28 +87,81 @@ def hms_to_deg(hms: str):
     return deg
 
 
-def html_from_astropy_table(table: astropy.table.Table, columns: dict):
-    template = Template("""
-        <table id="simbad-table">
-        <tr>
-        {% for column in columns %}
-            <td>{{columns[column]}}</td>
-        {% endfor %}
-        </tr>
-        {% for row in table %}
-            <tr>
-            {% for cell in row %}
-                <td>{{cell}}</td>
-            {% endfor %}
-            </tr>
-        {% endfor %}
-        </table>
-    """)
+class _DashHTMLParser(HTMLParser):
+    """Parse a simple HTML string into Dash components.
+
+    Handles <a>, <img>, and wraps unknown tags in html.Span.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self._result = []
+        self._stack = []  # list of (tag, attrs_dict, children)
+
+    def handle_starttag(self, tag, attrs):
+        self._stack.append((tag, dict(attrs), []))
+
+    def handle_startendtag(self, tag, attrs):
+        # Self-closing tags like <img />
+        component = self._make_component(tag, dict(attrs), [])
+        (self._stack[-1][2] if self._stack else self._result).append(component)
+
+    def handle_endtag(self, tag):
+        if not self._stack or self._stack[-1][0] != tag:
+            return
+        _, attrs, children = self._stack.pop()
+        component = self._make_component(tag, attrs, children)
+        (self._stack[-1][2] if self._stack else self._result).append(component)
+
+    def handle_data(self, data):
+        (self._stack[-1][2] if self._stack else self._result).append(data)
+
+    def _make_component(self, tag, attrs, children):
+        kids = children[0] if len(children) == 1 else (children or None)
+        if tag == "a":
+            return html.A(kids, href=attrs.get("href", "#"), target=attrs.get("target"))
+        if tag == "img":
+            return html.Img(src=attrs.get("src", ""), width=attrs.get("width"))
+        return html.Span(kids)
+
+    def get_result(self):
+        if not self._result:
+            return ""
+        return self._result[0] if len(self._result) == 1 else self._result
+
+
+def _render_cell(value):
+    """Render a cell value: parse HTML strings into Dash components, pass other values through."""
+    if isinstance(value, str) and "<" in value:
+        parser = _DashHTMLParser()
+        parser.feed(value)
+        return parser.get_result()
+    return value
+
+
+def dash_table_from_astropy_table(table: astropy.table.Table, columns: dict, cell_renderers: dict = None):
+    """Convert an astropy Table to a Dash html.Table component.
+
+    columns: dict mapping column_name -> display_label
+    cell_renderers: optional dict mapping column_name -> callable(raw_value) -> Dash component or str.
+                    Columns not in cell_renderers are converted to str via to_str(), then rendered
+                    with _render_cell (which handles HTML strings via dcc.Markdown).
+    """
+    if cell_renderers is None:
+        cell_renderers = {}
     table = table[list(columns.keys())].copy()
     for column in table.colnames:
-        table[column] = [to_str(x) for x in table[column]]
-    html = template.render(table=table, columns=columns)
-    return html
+        if column not in cell_renderers:
+            table[column] = [to_str(x) for x in table[column]]
+    header = html.Thead(html.Tr([html.Td(_render_cell(label)) for label in columns.values()]))
+    rows = [
+        html.Tr([
+            html.Td(cell_renderers[col](row[col]) if col in cell_renderers else _render_cell(row[col]))
+            for col in columns
+        ])
+        for row in table
+    ]
+    return html.Table([header, html.Tbody(rows)], id="simbad-table")
 
 
 def to_str(s, *, float_decimal_digits=3):
