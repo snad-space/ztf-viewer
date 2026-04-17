@@ -87,10 +87,23 @@ def hms_to_deg(hms: str):
     return deg
 
 
+_TAG_TO_COMPONENT = {
+    "a": html.A,
+    "b": html.B,
+    "div": html.Div,
+    "i": html.I,
+    "img": html.Img,
+    "span": html.Span,
+    "sub": html.Sub,
+    "sup": html.Sup,
+}
+
+
 class _DashHTMLParser(HTMLParser):
     """Parse a simple HTML string into Dash components.
 
-    Handles <a>, <img>, and wraps unknown tags in html.Span.
+    Supports <a>, <b>, <div>, <i>, <img>, <span>, <sub>, <sup> with their
+    class and style attributes preserved. Unknown tags are wrapped in Span.
     """
 
     def __init__(self):
@@ -110,6 +123,8 @@ class _DashHTMLParser(HTMLParser):
         if not self._stack or self._stack[-1][0] != tag:
             return
         _, attrs, children = self._stack.pop()
+        # Strip whitespace-only text nodes that are just formatting whitespace
+        children = [c for c in children if not (isinstance(c, str) and not c.strip())]
         component = self._make_component(tag, attrs, children)
         (self._stack[-1][2] if self._stack else self._result).append(component)
 
@@ -118,16 +133,21 @@ class _DashHTMLParser(HTMLParser):
 
     def _make_component(self, tag, attrs, children):
         kids = children[0] if len(children) == 1 else (children or None)
+        cls = attrs.get("class")
+        kw = {"className": cls} if cls else {}
         if tag == "a":
-            return html.A(kids, href=attrs.get("href", "#"), target=attrs.get("target"))
+            return html.A(kids, href=attrs.get("href", "#"), target=attrs.get("target"), **kw)
         if tag == "img":
-            return html.Img(src=attrs.get("src", ""), width=attrs.get("width"))
-        return html.Span(kids)
+            return html.Img(src=attrs.get("src", ""), width=attrs.get("width"), **kw)
+        component_cls = _TAG_TO_COMPONENT.get(tag, html.Span)
+        return component_cls(kids, **kw)
 
     def get_result(self):
-        if not self._result:
+        # Strip surrounding whitespace-only text nodes
+        result = [c for c in self._result if not (isinstance(c, str) and not c.strip())]
+        if not result:
             return ""
-        return self._result[0] if len(self._result) == 1 else self._result
+        return result[0] if len(result) == 1 else result
 
 
 def _render_cell(value):
