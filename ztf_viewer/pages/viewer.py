@@ -847,9 +847,9 @@ def show_error_message(message_fit, message_curve, list_models, old_header):
     new_header = old_header
     if len(list_models) == 0:
         new_header = "API is unavailable"
-    elif len(message_fit) > 0:
+    elif message_fit and len(message_fit) > 0:
         new_header = message_fit
-    elif len(message_curve) > 0:
+    elif message_curve and len(message_curve) > 0:
         new_header = message_curve
     return new_header
 
@@ -944,11 +944,16 @@ def fit_lc(
     lcs = list(chain.from_iterable(lcs.values()))
     df = pd.DataFrame.from_records(lcs)
     coord = find_ztf_oid.get_sky_coord(cur_oid, dr)
-    ebv = sfd.ebv(coord)
+    try:
+        ebv = sfd.ebv(coord)
+    except OSError:
+        ebv = None
     items = []
     params = {}
     message = ""
     if name_model:
+        if ebv is None:
+            return [], {}, "Extinction data unavailable, cannot fit model"
         response = model_fit.fit(df, name_model, dr, ebv)
         params = response.data["parameters"]
         message = response.message
@@ -1524,7 +1529,10 @@ def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_v
     if "zg" in mean_mag and "zr" in mean_mag:
         elements["Average mag (including neighbourhood)"].append(f'(zg–zr) {mean_mag["zg"] - mean_mag["zr"]: .2f}')
 
-    elements["Extinction"] = [f"SFD E(B-V) = {sfd.ebv(coord):.2f}"]
+    try:
+        elements["Extinction"] = [f"SFD E(B-V) = {sfd.ebv(coord):.2f}"]
+    except OSError:
+        pass
     try:
         table = get_catalog_query("Gaia EDR3 Distances").find(ra, dec, 1)
         row = QTable(table[np.argmin(table["separation"])])
