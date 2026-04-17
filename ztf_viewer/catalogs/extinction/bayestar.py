@@ -5,6 +5,8 @@ from dustmaps.bayestar import BayestarQuery as LocalQuery
 from dustmaps.bayestar import BayestarWebQuery as WebQuery
 
 from ztf_viewer.catalogs.extinction._base import _BaseLocalRemoteExtinctionQuery
+from ztf_viewer.config import NO_LOCAL_3D_DUST_MAP
+from ztf_viewer.exceptions import CatalogUnavailable
 
 
 class BayestarQuery(_BaseLocalRemoteExtinctionQuery):
@@ -18,6 +20,8 @@ class BayestarQuery(_BaseLocalRemoteExtinctionQuery):
         return self._web_query(coord, mode="best")
 
     def new_local_query(self):
+        if NO_LOCAL_3D_DUST_MAP:
+            raise CatalogUnavailable("Local 3D dust map disabled via NO_LOCAL_3D_DUST_MAP")
         return partial(LocalQuery(max_samples=0), mode="best")
 
     def ebv(self, coord):
