@@ -14,6 +14,7 @@ services:
       - DYNDNS_HOST=${SUBDOMAIN}.ztf.snad.space
       - LETSENCRYPT_HOST=${SUBDOMAIN}.ztf.snad.space
       - LETSENCRYPT_EMAIL=letsencrypt@snad.space
+      - NO_LOCAL_3D_DUST_MAP=1
     networks:
       - app
       - proxy
