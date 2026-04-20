@@ -317,17 +317,56 @@ def get_layout(pathname, search):
                                 [
                                     html.Div(
                                         [
-                                            html.B("Reference:"),
-                                            html.Div(id="ref-mag"),
+                                            html.Div(
+                                                [
+                                                    html.H3("Supernova model"),
+                                                    dcc.Dropdown(
+                                                        model_fit.get_list_models().data["models"],
+                                                        id="models-fit-dd",
+                                                        style={"width": "200px", "marginLeft": "20px"},
+                                                    ),
+                                                    html.Div(id="dd-chosen-model"),
+                                                ],
+                                                style={"display": "flex", "alignItems": "center"},
+                                            ),
+                                            html.Div(
+                                                [
+                                                    html.H3(id="results-fit-header", children="Parameters"),
+                                                    html.Div(id="results-fit"),
+                                                ],
+                                                id="results-fit-layout",
+                                                style={"display": "none"},
+                                            ),
+                                            dcc.Store(id="results-fit-hidden"),
+                                            html.Div(
+                                                id="error-fit-curve-message-hidden",
+                                                style={"display": "none"},
+                                            ),
+                                            html.Div(
+                                                id="error-fitting-message-hidden",
+                                                style={"display": "none"},
+                                            ),
                                         ],
-                                        style={
-                                            "display": "inline-block",
-                                            "vertical-align": "top",
-                                        },
+                                        style={"flex": "1", "verticalAlign": "top"},
+                                    ),
+                                    html.Div(
+                                        [
+                                            html.Div(
+                                                [
+                                                    html.B("Reference:"),
+                                                    html.Div(id="ref-mag"),
+                                                ],
+                                                style={
+                                                    "display": "inline-block",
+                                                    "vertical-align": "top",
+                                                },
+                                            ),
+                                        ],
+                                        id="ref-mag-layout",
+                                        style={"display": "none", "verticalAlign": "top", "marginLeft": "40px"},
                                     ),
                                 ],
-                                id="ref-mag-layout",
-                                style={"display": "none"},
+                                style={"display": "flex", "alignItems": "flex-start"},
                             ),
                         ],
                         id="graph-layout",
@@ -343,41 +382,12 @@ def get_layout(pathname, search):
                         style={"min-width": "450px", "width": "20%", "vertical-align": "top", "flex-shrink": 0},
                     ),
                 ],
-                style={"display": "flex", "min-width": "100%", "overflow-x": "auto"},
+                style={"display": "flex"},
             ),
             html.Div(
                 [
                     html.Div(
                         [
-                            html.Div(
-                                [
-                                    html.H2("Supernova model"),
-                                    dcc.Dropdown(
-                                        model_fit.get_list_models().data["models"],
-                                        id="models-fit-dd",
-                                        style={"width": "200px", "marginLeft": "20px"},
-                                    ),
-                                    html.Div(id="dd-chosen-model"),
-                                ],
-                                style={"display": "flex", "alignItems": "center"},
-                            ),
-                            html.Div(
-                                [
-                                    html.H3(id="results-fit-header", children="Parameters"),
-                                    html.Div(id="results-fit"),
-                                ],
-                                id="results-fit-layout",
-                                style={"display": "none"},
-                            ),
-                            dcc.Store(id="results-fit-hidden"),
-                            html.Div(
-                                id="error-fit-curve-message-hidden",
-                                style={"display": "none"},
-                            ),
-                            html.Div(
-                                id="error-fitting-message-hidden",
-                                style={"display": "none"},
-                            ),
                             html.Div(
                                 [
                                     html.H2("Summary"),
@@ -867,14 +877,10 @@ def show_error_message(message_fit, message_curve, list_models, old_header):
         Input("different_field_neighbours", "children"),
         Input("min-mjd", "value"),
         Input("max-mjd", "value"),
-        Input("light-curve-type", "value"),
-        Input("fold-period", "value"),
-        Input("fold-zero-phase", "value"),
         Input(dict(type="ref-mag-input", index=ALL), "id"),
         Input(dict(type="ref-mag-input", index=ALL), "value"),
         Input(dict(type="ref-magerr-input", index=ALL), "id"),
         Input(dict(type="ref-magerr-input", index=ALL), "value"),
-        Input("additional-light-curves", "value"),
         Input("models-fit-dd", "value"),
     ],
 )
@@ -885,19 +891,12 @@ def fit_lc(
     different_field,
     min_mjd,
     max_mjd,
-    lc_type,
-    period,
-    phase0,
     ref_mag_ids,
     ref_mag_values,
     ref_magerr_ids,
     ref_magerr_values,
-    additional_lc_types,
     name_model,
 ):
-    if lc_type == "folded" and not period:
-        raise PreventUpdate
-
     if min_mjd is not None and max_mjd is not None and min_mjd >= max_mjd:
         raise PreventUpdate
 
@@ -908,41 +907,7 @@ def fit_lc(
         float, {id["index"]: value for id, value in zip(ref_magerr_ids, ref_magerr_values) if value is not None}
     )
 
-    external_data = immutabledict(
-        {value: immutabledict({"radius_arcsec": ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC}) for value in additional_lc_types}
-    )
-
     other_oids = neighbour_oids(different_filter, different_field)
-    if lc_type == "full":
-        lcs = get_plot_data(
-            cur_oid,
-            dr,
-            other_oids=other_oids,
-            min_mjd=min_mjd,
-            max_mjd=max_mjd,
-            ref_mag=ref_mag,
-            ref_magerr=ref_magerr,
-            external_data=external_data,
-        )
-    elif lc_type == "folded":
-        offset = -(phase0 or 0.0) * period
-        lcs = get_folded_plot_data(
-            cur_oid,
-            dr,
-            period=period,
-            offset=offset,
-            other_oids=other_oids,
-            min_mjd=min_mjd,
-            max_mjd=max_mjd,
-            ref_mag=ref_mag,
-            ref_magerr=ref_magerr,
-            external_data=external_data,
-        )
-    else:
-        raise ValueError(f"{lc_type = } is unknown")
-
-    lcs = list(chain.from_iterable(lcs.values()))
-    df = pd.DataFrame.from_records(lcs)
     coord = find_ztf_oid.get_sky_coord(cur_oid, dr)
     try:
         ebv = sfd.ebv(coord)
@@ -952,17 +917,30 @@ def fit_lc(
     params = {}
     message = ""
     if name_model:
+        if not any(v is not None for v in ref_mag_values):
+            raise PreventUpdate
         if ebv is None:
             return [], {}, "Extinction data unavailable, cannot fit model"
-        response = model_fit.fit(df, name_model, dr, ebv)
+        oids = (cur_oid,) + tuple(sorted(other_oids))
+        response = model_fit.fit(
+            oids,
+            dr,
+            fit_model=name_model,
+            ebv=ebv,
+            min_mjd=min_mjd,
+            max_mjd=max_mjd,
+            ref_mag=ref_mag,
+            ref_magerr=ref_magerr,
+        )
         params = response.data["parameters"]
         message = response.message
-        items = [f"**{k}**: {np.round(float(v), 3) if k!='amplitude' else f'{v:.2e}' }" for k, v in params.items()]
+        items = [(k, np.round(float(v), 3) if k != "amplitude" else f"{v:.2e}") for k, v in params.items()]
     params_show = html.Div(
-        [dcc.Markdown(item, style={"display": "inline-block"}) for item in items],
+        [html.Span([html.B(f"{k}"), f": {v}"]) for k, v in items],
         style={
             "display": "flex",
-            "gap": "40px",
+            "columnGap": "40px",
+            "rowGap": "4px",
             "flexWrap": "wrap",
             "fontFamily": "monospace",
             "fontSize": "15px",
@@ -1277,13 +1255,14 @@ def get_panstarrs_lc_option(oid, dr, old):
     Output("ref-mag-layout", "style"),
     [
         Input("light-curve-brightness", "value"),
+        Input("models-fit-dd", "value"),
     ],
     [State("ref-mag-layout", "style")],
 )
-def show_ref_mag_layout(brightness_type, old_style):
+def show_ref_mag_layout(brightness_type, name_model, old_style):
     style = old_style.copy()
-    if brightness_type in {"diffmag", "diffflux"}:
-        style["display"] = "inline"
+    if brightness_type in {"diffmag", "diffflux"} or name_model:
+        style["display"] = "block"
     else:
         style["display"] = "none"
     return style
@@ -1297,10 +1276,11 @@ def show_ref_mag_layout(brightness_type, old_style):
         Input("different_filter_neighbours", "children"),
         Input("different_field_neighbours", "children"),
         Input("light-curve-brightness", "value"),
+        Input("models-fit-dd", "value"),
     ],
 )
-def show_ref_mag_or_magerr(oid, dr, different_filter, different_field, brightness_type):
-    if brightness_type not in {"diffmag", "diffflux"}:
+def show_ref_mag_or_magerr(oid, dr, different_filter, different_field, brightness_type, name_model):
+    if brightness_type not in {"diffmag", "diffflux"} and not name_model:
         raise PreventUpdate
     oids = sorted(neighbour_oids(different_filter, different_field) | {oid}, key=int)
 
@@ -1777,7 +1757,17 @@ def set_figure(
         raise ValueError(f"{lc_type = } is unknown")
     message_fit = ""
     if fit_params:
-        response = model_fit.get_curve(df, dr, bright, fit_params, name_model)
+        oids = (cur_oid,) + tuple(sorted(other_oids))
+        response = model_fit.get_curve(
+            oids,
+            dr,
+            bright=bright,
+            params=immutabledict(fit_params),
+            name_model=name_model,
+            min_mjd=min_mjd,
+            max_mjd=max_mjd,
+            ref_mag=ref_mag,
+        )
         df_fit = pd.DataFrame.from_records(response.data["bright"])
         message_fit = response.message
         if len(df_fit) > 0:
