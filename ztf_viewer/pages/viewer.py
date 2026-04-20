@@ -30,7 +30,7 @@ from ztf_viewer.catalogs.conesearch import (
     catalog_query_objects,
     get_catalog_query,
 )
-from ztf_viewer.catalogs.extinction import bayestar, sfd
+from ztf_viewer.catalogs.extinction import bayestar, csfd
 from ztf_viewer.catalogs.skybot import SKYBOT_QUERY
 from ztf_viewer.catalogs.snad.catalog import snad_catalog
 from ztf_viewer.catalogs.vizier import find_vizier, vizier_catalog_details
@@ -910,7 +910,7 @@ def fit_lc(
     other_oids = neighbour_oids(different_filter, different_field)
     coord = find_ztf_oid.get_sky_coord(cur_oid, dr)
     try:
-        ebv = sfd.ebv(coord)
+        ebv = csfd.ebv(coord)
     except CatalogUnavailable:
         ebv = None
     items = []
@@ -1510,7 +1510,7 @@ def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_v
         elements["Average mag (including neighbourhood)"].append(f'(zg–zr) {mean_mag["zg"] - mean_mag["zr"]: .2f}')
 
     try:
-        elements["Extinction"] = [f"SFD E(B-V) = {sfd.ebv(coord):.2f}"]
+        elements["Extinction"] = [f"CSFD E(B-V) = {csfd.ebv(coord):.2f}"]
     except CatalogUnavailable:
         pass
     try:
