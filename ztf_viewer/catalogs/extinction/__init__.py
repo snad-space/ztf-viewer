@@ -1,2 +1,2 @@
 from .bayestar import bayestar
-from .sfd import sfd
+from .csfd import csfd
