@@ -1,12 +1,8 @@
-import numpy as np
-import pandas as pd
 import requests
 from pydantic import BaseModel
 from typing import Literal, List, Dict, Optional
-from ztf_viewer.catalogs.ztf_ref import ztf_ref
 from ztf_viewer.config import MODEL_FIT_API_URL
-from ztf_viewer.exceptions import NotFound, CatalogUnavailable
-from ztf_viewer.util import ABZPMAG_JY, LN10_04
+from ztf_viewer.util import ABZPMAG_JY
 
 
 def post_request(url, data):
@@ -85,24 +81,7 @@ class ModelFit:
     def __init__(self):
         self._api_session = requests.Session()
 
-    def fit(self, df, fit_model, dr, ebv):
-        df = df.copy()
-        if (df["ref_flux"] == 0.0).all():  # Checking for ref-values
-            oid_ref = {}
-            for objectid in df["oid"].unique():
-                try:
-                    ref = ztf_ref.get(objectid, dr)
-                except (NotFound, CatalogUnavailable):
-                    return {"error": "ZTF Reference catalog is unavailable"}
-                ref_mag = float(np.round(ref["mag"] + ref["magzp"], 3))
-                ref_magerr = float(np.round(ref["sigmag"], 3))
-                oid_ref[objectid] = {"mag": ref_mag, "err": ref_magerr}
-            df["ref_flux"] = df["oid"].apply(lambda x: 10 ** (-0.4 * (oid_ref[x]["mag"] - ABZPMAG_JY)))
-            df["diffflux_Jy"] = df["flux_Jy"] - df["ref_flux"]
-            df["difffluxerr_Jy"] = [
-                np.hypot(fluxerr, LN10_04 * ref_flux * oid_ref[oid]["err"])
-                for fluxerr, ref_flux, oid in zip(df["fluxerr_Jy"], df["ref_flux"], df["oid"])
-            ]
+    def fit(self, df, fit_model, ebv):
         res_fit = post_request(
             self._fit_api_url,
             Target(
@@ -126,23 +105,11 @@ class ModelFit:
         else:
             return Response(success=res_fit["success"], data={"parameters": {}}, message=res_fit["body"])
 
-    def get_curve(self, df, dr, bright, params, name_model):
+    def get_curve(self, df, bright, params, name_model):
         band_ref = {}
         band_list = ["ztf" + str(band[1:]) for band in df["filter"].unique()]
         mjd_min = df["mjd"].min()
         mjd_max = df["mjd"].max()
-        df = df.copy()
-        if (df["ref_flux"] == 0.0).all():  # Checking for ref-values
-            oid_ref = {}
-            try:
-                for objectid in df["oid"].unique():
-                    ref = ztf_ref.get(objectid, dr)
-                    ref_mag = float(np.round(ref["mag"] + ref["magzp"], 3))
-                    oid_ref[objectid] = ref_mag
-                df["ref_flux"] = df["oid"].apply(lambda x: 10 ** (-0.4 * (oid_ref[x] - ABZPMAG_JY)))
-            except (NotFound, CatalogUnavailable):
-                print("Catalog error")
-                return pd.DataFrame.from_records([])
 
         for band in df["filter"].unique():
             band_ref[band] = df[df["filter"] == band]["ref_flux"].mean().astype(float)

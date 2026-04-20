@@ -952,9 +952,11 @@ def fit_lc(
     params = {}
     message = ""
     if name_model:
+        if not any(v is not None for v in ref_mag_values):
+            raise PreventUpdate
         if ebv is None:
             return [], {}, "Extinction data unavailable, cannot fit model"
-        response = model_fit.fit(df, name_model, dr, ebv)
+        response = model_fit.fit(df, name_model, ebv)
         params = response.data["parameters"]
         message = response.message
         items = [f"**{k}**: {np.round(float(v), 3) if k!='amplitude' else f'{v:.2e}' }" for k, v in params.items()]
@@ -1277,12 +1279,13 @@ def get_panstarrs_lc_option(oid, dr, old):
     Output("ref-mag-layout", "style"),
     [
         Input("light-curve-brightness", "value"),
+        Input("models-fit-dd", "value"),
     ],
     [State("ref-mag-layout", "style")],
 )
-def show_ref_mag_layout(brightness_type, old_style):
+def show_ref_mag_layout(brightness_type, name_model, old_style):
     style = old_style.copy()
-    if brightness_type in {"diffmag", "diffflux"}:
+    if brightness_type in {"diffmag", "diffflux"} or name_model:
         style["display"] = "inline"
     else:
         style["display"] = "none"
@@ -1297,10 +1300,11 @@ def show_ref_mag_layout(brightness_type, old_style):
         Input("different_filter_neighbours", "children"),
         Input("different_field_neighbours", "children"),
         Input("light-curve-brightness", "value"),
+        Input("models-fit-dd", "value"),
     ],
 )
-def show_ref_mag_or_magerr(oid, dr, different_filter, different_field, brightness_type):
-    if brightness_type not in {"diffmag", "diffflux"}:
+def show_ref_mag_or_magerr(oid, dr, different_filter, different_field, brightness_type, name_model):
+    if brightness_type not in {"diffmag", "diffflux"} and not name_model:
         raise PreventUpdate
     oids = sorted(neighbour_oids(different_filter, different_field) | {oid}, key=int)
 
@@ -1777,7 +1781,7 @@ def set_figure(
         raise ValueError(f"{lc_type = } is unknown")
     message_fit = ""
     if fit_params:
-        response = model_fit.get_curve(df, dr, bright, fit_params, name_model)
+        response = model_fit.get_curve(df, bright, fit_params, name_model)
         df_fit = pd.DataFrame.from_records(response.data["bright"])
         message_fit = response.message
         if len(df_fit) > 0:
