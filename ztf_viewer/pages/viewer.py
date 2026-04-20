@@ -382,7 +382,7 @@ def get_layout(pathname, search):
                         style={"min-width": "450px", "width": "20%", "vertical-align": "top", "flex-shrink": 0},
                     ),
                 ],
-                style={"display": "flex", "min-width": "100%", "overflow-x": "auto"},
+                style={"display": "flex"},
             ),
             html.Div(
                 [
