@@ -1,8 +1,12 @@
+import numpy as np
 import requests
 from pydantic import BaseModel
 from typing import Literal, List, Dict, Optional
+
+from ztf_viewer.cache import cache
+from ztf_viewer.catalogs.ztf_dr import find_ztf_oid
 from ztf_viewer.config import MODEL_FIT_API_URL
-from ztf_viewer.util import ABZPMAG_JY
+from ztf_viewer.util import ABZPMAG_JY, LN10_04, immutabledefaultdict
 
 
 def post_request(url, data):
@@ -75,48 +79,85 @@ class ModelFit:
     _models_api_url = _base_api_url + "/models"
     _fit_api_url = _base_api_url + "/sncosmo/fit"
     _get_curve_api_url = _base_api_url + "/sncosmo/get_curve"
-    bright_fit = "diffflux_Jy"
-    brighterr_fit = "difffluxerr_Jy"
 
     def __init__(self):
         self._api_session = requests.Session()
 
-    def fit(self, df, fit_model, ebv):
+    @cache()
+    def fit(
+        self,
+        oids: tuple[int],
+        dr: str,
+        *,
+        fit_model: str,
+        ebv: float,
+        min_mjd=None,
+        max_mjd=None,
+        ref_mag,
+        ref_magerr=immutabledefaultdict(float),
+    ):
+        observations = []
+        for oid in oids:
+            lc = find_ztf_oid.get_lc(oid, dr, min_mjd=min_mjd, max_mjd=max_mjd)
+            flt = find_ztf_oid.get_meta(oid, dr)["filter"]
+            ref_flux = 10 ** (-0.4 * (ref_mag[oid] - ABZPMAG_JY))
+            ref_fluxerr = LN10_04 * ref_flux * ref_magerr[oid]
+            for obs in lc:
+                flux_Jy = 10 ** (-0.4 * (obs["mag"] - ABZPMAG_JY))
+                fluxerr_Jy = LN10_04 * flux_Jy * obs["magerr"]
+                diffflux_Jy = flux_Jy - ref_flux
+                difffluxerr_Jy = float(np.hypot(fluxerr_Jy, ref_fluxerr))
+                observations.append(
+                    Observation(
+                        mjd=float(obs["mjd"]),
+                        flux=float(diffflux_Jy),
+                        fluxerr=difffluxerr_Jy,
+                        band="ztf" + flt[1:],
+                    )
+                )
         res_fit = post_request(
             self._fit_api_url,
-            Target(
-                light_curve=[
-                    Observation(
-                        mjd=float(mjd),
-                        flux=float(br),
-                        fluxerr=float(br_err),
-                        band="ztf" + str(band[1:]),
-                    )
-                    for br, mjd, br_err, band in zip(
-                        df[self.bright_fit], df["mjd"], df[self.brighterr_fit], df["filter"]
-                    )
-                ],
-                ebv=ebv,
-                name_model=fit_model,
-            ),
+            Target(light_curve=observations, ebv=ebv, name_model=fit_model),
         )
         if res_fit["success"]:
             return Response(success=res_fit["success"], data=res_fit["body"])
         else:
             return Response(success=res_fit["success"], data={"parameters": {}}, message=res_fit["body"])
 
-    def get_curve(self, df, bright, params, name_model):
-        band_ref = {}
-        band_list = ["ztf" + str(band[1:]) for band in df["filter"].unique()]
-        mjd_min = df["mjd"].min()
-        mjd_max = df["mjd"].max()
+    def get_curve(
+        self,
+        oids: tuple[int],
+        dr: str,
+        *,
+        bright: str,
+        params: dict,
+        name_model: str,
+        min_mjd=None,
+        max_mjd=None,
+        ref_mag,
+    ):
+        band_ref_sums = {}
+        band_ref_counts = {}
+        mjd_values = []
 
-        for band in df["filter"].unique():
-            band_ref[band] = df[df["filter"] == band]["ref_flux"].mean().astype(float)
+        for oid in oids:
+            lc = find_ztf_oid.get_lc(oid, dr, min_mjd=min_mjd, max_mjd=max_mjd)
+            flt = find_ztf_oid.get_meta(oid, dr)["filter"]
+            ref_flux = 10 ** (-0.4 * (ref_mag[oid] - ABZPMAG_JY))
+            for obs in lc:
+                mjd_values.append(obs["mjd"])
+                band_ref_sums[flt] = band_ref_sums.get(flt, 0.0) + ref_flux
+                band_ref_counts[flt] = band_ref_counts.get(flt, 0) + 1
+
+        band_ref = {flt: band_ref_sums[flt] / band_ref_counts[flt] for flt in band_ref_sums}
+        band_list = ["ztf" + flt[1:] for flt in band_ref]
+        mjd_min = min(mjd_values)
+        mjd_max = max(mjd_values)
+
         res_curve = post_request(
             self._get_curve_api_url,
             ModelData(
-                parameters=params,
+                parameters=dict(params),
                 name_model=name_model,
                 band_list=band_list,
                 t_min=mjd_min,

@@ -867,14 +867,10 @@ def show_error_message(message_fit, message_curve, list_models, old_header):
         Input("different_field_neighbours", "children"),
         Input("min-mjd", "value"),
         Input("max-mjd", "value"),
-        Input("light-curve-type", "value"),
-        Input("fold-period", "value"),
-        Input("fold-zero-phase", "value"),
         Input(dict(type="ref-mag-input", index=ALL), "id"),
         Input(dict(type="ref-mag-input", index=ALL), "value"),
         Input(dict(type="ref-magerr-input", index=ALL), "id"),
         Input(dict(type="ref-magerr-input", index=ALL), "value"),
-        Input("additional-light-curves", "value"),
         Input("models-fit-dd", "value"),
     ],
 )
@@ -885,19 +881,12 @@ def fit_lc(
     different_field,
     min_mjd,
     max_mjd,
-    lc_type,
-    period,
-    phase0,
     ref_mag_ids,
     ref_mag_values,
     ref_magerr_ids,
     ref_magerr_values,
-    additional_lc_types,
     name_model,
 ):
-    if lc_type == "folded" and not period:
-        raise PreventUpdate
-
     if min_mjd is not None and max_mjd is not None and min_mjd >= max_mjd:
         raise PreventUpdate
 
@@ -908,41 +897,7 @@ def fit_lc(
         float, {id["index"]: value for id, value in zip(ref_magerr_ids, ref_magerr_values) if value is not None}
     )
 
-    external_data = immutabledict(
-        {value: immutabledict({"radius_arcsec": ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC}) for value in additional_lc_types}
-    )
-
     other_oids = neighbour_oids(different_filter, different_field)
-    if lc_type == "full":
-        lcs = get_plot_data(
-            cur_oid,
-            dr,
-            other_oids=other_oids,
-            min_mjd=min_mjd,
-            max_mjd=max_mjd,
-            ref_mag=ref_mag,
-            ref_magerr=ref_magerr,
-            external_data=external_data,
-        )
-    elif lc_type == "folded":
-        offset = -(phase0 or 0.0) * period
-        lcs = get_folded_plot_data(
-            cur_oid,
-            dr,
-            period=period,
-            offset=offset,
-            other_oids=other_oids,
-            min_mjd=min_mjd,
-            max_mjd=max_mjd,
-            ref_mag=ref_mag,
-            ref_magerr=ref_magerr,
-            external_data=external_data,
-        )
-    else:
-        raise ValueError(f"{lc_type = } is unknown")
-
-    lcs = list(chain.from_iterable(lcs.values()))
-    df = pd.DataFrame.from_records(lcs)
     coord = find_ztf_oid.get_sky_coord(cur_oid, dr)
     try:
         ebv = sfd.ebv(coord)
@@ -956,7 +911,17 @@ def fit_lc(
             raise PreventUpdate
         if ebv is None:
             return [], {}, "Extinction data unavailable, cannot fit model"
-        response = model_fit.fit(df, name_model, ebv)
+        oids = (cur_oid,) + tuple(sorted(other_oids))
+        response = model_fit.fit(
+            oids,
+            dr,
+            fit_model=name_model,
+            ebv=ebv,
+            min_mjd=min_mjd,
+            max_mjd=max_mjd,
+            ref_mag=ref_mag,
+            ref_magerr=ref_magerr,
+        )
         params = response.data["parameters"]
         message = response.message
         items = [f"**{k}**: {np.round(float(v), 3) if k!='amplitude' else f'{v:.2e}' }" for k, v in params.items()]
@@ -1781,7 +1746,17 @@ def set_figure(
         raise ValueError(f"{lc_type = } is unknown")
     message_fit = ""
     if fit_params:
-        response = model_fit.get_curve(df, bright, fit_params, name_model)
+        oids = (cur_oid,) + tuple(sorted(other_oids))
+        response = model_fit.get_curve(
+            oids,
+            dr,
+            bright=bright,
+            params=immutabledict(fit_params),
+            name_model=name_model,
+            min_mjd=min_mjd,
+            max_mjd=max_mjd,
+            ref_mag=ref_mag,
+        )
         df_fit = pd.DataFrame.from_records(response.data["bright"])
         message_fit = response.message
         if len(df_fit) > 0:
