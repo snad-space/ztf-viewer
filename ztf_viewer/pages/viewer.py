@@ -317,17 +317,56 @@ def get_layout(pathname, search):
                                 [
                                     html.Div(
                                         [
-                                            html.B("Reference:"),
-                                            html.Div(id="ref-mag"),
+                                            html.Div(
+                                                [
+                                                    html.H3("Supernova model"),
+                                                    dcc.Dropdown(
+                                                        model_fit.get_list_models().data["models"],
+                                                        id="models-fit-dd",
+                                                        style={"width": "200px", "marginLeft": "20px"},
+                                                    ),
+                                                    html.Div(id="dd-chosen-model"),
+                                                ],
+                                                style={"display": "flex", "alignItems": "center"},
+                                            ),
+                                            html.Div(
+                                                [
+                                                    html.H3(id="results-fit-header", children="Parameters"),
+                                                    html.Div(id="results-fit"),
+                                                ],
+                                                id="results-fit-layout",
+                                                style={"display": "none"},
+                                            ),
+                                            dcc.Store(id="results-fit-hidden"),
+                                            html.Div(
+                                                id="error-fit-curve-message-hidden",
+                                                style={"display": "none"},
+                                            ),
+                                            html.Div(
+                                                id="error-fitting-message-hidden",
+                                                style={"display": "none"},
+                                            ),
                                         ],
-                                        style={
-                                            "display": "inline-block",
-                                            "vertical-align": "top",
-                                        },
+                                        style={"flex": "1", "verticalAlign": "top"},
+                                    ),
+                                    html.Div(
+                                        [
+                                            html.Div(
+                                                [
+                                                    html.B("Reference:"),
+                                                    html.Div(id="ref-mag"),
+                                                ],
+                                                style={
+                                                    "display": "inline-block",
+                                                    "vertical-align": "top",
+                                                },
+                                            ),
+                                        ],
+                                        id="ref-mag-layout",
+                                        style={"display": "none", "verticalAlign": "top", "marginLeft": "40px"},
                                     ),
                                 ],
-                                id="ref-mag-layout",
-                                style={"display": "none"},
+                                style={"display": "flex", "alignItems": "flex-start"},
                             ),
                         ],
                         id="graph-layout",
@@ -349,35 +388,6 @@ def get_layout(pathname, search):
                 [
                     html.Div(
                         [
-                            html.Div(
-                                [
-                                    html.H2("Supernova model"),
-                                    dcc.Dropdown(
-                                        model_fit.get_list_models().data["models"],
-                                        id="models-fit-dd",
-                                        style={"width": "200px", "marginLeft": "20px"},
-                                    ),
-                                    html.Div(id="dd-chosen-model"),
-                                ],
-                                style={"display": "flex", "alignItems": "center"},
-                            ),
-                            html.Div(
-                                [
-                                    html.H3(id="results-fit-header", children="Parameters"),
-                                    html.Div(id="results-fit"),
-                                ],
-                                id="results-fit-layout",
-                                style={"display": "none"},
-                            ),
-                            dcc.Store(id="results-fit-hidden"),
-                            html.Div(
-                                id="error-fit-curve-message-hidden",
-                                style={"display": "none"},
-                            ),
-                            html.Div(
-                                id="error-fitting-message-hidden",
-                                style={"display": "none"},
-                            ),
                             html.Div(
                                 [
                                     html.H2("Summary"),
@@ -924,12 +934,13 @@ def fit_lc(
         )
         params = response.data["parameters"]
         message = response.message
-        items = [f"**{k}**: {np.round(float(v), 3) if k!='amplitude' else f'{v:.2e}' }" for k, v in params.items()]
+        items = [(k, np.round(float(v), 3) if k != "amplitude" else f"{v:.2e}") for k, v in params.items()]
     params_show = html.Div(
-        [dcc.Markdown(item, style={"display": "inline-block"}) for item in items],
+        [html.Span([html.B(f"{k}"), f": {v}"]) for k, v in items],
         style={
             "display": "flex",
-            "gap": "40px",
+            "columnGap": "40px",
+            "rowGap": "4px",
             "flexWrap": "wrap",
             "fontFamily": "monospace",
             "fontSize": "15px",
@@ -1251,7 +1262,7 @@ def get_panstarrs_lc_option(oid, dr, old):
 def show_ref_mag_layout(brightness_type, name_model, old_style):
     style = old_style.copy()
     if brightness_type in {"diffmag", "diffflux"} or name_model:
-        style["display"] = "inline"
+        style["display"] = "block"
     else:
         style["display"] = "none"
     return style
