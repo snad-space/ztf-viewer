@@ -6,6 +6,32 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
+## [2026.4.0] 2026 April 21
+
+### Added
+
+- Supernova light curve fitting https://github.com/snad-space/ztf-viewer/pull/544
+- Otter transient database cross-match catalog https://github.com/snad-space/ztf-viewer/pull/558
+- CSV download links for Pan-STARRS and Gaia auxiliary light curves https://github.com/snad-space/ztf-viewer/pull/573
+
+### Changed
+
+- Extinction is now computed using CSFD dust map (Chiang 2023) instead of SFD https://github.com/snad-space/ztf-viewer/pull/581
+- Model fitting panel: references are always shown, layout improved https://github.com/snad-space/ztf-viewer/pull/579
+
+### Fixed
+
+- Pan-STARRS light curve fetching https://github.com/snad-space/ztf-viewer/pull/569
+- SkyBot crash when no minor planets found https://github.com/snad-space/ztf-viewer/pull/570 https://github.com/snad-space/ztf-viewer/issues/564
+- ALeRCE crash with non-standard classifier version strings https://github.com/snad-space/ztf-viewer/pull/576
+- Extinction: hide summary field when 3D dust map data is unavailable https://github.com/snad-space/ztf-viewer/pull/578
+
+## [2026.3.0] 2026 March 12
+
+### Changed
+
+- Updated acknowledgments text https://github.com/snad-space/ztf-viewer/pull/549
+
 ## [2025.11.0] 2025 November 10
 
 ### Fixed
