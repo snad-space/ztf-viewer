@@ -1270,18 +1270,12 @@ def show_ref_mag_layout(brightness_type, name_model, old_style):
 
 @app.callback(
     Output("ref-mag", "children"),
-    [
-        Input("oid", "children"),
-        Input("dr", "children"),
-        Input("different_filter_neighbours", "children"),
-        Input("different_field_neighbours", "children"),
-        Input("light-curve-brightness", "value"),
-        Input("models-fit-dd", "value"),
-    ],
+    Input("oid", "children"),
+    Input("dr", "children"),
+    Input("different_filter_neighbours", "children"),
+    Input("different_field_neighbours", "children"),
 )
-def show_ref_mag_or_magerr(oid, dr, different_filter, different_field, brightness_type, name_model):
-    if brightness_type not in {"diffmag", "diffflux"} and not name_model:
-        raise PreventUpdate
+def show_ref_mag_or_magerr(oid, dr, different_filter, different_field):
     oids = sorted(neighbour_oids(different_filter, different_field) | {oid}, key=int)
 
     filters = defaultdict(list)
@@ -1320,7 +1314,7 @@ def show_ref_mag_or_magerr(oid, dr, different_filter, different_field, brightnes
                             placeholder="mag",
                             type="number",
                             maxLength=6,
-                            step=0.001,
+                            step=0.01,
                             style={"width": "6em", "display": "inline"},
                         ),
                         html.Div(
@@ -1334,7 +1328,7 @@ def show_ref_mag_or_magerr(oid, dr, different_filter, different_field, brightnes
                             type="number",
                             maxLength=5,
                             min=0,
-                            step=0.001,
+                            step=0.01,
                             style={"width": "5em", "display": "inline"},
                         ),
                     ],
@@ -1350,24 +1344,27 @@ def show_ref_mag_or_magerr(oid, dr, different_filter, different_field, brightnes
 
 
 @app.callback(
-    [
-        Output(dict(type="ref-mag-input", index=MATCH), "value"),
-        Output(dict(type="ref-magerr-input", index=MATCH), "value"),
-    ],
-    [Input("dr", "children"), Input(dict(type="ref-mag-link", index=MATCH), "n_clicks")],
-    [
-        State(dict(type="ref-mag-link", index=MATCH), "id"),
-    ],
+    Output(dict(type="ref-mag-input", index=MATCH), "value"),
+    Output(dict(type="ref-magerr-input", index=MATCH), "value"),
+    Input("dr", "children"),
+    Input(dict(type="ref-mag-link", index=MATCH), "n_clicks"),
+    State(dict(type="ref-mag-link", index=MATCH), "id"),
+    State(dict(type="ref-mag-input", index=ALL), "id"),
+    State(dict(type="ref-mag-input", index=ALL), "value"),
 )
-def set_ref_mag_magerr(dr, _n_clicks, ref_mag_link_id):
-    objectid = ref_mag_link_id["index"]
+def set_ref_mag_magerr(dr, _n_clicks, link_id, all_mag_ids, all_mag_values):
+    objectid = link_id["index"]
+    existing = {i["index"]: v for i, v in zip(all_mag_ids, all_mag_values) if v is not None}
+    if objectid in existing:
+        raise PreventUpdate
     try:
         ref = ztf_ref.get(objectid, dr)
     except (NotFound, CatalogUnavailable):
         raise PreventUpdate
-    ref_mag = np.round(ref["mag"] + ref["magzp"], decimals=3)
-    ref_magerr = np.round(ref["sigmag"], decimals=3)
-    return ref_mag, ref_magerr
+    return (
+        round(float(ref["mag"] + ref["magzp"]), 2),
+        round(float(ref["sigmag"]), 2),
+    )
 
 
 @app.callback(
