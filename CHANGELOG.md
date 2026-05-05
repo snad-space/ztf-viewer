@@ -6,6 +6,12 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
+## [2026.5.1] 2026 May 5
+
+### Fixes
+
+- Improvements of the reference magnitude panel behaviour https://github.com/snad-space/ztf-viewer/pull/584
+
 ## [2026.4.0] 2026 April 21
 
 ### Added
