@@ -83,7 +83,7 @@ healpy==1.19.0
     # via dustmaps
 html5lib==1.1
     # via astroquery
-idna==3.11
+idna==3.15
     # via requests
 immutabledict==3.0.0
     # via ztf-viewer (pyproject.toml)
