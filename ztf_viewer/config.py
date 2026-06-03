@@ -11,5 +11,5 @@ MODEL_FIT_API_URL = os.environ.get("MODEL_FIT_API_URL", "https://fit.lc.snad.spa
 OGLE_III_API_URL = os.environ.get("OGLE_III_API_URL", "https://ogle3.snad.space")
 ZTF_PERIODIC_API_URL = os.environ.get("ZTF_PERIODIC_API_URL", "https://periodic.ztf.snad.space")
 TNS_API_URL = os.environ.get("TNS_API_URL", "https://tns.snad.space")
-JS9_URL = os.environ.get("JS9_URL", "https://js9.org")
+JS9_URL = os.environ.get("JS9_URL", "https://www.js9.org")
 NO_LOCAL_3D_DUST_MAP = os.environ.get("NO_LOCAL_3D_DUST_MAP", "").lower() in ("1", "true", "yes")
