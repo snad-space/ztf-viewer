@@ -60,7 +60,7 @@ FILTERS = tuple(FILTER_COLORS)
 ZTF_FILTERS = ("zg", "zr", "zi")
 
 
-DEFAULT_DR = "dr23"
+DEFAULT_DR = "dr24"
 available_drs = (
     "dr2",
     "dr3",
@@ -69,6 +69,7 @@ available_drs = (
     "dr13",
     "dr17",
     "dr23",
+    "dr24",
 )
 
 
