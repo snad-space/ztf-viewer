@@ -49,7 +49,7 @@ comm==0.2.3
     # via ipywidgets
 contourpy==1.3.3
     # via matplotlib
-cryptography==46.0.7
+cryptography==48.0.1
     # via secretstorage
 cycler==0.12.1
     # via matplotlib
