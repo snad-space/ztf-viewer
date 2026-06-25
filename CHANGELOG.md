@@ -6,6 +6,16 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
+## [2026.6.0] 2026 June 25
+
+### Added
+
+- Support of ZTF DR24 https://github.com/snad-space/ztf-viewer/pull/593
+
+### Fixes
+
+- Fix external JS9 viewer by switching to js9.org https://github.com/snad-space/ztf-viewer/pull/590
+
 ## [2026.5.1] 2026 May 5
 
 ### Fixes
