@@ -89,7 +89,7 @@ immutabledict==3.0.0
     # via ztf-viewer (pyproject.toml)
 importlib-metadata==9.0.0
     # via dash
-ipython==9.12.0
+ipython==9.15.0
     # via
     #   alerce
     #   ipywidgets
