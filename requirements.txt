@@ -133,7 +133,7 @@ marshmallow==3.26.2
     #   marshmallow-jsonapi
 marshmallow-jsonapi==0.24.0
     # via antares-client
-matplotlib==3.10.8
+matplotlib==3.11.0
     # via
     #   ztf-viewer (pyproject.toml)
     #   alerce
