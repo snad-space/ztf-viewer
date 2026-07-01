@@ -280,7 +280,7 @@ typing-inspection==0.4.2
     # via pydantic
 urllib3==2.7.0
     # via requests
-wcwidth==0.6.0
+wcwidth==0.8.2
     # via prompt-toolkit
 webencodings==0.5.1
     # via html5lib
