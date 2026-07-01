@@ -149,7 +149,7 @@ narwhals==2.19.0
     # via plotly
 nest-asyncio==1.6.0
     # via dash
-numpy==2.4.4
+numpy==2.5.0
     # via
     #   ztf-viewer (pyproject.toml)
     #   antares-client
