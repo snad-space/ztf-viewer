@@ -241,7 +241,7 @@ requests==2.33.1
     #   pyvo
 retrying==1.4.2
     # via dash
-scipy==1.17.1
+scipy==1.18.0
     # via
     #   ztf-viewer (pyproject.toml)
     #   dustmaps
