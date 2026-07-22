@@ -247,7 +247,7 @@ scipy==1.17.1
     #   dustmaps
 secretstorage==3.5.0
     # via keyring
-setuptools==82.0.1
+setuptools==83.0.0
     # via dash
 six==1.17.0
     # via
