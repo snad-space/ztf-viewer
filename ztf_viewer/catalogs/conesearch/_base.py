@@ -2,7 +2,6 @@ import dataclasses
 import logging
 import urllib.parse
 from functools import partial
-from typing import Dict, List, Optional
 
 import pandas as pd
 import requests
@@ -16,7 +15,7 @@ from requests import RequestException
 from ztf_viewer.cache import cache
 from ztf_viewer.catalogs import find_ztf_oid, unavailable_catalogs
 from ztf_viewer.exceptions import CatalogUnavailable, NotFound
-from ztf_viewer.util import compose_plus_minus_expression, to_str, timeout
+from ztf_viewer.util import compose_plus_minus_expression, timeout, to_str
 
 COSMO = FlatLambdaCDM(H0=70, Om0=0.3)
 
@@ -24,9 +23,9 @@ COSMO = FlatLambdaCDM(H0=70, Om0=0.3)
 @dataclasses.dataclass
 class ValueWithIntervalColumn:
     value: str
-    lower: Optional[str] = None
-    upper: Optional[str] = None
-    name: Optional[str] = None
+    lower: str | None = None
+    upper: str | None = None
+    name: str | None = None
     float_decimal_digits: int = 3
 
     def __post_init__(self):
@@ -48,8 +47,8 @@ class ValueWithIntervalColumn:
 @dataclasses.dataclass
 class ValueWithUncertaintyColumn:
     value: str
-    uncertainty: Optional[str] = None
-    name: Optional[str] = None
+    uncertainty: str | None = None
+    name: str | None = None
     float_decimal_digits: int = 3
 
     def __post_init__(self):
@@ -82,10 +81,10 @@ class _BaseCatalogQuery:
     columns = None
 
     # classifier pretty name -> column name
-    _prob_class_columns: Dict[str, str] = {}
+    _prob_class_columns: dict[str, str] = {}
 
-    _value_with_interval_columns: List[ValueWithIntervalColumn] = []
-    _value_with_uncertainty_columns: List[ValueWithUncertaintyColumn] = []
+    _value_with_interval_columns: list[ValueWithIntervalColumn] = []
+    _value_with_uncertainty_columns: list[ValueWithUncertaintyColumn] = []
 
     def __new__(cls, query_name):
         name = cls._normalize_name(query_name)

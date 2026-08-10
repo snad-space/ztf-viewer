@@ -1,4 +1,3 @@
-from typing import List
 
 import requests
 
@@ -16,7 +15,7 @@ class LightCurveFeatures:
         self._find_ztf_oid = find_ztf_oid
 
     @cache()
-    def versions(self) -> List[str]:
+    def versions(self) -> list[str]:
         url = f"{self._base_api_url}/versions"
         resp = self._api_session.get(url)
         if resp.status_code != 200:

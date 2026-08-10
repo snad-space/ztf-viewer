@@ -1,6 +1,5 @@
 import logging
 from itertools import chain
-from typing import Dict, Tuple
 
 import packaging.version
 import pandas as pd
@@ -66,7 +65,7 @@ class AlerceQuery(_BaseCatalogApiQuery):
         df = df.join(highest_versions, on=["classifier_name", "classifier_version"], how="inner")
         return df
 
-    def _get_best_classifications(self, alerce_id) -> Dict[str, Tuple[str, float]]:
+    def _get_best_classifications(self, alerce_id) -> dict[str, tuple[str, float]]:
         df = self._get_classifications(alerce_id)
         df = df[df["ranking"] == 1]
         classifications = {}

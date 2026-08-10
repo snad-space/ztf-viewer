@@ -7,13 +7,13 @@ temporarily unavailable and re-raise as ``pytest.skip`` so CI stays green
 even when the upstream endpoint is down.
 """
 
-import pytest
 from unittest.mock import MagicMock
 
-from astropy.coordinates import Angle
-from astropy.table import QTable, MaskedColumn
-from astropy.time import Time
 import astropy.units as u
+import pytest
+from astropy.coordinates import Angle
+from astropy.table import MaskedColumn, QTable
+from astropy.time import Time
 
 from ztf_viewer.exceptions import NotFound
 

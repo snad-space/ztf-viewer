@@ -39,22 +39,22 @@ from ztf_viewer.catalogs.ztf_ref import ztf_ref
 from ztf_viewer.config import JS9_URL, ZTF_FITS_PROXY_URL
 from ztf_viewer.date_with_frac import DateWithFrac, correct_date
 from ztf_viewer.exceptions import CatalogUnavailable, NotFound
-from ztf_viewer.model_fit import model_fit
 from ztf_viewer.lc_data.plot_data import MJD_OFFSET, get_folded_plot_data, get_plot_data
 from ztf_viewer.lc_features import light_curve_features
+from ztf_viewer.model_fit import model_fit
 from ztf_viewer.util import (
+    DEFAULT_MIN_MAX_MJD,
     FILTER_COLORS,
     INF,
     ZTF_FILTERS,
     available_drs,
     format_sep,
+    hmjd_to_earth,
     html_from_astropy_table,
     immutabledefaultdict,
     list_join,
     min_max_mjd_short,
     to_str,
-    hmjd_to_earth,
-    DEFAULT_MIN_MAX_MJD,
 )
 
 LIGHT_CURVE_TABLE_COLUMNS = ("mjd", "mag", "magerr", "clrcoeff")

@@ -16,8 +16,8 @@ from ztf_viewer.app import app
 from ztf_viewer.catalogs.conesearch import ANTARES_QUERY, TNS_QUERY
 from ztf_viewer.catalogs.snad import SnadCatalogSource
 from ztf_viewer.exceptions import CatalogUnavailable, NotFound, UnAuthorized
-from ztf_viewer.pages import favicon as _  # noqa: F811,F401
-from ztf_viewer.pages import figure as _  # noqa: F811,F401
+from ztf_viewer.pages import favicon as _
+from ztf_viewer.pages import figure as _  # noqa: F811
 from ztf_viewer.pages import lc_csv as _  # noqa: F811,F401
 from ztf_viewer.pages.akb_table import get_layout as get_anomalies_layout
 from ztf_viewer.pages.login import get_layout as get_login_layout
@@ -139,7 +139,7 @@ archivePrefix = {arXiv},
        adsurl = {https://ui.adsabs.harvard.edu/abs/2023PASP..135b4503M},
       adsnote = {Provided by the SAO/NASA Astrophysics Data System}
 }
-""",  # noqa: E501
+""",
                     title="copy BibTeX citation",
                     style={
                         "display": "inline-block",
@@ -464,7 +464,7 @@ archivePrefix = {arXiv},
        adsurl = {https://ui.adsabs.harvard.edu/abs/2023PASP..135b4503M},
       adsnote = {Provided by the SAO/NASA Astrophysics Data System}
 }
-```""",  # noqa: E501
+```""",
                             id="bibtex_citation",
                             style={
                                 "overflow": "auto",

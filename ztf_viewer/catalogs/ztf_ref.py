@@ -9,7 +9,7 @@ from astropy.io import fits
 from ztf_viewer.cache import cache
 from ztf_viewer.catalogs import find_ztf_oid
 from ztf_viewer.config import ZTF_FITS_PROXY_URL
-from ztf_viewer.exceptions import NotFound, CatalogUnavailable
+from ztf_viewer.exceptions import CatalogUnavailable, NotFound
 from ztf_viewer.util import ccdid_from_rcid, qid_from_rcid
 
 

@@ -1,7 +1,7 @@
 import pickle
 from abc import ABC, abstractmethod
-from collections.abc import MutableSet
-from typing import Generic, Hashable, Iterator, TypeVar
+from collections.abc import Hashable, Iterator, MutableSet
+from typing import Generic, TypeVar
 
 import packaging.version
 from cachetools import TTLCache
