@@ -92,14 +92,10 @@ def hms_to_deg(hms: str):
 def html_from_astropy_table(table: astropy.table.Table, columns: dict, html_columns: frozenset = frozenset()):
     """Render an astropy table as an HTML <table> string.
 
-    Most cell/column-header values are plain scientific text (which may contain "&", "<",
-    etc.) and must be HTML-escaped, while a few columns are deliberately pre-built HTML
-    fragments (links, images). `html_columns` names which of `columns`'s keys hold such
-    pre-built HTML *cell* values, so they're left unescaped instead of shown as literal markup.
-    (Column *header* labels in `columns` bypass this - a dict value can be markupsafe.Markup()
-    directly, since headers never pass through astropy's Table/numpy storage, which strips any
-    Markup marking down to a plain string. Cell values do pass through Table storage, hence
-    this separate, column-name-driven mechanism for them.)
+    Cells/headers are HTML-escaped by default. `html_columns` names cell columns that hold
+    pre-built HTML (links, images) instead, so they're left unescaped. Headers can use
+    markupsafe.Markup() directly for the same purpose - unlike cells, they don't pass through
+    astropy's Table/numpy storage, which strips Markup down to a plain string.
     """
     template = Template(
         """
@@ -133,11 +129,8 @@ def html_from_astropy_table(table: astropy.table.Table, columns: dict, html_colu
             rendered_row.append(value)
         rows.append(rendered_row)
     html = template.render(table=rows, columns=columns)
-    # This is rendered via dcc.Markdown(dangerously_allow_html=True), which parses raw HTML
-    # per CommonMark "HTML block" rules: the block must start at <=3 spaces of indentation and
-    # is terminated by the first blank line. Collapsing to one contiguous, unindented block keeps
-    # the whole table (including catalog-generated <a>/<img> fragments) as literal HTML, so no
-    # cell content is ever reinterpreted as markdown.
+    # CommonMark only treats this as one raw HTML block (vs. markdown-parsed text) if it's a
+    # single block with no blank lines and no leading indentation.
     html = "\n".join(line.strip() for line in html.splitlines() if line.strip())
     return html
 
@@ -183,11 +176,14 @@ def format_sep(sep_arcsec: float, float_decimal_digits_small: int = 3, float_dec
     return f"{deg:d}°{arcmin:02d}′{arcsec:02.0f}″"
 
 
+def safe_link(url, text) -> Markup:
+    """Build an <a> tag with its dynamic parts HTML-escaped (JSX, used by dcc.Markdown's HTML
+    renderer, needs "&" escaped, unlike plain HTML)."""
+    return Markup(f'<a href="{html_escape(str(url))}">{html_escape(str(text))}</a>')
+
+
 def anchor_form(url, data, title):
-    # dcc.Markdown(dangerously_allow_html=True) parses raw HTML as JSX, which requires void
-    # elements like <input> to be self-closed and attribute/text values to be properly
-    # HTML-escaped (e.g. a bare "&" in a URL query string) - an unclosed <input> or an
-    # unescaped "&" silently breaks rendering of the whole surrounding table.
+    # JSX (used by dcc.Markdown's HTML renderer) needs <input> self-closed and "&" escaped.
     inputs = "\n".join(
         f'<input type="hidden" name="{html_escape(key)}" value="{html_escape(str(value))}" />'
         for key, value in data.items()

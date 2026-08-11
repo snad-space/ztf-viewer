@@ -2,7 +2,6 @@ import dataclasses
 import logging
 import urllib.parse
 from functools import partial
-from html import escape as html_escape
 from typing import Dict, List, Optional
 
 import pandas as pd
@@ -12,13 +11,12 @@ from astropy.cosmology import FlatLambdaCDM
 from astropy.table import Table
 from astroquery.utils.commons import TableList
 from astroquery.vizier import Vizier
-from markupsafe import Markup
 from requests import RequestException
 
 from ztf_viewer.cache import cache
 from ztf_viewer.catalogs import find_ztf_oid, unavailable_catalogs
 from ztf_viewer.exceptions import CatalogUnavailable, NotFound
-from ztf_viewer.util import compose_plus_minus_expression, to_str, timeout
+from ztf_viewer.util import compose_plus_minus_expression, safe_link, to_str, timeout
 
 COSMO = FlatLambdaCDM(H0=70, Om0=0.3)
 
@@ -89,10 +87,8 @@ class _BaseCatalogQuery:
     _value_with_interval_columns: List[ValueWithIntervalColumn] = []
     _value_with_uncertainty_columns: List[ValueWithUncertaintyColumn] = []
 
-    # Column keys (in `columns`) whose *cell* values are deliberately pre-built HTML (links,
-    # images) rather than plain scientific text, so html_from_astropy_table must not escape
-    # them. Subclasses that add their own HTML-bearing columns (e.g. "references") should
-    # extend this, e.g. `_declared_html_columns = frozenset({"__link", "references"})`.
+    # Column keys with pre-built HTML cell values (see html_from_astropy_table's html_columns).
+    # Subclasses with extra HTML columns should extend this, e.g. `frozenset({"__link", "x"})`.
     _declared_html_columns: frozenset = frozenset({"__link"})
 
     @property
@@ -241,12 +237,7 @@ class _BaseCatalogQuery:
         raise NotImplementedError
 
     def get_link(self, id, name, row=None):
-        # dcc.Markdown(dangerously_allow_html=True) parses raw HTML as JSX, which requires a
-        # bare "&" (common in query-string URLs and, occasionally, object names/remarks) to be
-        # escaped as "&amp;" - unescaped, it silently breaks rendering of the whole surrounding
-        # table. Markup() marks the result as pre-built HTML so html_from_astropy_table's
-        # autoescaping template doesn't double-escape it.
-        return Markup(f'<a href="{html_escape(self.get_url(id, row=row))}">{html_escape(str(name))}</a>')
+        return safe_link(self.get_url(id, row=row), name)
 
 
 class _BaseLightCurveQuery:

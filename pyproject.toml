@@ -28,6 +28,7 @@ dependencies = [
     "astropy",
     "astroquery",
     "jinja2",
+    "markupsafe",
     "requests",
     "redis",
     "redis-lru",

@@ -31,8 +31,8 @@ class OgleQuery(_BaseCatalogApiQuery):
     }
     _declared_html_columns = frozenset({"__link", "light_curve"})
     _base_api_url = f"{OGLE_III_API_URL}/api/v1/circle"
-    _base_light_curve_url = "http://ogledb.astrouw.edu.pl/~ogle/CVS/images/"
-    _post_url = "http://ogledb.astrouw.edu.pl/~ogle/CVS/query.php?first=1&qtype=catalog"
+    _base_light_curve_url = "https://ogledb.astrouw.edu.pl/~ogle/CVS/images/"
+    _post_url = "https://ogledb.astrouw.edu.pl/~ogle/CVS/query.php?first=1&qtype=catalog"
     _post_data = {
         "db_target": "all",
         "sort": "id",
@@ -70,9 +70,7 @@ class OgleQuery(_BaseCatalogApiQuery):
             response = self._light_curve_session.get(url, timeout=60)
             if response.status_code == 200:
                 data = b64encode(response.content).decode()
-                # dcc.Markdown(dangerously_allow_html=True) parses raw HTML as JSX, which
-                # requires attribute values to be quoted - an unquoted width=200px silently
-                # breaks rendering of the whole surrounding table.
+                # JSX (used by dcc.Markdown's HTML renderer) needs attribute values quoted.
                 return f'<a href="{url}"><img src="data:image/png;base64,{data}" width="200px" /></a>'
         return ""
 
