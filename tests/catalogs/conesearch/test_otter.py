@@ -7,6 +7,12 @@ def test_cone_search():
     Coordinates taken from the example in
     https://github.com/astro-otter/otter/issues/45#issuecomment-4092184705
     (ra=185.0, dec=12.0, sep=1.0 deg → radius_arcsec=3600).
+
+    The expected object below is whatever Otter's live database currently
+    returns in this cone; it was last verified 2026-08-11. Otter's dataset
+    changes over time (e.g. the object originally used here,
+    CSS071216:122109+125434, is no longer present), so if this starts
+    failing, re-query the live server and swap in a currently-present object.
     """
     from ztf_viewer.catalogs.conesearch.otter import OtterQuery
 
@@ -23,11 +29,11 @@ def test_cone_search():
 
     # One known object in this field
     names = list(table["default_name"])
-    assert "CSS071216:122109+125434" in names, f"Expected object not found; got: {names}"
+    assert "SN2019duk" in names, f"Expected object not found; got: {names}"
 
-    idx = names.index("CSS071216:122109+125434")
-    assert_allclose(table["ra"][idx], 185.2865, atol=0.01)
-    assert_allclose(table["dec"][idx], 12.9095, atol=0.01)
+    idx = names.index("SN2019duk")
+    assert_allclose(table["ra"][idx], 185.4696, atol=0.01)
+    assert_allclose(table["dec"][idx], 12.1176, atol=0.01)
 
 
 def test_get_url():
