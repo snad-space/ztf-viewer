@@ -1,3 +1,8 @@
+[build-system]
+# >=68.1: [tool.setuptools] pyproject.toml config (packages.find, package-data) promoted out of beta
+requires = ["setuptools>=68.1"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "ztf_viewer"
 version = "2026.6.0"
@@ -48,22 +53,31 @@ classifiers = [
     "Programming Language :: Python :: 3",
 ]
 
-[project.optional-dependencies]
-tests = [
-  'pytest',
-  'pytest-redis',
-]
-
 [project.urls]
 homepage = "ztf.snad.space"
 repository = "github.com/snad-space/ztf_viewer"
 changelog = "github.com/snad-space/ztf_viewer/blob/master/CHANGELOG.md"
 
-[tool.setuptools]
-include-package-data = true
+[tool.uv]
+environments = [
+    # Production
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+    # Development
+    "sys_platform == 'linux' and platform_machine == 'aarch64'",
+    "sys_platform == 'darwin' and platform_machine == 'arm64'",
+]
 
 [tool.setuptools.packages.find]
 exclude = ["tests"]
+
+[tool.setuptools.package-data]
+ztf_viewer = [
+    "catalogs/snad/data/snad_catalog.csv",
+    "assets/*",
+    "static/img/*",
+    "static/js/*",
+    "static/js9/*",
+]
 
 [tool.pytest.ini_options]
 minversion = "6.0"
@@ -88,3 +102,12 @@ target-version = "py312"
 "ztf_viewer/catalogs/snad/__init__.py" = ["F401"]
 "ztf_viewer/importer.py" = ["F401"]
 "ztf_viewer/lc_data/__init__.py" = ["F401"]
+
+[dependency-groups]
+deploy = [
+    "gunicorn>=26.0.0",
+]
+tests = [
+    "pytest>=9.1.1",
+    "pytest-redis>=4.0.0",
+]

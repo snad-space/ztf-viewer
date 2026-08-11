@@ -2,10 +2,10 @@ FROM ztf-viewer
 
 RUN apt update \
     && apt install -y redis-server
-RUN python -mpip install pytest pytest-redis
-
-COPY tests /tests
 
 WORKDIR /app
+RUN uv sync --locked --group tests --group deploy
+
+COPY tests /tests
 
 ENTRYPOINT ["python", "-m", "pytest", "/tests"]
