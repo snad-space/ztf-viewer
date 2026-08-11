@@ -47,7 +47,11 @@ RUN uv sync --project /app --locked --no-install-project --group deploy
 # Configure and download dustmaps
 RUN echo '{"data_dir": "/dustmaps"}' > /dustmapsrc
 ENV DUSTMAPS_CONFIG_FNAME /dustmapsrc
-RUN uv run --project /app python -c 'from dustmaps import bayestar; bayestar.fetch()'
+# Our copy of the best-fit-only Bayestar19 map, bayestar.fetch() is blocked by
+# the Harvard Dataverse WAF, see https://github.com/gregreen/dustmaps/issues/54
+ARG BAYESTAR_URL=https://sai.snad.space/tmp/viewer-files/bayestar2019-bestfit.h5
+RUN uv run --project /app python -c "from dustmaps.fetch_utils import download_and_verify; \
+    download_and_verify('$BAYESTAR_URL', '4dd35460f1da9bb4f4e535f25eb0c530', '/dustmaps/bayestar/bayestar2019.h5')"
 RUN uv run --project /app python -c 'from dustmaps import csfd; csfd.fetch()'
 
 EXPOSE 80

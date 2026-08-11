@@ -1,7 +1,5 @@
 from abc import ABC, abstractmethod
 
-import requests
-
 from ztf_viewer.exceptions import CatalogUnavailable
 
 
@@ -23,7 +21,8 @@ class _BaseExtinctionQuery(ABC):
         raise NotImplementedError
 
 
-class _BaseLocalRemoteExtinctionQuery(_BaseExtinctionQuery):
+class _BaseLocalExtinctionQuery(_BaseExtinctionQuery):
+    # We used to fall back to web queries, but argonaut.skymaps.info is gone
     def __init__(self):
         super().__init__()
         self.local_query = None
@@ -32,17 +31,10 @@ class _BaseLocalRemoteExtinctionQuery(_BaseExtinctionQuery):
     def new_local_query(self):
         raise NotImplementedError
 
-    @abstractmethod
-    def web_query(self, coord):
-        raise NotImplementedError
-
     def query(self, coord):
         if self.local_query is None:
             try:
-                return self.web_query(coord)
-            except requests.exceptions.RequestException:
-                try:
-                    self.local_query = self.new_local_query()
-                except OSError as e:
-                    raise CatalogUnavailable(str(e)) from e
+                self.local_query = self.new_local_query()
+            except OSError as e:
+                raise CatalogUnavailable(str(e)) from e
         return self.local_query(coord)
