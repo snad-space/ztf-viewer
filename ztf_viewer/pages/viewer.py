@@ -5,7 +5,6 @@ from itertools import chain
 from typing import Any
 from urllib.parse import parse_qs, urlencode, urljoin, urlparse
 
-import dash_dangerously_set_inner_html as ddsih
 import dash_defer_js_import as dji
 import numpy as np
 import pandas as pd
@@ -2036,7 +2035,7 @@ def set_table(radius, oid, dr, catalog):
     table = table.copy()
     div = html.Div(
         [
-            ddsih.DangerouslySetInnerHTML(html_from_astropy_table(table, query.columns)),
+            dcc.Markdown(html_from_astropy_table(table, query.columns), dangerously_allow_html=True),
         ],
     )
     return div

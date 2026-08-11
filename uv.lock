@@ -401,12 +401,6 @@ wheels = [
 ]
 
 [[package]]
-name = "dash-dangerously-set-inner-html"
-version = "0.0.2"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/56/b1/5102060b9b6836409db84265f4f934475c2707cce87e75f3f8a04493e0dc/dash_dangerously_set_inner_html-0.0.2.tar.gz", hash = "sha256:d7fe990755851fc4d2e22c8f10b7aea055cabf380bbceefba589779b269fea64", size = 4956, upload-time = "2018-12-19T21:12:47.258Z" }
-
-[[package]]
 name = "dash-defer-js-import"
 version = "0.0.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1712,7 +1706,6 @@ dependencies = [
     { name = "astroquery" },
     { name = "cachetools" },
     { name = "dash" },
-    { name = "dash-dangerously-set-inner-html" },
     { name = "dash-defer-js-import" },
     { name = "dustmaps" },
     { name = "flask" },
@@ -1750,7 +1743,6 @@ requires-dist = [
     { name = "astroquery" },
     { name = "cachetools" },
     { name = "dash", specifier = ">=2.3.1,<3.0" },
-    { name = "dash-dangerously-set-inner-html" },
     { name = "dash-defer-js-import" },
     { name = "dustmaps", specifier = ">=1.0.10" },
     { name = "flask" },

@@ -1,6 +1,5 @@
-import dash_dangerously_set_inner_html as ddsih
 from astropy.table import Table
-from dash import html
+from dash import dcc, html
 
 from ztf_viewer.catalogs import find_ztf_circle
 from ztf_viewer.exceptions import NotFound
@@ -37,7 +36,7 @@ def get_layout(coordinates, radius_arcsec, dr):
     layout = html.Div(
         [
             html.H1(f"Objects inside cone {cone_str}"),
-            ddsih.DangerouslySetInnerHTML(html_from_astropy_table(table, COLUMNS)),
+            dcc.Markdown(html_from_astropy_table(table, COLUMNS), dangerously_allow_html=True),
         ],
     )
     return layout

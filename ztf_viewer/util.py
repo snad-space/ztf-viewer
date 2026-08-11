@@ -88,7 +88,8 @@ def hms_to_deg(hms: str):
 
 
 def html_from_astropy_table(table: astropy.table.Table, columns: dict):
-    template = Template("""
+    template = Template(
+        """
         <table id="simbad-table">
         <tr>
         {% for column in columns %}
@@ -103,11 +104,20 @@ def html_from_astropy_table(table: astropy.table.Table, columns: dict):
             </tr>
         {% endfor %}
         </table>
-    """)
+    """,
+        trim_blocks=True,
+        lstrip_blocks=True,
+    )
     table = table[list(columns.keys())].copy()
     for column in table.colnames:
         table[column] = [to_str(x) for x in table[column]]
     html = template.render(table=table, columns=columns)
+    # This is rendered via dcc.Markdown(dangerously_allow_html=True), which parses raw HTML
+    # per CommonMark "HTML block" rules: the block must start at <=3 spaces of indentation and
+    # is terminated by the first blank line. Collapsing to one contiguous, unindented block keeps
+    # the whole table (including catalog-generated <a>/<img> fragments) as literal HTML, so no
+    # cell content is ever reinterpreted as markdown.
+    html = "\n".join(line.strip() for line in html.splitlines() if line.strip())
     return html
 
 
