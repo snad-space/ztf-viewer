@@ -5,11 +5,8 @@ ENV TZ=Europe/Moscow
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 # Install uv
-RUN pip install uv
-ENV UV_SYSTEM_PYTHON=True
-
-# Install gunicorn to run a web-server
-RUN uv pip install gunicorn
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
+ENV UV_COMPILE_BYTECODE=1
 
 # Install JS9 for FITS viewer
 # Original repo: https://github.com/ericmandel/js9
@@ -42,24 +39,26 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends libhdf5-dev libcfitsio-dev librdkafka-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install dependencies
-COPY requirements.txt /app/
-RUN uv pip install  -r /app/requirements.txt
+# Install dependencies, including gunicorn (the "deploy" dependency group), but
+# not the project itself yet, so this layer stays cached across source changes
+COPY pyproject.toml uv.lock /app/
+RUN uv sync --project /app --locked --no-install-project --group deploy
 
 # Configure and download dustmaps
 RUN echo '{"data_dir": "/dustmaps"}' > /dustmapsrc
 ENV DUSTMAPS_CONFIG_FNAME /dustmapsrc
-RUN python -c 'from dustmaps import bayestar; bayestar.fetch()'
-RUN python -c 'from dustmaps import csfd; csfd.fetch()'
+RUN uv run --project /app python -c 'from dustmaps import bayestar; bayestar.fetch()'
+RUN uv run --project /app python -c 'from dustmaps import csfd; csfd.fetch()'
 
 EXPOSE 80
 
 ENV PYTHONUNBUFFERED TRUE
 
-COPY pyproject.toml MANIFEST.in /app/
 COPY ztf_viewer /app/ztf_viewer/
 ARG GITHUB_SHA
 RUN if [ -z ${GITHUB_SHA+x} ]; then echo "$GITHUB_SHA is not set"; else echo "github_sha = \"${GITHUB_SHA}\"" >> /app/ztf_viewer/_version.py; fi
-RUN uv pip install --no-deps /app
+RUN uv sync --project /app --locked --group deploy
+
+ENV PATH="/app/.venv/bin:$PATH"
 
 ENTRYPOINT ["gunicorn", "-w2", "--threads=8", "-t70", "--keep-alive=75", "-b0.0.0.0:80", "ztf_viewer.__main__:server()"]

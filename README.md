@@ -42,18 +42,10 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml -f docker-compose
 
 ### Running without docker
 
-The server can be run locally without Docker in debug mode.
+The server can be run locally without Docker in debug mode using [`uv`](https://docs.astral.sh/uv/). `uv run` syncs the `.venv` from `uv.lock` (see [Dependencies](#dependencies)) before running, so no separate install step is needed:
 
 ```sh
-# Configure Python virtual environment
-python3 -m venv ~/.virtualenv/ztf-viewer
-source ~/.virtualenv/ztf-viewer/bin/activate
-
-# Install the package
-python -m pip install -e .
-
-# Run webserver
-CACHE_TYPE="memory" UNAVAILABLE_CATALOGS_CACHE_TYPE="memory" python -m ztf_viewer
+CACHE_TYPE="memory" UNAVAILABLE_CATALOGS_CACHE_TYPE="memory" uv run python -m ztf_viewer
 ```
 
 Go to the url specified in the command line output, it should be something like http://localhost:8050/
@@ -63,10 +55,21 @@ Some features like FITS viewer wouldn't work.
 
 Update JS9 version in `Dockerfile`.
 
-Add new Python dependencies and update version ranges in `pyproject.toml`, then run the following command to update (requires [`uv`](https://docs.astral.sh/uv/)) `requirements.txt`:
+Python dependencies are pinned in `uv.lock`, managed with [`uv`](https://docs.astral.sh/uv/). The lockfile is a universal, multi-platform lock covering `x86_64` Linux (production), plus `aarch64` Linux and `arm64` macOS (development) — see `[tool.uv].environments` in `pyproject.toml`.
+
+Add or change a dependency with `uv add`/`uv remove` (this updates both `pyproject.toml` and `uv.lock`), e.g.:
 ```sh
-uv pip compile --python-platform=x86_64-unknown-linux-gnu pyproject.toml > requirements.txt
+uv add "some-package>=1.0"
 ```
+
+The `deploy` group (`gunicorn`) is only needed outside `uv run`, i.e. by `Dockerfile`.
+
+After editing `pyproject.toml` by hand, refresh the lockfile with:
+```sh
+uv lock
+```
+
+Commit `uv.lock` along with `pyproject.toml`.
 
 ## Web-services used by the viewer
 

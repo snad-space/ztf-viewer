@@ -2,10 +2,9 @@
 
 !.dockerignore
 !Dockerfile
-!requirements.txt
+!uv.lock
 !pyproject.toml
 !setup.py
-!MANIFEST.in
 !tests
 !ztf_viewer/
 
