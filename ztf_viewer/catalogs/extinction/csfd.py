@@ -1,24 +1,14 @@
 from dustmaps.csfd import CSFDQuery
 
-from ztf_viewer.catalogs.extinction._base import _BaseExtinctionQuery
-from ztf_viewer.exceptions import CatalogUnavailable
+from ztf_viewer.catalogs.extinction._base import _BaseLocalExtinctionQuery
 
 
-class CsfdQuery(_BaseExtinctionQuery):
-    def __init__(self):
-        super().__init__()
-        self._query = None
-
-    def _get_query(self):
-        if self._query is None:
-            try:
-                self._query = CSFDQuery()
-            except OSError as e:
-                raise CatalogUnavailable(str(e)) from e
-        return self._query
+class CsfdQuery(_BaseLocalExtinctionQuery):
+    def new_local_query(self):
+        return CSFDQuery()
 
     def ebv(self, coord):
-        return self._get_query()(coord)
+        return self.query(coord)
 
 
 csfd = CsfdQuery()

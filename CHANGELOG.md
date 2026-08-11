@@ -6,6 +6,16 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
+### Changed
+
+- Download the Bayestar19 dust map from our own mirror, the Harvard Dataverse
+  blocks scripted downloads now https://github.com/gregreen/dustmaps/issues/54
+
+### Removed
+
+- Web queries of the dust maps, argonaut.skymaps.info is gone
+- Unused SFD extinction query
+
 ## [2026.6.0] 2026 June 25
 
 ### Added
