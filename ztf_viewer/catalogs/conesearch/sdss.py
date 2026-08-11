@@ -1,5 +1,7 @@
 import urllib.parse
 
+from markupsafe import Markup
+
 from ztf_viewer.cache import cache
 from ztf_viewer.catalogs.conesearch._base import _BaseVizierQuery
 
@@ -11,11 +13,11 @@ class SdssQuasarsQuery(_BaseVizierQuery):
     columns = {
         "__link": "SDSS",
         "separation": "Separation, arcsec",
-        "Class": """
-            <a href="https://vizier.iucaa.in/viz-bin/VizieR-n?-source=METAnot&catid=7289&notid=7&-out=text">
+        "Class": Markup("""
+            <a href="https://vizier.iucaa.in/viz-bin/VizieR-n?-source=METAnot&amp;catid=7289&amp;notid=7&amp;-out=text">
                 Source class
             </a>
-        """,
+        """),
         "QSO": "Quasars included",
         "z": "redshift",
         "r_z": "redshift source",

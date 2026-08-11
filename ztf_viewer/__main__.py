@@ -393,7 +393,7 @@ def app_select_by_url(pathname, search):
                             ", ",
                             html.A(
                                 "the OGLE III Catalog of Variable Stars",
-                                href="http://ogledb.astrouw.edu.pl/~ogle/CVS/",
+                                href="https://ogledb.astrouw.edu.pl/~ogle/CVS/",
                             ),
                             ", ",
                             html.A(

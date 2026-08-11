@@ -6,6 +6,7 @@ import re
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from functools import wraps
+from html import escape as html_escape
 from itertools import chain, count
 from typing import Callable
 
@@ -16,6 +17,7 @@ from astropy.coordinates import EarthLocation
 from astropy.time import Time
 from immutabledict import immutabledict
 from jinja2 import Template
+from markupsafe import Markup
 
 YEAR = datetime.datetime.now().year
 
@@ -87,8 +89,16 @@ def hms_to_deg(hms: str):
     return deg
 
 
-def html_from_astropy_table(table: astropy.table.Table, columns: dict):
-    template = Template("""
+def html_from_astropy_table(table: astropy.table.Table, columns: dict, html_columns: frozenset = frozenset()):
+    """Render an astropy table as an HTML <table> string.
+
+    Cells/headers are HTML-escaped by default. `html_columns` names cell columns that hold
+    pre-built HTML (links, images) instead, so they're left unescaped. Headers can use
+    markupsafe.Markup() directly for the same purpose - unlike cells, they don't pass through
+    astropy's Table/numpy storage, which strips Markup down to a plain string.
+    """
+    template = Template(
+        """
         <table id="simbad-table">
         <tr>
         {% for column in columns %}
@@ -103,11 +113,25 @@ def html_from_astropy_table(table: astropy.table.Table, columns: dict):
             </tr>
         {% endfor %}
         </table>
-    """)
-    table = table[list(columns.keys())].copy()
-    for column in table.colnames:
-        table[column] = [to_str(x) for x in table[column]]
-    html = template.render(table=table, columns=columns)
+    """,
+        trim_blocks=True,
+        lstrip_blocks=True,
+        autoescape=True,
+    )
+    column_keys = list(columns.keys())
+    rows = []
+    for row in table:
+        rendered_row = []
+        for column in column_keys:
+            value = to_str(row[column])
+            if column in html_columns:
+                value = Markup(value)
+            rendered_row.append(value)
+        rows.append(rendered_row)
+    html = template.render(table=rows, columns=columns)
+    # CommonMark only treats this as one raw HTML block (vs. markdown-parsed text) if it's a
+    # single block with no blank lines and no leading indentation.
+    html = "\n".join(line.strip() for line in html.splitlines() if line.strip())
     return html
 
 
@@ -152,16 +176,26 @@ def format_sep(sep_arcsec: float, float_decimal_digits_small: int = 3, float_dec
     return f"{deg:d}°{arcmin:02d}′{arcsec:02.0f}″"
 
 
+def safe_link(url, text) -> Markup:
+    """Build an <a> tag with its dynamic parts HTML-escaped (JSX, used by dcc.Markdown's HTML
+    renderer, needs "&" escaped, unlike plain HTML)."""
+    return Markup(f'<a href="{html_escape(str(url))}">{html_escape(str(text))}</a>')
+
+
 def anchor_form(url, data, title):
-    inputs = "\n".join(f'<input type="hidden" name="{key}" value="{value}">' for key, value in data.items())
-    return f"""
-        <form method="post" action="{url}" class="inline">
+    # JSX (used by dcc.Markdown's HTML renderer) needs <input> self-closed and "&" escaped.
+    inputs = "\n".join(
+        f'<input type="hidden" name="{html_escape(key)}" value="{html_escape(str(value))}" />'
+        for key, value in data.items()
+    )
+    return Markup(f"""
+        <form method="post" action="{html_escape(url)}" class="inline">
             {inputs}
             <button type="submit" class="link-button">
-                {title}
+                {html_escape(title)}
             </button>
         </form>
-    """
+    """)
 
 
 def min_max_mjd_short(dr):
@@ -244,7 +278,7 @@ class immutabledefaultdict(immutabledict):
 
 
 def compose_plus_minus_expression(value, lower, upper, **to_str_kwargs):
-    return f"""
+    return Markup(f"""
         <div class="expression">
             {to_str(value, **to_str_kwargs)}
             <span class='supsub'>
@@ -252,7 +286,7 @@ def compose_plus_minus_expression(value, lower, upper, **to_str_kwargs):
               <sub class='subscript'>-{to_str(value - lower, **to_str_kwargs)}</sub>
             </span>
             </div>
-    """
+    """)
 
 
 def timeout(seconds: float, exception=TimeoutError, exception_kwargs=None) -> Callable:

@@ -1,9 +1,11 @@
 from io import BytesIO
 
 import astropy.io.ascii
+from markupsafe import Markup, escape
 from requests.exceptions import JSONDecodeError
 
 from ztf_viewer.catalogs.conesearch._base import _BaseCatalogApiQuery
+from ztf_viewer.util import safe_link
 
 
 class AstrocatsQuery(_BaseCatalogApiQuery):
@@ -25,6 +27,7 @@ class AstrocatsQuery(_BaseCatalogApiQuery):
     }
     __root_api_url = "https://api.astrocats.space"
     _base_api_url = f"{__root_api_url}/all"
+    _declared_html_columns = frozenset({"references"})  # get_link() below returns plain text
 
     def _get_sources(self, id):
         response = self._api_session.get(f"{self.__root_api_url}/{id}/sources", timeout=10)
@@ -34,16 +37,15 @@ class AstrocatsQuery(_BaseCatalogApiQuery):
 
     @staticmethod
     def _format_source(source):
-        if "url" in source and "bibcode" in source:
-            return f"""<a href={source["url"]}>{source["name"]}</a>
-            (<a href=//adsabs.harvard.edu/abs/{source["bibcode"]}>{source["bibcode"]}</a>)"""
-        if "url" in source:
-            return f'<a href={source["url"]}>{source["name"]}</a>'
-        if "bibcode" in source:
-            if source["bibcode"] == source["name"]:
-                return f'<a href=//adsabs.harvard.edu/abs/{source["bibcode"]}>{source["bibcode"]}</a>'
-            return f'{source["name"]} (<a href=//adsabs.harvard.edu/abs/{source["bibcode"]}>{source["bibcode"]}</a>)'
-        return source["name"]
+        name, url, bibcode = source["name"], source.get("url"), source.get("bibcode")
+        ads_link = safe_link(f"//adsabs.harvard.edu/abs/{bibcode}", bibcode) if bibcode else None
+        if url and bibcode:
+            return safe_link(url, name) + " (" + ads_link + ")"
+        if url:
+            return safe_link(url, name)
+        if bibcode:
+            return ads_link if bibcode == name else escape(name) + " (" + ads_link + ")"
+        return escape(name)
 
     def _api_query_region(self, ra, dec, radius_arcsec):
         query = {"ra": ra, "dec": dec, "radius": radius_arcsec, "format": "csv", "item": 0}
@@ -58,7 +60,7 @@ class AstrocatsQuery(_BaseCatalogApiQuery):
             pass
         table = astropy.io.ascii.read(BytesIO(response.content), format="csv", guess=False)
         table["references"] = [
-            ", ".join(map(self._format_source, sources)) for sources in map(self._get_sources, table["event"])
+            Markup(", ").join(map(self._format_source, sources)) for sources in map(self._get_sources, table["event"])
         ]
         return table
 

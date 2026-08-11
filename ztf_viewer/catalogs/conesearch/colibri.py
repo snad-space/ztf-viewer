@@ -4,6 +4,7 @@ from astropy.time import Time
 
 from ztf_viewer.catalogs.conesearch._base import _BaseCatalogApiQuery
 from ztf_viewer.exceptions import NotFound
+from ztf_viewer.util import safe_link
 
 
 class ColibriQuery(_BaseCatalogApiQuery):
@@ -25,6 +26,7 @@ class ColibriQuery(_BaseCatalogApiQuery):
     }
     __root_api_url = "https://astro-colibri.science"
     _base_api_url = f"{__root_api_url}/cone_search"
+    _declared_html_columns = frozenset({"simbad_url"})  # get_link() below returns plain text
 
     def _api_query_region(self, ra, dec, radius_arcsec):
         radius_deg = radius_arcsec / 3600.0
@@ -46,7 +48,7 @@ class ColibriQuery(_BaseCatalogApiQuery):
         table["mjd"] = times.mjd
         table["date"] = times.iso
 
-        simbad_url = [f'<a href="{link}">Simbad</a>' if link else "" for link in table["simbad_link"]]
+        simbad_url = [safe_link(link, "Simbad") if link else "" for link in table["simbad_link"]]
         table["simbad_url"] = np.ma.array(simbad_url, mask=simbad_url == "")
         return table
 
