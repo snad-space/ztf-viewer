@@ -595,11 +595,11 @@ wheels = [
 
 [[package]]
 name = "immutabledict"
-version = "3.0.0"
+version = "4.3.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/21/26/792a4d9fc86a8bc4563b803021f724ab6489d54c2f9d369ad2256bc7dbba/immutabledict-3.0.0.tar.gz", hash = "sha256:5a23cd369a6187f76a8c29d7d687980b092538eb9800e58964603f1b973c56fe", size = 4478, upload-time = "2023-07-21T18:14:17.063Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/1d/e6/718471048fea0366c3e3d1df3acfd914ca66d571cdffcf6d37bbcd725708/immutabledict-4.3.1.tar.gz", hash = "sha256:f844a669106cfdc73f47b1a9da003782fb17dc955a54c80972e0d93d1c63c514", size = 7806, upload-time = "2026-02-15T10:32:34.668Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/df/ef/e038d0d7cd1954c46402a0c27794dd93982c40632085046efb6ab8aa6c1d/immutabledict-3.0.0-py3-none-any.whl", hash = "sha256:034bacc6c6872707c4ec0ea9515de6bbe0dcf0fcabd97ae19fd4e4c338f05798", size = 4018, upload-time = "2023-07-21T18:14:15.632Z" },
+    { url = "https://files.pythonhosted.org/packages/a3/ce/f9018bf69ae91b273b6391a095e7c93fa5e1617f25b6ba81ad4b20c9df10/immutabledict-4.3.1-py3-none-any.whl", hash = "sha256:c9facdc0ff30fdb8e35bd16532026cac472a549e182c94fa201b51b25e4bf7bf", size = 5000, upload-time = "2026-02-15T10:32:33.672Z" },
 ]
 
 [[package]]
@@ -1747,7 +1747,7 @@ requires-dist = [
     { name = "dash-defer-js-import" },
     { name = "dustmaps", specifier = ">=1.0.10" },
     { name = "flask" },
-    { name = "immutabledict", specifier = "<4" },
+    { name = "immutabledict", specifier = "<5" },
     { name = "ipywidgets", specifier = ">=7.0.0" },
     { name = "jinja2" },
     { name = "markupsafe" },
