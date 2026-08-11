@@ -88,26 +88,40 @@ select:focus {
 }
 
 /* Dash 4 wraps dcc.Input(type="number") in a styled container div (its own
-   border/background/padding) with +/- stepper buttons. Strip the wrapper's
-   own box so the input's existing border/height are the only ones visible,
-   restoring the pre-4.x compact, unstyled appearance.
+   border/background/padding) with +/- stepper buttons. Any component that
+   sets its own style={"width": ...} in Python has that style redirected
+   onto this same wrapper by Dash 4, and the input is deliberately made to
+   fill it (Dash's own CSS: .dash-input-element { flex: 1 1 0 }) - correct
+   and wanted there (min-mjd, ref-mag-input, etc.), so just strip the
+   wrapper's own box for those, leaving the fill behavior intact.
 
-   Dash also sets the inner input to width:100% of the wrapper. Previously,
-   inputs with no explicit width style relied on the browser's natural
-   ~201px default; now that same 100%-width input inside an unconstrained
-   inline-flex wrapper resolves to the full width of the surrounding row
-   instead. Give the wrapper that natural 201px width back as a default -
-   any component that sets its own style={"width": ...} already applies
-   that as an inline style on this same wrapper (Dash 4 redirects the
-   style prop there), which overrides this default via normal CSS cascade
-   rules, so explicitly-sized inputs are unaffected. */
+   Components with no explicit width (the majority - every per-catalog
+   search-radius field, for instance) previously relied on the browser's
+   own intrinsic input sizing, which naturally shrinks or grows with
+   whatever space its actual layout context provides. Dash's own CSS
+   forces two things that defeat that: .dash-input-container has
+   `container-type: inline-size`, a CSS containment mode that requires an
+   explicitly-resolvable width (auto/content-based sizing collapses to 0
+   under it); and .dash-input-element has `flex: 1 1 0`, which discards
+   the input's intrinsic size in favor of always filling its wrapper.
+   Undo both only for the no-width case, which lets the browser's normal
+   intrinsic/shrink-to-fit sizing take over again - this reproduces each
+   field's own pre-4.x width (they differ per layout context) without
+   hardcoding any of them or special-casing individual fields. */
 .dash-input-container.dash-input {
   display: inline-flex;
   border: none;
   background: none;
   padding: 0;
   height: auto;
-  width: 201px;
+}
+.dash-input-container.dash-input:not([style*="width"]) {
+  width: auto;
+  container-type: normal;
+}
+.dash-input-container.dash-input:not([style*="width"]) > .dash-input-element {
+  flex: none;
+  width: auto;
 }
 .dash-input-stepper {
   display: none;
