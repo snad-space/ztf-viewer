@@ -569,11 +569,6 @@ archivePrefix = {arXiv},
     ]
 
 
-def server():
-    """Entrypoint for Gunicorn"""
-    return app.server
-
-
 def parse_args(args):
     parser = argparse.ArgumentParser()
     parser.add_argument("--host", default="127.0.0.1")
@@ -582,4 +577,4 @@ def parse_args(args):
 
 if __name__ == "__main__":
     args = parse_args(None)
-    app.run_server(host=args.host, debug=True)
+    app.run(host=args.host, debug=True)
