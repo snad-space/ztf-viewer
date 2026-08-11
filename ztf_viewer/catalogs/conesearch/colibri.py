@@ -1,3 +1,5 @@
+from html import escape as html_escape
+
 import numpy as np
 from astropy.table import Table
 from astropy.time import Time
@@ -25,6 +27,9 @@ class ColibriQuery(_BaseCatalogApiQuery):
     }
     __root_api_url = "https://astro-colibri.science"
     _base_api_url = f"{__root_api_url}/cone_search"
+    # get_link() below returns a plain name (no markup), unlike the "__link" default, so only
+    # "simbad_url" carries deliberately pre-built HTML.
+    _declared_html_columns = frozenset({"simbad_url"})
 
     def _api_query_region(self, ra, dec, radius_arcsec):
         radius_deg = radius_arcsec / 3600.0
@@ -46,7 +51,10 @@ class ColibriQuery(_BaseCatalogApiQuery):
         table["mjd"] = times.mjd
         table["date"] = times.iso
 
-        simbad_url = [f'<a href="{link}">Simbad</a>' if link else "" for link in table["simbad_link"]]
+        # dcc.Markdown(dangerously_allow_html=True) parses raw HTML as JSX, which requires a
+        # bare "&" (common in these external URLs) to be escaped as "&amp;" - unescaped, it
+        # silently breaks rendering of the whole surrounding table.
+        simbad_url = [f'<a href="{html_escape(link)}">Simbad</a>' if link else "" for link in table["simbad_link"]]
         table["simbad_url"] = np.ma.array(simbad_url, mask=simbad_url == "")
         return table
 

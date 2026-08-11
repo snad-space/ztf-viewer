@@ -1,3 +1,5 @@
+from markupsafe import Markup
+
 from ztf_viewer.catalogs.conesearch._base import _BaseVizierQuery
 
 
@@ -10,7 +12,9 @@ class VsxQuery(_BaseVizierQuery):
         "separation": "Separation, arcsec",
         "Name": "Name",
         "Period": "Period, days",
-        "Type": '<a href="https://aavso.org/vsx/help/VariableStarTypeDesignationsInVSX.pdf">Variability type</a>',
+        "Type": Markup(
+            '<a href="https://aavso.org/vsx/help/VariableStarTypeDesignationsInVSX.pdf">Variability type</a>'
+        ),
         "max": "Maximum mag",
         "n_max": "Band of max mag",
         "min": "Minimum mag",

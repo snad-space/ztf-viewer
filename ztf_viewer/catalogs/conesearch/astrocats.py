@@ -1,6 +1,8 @@
+from html import escape as html_escape
 from io import BytesIO
 
 import astropy.io.ascii
+from markupsafe import Markup
 from requests.exceptions import JSONDecodeError
 
 from ztf_viewer.catalogs.conesearch._base import _BaseCatalogApiQuery
@@ -25,6 +27,9 @@ class AstrocatsQuery(_BaseCatalogApiQuery):
     }
     __root_api_url = "https://api.astrocats.space"
     _base_api_url = f"{__root_api_url}/all"
+    # get_link() below returns a plain name (no markup), unlike the "__link" default, so only
+    # "references" (built by _format_source) carries deliberately pre-built HTML.
+    _declared_html_columns = frozenset({"references"})
 
     def _get_sources(self, id):
         response = self._api_session.get(f"{self.__root_api_url}/{id}/sources", timeout=10)
@@ -34,16 +39,22 @@ class AstrocatsQuery(_BaseCatalogApiQuery):
 
     @staticmethod
     def _format_source(source):
-        if "url" in source and "bibcode" in source:
-            return f"""<a href={source["url"]}>{source["name"]}</a>
-            (<a href=//adsabs.harvard.edu/abs/{source["bibcode"]}>{source["bibcode"]}</a>)"""
-        if "url" in source:
-            return f'<a href={source["url"]}>{source["name"]}</a>'
-        if "bibcode" in source:
+        # dcc.Markdown(dangerously_allow_html=True) parses raw HTML as JSX, which requires a
+        # bare "&" (common in these external URLs) to be escaped as "&amp;" - unescaped, it
+        # silently breaks rendering of the whole surrounding table.
+        url = html_escape(source["url"]) if "url" in source else None
+        bibcode = html_escape(source["bibcode"]) if "bibcode" in source else None
+        name = html_escape(source["name"])
+        if url is not None and bibcode is not None:
+            return Markup(f"""<a href="{url}">{name}</a>
+            (<a href="//adsabs.harvard.edu/abs/{bibcode}">{bibcode}</a>)""")
+        if url is not None:
+            return Markup(f'<a href="{url}">{name}</a>')
+        if bibcode is not None:
             if source["bibcode"] == source["name"]:
-                return f'<a href=//adsabs.harvard.edu/abs/{source["bibcode"]}>{source["bibcode"]}</a>'
-            return f'{source["name"]} (<a href=//adsabs.harvard.edu/abs/{source["bibcode"]}>{source["bibcode"]}</a>)'
-        return source["name"]
+                return Markup(f'<a href="//adsabs.harvard.edu/abs/{bibcode}">{bibcode}</a>')
+            return Markup(f'{name} (<a href="//adsabs.harvard.edu/abs/{bibcode}">{bibcode}</a>)')
+        return Markup(name)
 
     def _api_query_region(self, ra, dec, radius_arcsec):
         query = {"ra": ra, "dec": dec, "radius": radius_arcsec, "format": "csv", "item": 0}
@@ -58,7 +69,7 @@ class AstrocatsQuery(_BaseCatalogApiQuery):
             pass
         table = astropy.io.ascii.read(BytesIO(response.content), format="csv", guess=False)
         table["references"] = [
-            ", ".join(map(self._format_source, sources)) for sources in map(self._get_sources, table["event"])
+            Markup(", ").join(map(self._format_source, sources)) for sources in map(self._get_sources, table["event"])
         ]
         return table
 

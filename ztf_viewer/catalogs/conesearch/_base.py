@@ -2,6 +2,7 @@ import dataclasses
 import logging
 import urllib.parse
 from functools import partial
+from html import escape as html_escape
 from typing import Dict, List, Optional
 
 import pandas as pd
@@ -11,6 +12,7 @@ from astropy.cosmology import FlatLambdaCDM
 from astropy.table import Table
 from astroquery.utils.commons import TableList
 from astroquery.vizier import Vizier
+from markupsafe import Markup
 from requests import RequestException
 
 from ztf_viewer.cache import cache
@@ -86,6 +88,16 @@ class _BaseCatalogQuery:
 
     _value_with_interval_columns: List[ValueWithIntervalColumn] = []
     _value_with_uncertainty_columns: List[ValueWithUncertaintyColumn] = []
+
+    # Column keys (in `columns`) whose *cell* values are deliberately pre-built HTML (links,
+    # images) rather than plain scientific text, so html_from_astropy_table must not escape
+    # them. Subclasses that add their own HTML-bearing columns (e.g. "references") should
+    # extend this, e.g. `_declared_html_columns = frozenset({"__link", "references"})`.
+    _declared_html_columns: frozenset = frozenset({"__link"})
+
+    @property
+    def html_columns(self) -> frozenset:
+        return self._declared_html_columns | {x.name for x in self._value_with_interval_columns}
 
     def __new__(cls, query_name):
         name = cls._normalize_name(query_name)
@@ -229,7 +241,12 @@ class _BaseCatalogQuery:
         raise NotImplementedError
 
     def get_link(self, id, name, row=None):
-        return f'<a href="{self.get_url(id, row=row)}">{name}</a>'
+        # dcc.Markdown(dangerously_allow_html=True) parses raw HTML as JSX, which requires a
+        # bare "&" (common in query-string URLs and, occasionally, object names/remarks) to be
+        # escaped as "&amp;" - unescaped, it silently breaks rendering of the whole surrounding
+        # table. Markup() marks the result as pre-built HTML so html_from_astropy_table's
+        # autoescaping template doesn't double-escape it.
+        return Markup(f'<a href="{html_escape(self.get_url(id, row=row))}">{html_escape(str(name))}</a>')
 
 
 class _BaseLightCurveQuery:

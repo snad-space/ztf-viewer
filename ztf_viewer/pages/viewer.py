@@ -2035,7 +2035,10 @@ def set_table(radius, oid, dr, catalog):
     table = table.copy()
     div = html.Div(
         [
-            dcc.Markdown(html_from_astropy_table(table, query.columns), dangerously_allow_html=True),
+            dcc.Markdown(
+                html_from_astropy_table(table, query.columns, html_columns=query.html_columns),
+                dangerously_allow_html=True,
+            ),
         ],
     )
     return div

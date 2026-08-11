@@ -36,7 +36,10 @@ def get_layout(coordinates, radius_arcsec, dr):
     layout = html.Div(
         [
             html.H1(f"Objects inside cone {cone_str}"),
-            dcc.Markdown(html_from_astropy_table(table, COLUMNS), dangerously_allow_html=True),
+            dcc.Markdown(
+                html_from_astropy_table(table, COLUMNS, html_columns=frozenset({"oid"})),
+                dangerously_allow_html=True,
+            ),
         ],
     )
     return layout
