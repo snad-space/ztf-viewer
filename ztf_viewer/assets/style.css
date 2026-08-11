@@ -90,13 +90,24 @@ select:focus {
 /* Dash 4 wraps dcc.Input(type="number") in a styled container div (its own
    border/background/padding) with +/- stepper buttons. Strip the wrapper's
    own box so the input's existing border/height are the only ones visible,
-   restoring the pre-4.x compact, unstyled appearance. */
+   restoring the pre-4.x compact, unstyled appearance.
+
+   Dash also sets the inner input to width:100% of the wrapper. Previously,
+   inputs with no explicit width style relied on the browser's natural
+   ~201px default; now that same 100%-width input inside an unconstrained
+   inline-flex wrapper resolves to the full width of the surrounding row
+   instead. Give the wrapper that natural 201px width back as a default -
+   any component that sets its own style={"width": ...} already applies
+   that as an inline style on this same wrapper (Dash 4 redirects the
+   style prop there), which overrides this default via normal CSS cascade
+   rules, so explicitly-sized inputs are unaffected. */
 .dash-input-container.dash-input {
   display: inline-flex;
   border: none;
   background: none;
   padding: 0;
   height: auto;
+  width: 201px;
 }
 .dash-input-stepper {
   display: none;
