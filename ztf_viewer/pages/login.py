@@ -1,5 +1,4 @@
-import dash
-from dash import Input, Output, State, dcc, html
+from dash import Input, Output, State, ctx, dcc, html
 
 from ztf_viewer.akb import akb
 from ztf_viewer.app import app
@@ -33,7 +32,5 @@ def do_login(n_submit, token):
     except UnAuthorized:
         return "Login failed: wrong token"
     if token:
-        dash.callback_context.response.set_cookie(
-            "akb_token", token, secure=True, samesite="Strict", max_age=31 * 86400
-        )
+        ctx.response.set_cookie("akb_token", token, secure=True, samesite="Strict", max_age=31 * 86400)
     return ["You are authorised as ", html.B(username)]

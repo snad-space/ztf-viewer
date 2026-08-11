@@ -10,6 +10,7 @@ Version schema is `year.month.num_release`
 
 - Download the Bayestar19 dust map from our own mirror, the Harvard Dataverse
   blocks scripted downloads now https://github.com/gregreen/dustmaps/issues/54
+- Update Dash to v3.4.0 https://github.com/snad-space/ztf-viewer/issues/518
 
 ### Removed
 
