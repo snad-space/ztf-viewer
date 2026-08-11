@@ -87,6 +87,21 @@ select:focus {
   border: 1px solid #22114C;
 }
 
+/* Dash 4 wraps dcc.Input(type="number") in a styled container div (its own
+   border/background/padding) with +/- stepper buttons. Strip the wrapper's
+   own box so the input's existing border/height are the only ones visible,
+   restoring the pre-4.x compact, unstyled appearance. */
+.dash-input-container.dash-input {
+  display: inline-flex;
+  border: none;
+  background: none;
+  padding: 0;
+  height: auto;
+}
+.dash-input-stepper {
+  display: none;
+}
+
 #header-logo {
     height: 1.7320508076em;  /* sqrt(3) */
     width: auto;

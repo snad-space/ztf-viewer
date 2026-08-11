@@ -6,12 +6,17 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
+### Added
+
+- `/health` endpoint for container/orchestration health checks
+
 ### Changed
 
 - Download the Bayestar19 dust map from our own mirror, the Harvard Dataverse
   blocks scripted downloads now https://github.com/gregreen/dustmaps/issues/54
 - Update Dash to v3.4.0 https://github.com/snad-space/ztf-viewer/issues/518
 - Run gunicorn directly against the Dash app instance instead of the underlying Flask server, now that Dash 3.1+ is WSGI-compliant on its own
+- Update Dash to v4.4.1
 
 ### Removed
 

@@ -17,5 +17,6 @@ app = dash.Dash(
     __name__,
     external_stylesheets=js9_css,
     external_scripts=js9_js,
+    health_endpoint="/health",
 )
 app.config.suppress_callback_exceptions = True
