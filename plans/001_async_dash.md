@@ -1,8 +1,12 @@
 # 001 — Porting the ZTF Viewer to async (Dash 4 FastAPI backend)
 
-Status: proposal · not started
-Baseline: `master` after `b733f6d` (Dash 4.4.1 upgrade merged)
-Now running: Flask backend, Python 3.12 — update this line as stacks land
+Status: in progress · foundations landed, prep started
+Baseline: `master` after `782bc7a`
+Now running: Flask backend, Python 3.14
+
+Note on names: branches and PRs drop the `aio-` prefix the plan uses (`aio-py314` shipped as
+`python-3.14`, `aio-cache-core` as `cache-core`, and so on). The plan keeps the prefixed names
+as identifiers; the Progress list records the real branch where they differ.
 
 ---
 
@@ -10,31 +14,48 @@ Now running: Flask backend, Python 3.12 — update this line as stacks land
 
 Mark `[x]` when merged. Prod stays on the current build until the whole plan lands; what must
 keep working throughout is `master.ztf.snad.space`. Every PR also gets `pr<N>.ztf.snad.space` —
-smoke-check there before merging. `⟳` marks a branch that exists and is complete but is **not
-merged** — nothing in this plan has been merged yet.
+smoke-check there before merging.
+
+**Every PR in this plan is opened as a draft.** Author it, get CI green, write the description —
+then leave it in draft. Konstantin reviews and marks it ready when it is right. Nothing here is
+merged by its author, and "ready for review" is a reviewer's signal, not the author's.
 
 **Foundations** — land these first
-- [ ] `aio-py314` — bump to Python 3.14 (image, pyproject, ruff/black, lock)
-- [ ] `aio-fixtures` — record upstream responses; replay for both `requests` and `httpx`; no network in CI
-- [ ] `aio-golden-http` — golden tests for every route; exact bytes for CSV; static cache headers
-- [ ] `aio-golden-callbacks` — component-tree snapshots, incl. NotFound / Unavailable paths
-- [ ] ⟳ `aio-cache-spec` — cache contract tests (keys, TTL, pickle round-trip) — **found five defects in
-      today's cache, see F12**; branch complete, unmerged
+- [x] `aio-py314` — bump to Python 3.14 (image, pyproject, ruff/black, lock) — #625 `python-3.14`
+- [x] ~~`aio-fixtures`~~ — **dropped.** Recorded/replayed upstream responses (#631,
+      branch `http-fixtures`, kept but closed): replaying canned upstream bytes mostly re-tests
+      our own parsers against blobs, and the third-party sync clients are not being ported to
+      async at all (F9), so their recordings would never take part in a before/after comparison.
+      Replaced by #632 `robust-upstream-tests`, which keeps the tests live but turns
+      transport-level failures on `upstream`-marked tests into skips, so CI stops going red
+      because Simbad is down. See the revised foundations section.
+- [ ] `aio-golden-http` — **re-scoped:** goldens over *our* outputs only, no upstream replay;
+      partial coverage is fine
+- [ ] `aio-golden-callbacks` — **re-scoped** the same way; likely a thin subset
+- [x] `aio-cache-spec` — cache contract tests (keys, TTL, pickle round-trip) — **found five defects in
+      today's cache, see F12** — #627 `cache-contract-tests`
 - [ ] `aio-bench` — fan-out latency harness, records a baseline
-- [ ] ⟳ `aio-invariants` — migration guards (callbacks-are-coroutines starts `xfail`) — **corrected the
-      callback count, see F1a′**; branch complete, unmerged
+- [~] `aio-invariants` — **deliberately cut down, not landed as specified** (#626). Only the two
+      cache-decorator guards landed (`tests/test_cache_decorator_guards.py`); the rest were
+      **reassigned to the PRs that establish each rule**, where they are plain passing assertions
+      rather than `xfail`. See the revised foundations section. The investigation behind it
+      **corrected the callback count, see F1a′**.
+      - no `import flask` outside `web.py` → `aio-deflask`
+      - every `callback_map` entry is a coroutine → `aio-shim`
+      - `@acache()` guards → `aio-cache-async`
 
 **Prep** — backend-neutral, on Flask
-- [ ] `aio-deflask` — `ctx.cookies` instead of `flask.request`; routes go through `web.py`
-- [ ] `aio-cache-core` — key derivation + value codec, no backend
-- [ ] `aio-cache-sync` — reimplement sync `cache()`, drop `redis_lru`
+- [ ] `aio-deflask` — `ctx.cookies` instead of `flask.request`; routes go through `web.py` — *in progress*
+- [x] `aio-cache-core` — key derivation + value codec, no backend — #628 `cache-core`
+- [x] `aio-cache-sync` — reimplement sync `cache()`, drop `redis_lru` — #629 `cache-sync`
 - [ ] `aio-cache-async` — add `acache()`, key-compatible with the sync one
 - [ ] `aio-cache-flight` — single-flight dedupe
 - [ ] `aio-ttlset` — async `unavailable_catalogs`
 - [ ] `aio-pytest-asyncio` — async test support
 
 **Async shell** — last stack on Flask
-- [ ] `aio-shim` — every callback becomes a coroutine (registration-layer wrap); flip `aio-invariants` to a hard assert
+- [ ] `aio-shim` — every callback becomes a coroutine (registration-layer wrap); adds the
+      callbacks-are-coroutines guard as a plain passing test
 - [ ] `aio-loop-registry` — per-loop clients/pools/semaphores
 - [ ] `aio-pilots` — 2–3 natively async callbacks (optional)
 
@@ -200,7 +221,7 @@ needs `redis.asyncio`.
 Dash exposes a backend-neutral
 `dash.ctx.cookies` (`dash/_callback_context.py:274`) and `ctx.response.set_cookie` (already
 used in `ztf_viewer/pages/login.py:35`). Trivial to make backend-agnostic ahead of time.
-The full set of `flask` **import** sites `aio-deflask` must clear, measured in `aio-invariants`:
+The full set of `flask` **import** sites `aio-deflask` must clear, measured during `aio-invariants`:
 `akb.py:5`, `pages/favicon.py:1`, `pages/figure.py:7`, `pages/lc_csv.py:4`.
 
 **F5 — Six Flask routes need porting**, all registered via `@app.server.route`:
@@ -373,9 +394,9 @@ directly, since they carry no dependency on the branch above them.
 ```
 master
 └─ aio-py314                  upgrade the interpreter first of all
-   └─ aio-fixtures            replay layer; everything below depends on it
-      ├─ aio-golden-http    ⇢ route goldens
-      ├─ aio-golden-callbacks⇢ callback snapshots
+   └─ robust-upstream-tests   transport failures on upstream tests → skip (replaced aio-fixtures)
+      ├─ aio-golden-http    ⇢ route goldens (our outputs only)
+      ├─ aio-golden-callbacks⇢ callback snapshots (pure/failure paths only)
       ├─ aio-cache-spec     ⇢ cache contract tests
       ├─ aio-bench          ⇢ fan-out benchmark harness
       ├─ aio-invariants     ⇢ migration guards
@@ -543,9 +564,24 @@ specification is its behaviour in production; without a "before" snapshot we can
 successful port from a subtly broken one. All of the foundations stack merges on today's Flask app and is
 worth having even if the rest of this plan is shelved.
 
+### Rule: no tests for functionality that does not exist yet
+
+Established while reviewing `aio-invariants` (#626) and applying to every stack below. **A test
+must describe what is supposed to work now.** A test written in advance of the feature it
+describes cannot fail usefully; it encodes the plan in the test suite, and the `xfail` marker it
+needs is a standing instruction to ignore it. When a PR establishes a new rule, the guard for
+that rule is written **in that PR, as a plain passing assertion** — not earlier, and not as an
+`xfail` waiting to be flipped.
+
+The one legitimate use of `xfail` here is the opposite case: a test that characterizes **today's
+behaviour including its defects**, which is a real specification of a real system. That is why
+`aio-cache-spec`'s five markers stay (F12) — they describe what the current cache actually does —
+and why `aio-invariants`' markers did not.
+
 Order within the stack: **`aio-py314` first** (the interpreter upgrade, so the goldens are recorded
-against the version we keep), then `aio-fixtures` (which everything else depends on), then `aio-golden-http`–`aio-invariants` in any
-order.
+against the version we keep), then the rest in any order. The original ordering put a replay
+layer second and made everything depend on it; that layer is gone (see below), so the remaining
+items are independent and can be cut from `master` directly.
 
 ### `aio-py314` — Upgrade to Python 3.14 *(first within this stack)*
 Resolves F10 by moving production up to the version development already runs, rather than
@@ -575,52 +611,81 @@ holding development back.
 - **Accept:** image builds on all three `[tool.uv] environments` targets (linux x86_64, linux
   aarch64, darwin arm64); existing suite green; a smoke run of the app in the container.
 
-**The blocker to be honest about:** the current suite hits the live network.
+**The blocker, and how it was resolved.** The current suite hits the live network:
 `tests/catalogs/conesearch/test_tns.py` really queries TNS; `tests/catalogs/test_ztf_ref.py`
-really downloads a FITS file. There is no `vcr`/`responses`/`respx` anywhere in the lockfile.
-So the tests we have are integration tests against third parties — they can go red because
-Simbad is down, and they cannot be used to compare before/after behaviour. `aio-fixtures` fixes that and
-everything else depends on it.
+really downloads a FITS file. The plan originally answered this with `aio-fixtures` — record
+every upstream response and replay it, so the suite is hermetic and before/after comparisons
+are exact.
 
-### `aio-fixtures` — Fixture layer that survives the `requests` → `httpx` swap
-- Capture real upstream responses once, and store them as **our own fixture format**
-  (JSON/bytes per upstream + URL + status + headers), not as client-specific cassettes.
-- Provide two thin adapters that replay those fixtures: one `requests` transport adapter
-  (today) and one `httpx.MockTransport` (the async-I/O stack). Same fixtures, both clients — this is the
-  whole point, and it is why plain `vcrpy` is the wrong choice here: its httpx support is
-  secondary and we would be re-recording mid-migration, destroying the comparison.
-- Keep the existing live tests, marked `@pytest.mark.live` and excluded by default, so we
-  retain a way to detect upstream API drift.
-- **Accept:** the default `pytest` run makes no network calls (enforce with a socket-blocking
-  fixture); live tests still runnable on demand.
+**That was tried (#631, branch `http-fixtures`, kept but closed) and rejected as not worth its
+cost.** Two reasons, both of which also re-scope the goldens below:
 
-### `aio-golden-http` — HTTP surface golden tests
-Characterize every route as it behaves today: index, `/dr24/view/<oid>`, `/dr24/search/...`,
-`/login`, `/tags`, `/anomalies`, `/health`, `/favicon.ico`, `/static/...`,
-`/dr24/csv/<oid>`, `/panstarrs/csv/<id>`, `/gaia/csv/<id>`, `/antares/csv/<locus>`,
-`/dr24/figure/<oid>` (png + pdf), `/dr24/figure/<oid>/folded/<period>`.
-- Assert status, `Content-Type`, `Content-Disposition`, and **exact bytes** for the CSV
-  endpoints (golden files). CSVs are pure functions of the fixtures, so they pin `aio-starlette-web`/`aio-routes`
-  precisely.
+1. Those catalog tests exist to check **our parsing** against what upstreams actually return —
+   column names, masked-vs-`"None"`, coordinate ranges. Replaying a recorded blob mostly
+   re-tests the blob.
+2. The third-party sync clients (`astroquery`, `alerce`, `antares-client`) are explicitly *not*
+   being ported to async (F9), so their recordings could never take part in the before/after
+   comparison the fixture layer was justified by.
+
+It also turned out not to be the cheap layer it looked like: three upstream paths bypass
+`requests` entirely (`astropy.io.fits.open` uses urllib; astroquery's TAP layer speaks
+`http.client`), `import ztf_viewer.catalogs.conesearch` performs blocking network I/O at import
+time, astroquery's on-disk cache made the suite non-hermetic underneath any adapter, and
+`astroquery.simbad` serializes an identical query differently per process (set iteration order),
+so byte-exact request matching needs a per-upstream canonicalizer. Those findings are worth
+keeping even though the branch is not: **the import-time blocking I/O is on the startup path and
+matters to `aio-loop-registry`**, and **Simbad's unstable column order lands on any snapshot test
+that touches it.**
+
+**What replaced it: #632 `robust-upstream-tests`, merged.** Tests stay live, but an
+`upstream`-marked test that fails with a *transport-level* error becomes a skip-with-warning
+rather than a failure, implemented in `pytest_runtest_makereport` so it covers fixtures as well
+as test bodies. Assertion failures and `NotFound` still fail — those are answers, not outages.
+That buys the actual thing we needed (CI stops going red because Simbad is down) without a
+replay layer.
+
+**Consequence for the goldens: they characterize *our* outputs, not upstream data.** Anything
+whose value is really an upstream's payload is out of scope; anything we compute, format,
+serialize or route is in scope. Perfect coverage is explicitly not the goal — a thin, honest
+subset that pins the parts the flip is likely to break is worth more than a broad one that goes
+red for reasons outside this repo.
+
+### `aio-golden-http` — HTTP surface golden tests *(re-scoped)*
+Characterize the routes whose behaviour is ours: index, `/login`, `/tags`, `/anomalies`,
+`/health`, `/favicon.ico`, `/static/...`, and the shape (not the data) of
+`/dr24/csv/<oid>`, `/dr24/figure/<oid>` (png + pdf), `/dr24/figure/<oid>/folded/<period>`.
+- Assert status, `Content-Type`, `Content-Disposition`, and the response-construction details
+  that `aio-starlette-web`/`aio-routes` will re-implement. **Byte-exact CSV goldens are dropped**
+  along with the fixtures they depended on — without replay their bytes are an upstream's data,
+  not ours. Pin the CSV *header row*, column set, dtype formatting and content-disposition
+  instead, which is the part `lc_csv.py` actually authors.
 - Assert `/static/js9/js9.min.js` returns 200 **and** record its cache headers — this is the
-  test that catches both F2 and the Flask/Starlette cache-header difference (the `/static` design note).
+  test that catches both F2 and the Flask/Starlette cache-header difference (the `/static` design
+  note). Highest-value item in this PR, and it needs no upstream at all.
 - Figures: don't byte-compare PNG/PDF in CI (matplotlib/LaTeX output is not reproducible
   across versions). Assert magic bytes, non-trivial size, and mimetype; keep an opt-in visual
   comparison for local use.
+- Routes needing a live upstream (`/dr24/view/<oid>`, `/dr24/search/...`, the per-catalog CSVs)
+  get the `upstream` marker so #632's skip-on-transport-error applies, or are skipped entirely.
 - **Accept:** green on Flask; must stay green through `aio-fastapi-app`–`aio-uvicorn` with no edits.
 
-### `aio-golden-callbacks` — Callback characterization (the real regression net for the async-I/O stack)
-Dash callbacks are ordinary functions. With `aio-fixtures`'s fixtures pinning upstream responses, call
-them directly and snapshot the returned component tree, serialized with
-`plotly.utils.PlotlyJSONEncoder`.
-- Priority order, matching where the rewrites land: `get_summary` (`aio-gather` rewrites its loop),
-  `set_table` for a representative catalog, `find_neighbours`, `get_metadata`,
-  `set_figure`, `set_lc_table`, `set_features_list`.
-- Include the **failure** paths, which are where a rewrite is most likely to silently drift:
-  catalog raises `NotFound`; catalog raises `CatalogUnavailable`; catalog present in
-  `unavailable_catalogs`. `aio-gather`'s `gather(..., return_exceptions=True)` must reproduce the
-  current per-catalog `except ...: continue` semantics exactly, and these snapshots are how we
-  know it does.
+### `aio-golden-callbacks` — Callback characterization *(re-scoped, and much thinner)*
+Dash callbacks are ordinary functions, so they can be called directly and their returned
+component tree snapshotted with `plotly.utils.PlotlyJSONEncoder`. Without a replay layer this
+can no longer be the full regression net the plan originally leaned on for the async-I/O stack,
+so aim narrower: **snapshot callbacks whose output is a pure function of their inputs**, feeding
+them hand-written or minimal stub data rather than recorded upstream payloads.
+- Best candidates are the presentation-side callbacks — layout assembly, `set_figure_link`,
+  `set_lc_table`, `set_features_list`, `get_metadata` — where the interesting logic is ours.
+- Highest value is the **failure** paths, which need no upstream at all and are exactly where a
+  rewrite silently drifts: catalog raises `NotFound`; catalog raises `CatalogUnavailable`;
+  catalog present in `unavailable_catalogs`. `aio-gather`'s `gather(..., return_exceptions=True)`
+  must reproduce the current per-catalog `except ...: continue` semantics exactly, and these
+  snapshots — driven by stub catalogs that raise on cue — are how we know it does. Write these
+  even if nothing else in this PR gets written.
+- `get_summary` and `set_table` over a real catalog are the ones that most wanted replay; either
+  stub the catalog objects or leave them out. **Anything Simbad-derived has unstable column
+  order** (set iteration, per-process) and must be normalized or skipped.
 - **Ordering hazard — record snapshots with the cache disabled, not merely empty (F12.1).**
   `tests/conftest.py` forces `CACHE_TYPE=memory`, and on that backend *every* `@cache()` site
   shares one keyspace, so two distinct cached functions called with identical arguments return
@@ -654,39 +719,74 @@ allowed to change the key scheme.
   bug, whereas non-strict lets a fix surface as XPASS. See the revised `aio-cache-sync` criterion.
 
 ### `aio-bench` — Concurrency benchmark harness
-- A test that drives `get_summary` against fixtures with an injected per-upstream delay and
-  records total wall-clock, asserting nothing yet.
-- `aio-gather` flips it into a real assertion: with N catalogs each delayed `d`, elapsed must be
-  `~d`, not `~N·d`. That converts "the payoff" from a claim into a CI-enforced property.
+- A **harness** — not a test — that drives `get_summary` against **stub catalogs** with an
+  injected per-upstream delay and reports total wall-clock. Unaffected by dropping the replay
+  layer: what this measures is the fan-out *shape*, so a `sleep`-and-return stub is not merely
+  sufficient, it is better than a recording, because the delay is the point and should be
+  explicit.
+- **Ship it as a runnable benchmark, not as a collected test that asserts nothing.** A
+  no-assertion test is the same anti-pattern as an `xfail` placeholder — it occupies a slot in
+  the suite while being unable to fail. The real assertion (with N catalogs each delayed `d`,
+  elapsed must be `~d`, not `~N·d`) is written **in `aio-gather`**, the PR that makes it true,
+  where it converts "the payoff" from a claim into a CI-enforced property.
+- Consequently this item is optional and can be folded into `aio-gather` outright; it is listed
+  separately only because having the harness early makes the baseline easy to quote.
 - **Accept:** baseline number recorded in the PR description.
 
-### `aio-invariants` — Invariants that guard the migration
-*(Landed — branch `aio-invariants`, `tests/test_migration_invariants.py`. No dependency changes.)*
+### ~~`aio-invariants`~~ — the guards, distributed to the PRs that establish them
+*(Partly landed as #626, `tests/test_cache_decorator_guards.py` — deliberately much smaller than
+this section originally specified. Branch `migration-invariants`; the earlier #622 was closed only
+because GitHub auto-closes on a head-branch rename.)*
 
-Cheap tests that fail loudly if someone (including us, months from now) breaks a rule:
-- every entry in `app.callback_map` is a coroutine function — trivially false today, so land
-  it `xfail` and flip it to a hard assertion in `aio-shim`;
-- no `import flask` outside `ztf_viewer/web.py` (after `aio-deflask`) — implemented as an `ast`
-  walk rather than a regex, so string literals and comments cannot produce false hits;
-- `@cache()` is never applied to a coroutine function, `@acache()` never to a plain one
-  (after the cache sub-stack). The `acache()` half degrades gracefully while the symbol does
-  not exist yet, rather than erroring on import.
-- Two permanent guards were added beyond the original list: that
-  `inspect.iscoroutinefunction` really does see through `functools.partial` (F1a′ depends on
-  it), and an anti-vacuity check that `callback_map` is populated at all.
-- **Accept:** each either passes or is an explicit `xfail` with the PR that will fix it named
-  in the marker. These are **strict** `xfail` (unlike `aio-cache-spec`'s, and for the opposite
-  reason): an unexpected XPASS means the guard is ready to flip, and we want to be told. All
-  four were verified under `--runxfail` to fail for the *right* reason rather than an
-  incidental error — a strict xfail passing for the wrong reason is a silent hole in the net.
-- Reading `callback_map` requires importing `ztf_viewer.__main__`; a static source scan cannot
-  work, because after `aio-shim` the source still says `def` and the wrapping happens at
-  registration time. The import is session-scoped, does no network or Redis I/O, and costs
-  ~0 s marginally inside the full suite (astropy/dash are already imported by other tests).
+The original idea was one file of guards, several of them `xfail` with the future PR named in
+the marker, flipped to hard assertions as each landed. **That framing was rejected during
+review, and the reasoning generalizes:** a test describing a state that does not exist yet
+cannot fail usefully — it encodes the plan in the test suite rather than saying what is supposed
+to work now. Note this is the *opposite* call from `aio-cache-spec`'s non-strict `xfail`s, and
+for a coherent reason: those describe **today's** behaviour including its defects, which is a
+real specification; these described tomorrow's.
 
-**Why this ordering pays.** `aio-fixtures` + `aio-golden-callbacks` together mean the risky stacks — `aio-snad-apis`, `aio-conesearch`, `aio-gather` — become
-"snapshot unchanged?" reviews instead of "read the diff and hope". That is what makes the rest
-of this plan safe to do incrementally.
+**What landed** (the subset that already holds today, so it is an ordinary passing test):
+- `@cache()` is never applied to a coroutine function and `@acache()` never to a plain one — an
+  `ast` scan over the package (F3);
+- the sync `cache()` decorator itself should *refuse* a coroutine function. This one **failed**
+  on merge — today's `redis_lru`/`cachetools` accepts it silently — and was fixed by
+  `aio-cache-sync`.
+
+**What was reassigned**, each to be written as a plain passing assertion in the PR that makes it
+true:
+- **no `import flask` outside `ztf_viewer/web.py` → `aio-deflask`.** An `ast` walk, not a regex,
+  so string literals and comments cannot produce false hits.
+- **every server-side entry in `app.callback_map` is a coroutine function → `aio-shim`.** Must
+  exclude clientside callbacks explicitly, which have no `"callback"` key at all and would
+  otherwise `KeyError` instead of failing cleanly (F1a′). Reading `callback_map` requires
+  importing `ztf_viewer.__main__`; a static source scan cannot work, because after `aio-shim` the
+  source still says `def` and the wrapping happens at registration time. The import is
+  session-scoped, does no network or Redis I/O, and costs ~0 s marginally inside the full suite.
+- **`acache()` guards → `aio-cache-async`**, once the symbol exists.
+
+Two guards from the original list are worth keeping wherever they land, because they are
+permanent facts rather than migration states: that `inspect.iscoroutinefunction` really does see
+through `functools.partial`, including nested (F1a′ depends on it, verified on 3.14), and an
+anti-vacuity check that `callback_map` is populated at all — both belong with the `aio-shim`
+guard.
+
+**What the net actually is, now that replay is gone.** The original claim was that fixtures plus
+callback snapshots would turn the risky stacks — `aio-snad-apis`, `aio-conesearch`, `aio-gather` —
+into "snapshot unchanged?" reviews. Without replay that is only partly true, and it is worth
+being honest about which guarantees remain:
+
+- **Kept:** the failure-path snapshots (`NotFound` / `CatalogUnavailable` / unavailable-catalogs),
+  which need no upstream and cover exactly the semantics `aio-gather`'s
+  `return_exceptions=True` must reproduce; the cache contract tests; the migration invariants;
+  the `aio-bench` fan-out assertion.
+- **Lost:** byte-exact before/after comparison of upstream-derived output. Those stacks are
+  reviewed as diffs, backed by live `upstream`-marked tests that skip rather than fail when a
+  service is down.
+- **Mitigation:** `aio-snad-apis` touches *first-party* APIs (ztf_dr, features, model_fit, akb,
+  ztf_ref), which are ours and stable; if any one stack later proves to need real replay, the
+  `http-fixtures` branch is still there to revive for that narrow case rather than for the
+  whole suite.
 
 ---
 
@@ -704,7 +804,10 @@ the shell/flip stack stays small enough to review.
 - Rewrite `ztf_viewer/pages/{figure,lc_csv,favicon}.py` to call those helpers and to return
   explicit responses instead of `(body, status)` tuples.
 - **Accept:** existing behaviour identical; `grep -rn "^import flask\|from flask" ztf_viewer`
-  matches only `ztf_viewer/web.py`.
+  matches only `ztf_viewer/web.py`. Add the **no-`import`-flask-outside-`web.py` guard here**, as
+  a plain passing test — an `ast` walk, not a regex, so string literals and comments cannot
+  produce false hits. This is the PR that makes the rule true, so it is the PR that owns the
+  guard (see the no-tests-in-advance rule).
 
 ### the cache sub-stack — Async-capable cache layer *(its own stack of four PRs)*
 The cache sits under all 19 `@cache()` sites and under every catalog query; it is the one
@@ -736,7 +839,8 @@ stack rather than one big rewrite. Spec is `aio-cache-spec`, written first and u
   - Rationale for dropping `redis_lru`: it is a thin LRU-over-Redis wrapper with no async
     path, it is the direct cause of F12.2 and F12.3, and we need deterministic keys of our own
     anyway.
-- **`aio-cache-async` — Add `acache()`** on `redis.asyncio` + an `asyncio.Lock`-guarded `TTLCache`, sharing
+- **`aio-cache-async` — Add `acache()`** (and, with it, the `@acache()`-on-a-plain-`def` guard,
+  which becomes writable as a passing test only once the symbol exists) on `redis.asyncio` + an `asyncio.Lock`-guarded `TTLCache`, sharing
   `aio-cache-core`'s core so sync and async entries are *key-compatible* (a value cached by a sync caller
   is a hit for an async one — this matters during the async-I/O stack, when some callers are converted and
   others are not). Resources come from `aio-loop-registry`'s per-loop registry (F1c).
@@ -769,9 +873,14 @@ sounds: method-site entries are already per-process and per-boot today.
 ### `aio-pytest-asyncio` — Async test support
 Route coverage now lives in `aio-golden-http`; this PR only adds what async tests need.
 - Add `pytest-asyncio` to the `tests` dependency group; `asyncio_mode = "auto"`.
-- Add the `httpx.MockTransport` adapter over `aio-fixtures`'s fixtures, so async code under test replays
-  the same recordings the sync code does.
-- **Accept:** an async test and a sync test asserting identical results from the same fixture.
+- The `httpx.MockTransport` adapter this PR originally carried is dropped with the replay layer.
+  What replaces it is smaller: make sure #632's skip-on-transport-error path also fires for
+  async `upstream`-marked tests (the `pytest_runtest_makereport` hook is transport-agnostic, but
+  `httpx` raises a different exception hierarchy than `requests`, so the classifier needs the
+  `httpx` exceptions added — do it here, before any async upstream test exists).
+- **Accept:** an async test and a sync test asserting identical results against the same
+  upstream; an injected `httpx` transport error on an `upstream`-marked async test skips rather
+  than fails.
 
 ---
 
@@ -808,7 +917,7 @@ This is the PR that dissolves the F1 constraint.
 - **23 registrations are `functools.partial`-based** — 19 `set_table`, 2 `find_neighbours`,
   2 `set_figure_link` — not the four the original F1a named (F1a′). The shim
   must unwrap/handle `functools.partial`; `inspect.iscoroutinefunction` does see through a
-  partial of an `async def` (verified on 3.14, asserted in `aio-invariants`), but our own
+  partial of an `async def` (verified on 3.14; assert it here, alongside the guard), but our own
   "is this sync?" check must too. The loop registration is the easiest one to miss in review.
 - The 2 **clientside** callbacks have no `"callback"` key in `callback_map` and are not ours to
   wrap — exclude them explicitly in the invariant.
@@ -818,8 +927,12 @@ This is the PR that dissolves the F1 constraint.
 - Bound the offload pool explicitly instead of relying on the default `min(32, cpu_count+4)`:
   install a sized `ThreadPoolExecutor` as the loop default executor, matched to today's
   `--threads=8`.
-- **Accept:** every entry in `app.callback_map` is a coroutine function (assert this in a
-  test — it is the invariant F1 needs); no `RuntimeWarning` from `dash/_callback.py:944`;
+- **Accept:** every **server-side** entry in `app.callback_map` is a coroutine function — write
+  this guard **here**, as a plain passing test, since this is the PR that makes it true (it is
+  the invariant F1 needs; see the no-tests-in-advance rule). Bring the two permanent facts with
+  it: that `inspect.iscoroutinefunction` sees through nested `functools.partial`, and an
+  anti-vacuity check that `callback_map` is populated at all. Exclude clientside callbacks
+  explicitly or the guard `KeyError`s instead of failing cleanly. Also: no `RuntimeWarning` from `dash/_callback.py:944`;
   `aio-pytest-asyncio` smoke tests green; site behaves identically on Flask.
 - **Note:** on Flask this is a small *pessimization* (a per-request event loop plus a thread
   hop, versus just a thread). It is deliberately temporary and unmeasurable at our traffic;
@@ -1127,17 +1240,22 @@ Tick these off as they are answered.
    worth preserving verbatim through the route port, or can it be dropped now?
 5. **`websocket_max_workers` sizing** matters only if any sync callback survives; if `aio-shim`'s
    invariant holds it should be irrelevant — worth asserting.
-6. **Does the foundations stack block the start, or run alongside?** `aio-fixtures` genuinely blocks `aio-golden-http`–`aio-bench` and is the
-   long pole. `aio-deflask`/`aio-cache-core` have no dependency on it and could start in parallel if we want motion
-   on two fronts.
-7. **Python 3.14 upgrade — does the dependency set cooperate?** (F10, `aio-py314`) The decision is to
-   bump production to 3.14 first. The only thing that can overturn it is a dependency without a
-   3.14 wheel that also won't build; `confluent-kafka` via `antares-client` is the likeliest
-   candidate. Answer this with a `uv lock` dry run before starting, not after.
-8. **Should the cache key on `self`?** (F12.5) Today all 16 method `@cache()` sites key on the
-   identity of `self`, which makes the Redis cache per-process and per-boot — not shared between
-   workers, lost on restart. Keying on the class instead would make it genuinely persistent, but
-   is wrong for any instance carrying state. Decide in `aio-cache-core`: audit whether the cached
-   catalog-query objects actually hold per-instance state, and if they do not, key on the class.
-   This is the difference between a cache that survives a deploy and one that does not, so it is
-   worth the audit rather than a default.
+6. ~~**Does the foundations stack block the start, or run alongside?**~~ **Answered: it runs
+   alongside.** The replay layer that was the long pole is gone, so nothing in foundations blocks
+   anything else. `aio-golden-http`, `aio-golden-callbacks` and `aio-bench` are now independent
+   and can land at any point; the prep stack started ahead of them.
+7. ~~**Python 3.14 upgrade — does the dependency set cooperate?**~~ **Answered: yes** — #625
+   merged, production is on 3.14.
+8. ~~**Should the cache key on `self`?**~~ **Answered in `aio-cache-core` (#628): key on the
+   class**, resolved at call time, with a `__cache_key__()` opt-out. The audit found the 15 true
+   method sites all live on module-level singletons whose per-instance state is transport
+   (`requests.Session`, client objects, the timeout decorator), never anything that changes a
+   result for equal arguments. `_BaseCatalogQuery` — whose `find` is shared by 20 subclasses and
+   which carries a per-catalog `query_name` — defines `__cache_key__` returning
+   `normalized_query_name`, so it is keyed exactly rather than relying on the accident that each
+   class has exactly one instance. **Consequence: Redis method entries are now shared between
+   workers and survive restarts**, which they never did. Two corrections to F12.5 fell out: the
+   count is 15 methods + 1 `@staticmethod` (not 16 methods), and the staticmethod is why
+   `self`-detection must be descriptor-based rather than `__qualname__`-based. F12.4 was also
+   decided here: unhashable arguments are keyed **on content**; only a genuinely un-encodable
+   argument raises, and the decorator turns that into an uncached call rather than an error.
