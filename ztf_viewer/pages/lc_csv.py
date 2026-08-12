@@ -1,13 +1,13 @@
 from io import StringIO
 
 import pandas as pd
-from flask import Response, request
 
 from ztf_viewer.app import app
 from ztf_viewer.catalogs import find_ztf_oid
 from ztf_viewer.exceptions import NotFound, CatalogUnavailable
 from ztf_viewer.catalogs.ztf_ref import ztf_ref
 from ztf_viewer.catalogs.conesearch import ANTARES_QUERY, GAIA_DR3, PANSTARRS_DR2_QUERY
+from ztf_viewer.web import csv_response, error_response, query_args, request
 
 
 def get_csv(dr, oids, min_mjd=None, max_mjd=None):
@@ -44,50 +44,44 @@ def get_csv(dr, oids, min_mjd=None, max_mjd=None):
 
 @app.server.route("/<dr>/csv/<int:oid>")
 def response_csv(dr, oid):
+    args = query_args(request)
+
     try:
-        other_oids = set(map(int, request.args.getlist("other_oid")))
+        other_oids = set(map(int, args.getlist("other_oid")))
     except ValueError:
-        return "other_oid query parameter must be an integer", 400
+        return error_response("other_oid query parameter must be an integer", 400)
     oids = set.union({oid}, other_oids)
 
-    min_mjd = request.args.get("min_mjd", None)
+    min_mjd = args.get("min_mjd", None)
     if min_mjd is not None:
         try:
             min_mjd = float(min_mjd)
         except ValueError:
-            return "min_mjd query parameter must be a float", 400
+            return error_response("min_mjd query parameter must be a float", 400)
 
-    max_mjd = request.args.get("max_mjd", None)
+    max_mjd = args.get("max_mjd", None)
     if max_mjd is not None:
         try:
             max_mjd = float(max_mjd)
         except ValueError:
-            return "max_mjd query parameter must be a float", 400
+            return error_response("max_mjd query parameter must be a float", 400)
 
     try:
         csv = get_csv(dr, oids, min_mjd=min_mjd, max_mjd=max_mjd)
     except NotFound:
-        return "", 404
-    return Response(
-        csv,
-        mimetype="text/csv",
-        headers={"Content-disposition": f"attachment; filename={oid}.csv"},
-    )
+        return error_response("", 404)
+    return csv_response(csv, filename=f"{oid}.csv")
 
 
 def _lc_to_csv_response(lc, filename):
-    """Convert a list-of-dicts light curve to a CSV Flask Response."""
+    """Convert a list-of-dicts light curve to a CSV response."""
     if not lc:
-        return "", 404
+        return error_response("", 404)
     df = pd.DataFrame.from_records(lc)
     df.sort_values(by="mjd", inplace=True)
     string_io = StringIO()
     df.to_csv(string_io, index=False)
-    return Response(
-        string_io.getvalue(),
-        mimetype="text/csv",
-        headers={"Content-disposition": f"attachment; filename={filename}"},
-    )
+    return csv_response(string_io.getvalue(), filename=filename)
 
 
 @app.server.route("/panstarrs/csv/<int:obj_id>")
@@ -96,7 +90,7 @@ def response_panstarrs_csv(obj_id):
     try:
         lc = PANSTARRS_DR2_QUERY.light_curve(id=None, row={"objID": obj_id})
     except NotFound, CatalogUnavailable:
-        return "", 404
+        return error_response("", 404)
     return _lc_to_csv_response(lc, f"panstarrs_{obj_id}.csv")
 
 
@@ -106,7 +100,7 @@ def response_gaia_csv(source_id):
     try:
         lc = GAIA_DR3.light_curve(id=source_id)
     except NotFound, CatalogUnavailable:
-        return "", 404
+        return error_response("", 404)
     return _lc_to_csv_response(lc, f"gaia_{source_id}.csv")
 
 
@@ -116,5 +110,5 @@ def response_antares_csv(locus_id):
     try:
         lc = ANTARES_QUERY.light_curve(id=locus_id)
     except NotFound, CatalogUnavailable:
-        return "", 404
+        return error_response("", 404)
     return _lc_to_csv_response(lc, f"antares_{locus_id}.csv")

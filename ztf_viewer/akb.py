@@ -2,7 +2,7 @@ import logging
 from urllib.parse import urljoin
 
 import cachetools
-import flask
+import dash
 import requests
 
 from ztf_viewer.exceptions import NotFound, UnAuthorized
@@ -34,7 +34,7 @@ class AKB:
 
     def _token_from_cookies(self):
         try:
-            return flask.request.cookies["akb_token"]
+            return dash.ctx.cookies["akb_token"]
         except KeyError:
             raise UnAuthorized
 
