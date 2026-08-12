@@ -1,7 +1,7 @@
 # 001 — Porting the ZTF Viewer to async (Dash 4 FastAPI backend)
 
-Status: in progress · foundations landed, prep started
-Baseline: `master` after `782bc7a`
+Status: in progress · foundations landed except the two optional test items, prep half-landed
+Baseline: `master` after `994874e`
 Now running: Flask backend, Python 3.14
 
 Note on names: branches and PRs drop the `aio-` prefix the plan uses (`aio-py314` shipped as
@@ -366,6 +366,17 @@ Both are now covered by the spec. Separately, `immutabledefaultdict` caches its 
 to its original content — latent today because both backends behave identically and the app
 rebuilds these mappings per callback, but a hazard if `aio-cache-core` starts keying on content
 instead of `hash()`.
+
+**F13 — `web.py` is backend-neutral except for one name: `request`.** *(Found reviewing what
+`aio-deflask` actually landed, #633.)* The helpers came out as specified plus three more —
+`request_body`, `error_response` and a `QueryArgs` view — and all of them take the request as an
+argument, so they really do swap in one file. `ztf_viewer/web.py:15` also re-exports
+`request = flask.request`, and `figure.py:34,56,58` and `lc_csv.py:47` use it **ambiently**, as a
+module-level import. Starlette has no ambient request: the handler receives it. So the claim in
+`aio-starlette-web` that `figure.py`/`lc_csv.py` need no edits holds for every helper *except*
+this one. Those four call sites must take `request` as a parameter — cheap, but it must happen
+in the same atomic sub-stack, and it is most naturally done in `aio-routes`, which is already
+rewriting those handler signatures for path parameters.
 
 ---
 
@@ -809,6 +820,9 @@ Everything here is behaviour-preserving and independently valuable. Ship it firs
 the shell/flip stack stays small enough to review.
 
 ### `aio-deflask` — Remove direct Flask coupling from app code
+*(Landed — #633, branch `deflask`. `web.py` also grew `request_body`, `error_response` and a
+`QueryArgs` view; the one thing that did not come out backend-neutral is the ambient `request`
+re-export, see F13.)*
 - `ztf_viewer/akb.py:37`: `flask.request.cookies` → `dash.ctx.cookies` (F4); drop the
   `flask` import.
 - Introduce `ztf_viewer/web.py` with backend-neutral helpers used by the routes:
@@ -953,7 +967,7 @@ This is the PR that dissolves the F1 constraint.
   it: that `inspect.iscoroutinefunction` sees through nested `functools.partial`, and an
   anti-vacuity check that `callback_map` is populated at all. Exclude clientside callbacks
   explicitly or the guard `KeyError`s instead of failing cleanly. Also: no `RuntimeWarning` from `dash/_callback.py:944`;
-  `aio-pytest-asyncio` smoke tests green; site behaves identically on Flask.
+  `aio-golden-http` green; site behaves identically on Flask.
 - **Note:** on Flask this is a small *pessimization* (a per-request event loop plus a thread
   hop, versus just a thread). It is deliberately temporary and unmeasurable at our traffic;
   if it shows up, shorten the gap between `aio-shim` and `aio-uvicorn`.
@@ -994,7 +1008,9 @@ rollback is a one-line revert.
 
 ### `aio-starlette-web` — `web.py` → Starlette
 - Swap `ztf_viewer/web.py` internals (built in `aio-deflask`) to Starlette `Response` / `FileResponse` /
-  `PlainTextResponse`, so `figure.py` / `lc_csv.py` / `favicon.py` need no edits here.
+  `PlainTextResponse`. Every helper takes its request as an argument, so `figure.py` /
+  `lc_csv.py` / `favicon.py` need no edits here — **except for the ambient `request` re-export
+  (F13)**, which has no Starlette equivalent and is dealt with in `aio-routes`.
 - **Accept:** unit tests on the helpers; this is the PR that makes the stack atomic — Flask
   is broken from here until `aio-uvicorn`.
 
@@ -1005,10 +1021,13 @@ rollback is a one-line revert.
   route pair (`ztf_viewer/pages/figure.py:27-28`) collapses to a single `float` route — keep
   an int-first route only if a client depends on the distinction.
 - `request.args.getlist("other_oid")` → `request.query_params.getlist(...)` (or
-  `list[str] = Query(...)`).
+  `list[str] = Query(...)`), inside `web.py`'s `QueryArgs`.
+- **Take `request` as a handler parameter** at `figure.py:34,56,58` and `lc_csv.py:47`, dropping
+  the ambient `from ztf_viewer.web import request` (F13). Four call sites.
 - Keep these handlers **sync** `def` — FastAPI threadpools them (F5). Making them async is
   the process-pool stack's job, after the CPU work moves off-loop.
-- **Accept:** `aio-pytest-asyncio` smoke tests pass unchanged; figure PNG/PDF and all four CSV endpoints
+- **Accept:** `aio-golden-http` passes unchanged — that is its stated acceptance criterion, so a
+  route port that changes a status, content type or disposition fails CI; figure PNG/PDF and all four CSV endpoints
   byte-compare against the Flask build for a fixed OID.
 
 ### `aio-uvicorn` — Entrypoint, deployment, and the default flip
@@ -1230,7 +1249,7 @@ Measure before moving; each may be cheaper to leave on a thread:
 | Golden snapshots recorded through a colliding memory cache, baking a wrong value in as the spec (F12.1) | Record `aio-golden-callbacks` snapshots with caching disabled, or after `aio-cache-sync` fixes the shared keyspace — not merely with the cache cleared between tests |
 | The cache rewrite silently preserves one of today's defects (F12) | The five defects are recorded as named `xfail`s in `aio-cache-spec`; `aio-cache-sync`'s accept criterion is that F12.1–F12.4 turn XPASS, so preserving a bug fails the criterion rather than passing quietly |
 | `aio-shim` misses the 19 loop-registered `set_table` callbacks (F1a′) | The invariant asserts over all 57 registrations, not the 39 source sites, so a missed loop fails CI |
-| Static assets 404 after the flip (F2) | `aio-pytest-asyncio` smoke tests assert `/static/js9/js9.min.js` and `/static/img/logo.svg` return 200 |
+| Static assets 404 after the flip (F2) | `aio-golden-http` asserts `/static/js9/js9.min.js` and `/static/img/logo.svg` return 200 — landed, #634 |
 | Duplicate 148 MiB dust-map allocation under the new concurrency (F9a) | Lock the lazy init and warm at startup (`aio-dustmaps`); test that concurrent first-callers allocate once |
 | Concurrent fan-out hammers upstreams that previously saw serialized traffic | Per-upstream `asyncio.Semaphore` (the offload pair) plus the existing `unavailable_catalogs` circuit breaker; keep an eye on Vizier/Simbad rate limits |
 | Cache stampede amplified by concurrency | Single-flight in the cache sub-stack — this becomes load-bearing, not a nicety |
@@ -1239,6 +1258,7 @@ Measure before moving; each may be cheaper to leave on a thread:
 | Process pool memory blowup | `aio-procpool` sizing; dustmaps explicitly excluded (F9); compare container RSS before/after |
 | Redis client split-brain (sync `StrictRedis` in `ttl_set.py`, async elsewhere) | `aio-ttlset` lands the async set before anything async touches it; one connection pool per worker |
 | Loop-affine client reused across Flask's per-request loops (F1c) | `aio-loop-registry`'s per-loop registry, with a test that runs two successive `asyncio.run` calls |
+| `aio-starlette-web` is assumed to be a one-file swap, but the ambient `request` re-export has no Starlette equivalent (F13) | The four call sites are named in `aio-routes`, inside the same atomic sub-stack; `aio-golden-http` fails if any of those routes changes shape |
 | Flip passes CI but breaks `master.ztf.snad.space` via the hardcoded entrypoint (F11) | `aio-uvicorn` changes `.ci/docker-compose.yml.tmpl` alongside the Dockerfile; verified on the PR preview before merge |
 | `aio-dustmaps` cannot be validated on dev (`NO_LOCAL_3D_DUST_MAP=1`, F11) | Cover the warm-up with tests rather than the dev server; get RSS numbers from a prod-like local run |
 | Async code developed on a different Python than it ships on (F10) | `aio-py314` upgrades production to 3.14 first, before any goldens are recorded or async is written |
@@ -1262,8 +1282,8 @@ Tick these off as they are answered.
    invariant holds it should be irrelevant — worth asserting.
 6. ~~**Does the foundations stack block the start, or run alongside?**~~ **Answered: it runs
    alongside.** The replay layer that was the long pole is gone, so nothing in foundations blocks
-   anything else. `aio-golden-http`, `aio-golden-callbacks` and `aio-bench` are now independent
-   and can land at any point; the prep stack started ahead of them.
+   anything else. `aio-golden-http` landed alongside the prep stack (#634); `aio-golden-callbacks`
+   and `aio-bench` are independent and can still land at any point.
 7. ~~**Python 3.14 upgrade — does the dependency set cooperate?**~~ **Answered: yes** — #625
    merged, production is on 3.14.
 8. ~~**Should the cache key on `self`?**~~ **Answered in `aio-cache-core` (#628): key on the
