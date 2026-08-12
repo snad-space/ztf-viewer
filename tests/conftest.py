@@ -54,6 +54,13 @@ def _extra_upstream_errors() -> tuple[type[BaseException], ...]:
     except ImportError:
         pass
     try:
+        # httpx inherits from neither OSError nor requests. Not InvalidURL/StreamError: our bugs.
+        from httpx import HTTPError
+
+        extra.append(HTTPError)
+    except ImportError:
+        pass
+    try:
         from ztf_viewer.exceptions import CatalogUnavailable
 
         extra.append(CatalogUnavailable)
