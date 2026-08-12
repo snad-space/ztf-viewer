@@ -4,7 +4,6 @@ from io import BytesIO
 import matplotlib
 import matplotlib.backends.backend_pgf
 import numpy as np
-from flask import Response, request
 from immutabledict import immutabledict
 from matplotlib.ticker import AutoMinorLocator
 
@@ -17,6 +16,7 @@ from ztf_viewer.util import (
     flip,
     parse_json_to_immutable,
 )
+from ztf_viewer.web import binary_response, error_response, query_args, request, request_body
 
 MIMES = {
     "pdf": "application/pdf",
@@ -24,32 +24,40 @@ MIMES = {
 }
 
 
+class UnknownFormat(Exception):
+    """Raised by `parse_figure_args_helper` when `format` isn't one of `MIMES`."""
+
+
 @app.server.route("/<dr>/figure/<int:oid>/folded/<int:period>")
 @app.server.route("/<dr>/figure/<int:oid>/folded/<float:period>")
 def response_figure_folded(dr, oid, period):
-    kwargs = parse_figure_args_helper(request.args)
-    offset = float(request.args.get("offset", 0.0))
+    args = query_args(request)
+    try:
+        kwargs = parse_figure_args_helper(args)
+    except UnknownFormat:
+        return error_response("", 404)
+    offset = float(args.get("offset", 0.0))
     fmt = kwargs.pop("fmt")
     caption = kwargs.pop("caption")
     title = kwargs.pop("title")
 
-    repeat = request.args.get("repeat", None)
+    repeat = args.get("repeat", None)
     if repeat is not None:
         repeat = int(repeat)
 
     data = get_folded_plot_data(oid, dr, period=period, offset=offset, **kwargs)
     img = plot_folded_data(oid, data, period=period, repeat=repeat, fmt=fmt, caption=caption, title=title)
 
-    return Response(
-        img,
-        mimetype=MIMES[fmt],
-        headers={"Content-disposition": f"attachment; filename={oid}.{fmt}"},
-    )
+    return binary_response(img, mimetype=MIMES[fmt], filename=f"{oid}.{fmt}")
 
 
 @app.server.route("/<dr>/figure/<int:oid>", methods=["GET", "POST"])
 def response_figure(dr, oid):
-    kwargs = parse_figure_args_helper(request.args, request.get_data(cache=False))
+    args = query_args(request)
+    try:
+        kwargs = parse_figure_args_helper(args, request_body(request))
+    except UnknownFormat:
+        return error_response("", 404)
     fmt = kwargs.pop("fmt")
     caption = kwargs.pop("caption")
     title = kwargs.pop("title")
@@ -57,11 +65,7 @@ def response_figure(dr, oid):
     data = get_plot_data(oid, dr, **kwargs)
     img = plot_data(oid, data, fmt=fmt, caption=caption, title=title)
 
-    return Response(
-        img,
-        mimetype=MIMES[fmt],
-        headers={"Content-disposition": f"attachment; filename={oid}.{fmt}"},
-    )
+    return binary_response(img, mimetype=MIMES[fmt], filename=f"{oid}.{fmt}")
 
 
 def parse_figure_args_helper(args, data=None):
@@ -77,7 +81,7 @@ def parse_figure_args_helper(args, data=None):
     caption = args.get("copyright", "yes") != "no"
 
     if fmt not in MIMES:
-        return "", 404
+        raise UnknownFormat(fmt)
 
     if data:
         data = parse_json_to_immutable(data)
