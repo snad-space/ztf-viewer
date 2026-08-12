@@ -513,12 +513,17 @@ Dockerfile change, since JS9's install path is fixed at build time
   the index and the lazy `{path:path}` catch-all (`dash/backends/_fastapi.py:326`), which is
   set up on first request. Mounting in `ztf_viewer/app.py` right after `dash.Dash(...)`
   guarantees precedence.
-- **Cache headers differ.** Flask sets `Cache-Control: max-age=<SEND_FILE_MAX_AGE_DEFAULT>`
-  on static sends; Starlette's `StaticFiles` sends only `ETag`/`Last-Modified`. Left alone,
-  every JS9 asset becomes a conditional revalidation request instead of a cache hit. Either
-  set explicit cache headers on the mount or add them at the proxy. **A the foundations stack test should
-  assert the response headers for `/static/js9/js9.min.js`**, so this regression is caught by
-  CI rather than by a slow page.
+- **Cache headers differ — but less than this note originally claimed.** *(Measured in
+  `aio-golden-http` against the installed Flask 3.1.3.)* The note assumed Flask sends
+  `Cache-Control: max-age=<SEND_FILE_MAX_AGE_DEFAULT>`; it actually sends
+  **`Cache-Control: no-cache`** plus `ETag`/`Last-Modified` — Flask's default changed at some
+  point. Starlette's `StaticFiles` sends `ETag`/`Last-Modified` and no `Cache-Control`. So
+  **both** backends already do conditional revalidation on every JS9 asset today, and the flip
+  is not the regression this note feared. That reframes the item: the cache headers are worth
+  setting explicitly on the mount (or at the proxy) as an *improvement* we could make at any
+  time, not as flip-blocking damage control.
+- The header assertion for `/static/js9/js9.min.js` is landed (`aio-golden-http`), so whichever
+  way those headers change, CI says so rather than a slow page.
 
 ---
 
@@ -683,6 +688,14 @@ them hand-written or minimal stub data rather than recorded upstream payloads.
   must reproduce the current per-catalog `except ...: continue` semantics exactly, and these
   snapshots — driven by stub catalogs that raise on cue — are how we know it does. Write these
   even if nothing else in this PR gets written.
+- **Import-order hazard, found in `aio-golden-http`:** `ztf_viewer.catalogs.unavailable_catalogs`
+  connects to Redis **eagerly at import** (`RedisTTLStringSet.__init__` calls `client.info()`), so
+  `CACHE_TYPE` / `UNAVAILABLE_CATALOGS_CACHE_TYPE` must be forced to `memory` *before*
+  `ztf_viewer.__main__` is first imported — not merely before the test runs. `tests/conftest.py`'s
+  `pytest_runtest_setup` hook does it per-test, which is a hook/fixture-ordering race the moment
+  another test module imports first. Set `ztf_viewer.config` directly in the fixture before
+  importing, as `tests/test_golden_http.py` does. This is also import-time blocking I/O on the
+  startup path, so it belongs on `aio-loop-registry`'s list alongside the `astroquery.gaia` one.
 - `get_summary` and `set_table` over a real catalog are the ones that most wanted replay; either
   stub the catalog objects or leave them out. **Anything Simbad-derived has unstable column
   order** (set iteration, per-process) and must be normalized or skipped.
