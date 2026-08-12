@@ -11,6 +11,11 @@ five ways; ``tests/test_cache_contract.py`` is the spec.
 ``make_cache``/``make_async_cache`` are internal: they build a decorator that only accepts one kind of
 function, and are meant to be composed by ``make_dispatching_cache`` rather than handed out on
 their own — a call site never has to pick between them, and so cannot pick wrong.
+
+Each internal factory owns one :class:`~ztf_viewer.cache.single_flight.SingleFlight`/``AsyncSingleFlight``,
+so concurrent identical misses across every site built from it coalesce onto a single call — the
+key already disambiguates functions and arguments, so one flight table per backend is enough,
+and the dispatcher composes the two factories unchanged.
 """
 
 import functools
@@ -25,10 +30,13 @@ from ztf_viewer.cache.core import (
     encode_value,
     function_id,
 )
+from ztf_viewer.cache.single_flight import AsyncSingleFlight, SingleFlight
 
 
 def make_cache(backend):
     """Build the internal sync-only decorator factory over a backend."""
+
+    single_flight = SingleFlight()
 
     def cache():
         def decorator(func):
@@ -54,14 +62,17 @@ def make_cache(backend):
                 if blob is not None:
                     return decode_value(blob)
 
-                value = func(*args, **kwargs)
-                try:
-                    encoded = encode_value(value)
-                except UncacheableValue as e:
-                    logging.warning(f"not caching the result of {func.__qualname__}: {e}")
+                def compute():
+                    value = func(*args, **kwargs)
+                    try:
+                        encoded = encode_value(value)
+                    except UncacheableValue as e:
+                        logging.warning(f"not caching the result of {func.__qualname__}: {e}")
+                        return value
+                    backend.set(key, encoded)
                     return value
-                backend.set(key, encoded)
-                return value
+
+                return single_flight.run(key, compute)
 
             return wrapper
 
@@ -72,6 +83,8 @@ def make_cache(backend):
 
 def make_async_cache(backend):
     """Build the internal async-only decorator factory over an async backend."""
+
+    single_flight = AsyncSingleFlight()
 
     def async_cache():
         def decorator(func):
@@ -93,14 +106,17 @@ def make_async_cache(backend):
                 if blob is not None:
                     return decode_value(blob)
 
-                value = await func(*args, **kwargs)
-                try:
-                    encoded = encode_value(value)
-                except UncacheableValue as e:
-                    logging.warning(f"not caching the result of {func.__qualname__}: {e}")
+                async def compute():
+                    value = await func(*args, **kwargs)
+                    try:
+                        encoded = encode_value(value)
+                    except UncacheableValue as e:
+                        logging.warning(f"not caching the result of {func.__qualname__}: {e}")
+                        return value
+                    await backend.set(key, encoded)
                     return value
-                await backend.set(key, encoded)
-                return value
+
+                return await single_flight.run(key, compute)
 
             return wrapper
 
