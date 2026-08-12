@@ -29,8 +29,8 @@ merged by its author, and "ready for review" is a reviewer's signal, not the aut
       Replaced by #632 `robust-upstream-tests`, which keeps the tests live but turns
       transport-level failures on `upstream`-marked tests into skips, so CI stops going red
       because Simbad is down. See the revised foundations section.
-- [ ] `aio-golden-http` — **re-scoped:** goldens over *our* outputs only, no upstream replay;
-      partial coverage is fine
+- [x] `aio-golden-http` — **re-scoped:** goldens over *our* outputs only, no upstream replay;
+      partial coverage is fine — #634 `golden-http`
 - [ ] `aio-golden-callbacks` — **re-scoped** the same way; likely a thin subset
 - [x] `aio-cache-spec` — cache contract tests (keys, TTL, pickle round-trip) — **found five defects in
       today's cache, see F12** — #627 `cache-contract-tests`
@@ -45,13 +45,13 @@ merged by its author, and "ready for review" is a reviewer's signal, not the aut
       - `@acache()` guards → `aio-cache-async`
 
 **Prep** — backend-neutral, on Flask
-- [ ] `aio-deflask` — `ctx.cookies` instead of `flask.request`; routes go through `web.py` — *in progress*
+- [x] `aio-deflask` — `ctx.cookies` instead of `flask.request`; routes go through `web.py` — #633 `deflask`
 - [x] `aio-cache-core` — key derivation + value codec, no backend — #628 `cache-core`
 - [x] `aio-cache-sync` — reimplement sync `cache()`, drop `redis_lru` — #629 `cache-sync`
+- [ ] `aio-pytest-asyncio` — async test support — **moved ahead of `aio-cache-async`**, see below
 - [ ] `aio-cache-async` — add `acache()`, key-compatible with the sync one
 - [ ] `aio-cache-flight` — single-flight dedupe
 - [ ] `aio-ttlset` — async `unavailable_catalogs`
-- [ ] `aio-pytest-asyncio` — async test support
 
 **Async shell** — last stack on Flask
 - [ ] `aio-shim` — every callback becomes a coroutine (registration-layer wrap); adds the
@@ -403,10 +403,10 @@ master
       └─ aio-deflask          drop direct flask coupling
          └─ aio-cache-core     keying + codec, no backend
             └─ aio-cache-sync    reimplement sync cache, drop redis_lru
-               └─ aio-cache-async   add acache()
-                  └─ aio-cache-flight  single-flight
-                     └─ aio-ttlset        async unavailable_catalogs
-                        └─ aio-pytest-asyncio
+               └─ aio-pytest-asyncio  async test support (moved up: acache() needs it)
+                  └─ aio-cache-async   add acache()
+                     └─ aio-cache-flight  single-flight
+                        └─ aio-ttlset        async unavailable_catalogs
                            └─ aio-shim          all callbacks become coroutines
                               └─ aio-loop-registry  per-loop resources
                                  ├─ aio-pilots ⇢ native async pilots (optional)
@@ -822,6 +822,25 @@ the shell/flip stack stays small enough to review.
   produce false hits. This is the PR that makes the rule true, so it is the PR that owns the
   guard (see the no-tests-in-advance rule).
 
+### `aio-pytest-asyncio` — Async test support *(moved up: it is a prerequisite, not a follow-up)*
+Originally listed last in this stack. That was an ordering mistake: `aio-cache-async` is the
+first PR in the plan that adds a coroutine, so it is also the first that cannot be tested
+without async test support. Nothing here depends on the cache work, so moving it to the front
+of the remaining prep chain costs nothing and stops `aio-cache-async` from having to carry
+test-infrastructure changes alongside a cache rewrite.
+Route coverage lives in `aio-golden-http`; this PR only adds what async tests need.
+- Add `pytest-asyncio` to the `tests` dependency group; `asyncio_mode = "auto"`.
+- The `httpx.MockTransport` adapter this PR originally carried is dropped with the replay layer.
+  What replaces it is smaller: make sure #632's skip-on-transport-error path also fires for
+  async `upstream`-marked tests (the `pytest_runtest_makereport` hook is transport-agnostic, but
+  `httpx` raises a different exception hierarchy than `requests`, so the classifier needs the
+  `httpx` exceptions added — do it here, before any async upstream test exists). `httpx` is not
+  a dependency until `aio-fastapi-app`, which is fine: `tests/conftest.py` already imports
+  third-party transport exceptions lazily and skips the ones that are not installed.
+- **Accept:** an async test and a sync test asserting identical results against the same
+  upstream; an injected `httpx` transport error on an `upstream`-marked async test skips rather
+  than fails.
+
 ### the cache sub-stack — Async-capable cache layer *(its own stack of four PRs)*
 The cache sits under all 19 `@cache()` sites and under every catalog query; it is the one
 piece of shared infrastructure the whole migration rests on, so it gets its own reviewable
@@ -882,18 +901,6 @@ sounds: method-site entries are already per-process and per-boot today.
   (`AsyncRedisTTLStringSet`), keep `LocalTTLSet` usable from async (it's pure in-memory).
 - `ztf_viewer/catalogs/unavailable_catalogs.py` gains an async accessor.
 - **Accept:** mirrored versions of the three existing `test_ttl_set_*` suites.
-
-### `aio-pytest-asyncio` — Async test support
-Route coverage now lives in `aio-golden-http`; this PR only adds what async tests need.
-- Add `pytest-asyncio` to the `tests` dependency group; `asyncio_mode = "auto"`.
-- The `httpx.MockTransport` adapter this PR originally carried is dropped with the replay layer.
-  What replaces it is smaller: make sure #632's skip-on-transport-error path also fires for
-  async `upstream`-marked tests (the `pytest_runtest_makereport` hook is transport-agnostic, but
-  `httpx` raises a different exception hierarchy than `requests`, so the classifier needs the
-  `httpx` exceptions added — do it here, before any async upstream test exists).
-- **Accept:** an async test and a sync test asserting identical results against the same
-  upstream; an injected `httpx` transport error on an `upstream`-marked async test skips rather
-  than fails.
 
 ---
 
