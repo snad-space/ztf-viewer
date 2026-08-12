@@ -19,14 +19,8 @@ def cache(monkeypatch):
     return cache_module._get_cache()
 
 
-def test_cache_rejects_a_coroutine_function(cache):
-    """Caching a coroutine object would hand out an exhausted awaitable."""
-
-    async def coro():
-        return 1
-
-    with pytest.raises(TypeError):
-        cache()(coro)
+# The coroutine-vs-plain-function guard moved to a dispatch decision, made by cache() itself —
+# see tests/test_cache_async.py for the dispatch coverage.
 
 
 def test_cache_accepts_a_plain_function(cache):
