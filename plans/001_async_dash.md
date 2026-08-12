@@ -10,16 +10,19 @@ Now running: Flask backend, Python 3.12 — update this line as stacks land
 
 Mark `[x]` when merged. Prod stays on the current build until the whole plan lands; what must
 keep working throughout is `master.ztf.snad.space`. Every PR also gets `pr<N>.ztf.snad.space` —
-smoke-check there before merging.
+smoke-check there before merging. `⟳` marks a branch that exists and is complete but is **not
+merged** — nothing in this plan has been merged yet.
 
 **Foundations** — land these first
 - [ ] `aio-py314` — bump to Python 3.14 (image, pyproject, ruff/black, lock)
 - [ ] `aio-fixtures` — record upstream responses; replay for both `requests` and `httpx`; no network in CI
 - [ ] `aio-golden-http` — golden tests for every route; exact bytes for CSV; static cache headers
 - [ ] `aio-golden-callbacks` — component-tree snapshots, incl. NotFound / Unavailable paths
-- [ ] `aio-cache-spec` — cache contract tests (keys, TTL, pickle round-trip)
+- [ ] ⟳ `aio-cache-spec` — cache contract tests (keys, TTL, pickle round-trip) — **found five defects in
+      today's cache, see F12**; branch complete, unmerged
 - [ ] `aio-bench` — fan-out latency harness, records a baseline
-- [ ] `aio-invariants` — migration guards (callbacks-are-coroutines starts `xfail`)
+- [ ] ⟳ `aio-invariants` — migration guards (callbacks-are-coroutines starts `xfail`) — **corrected the
+      callback count, see F1a′**; branch complete, unmerged
 
 **Prep** — backend-neutral, on Flask
 - [ ] `aio-deflask` — `ctx.cookies` instead of `flask.request`; routes go through `web.py`
@@ -127,10 +130,28 @@ to a bounded shared `ThreadPoolExecutor`, `websocket_max_workers`, default 4.)
 **F1a — but that does *not* force one big PR.** Dash only checks
 `inspect.iscoroutinefunction(func)` at registration time (`dash/_callback.py:937`) to pick
 the async dispatch wrapper. A registration-layer shim that wraps any sync callback into
-`async def ...: return await asyncio.to_thread(f, ...)` satisfies F1 for all 39 callbacks in
+`async def ...: return await asyncio.to_thread(f, ...)` satisfies F1 for every callback in
 one ~30-line change, with no edits to a single callback body. Native async conversion then
 proceeds one callback at a time, at leisure, with the shim as the safety net. This is what
 makes the shell/flip stack a stack of small PRs rather than a monolith.
+
+**F1a′ — the callback count: 39 is source sites, 57 is registrations.** *(measured in
+`aio-invariants`; the plan originally said "39 callbacks" throughout, which undercounts.)*
+- **39** is a source-site count: 33 `@app.callback` decorators + 6 bare `app.callback(...)` calls.
+- **`app.callback_map` holds 59 entries — 57 server-side + 2 clientside.** The gap is
+  `set_tables` (`ztf_viewer/pages/viewer.py:2048`), which registers one callback *per catalog*
+  inside a loop — 19 of them.
+- **23 registrations are `functools.partial`-based, not 4**: 19 `set_table`, 2
+  `find_neighbours`, 2 `set_figure_link`. The original F1a named only the hand-written
+  `app.callback(...)(partial(...))` sites and missed the loop, so `partial` handling in the shim
+  is load-bearing for 23 registrations rather than an edge case.
+- `inspect.iscoroutinefunction` **does** see through `functools.partial`, including nested —
+  verified on Python 3.14 and now asserted by a test rather than assumed.
+- Two consequences for anyone writing the invariant: `callback_map` entries hold Dash's own
+  `add_context` / `async_add_context` wrapper, not our function (recover the original via
+  `__wrapped__` / `partial.func` for error messages); and **clientside callbacks have no
+  `"callback"` key at all**, so the invariant must exclude them explicitly or it `KeyError`s
+  instead of failing cleanly.
 
 **F1b — async callbacks already work on the *Flask* backend.**
 `FlaskDashServer.serve_callback` has a second, async dispatch path (`_dispatch_async`,
@@ -175,9 +196,12 @@ them become coroutines. `redis_lru` and `redis.StrictRedis` are sync-only; the a
 needs `redis.asyncio`.
 
 **F4 — `flask.request` is used in exactly one place.**
-`ztf_viewer/akb.py:37` `_token_from_cookies`. Dash exposes a backend-neutral
+`ztf_viewer/akb.py:37` `_token_from_cookies` (the `import flask` itself is at `akb.py:5`).
+Dash exposes a backend-neutral
 `dash.ctx.cookies` (`dash/_callback_context.py:274`) and `ctx.response.set_cookie` (already
 used in `ztf_viewer/pages/login.py:35`). Trivial to make backend-agnostic ahead of time.
+The full set of `flask` **import** sites `aio-deflask` must clear, measured in `aio-invariants`:
+`akb.py:5`, `pages/favicon.py:1`, `pages/figure.py:7`, `pages/lc_csv.py:4`.
 
 **F5 — Six Flask routes need porting**, all registered via `@app.server.route`:
 `ztf_viewer/pages/figure.py:27,28,50`, `ztf_viewer/pages/lc_csv.py:45,93,103,113`,
@@ -275,6 +299,52 @@ a subtle event-loop behaviour difference rather than an obvious failure. **Resol
 pinning development back. Also note `asgiref` is **not** currently installed, so `use_async` is
 `False` today (`dash/_validate.py:595`) — consistent with `aio-shim` having to add the `dash[async]`
 extra.
+
+**F12 — today's cache is already broken in five ways, so the cache sub-stack is *not*
+behaviour-preserving.** *(Found by `aio-cache-spec`, which characterized the current
+`redis_lru`/`cachetools` behaviour against the argument and value types the app really uses.
+Each defect below is an `xfail` in `tests/test_cache_contract.py`, non-strict so that a fix
+surfaces as XPASS rather than forcing an edit to the spec.)*
+
+This overturns the plan's original framing of `aio-cache-sync` as "behaviour-preserving by
+construction". Five behaviours must **change**, deliberately:
+
+1. **Memory backend: every `@cache()` site shares one keyspace.** `_crate_memory_cache` builds
+   a single `TTLCache`, and `cachetools.cached`'s default `keys.hashkey` does not include the
+   function. Two distinct cached functions called with identical args return **each other's
+   values** — verified directly. Redis is unaffected (its key carries `module` + `qualname`).
+   This is live in local dev *and in the test suite*, since `tests/conftest.py` forces
+   `CACHE_TYPE=memory` — see the ordering note in `aio-golden-callbacks`.
+2. **Redis backend: kwarg *names* are ignored.** `redis_lru._decorator_key` hashes only
+   `kwargs.values()`, so `f(min_mjd=58000.0)` and `f(max_mjd=58000.0)` are the same entry.
+   That is exactly the signature shape of `get_plot_data` and `model_fit.fit`; we are saved
+   today only by callers passing both keywords in a fixed order.
+3. **Redis backend: caching a picklable value can raise.** `RedisLRU.set` evaluates
+   `value in self.exclude_values` for anything the `Hashable` ABC accepts, so returning e.g. a
+   tuple of dicts raises `TypeError` out of the decorator instead of caching. Not obviously
+   reachable from today's 19 sites, but "any picklable value round-trips" is a contract the
+   rewrite should hold.
+4. **The backends disagree on unhashable arguments.** Redis silently bypasses the cache
+   (`ArgsUnhashable`); memory raises `TypeError` out of the wrapper. The rewrite should pick one
+   and be explicit about it.
+5. **All 16 method `@cache()` sites key on the identity of `self`** — memory puts the object in
+   the key tuple, Redis uses `hash(self)`, which is `id()`-derived. **Consequence: the Redis
+   cache is effectively per-process and per-boot** — cached catalog queries are not shared
+   between the two gunicorn workers and are wholly lost on restart. The "persistent" cache is
+   far less persistent than the architecture assumes. Note this does *not* undermine `aio-gather`'s
+   "the second catalog loop is cheap" claim, which holds within a single request on one
+   instance; it does mean the cross-request and cross-worker hit rate is much lower than
+   assumed. **This is a decision for `aio-cache-core`, not a required fix** — keying on the class
+   instead would fix it but is wrong for any instance carrying state. Tracked as open question 8.
+
+Also worth carrying into `aio-cache-core`: the plan's list of awkward argument types omits
+**`self`**, which is the *first* argument at 16 of the 19 sites and by far the most consequential
+for keying, and **nested `immutabledict`** (the real `external_data` shape at `viewer.py:1658`).
+Both are now covered by the spec. Separately, `immutabledefaultdict` caches its `__hash__` but
+*mutates* on missing-key lookup, so after such a lookup it hashes equal to but compares unequal
+to its original content — latent today because both backends behave identically and the app
+rebuilds these mappings per callback, but a hazard if `aio-cache-core` starts keying on content
+instead of `hash()`.
 
 ---
 
@@ -551,20 +621,37 @@ them directly and snapshot the returned component tree, serialized with
   `unavailable_catalogs`. `aio-gather`'s `gather(..., return_exceptions=True)` must reproduce the
   current per-catalog `except ...: continue` semantics exactly, and these snapshots are how we
   know it does.
+- **Ordering hazard — record snapshots with the cache disabled, not merely empty (F12.1).**
+  `tests/conftest.py` forces `CACHE_TYPE=memory`, and on that backend *every* `@cache()` site
+  shares one keyspace, so two distinct cached functions called with identical arguments return
+  each other's values. A snapshot recorded under that condition can bake in a wrong value that
+  then looks like the specification. Either disable caching outright for snapshot recording, or
+  land `aio-cache-sync` (which fixes F12.1) before recording. Do not simply clear the cache
+  between tests — that reduces the odds without removing the failure mode.
 - **Accept:** snapshots committed; a deliberate one-line change to a callback makes the
   matching snapshot fail.
 
 ### `aio-cache-spec` — Cache contract tests (the spec for the cache sub-stack)
-Write these *against today's* `redis_lru`/`cachetools` behaviour, then make the cache sub-stack's rewrite pass
-them unchanged:
-- key identity for the awkward argument types we actually pass — `immutabledict`,
-  `immutabledefaultdict`, `frozenset` (`lc_data/plot_data.py:82`), `tuple[int]`
-  (`model_fit.py:89`);
-- distinct functions with identical args do not collide;
-- pickle round-trip fidelity for the values we cache: `astropy.table.Table` (with units and
-  masked columns), `SkyCoord`, plain dicts;
-- TTL expiry, for both `CACHE_TYPE=memory` and `redis`.
-- **Accept:** green on the current implementation; the cache sub-stack changes no test in this file.
+*(Landed — branch `aio-cache-spec`, `tests/test_cache_contract.py`: 88 tests, each parametrized
+over `CACHE_TYPE` in `{memory, redis}`. It found five defects in today's implementation; see F12.)*
+
+Written *against today's* `redis_lru`/`cachetools` behaviour, as a **black box**: hits and misses
+are counted through the wrapped function body, no key strings are asserted, and no
+`redis_lru`/`cachetools` name appears in any assertion — because the rewrite is explicitly
+allowed to change the key scheme.
+- key identity for the awkward argument types we actually pass — `immutabledict`, **nested
+  `immutabledict`**, `immutabledefaultdict` (both `lambda: np.inf` and `float` factories),
+  `frozenset` (`lc_data/plot_data.py:82`), `tuple[int]` (`model_fit.py:89`), and **`self`**;
+- distinct functions with identical args do not collide — including distinct methods of one
+  class, and same-named methods on different classes;
+- pickle round-trip fidelity for the values we cache: `astropy.table.Table` (with units,
+  descriptions, `meta` and masked columns), a `Table` `Row` (what `vizier.py:15` caches),
+  `SkyCoord`, plain and nested dicts, list-of-dicts, numpy arrays;
+- TTL expiry — before, after, and per-entry — for both `CACHE_TYPE=memory` and `redis`.
+- **Accept:** green on the current implementation, with the five known defects recorded as
+  **non-strict** `xfail`. Non-strict is deliberate: the plan's original "the cache sub-stack
+  changes no test in this file" would otherwise force an edit the moment the rewrite fixes a
+  bug, whereas non-strict lets a fix surface as XPASS. See the revised `aio-cache-sync` criterion.
 
 ### `aio-bench` — Concurrency benchmark harness
 - A test that drives `get_summary` against fixtures with an injected per-upstream delay and
@@ -574,14 +661,28 @@ them unchanged:
 - **Accept:** baseline number recorded in the PR description.
 
 ### `aio-invariants` — Invariants that guard the migration
+*(Landed — branch `aio-invariants`, `tests/test_migration_invariants.py`. No dependency changes.)*
+
 Cheap tests that fail loudly if someone (including us, months from now) breaks a rule:
 - every entry in `app.callback_map` is a coroutine function — trivially false today, so land
   it `xfail` and flip it to a hard assertion in `aio-shim`;
-- no `import flask` outside `ztf_viewer/web.py` (after `aio-deflask`);
+- no `import flask` outside `ztf_viewer/web.py` (after `aio-deflask`) — implemented as an `ast`
+  walk rather than a regex, so string literals and comments cannot produce false hits;
 - `@cache()` is never applied to a coroutine function, `@acache()` never to a plain one
-  (after the cache sub-stack).
+  (after the cache sub-stack). The `acache()` half degrades gracefully while the symbol does
+  not exist yet, rather than erroring on import.
+- Two permanent guards were added beyond the original list: that
+  `inspect.iscoroutinefunction` really does see through `functools.partial` (F1a′ depends on
+  it), and an anti-vacuity check that `callback_map` is populated at all.
 - **Accept:** each either passes or is an explicit `xfail` with the PR that will fix it named
-  in the marker.
+  in the marker. These are **strict** `xfail` (unlike `aio-cache-spec`'s, and for the opposite
+  reason): an unexpected XPASS means the guard is ready to flip, and we want to be told. All
+  four were verified under `--runxfail` to fail for the *right* reason rather than an
+  incidental error — a strict xfail passing for the wrong reason is a silent hole in the net.
+- Reading `callback_map` requires importing `ztf_viewer.__main__`; a static source scan cannot
+  work, because after `aio-shim` the source still says `def` and the wrapping happens at
+  registration time. The import is session-scoped, does no network or Redis I/O, and costs
+  ~0 s marginally inside the full suite (astropy/dash are already imported by other tests).
 
 **Why this ordering pays.** `aio-fixtures` + `aio-golden-callbacks` together mean the risky stacks — `aio-snad-apis`, `aio-conesearch`, `aio-gather` — become
 "snapshot unchanged?" reviews instead of "read the diff and hope". That is what makes the rest
@@ -614,14 +715,27 @@ stack rather than one big rewrite. Spec is `aio-cache-spec`, written first and u
   (`module.qualname` + stable encoding of args) and a pickle value codec, as pure functions
   with no backend and no decorator. Nothing calls them yet except tests. Reviewable in
   isolation, and this is where the awkward `immutabledict`/`frozenset`/`tuple[int]` argument
-  handling actually lives.
+  handling actually lives — **plus `self` and nested `immutabledict`**, which the original
+  list omitted (F12).
+  - The key must include the function (`module.qualname`) **for both backends**, fixing F12.1,
+    and must incorporate kwarg *names*, fixing F12.2.
+  - Decide `self`-keying deliberately here (F12.5 / open question 8) and write the decision
+    into the PR description either way.
 - **`aio-cache-sync` — Reimplement the *sync* `cache()` on that core, dropping `redis_lru`.**
-  Backends: `StrictRedis` (as today) and `cachetools.TTLCache`. Behaviour-preserving by
-  construction — `aio-cache-spec`'s tests are the proof, and they change by zero lines. Lands well
-  before any async exists, which is the point: the riskiest part of the cache rewrite is
-  reviewed and soaked on the dev server on its own, decoupled from everything else.
+  Backends: `StrictRedis` (as today) and `cachetools.TTLCache`.
+  **Not behaviour-preserving — and that is the point.** The original plan claimed it was; F12
+  showed today's behaviour contains five defects, so this PR is where four of them get fixed
+  (F12.1–F12.4) and the fifth is a recorded decision. The proof obligation is therefore *not*
+  "the spec passes unchanged" but the sharper:
+  - every non-`xfail` test in `tests/test_cache_contract.py` still passes, **and**
+  - the tests currently `xfail` for F12.1–F12.4 turn XPASS.
+  The spec file still changes by zero lines in this PR; dropping the now-stale `xfail` markers
+  is a deliberate follow-up commit, which is exactly why they were written non-strict.
+  Lands well before any async exists, which is the point: the riskiest part of the cache
+  rewrite is reviewed and soaked on the dev server on its own, decoupled from everything else.
   - Rationale for dropping `redis_lru`: it is a thin LRU-over-Redis wrapper with no async
-    path, and we need deterministic keys of our own anyway.
+    path, it is the direct cause of F12.2 and F12.3, and we need deterministic keys of our own
+    anyway.
 - **`aio-cache-async` — Add `acache()`** on `redis.asyncio` + an `asyncio.Lock`-guarded `TTLCache`, sharing
   `aio-cache-core`'s core so sync and async entries are *key-compatible* (a value cached by a sync caller
   is a hit for an async one — this matters during the async-I/O stack, when some callers are converted and
@@ -631,14 +745,20 @@ stack rather than one big rewrite. Spec is `aio-cache-spec`, written first and u
   semantics (exception propagation to all waiters, cancellation of the leader, no cross-loop
   future sharing). It also becomes load-bearing rather than a nicety the moment `aio-gather` lands: N
   users on a popular object currently serialize into N identical upstream queries.
-- **Accept (whole stack):** `aio-cache-spec` passes unmodified at every step; new tests for cross-decorator
+- **Accept (whole stack):** no non-`xfail` test in `aio-cache-spec` regresses at any step, and the
+  F12.1–F12.4 `xfail`s turn XPASS by the end of `aio-cache-sync`; new tests for cross-decorator
   key compatibility (`aio-cache-async`) and dedupe under concurrent misses (`aio-cache-flight`); `pytest-redis` fixtures
   as in `tests/test_ttl_set_redis_ttl_set.py`.
+  - Local note: `pytest-redis` fails on macOS with `UnixSocketTooLong` because of the long
+    default `TMPDIR`; run `pytest --basetemp=/tmp/pytest`. This already breaks the existing
+    `test_ttl_set_redis_*` tests locally and is not caused by anything in this plan. CI runs in
+    Docker and is unaffected.
 
 Two of these four PRs are inert (`aio-cache-core`, `aio-cache-async`: nothing calls them yet)
 and two are live (`aio-cache-sync`, `aio-cache-flight`). The key scheme changes at
 `aio-cache-sync`, so existing Redis entries become unreachable on deploy — an accepted cold
-start, not something to design around.
+start, not something to design around. Per F12.5 that cold start is also smaller than it
+sounds: method-site entries are already per-process and per-boot today.
 
 ### `aio-ttlset` — Async-capable `unavailable_catalogs`
 - `ztf_viewer/ttl_set.py` `RedisTTLStringSet` → add an async variant on `redis.asyncio`
@@ -680,12 +800,18 @@ This is the PR that dissolves the F1 constraint.
   function is already a coroutine function, register it as-is; otherwise wrap it as
   `async def w(*a, **kw): return await asyncio.to_thread(f, *a, **kw)` (preserving
   `functools.wraps`) and register that. ~30 lines.
-- Mechanically repoint all 39 registrations from `app.callback` to this wrapper — a
-  one-line-per-site diff, no bodies touched, trivially skimmable in review.
-- Four registrations call `app.callback(...)(partial(...))` rather than using the decorator
-  (`ztf_viewer/pages/viewer.py:2046` `set_tables`, `:1916,:1925` `find_neighbours`). The shim
-  must unwrap/handle `functools.partial` — `inspect.iscoroutinefunction` does see through a
-  partial of an `async def`, but our own "is this sync?" check must too. Test it.
+- Mechanically repoint all **39 source sites** from `app.callback` to this wrapper — a
+  one-line-per-site diff, no bodies touched, trivially skimmable in review. Note those 39 sites
+  produce **57 server-side registrations** (F1a′), because `set_tables`
+  (`ztf_viewer/pages/viewer.py:2048`) registers one callback per catalog inside a loop. The diff
+  is per-site; the invariant is per-registration.
+- **23 registrations are `functools.partial`-based** — 19 `set_table`, 2 `find_neighbours`,
+  2 `set_figure_link` — not the four the original F1a named (F1a′). The shim
+  must unwrap/handle `functools.partial`; `inspect.iscoroutinefunction` does see through a
+  partial of an `async def` (verified on 3.14, asserted in `aio-invariants`), but our own
+  "is this sync?" check must too. The loop registration is the easiest one to miss in review.
+- The 2 **clientside** callbacks have no `"callback"` key in `callback_map` and are not ours to
+  wrap — exclude them explicitly in the invariant.
 - Contextvars: `asyncio.to_thread` propagates the current context, so `dash.ctx` access from
   the worker thread keeps working. Add a test asserting `ctx.cookies` is readable from inside
   the offloaded thread — the AKB/login path depends on it.
@@ -968,6 +1094,9 @@ Measure before moving; each may be cheaper to leave on a thread:
 | Sync callback silently blocks the loop after the flip (F1) | `aio-shim`'s shim makes every callback a coroutine; a test asserts the invariant over `app.callback_map`, so a newly added sync callback fails CI rather than production |
 | A callback added between `aio-shim` and `aio-uvicorn` bypasses the shim | The invariant test above catches it; also make `ztf_viewer/callbacks.py` the only sanctioned import and lint for direct `app.callback` use |
 | Cache decorator applied to a coroutine (F3) | `cache()` raises `TypeError` on a coroutine function; `acache()` raises on a plain function. Both covered by tests |
+| Golden snapshots recorded through a colliding memory cache, baking a wrong value in as the spec (F12.1) | Record `aio-golden-callbacks` snapshots with caching disabled, or after `aio-cache-sync` fixes the shared keyspace — not merely with the cache cleared between tests |
+| The cache rewrite silently preserves one of today's defects (F12) | The five defects are recorded as named `xfail`s in `aio-cache-spec`; `aio-cache-sync`'s accept criterion is that F12.1–F12.4 turn XPASS, so preserving a bug fails the criterion rather than passing quietly |
+| `aio-shim` misses the 19 loop-registered `set_table` callbacks (F1a′) | The invariant asserts over all 57 registrations, not the 39 source sites, so a missed loop fails CI |
 | Static assets 404 after the flip (F2) | `aio-pytest-asyncio` smoke tests assert `/static/js9/js9.min.js` and `/static/img/logo.svg` return 200 |
 | Duplicate 148 MiB dust-map allocation under the new concurrency (F9a) | Lock the lazy init and warm at startup (`aio-dustmaps`); test that concurrent first-callers allocate once |
 | Concurrent fan-out hammers upstreams that previously saw serialized traffic | Per-upstream `asyncio.Semaphore` (the offload pair) plus the existing `unavailable_catalogs` circuit breaker; keep an eye on Vizier/Simbad rate limits |
@@ -1005,3 +1134,10 @@ Tick these off as they are answered.
    bump production to 3.14 first. The only thing that can overturn it is a dependency without a
    3.14 wheel that also won't build; `confluent-kafka` via `antares-client` is the likeliest
    candidate. Answer this with a `uv lock` dry run before starting, not after.
+8. **Should the cache key on `self`?** (F12.5) Today all 16 method `@cache()` sites key on the
+   identity of `self`, which makes the Redis cache per-process and per-boot — not shared between
+   workers, lost on restart. Keying on the class instead would make it genuinely persistent, but
+   is wrong for any instance carrying state. Decide in `aio-cache-core`: audit whether the cached
+   catalog-query objects actually hold per-instance state, and if they do not, key on the class.
+   This is the difference between a cache that survives a deploy and one that does not, so it is
+   worth the audit rather than a default.
