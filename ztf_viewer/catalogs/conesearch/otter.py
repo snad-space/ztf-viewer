@@ -92,7 +92,7 @@ class OtterQuery(_BaseCatalogApiQuery):
                         redshift = dist.get("value")
             try:
                 redshift = float(redshift) if redshift is not None else None
-            except (TypeError, ValueError):
+            except TypeError, ValueError:
                 redshift = None
 
             discovery_date = None

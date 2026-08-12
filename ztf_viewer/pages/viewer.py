@@ -1129,7 +1129,7 @@ def set_min_max_mjd(value, dr):
 def update_min_max_mjd_radio(_n_min_mjd, _n_max_mjd, min_mjd, max_mjd, dr):
     try:
         min_mjd, max_mjd = float(min_mjd), float(max_mjd)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         raise PreventUpdate
     if min_mjd >= max_mjd:
         raise PreventUpdate
@@ -1357,7 +1357,7 @@ def set_ref_mag_magerr(dr, _n_clicks, link_id, all_mag_ids, all_mag_values):
         raise PreventUpdate
     try:
         ref = ztf_ref.get(objectid, dr)
-    except (NotFound, CatalogUnavailable):
+    except NotFound, CatalogUnavailable:
         raise PreventUpdate
     return (
         round(float(ref["mag"] + ref["magzp"]), 2),
@@ -1387,7 +1387,7 @@ def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_v
     for catalog, query in catalog_query_objects().items():
         try:
             table = query.find(ra, dec, radii[catalog])
-        except (NotFound, CatalogUnavailable, KeyError):
+        except NotFound, CatalogUnavailable, KeyError:
             continue
         idx = np.argmin(table["separation"])
         row = table[idx]
@@ -1454,7 +1454,7 @@ def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_v
     for catalog, query in catalog_query_objects().items():
         try:
             table = query.find(ra, dec, radii[catalog])
-        except (NotFound, CatalogUnavailable, KeyError):
+        except NotFound, CatalogUnavailable, KeyError:
             continue
         if len(table) == 0:
             continue
@@ -1517,7 +1517,7 @@ def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_v
         elements["Extinction"].append(
             f'Bayestar & Gaia EDR distance Ag = {af["zg"]:.2f} Ar = {af["zr"]:.2f} Ai = {af["zi"]:.2f}'
         )
-    except (NotFound, CatalogUnavailable):
+    except NotFound, CatalogUnavailable:
         pass
 
     elements["Search in brokers"] = [
@@ -1551,7 +1551,7 @@ def get_metadata(oid, dr):
 
     try:
         ref = ztf_ref.get(oid, dr)
-    except (NotFound, CatalogUnavailable):
+    except NotFound, CatalogUnavailable:
         pass
     else:
         meta["ref_mag"] = ref["mag"] + ref["magzp"]
@@ -2029,7 +2029,7 @@ def set_table(radius, oid, dr, catalog):
         return html.P(
             f'No {catalog.replace("-", " ")} objects within {format_sep(radius, 0, 0)} from {ra:.5f}, {dec:.5f}'
         )
-    except (CatalogUnavailable, ConnectionError):
+    except CatalogUnavailable, ConnectionError:
         return html.P("Catalog data is temporarily unavailable")
     table = table.copy()
     div = html.Div(

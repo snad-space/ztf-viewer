@@ -14,7 +14,7 @@ description = "ZTF data releases viewer"
 readme = "README.md"
 license = {text = "MIT"}
 keywords = ["science", "astrophysics"]
-requires-python = ">=3.12"
+requires-python = ">=3.14"
 dependencies = [
     "dash>=4.4.1,<5.0",
     "dash_defer_js_import",
@@ -58,6 +58,13 @@ repository = "github.com/snad-space/ztf_viewer"
 changelog = "github.com/snad-space/ztf_viewer/blob/master/CHANGELOG.md"
 
 [tool.uv]
+# antares-client depends on the abandoned "bson" package (0.5.10, 2021), which is
+# sdist-only and whose setup.py calls pkgutil.find_loader(), removed in Python
+# 3.14, so it cannot be built at all. It is only used by antares_client.stream,
+# which we never import - antares_client guards that import with try/ImportError,
+# exactly as it does for the optional confluent_kafka. A marker that is never true
+# drops the dependency.
+override-dependencies = ["bson; sys_platform == 'never'"]
 environments = [
     # Production
     "sys_platform == 'linux' and platform_machine == 'x86_64'",
@@ -87,12 +94,12 @@ testpaths = [
 
 [tool.black]
 line-length = 120
-target-version = ["py312"]
+target-version = ["py314"]
 include = '\.py$'
 
 [tool.ruff]
 line-length = 120
-target-version = "py312"
+target-version = "py314"
 
 [tool.ruff.per-file-ignores]
 # F401: imported but unused
