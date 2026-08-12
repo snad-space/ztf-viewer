@@ -1,0 +1,1007 @@
+# 001 — Porting the ZTF Viewer to async (Dash 4 FastAPI backend)
+
+Status: proposal · not started
+Baseline: `master` after `b733f6d` (Dash 4.4.1 upgrade merged)
+Now running: Flask backend, Python 3.12 — update this line as stacks land
+
+---
+
+## Progress
+
+Mark `[x]` when merged. Prod stays on the current build until the whole plan lands; what must
+keep working throughout is `master.ztf.snad.space`. Every PR also gets `pr<N>.ztf.snad.space` —
+smoke-check there before merging.
+
+**Foundations** — land these first
+- [ ] `aio-py314` — bump to Python 3.14 (image, pyproject, ruff/black, lock)
+- [ ] `aio-fixtures` — record upstream responses; replay for both `requests` and `httpx`; no network in CI
+- [ ] `aio-golden-http` — golden tests for every route; exact bytes for CSV; static cache headers
+- [ ] `aio-golden-callbacks` — component-tree snapshots, incl. NotFound / Unavailable paths
+- [ ] `aio-cache-spec` — cache contract tests (keys, TTL, pickle round-trip)
+- [ ] `aio-bench` — fan-out latency harness, records a baseline
+- [ ] `aio-invariants` — migration guards (callbacks-are-coroutines starts `xfail`)
+
+**Prep** — backend-neutral, on Flask
+- [ ] `aio-deflask` — `ctx.cookies` instead of `flask.request`; routes go through `web.py`
+- [ ] `aio-cache-core` — key derivation + value codec, no backend
+- [ ] `aio-cache-sync` — reimplement sync `cache()`, drop `redis_lru`
+- [ ] `aio-cache-async` — add `acache()`, key-compatible with the sync one
+- [ ] `aio-cache-flight` — single-flight dedupe
+- [ ] `aio-ttlset` — async `unavailable_catalogs`
+- [ ] `aio-pytest-asyncio` — async test support
+
+**Async shell** — last stack on Flask
+- [ ] `aio-shim` — every callback becomes a coroutine (registration-layer wrap); flip `aio-invariants` to a hard assert
+- [ ] `aio-loop-registry` — per-loop clients/pools/semaphores
+- [ ] `aio-pilots` — 2–3 natively async callbacks (optional)
+
+**The flip** — merge as one stack
+- [ ] `aio-fastapi-app` — deps, `backend=`, mount `/static`
+- [ ] `aio-starlette-web` — `web.py` to Starlette *(breaks Flask from here)*
+- [ ] `aio-routes` — port the six routes
+- [ ] `aio-uvicorn` — entrypoint: Dockerfile **and `.ci/docker-compose.yml.tmpl`** (F11)
+
+**Async I/O** — the payoff
+- [ ] `aio-httpx` — shared async client, `asyncio.timeout`
+- [ ] `aio-snad-apis` — ztf_dr, features, model_fit, akb, ztf_ref
+- [ ] `aio-conesearch` — cone-search base + per-catalog
+- [ ] `aio-offload-threads` — astroquery / alerce / antares behind bounded semaphores
+- [ ] `aio-dustmaps` — warm maps at startup, lock the lazy init
+- [ ] `aio-gather` — concurrent fan-out; `aio-bench` becomes an assertion
+
+**WebSocket**
+- [ ] `aio-ws` — enable transport (verify deployed proxy config first)
+- [ ] `aio-stream` — progressive rendering via `set_props`
+
+**Process pool**
+- [ ] `aio-procpool` — pool lifecycle, spawn-safe
+- [ ] `aio-figures` — matplotlib rendering off-loop, PNG *and* PDF
+- [ ] `aio-profile` — measure the rest; pool only what earns it
+
+**Cleanup**
+- [ ] `aio-cleanup` — drop `requests`, sync `timeout()`, `DASH_BACKEND`; update docs
+
+**Out-of-band** — deployment side, not PRs in this repo
+- [ ] Verify which proxy config is live on the deployment host
+- [ ] Per-vhost timeouts for the viewer
+- [ ] Fix the no-op `client_max_body_size` patch
+
+---
+
+## Why
+
+The viewer is I/O-bound almost end to end. A single object page fans out to ~20 external
+cone-search catalogs, the ZTF DR light-curve API, the features API, the model-fit API, AKB,
+Vizier, Simbad, Skybot, and the FITS reference proxy — all through blocking `requests` /
+`astroquery` calls, executed **sequentially** inside Dash callbacks
+(`ztf_viewer/pages/viewer.py:1379` `get_summary` loops over every catalog; each catalog also
+gets its own `set_table` callback, `ztf_viewer/pages/viewer.py:2018`).
+
+Today concurrency comes only from `gunicorn -w2 --threads=8` (`Dockerfile:73`) — 16 blocking
+slots for the whole site. A handful of slow upstreams (Vizier and Simbad are regular
+offenders) can starve the pool.
+
+Dash 4.4 ships first-class ASGI backends (`dash/backends/_fastapi.py`), native `async def`
+callbacks, and a WebSocket callback transport with `set_props` streaming. That unlocks:
+
+- true concurrent fan-out (`asyncio.gather` over catalogs instead of a serial `for` loop),
+- progressive rendering — each catalog table appears as it arrives instead of after the
+  slowest one,
+- far higher connection capacity per worker,
+- a place to put genuinely CPU-heavy work (matplotlib + LaTeX PDF rendering) that doesn't
+  fight with I/O for threads.
+
+## Goals and non-goals
+
+**Goals**
+
+1. Run on the Dash FastAPI backend under uvicorn.
+2. Move callback dispatch to the WebSocket transport where it buys us streaming UX.
+3. Convert first-party HTTP calls to async (`httpx.AsyncClient`), with sequential fan-out
+   replaced by `asyncio.gather`.
+4. Offload CPU-heavy work (matplotlib/LaTeX figure rendering above all) to a process pool.
+5. Keep the cache layer (Redis / in-memory) correct and non-blocking under async.
+
+**Non-goals**
+
+- No UI redesign, no new pages, no change to the public URL surface.
+- Not rewriting third-party sync clients (`astroquery`, `alerce`, `antares-client`,
+  `dustmaps`) — they keep their sync APIs. *How* each is offloaded differs by what it actually
+  does; see F9 and the offload pair, which split them into three cases rather than one.
+- Not adopting Dash background callbacks / Celery. Our long tasks are I/O, not batch jobs.
+
+## Findings that shape the plan
+
+These were verified against the installed `dash==4.4.1` and drive the staging order.
+
+**F1 — Under the FastAPI backend, a *synchronous* callback blocks the event loop.**
+`FastAPIDashServer.serve_callback` (`dash/backends/_fastapi.py:549`) runs
+`ctx.run(partial_func)` inline in an `async def` handler and only awaits if the result is a
+coroutine. There is no threadpool hop for sync callbacks on the HTTP path. So flipping the
+backend while any callback is still a plain `def` would serialize the *entire app* onto one
+loop per worker — strictly worse than today. Every callback must be a coroutine function
+*before* the flip.
+(The WebSocket path is different: `dash/backends/_fastapi.py:710` does route sync callbacks
+to a bounded shared `ThreadPoolExecutor`, `websocket_max_workers`, default 4.)
+
+**F1a — but that does *not* force one big PR.** Dash only checks
+`inspect.iscoroutinefunction(func)` at registration time (`dash/_callback.py:937`) to pick
+the async dispatch wrapper. A registration-layer shim that wraps any sync callback into
+`async def ...: return await asyncio.to_thread(f, ...)` satisfies F1 for all 39 callbacks in
+one ~30-line change, with no edits to a single callback body. Native async conversion then
+proceeds one callback at a time, at leisure, with the shim as the safety net. This is what
+makes the shell/flip stack a stack of small PRs rather than a monolith.
+
+**F1b — async callbacks already work on the *Flask* backend.**
+`FlaskDashServer.serve_callback` has a second, async dispatch path (`_dispatch_async`,
+`dash/backends/_flask.py:273`), selected by `use_async`, which auto-enables when `asgiref` is
+importable (`dash/_validate.py:595` `check_async`) — i.e. as soon as `dash[async]` is
+installed. Consequence: **the entire async conversion can land and deploy incrementally on
+Flask**, and the backend flip shrinks to a handful of lines at the end of the stack. Without
+`asgiref`, the sync path raises a loud, explicit error on encountering a coroutine
+(`_flask.py:265-270`) — there is no silent-failure mode to fear.
+
+**F1c — the two backends have different event-loop models, and it leaks.**
+Flask runs `_dispatch_async` through asgiref's `async_to_sync`, i.e. a **fresh event loop per
+request**, inside the same gunicorn worker thread. FastAPI has **one long-lived loop per
+worker**. Anything loop-affine created at import time — `httpx.AsyncClient` connection pools,
+`redis.asyncio` pools, `asyncio.Semaphore` / `Lock` — is bound to the loop that created it and
+will misbehave on Flask. All such resources must be created lazily and keyed by
+`asyncio.get_running_loop()`. This is a real cost of the flip-last ordering and is called out
+as its own PR (`aio-loop-registry`); it is cheap to write and harmless to keep after the flip.
+
+**F2 — `FastAPI()` is created bare; there is no `/static`.** See the `/static` design note for the options
+discussion and the decision.
+`FastAPIDashServer.create_app` (`dash/backends/_fastapi.py:276`) returns a plain `FastAPI()`.
+The Flask backend instead gets `Flask(name)`, which silently provides `static_folder=<pkg>/static`
+at `/static`. That implicit route is what serves, today:
+`/static/img/logo.svg` (`ztf_viewer/__main__.py:45`), `/static/js/js9prefs.js` plus the four
+JS9 files listed as `external_scripts`/`external_stylesheets` (`ztf_viewer/app.py:3-13`), and
+the two deferred imports `/static/js/js9_helper.js` and `/static/js/aladin_helper.js`
+(`ztf_viewer/pages/viewer.py:376,455`). `ztf_viewer/static/` is 16 KB in the repo but JS9 is
+installed into `static/js9/` at image build time (`Dockerfile:14-22`), so the real payload is
+several MB. Without an explicit mount, all of it 404s into the Dash index page via the
+catch-all (`dash/backends/_fastapi.py:326`).
+Note this is separate from `ztf_viewer/assets/` (464 KB), which Dash *does* mount on both
+backends via `register_assets_blueprint` — on FastAPI as a `StaticFiles` mount
+(`dash/backends/_fastapi.py:284`).
+
+**F3 — The sync cache decorators cannot wrap coroutine functions.**
+`ztf_viewer/cache.py` hands out either `redis_lru` or `cachetools.cached`. Applied to an
+`async def`, both would cache the *coroutine object* — a correctness bug that returns an
+already-awaited coroutine on the second hit. All 19 `@cache()` sites
+(`grep -rn "@cache()" ztf_viewer`) need an async-aware decorator before the functions under
+them become coroutines. `redis_lru` and `redis.StrictRedis` are sync-only; the async path
+needs `redis.asyncio`.
+
+**F4 — `flask.request` is used in exactly one place.**
+`ztf_viewer/akb.py:37` `_token_from_cookies`. Dash exposes a backend-neutral
+`dash.ctx.cookies` (`dash/_callback_context.py:274`) and `ctx.response.set_cookie` (already
+used in `ztf_viewer/pages/login.py:35`). Trivial to make backend-agnostic ahead of time.
+
+**F5 — Six Flask routes need porting**, all registered via `@app.server.route`:
+`ztf_viewer/pages/figure.py:27,28,50`, `ztf_viewer/pages/lc_csv.py:45,93,103,113`,
+`ztf_viewer/pages/favicon.py:6`. They use `flask.Response`, `flask.request.args`
+(incl. `getlist`), `flask.send_file`, and `(body, status)` tuple returns — none of which
+exist on Starlette. FastAPI *does* run plain `def` route handlers in a threadpool, so these
+can stay synchronous initially without blocking the loop.
+
+**F6 — `ztf_viewer/util.py:292` `timeout()` burns a thread per call.**
+It spawns a `ThreadPoolExecutor(max_workers=1)` per invocation and is applied to every
+cone-search query (`ztf_viewer/catalogs/conesearch/_base.py:108`). Under async this becomes
+`asyncio.timeout` for free.
+
+**F7 — The proxy situation already supports WebSockets.** Two points, both easy to get
+backwards:
+1. **`proxy/default.conf` in this repo is not in the app's request path.** `docker-compose.yml`
+   defines only `redis` and `ztf-web-viewer-app`; there is no proxy service. The app joins the
+   external `proxy` network and is picked up by the outer nginx-proxy through
+   `VIRTUAL_HOST=ztf.snad.space`, which connects to the app container directly. The `proxy/`
+   directory is a separately deployed cache in front of IRSA (`location /products`, matching
+   `ZTF_FITS_PROXY_URL` and `proxy-cache-filler/`); its `location /` → `app_server` block is
+   leftover from before the jwilder proxy. **No change needed there** — though the dead
+   `location /` is worth deleting to avoid future confusion.
+2. **The outer proxy already supports WebSockets out of the box.** It is
+   `nginxproxy/nginx-proxy`, whose `nginx.tmpl` ships `proxy_http_version `aio-deflask``, the
+   `map $http_upgrade $proxy_connection` block, and
+   `proxy_set_header Upgrade $http_upgrade; proxy_set_header Connection $proxy_connection;`
+   on every location (verified against the upstream template).
+What *does* need attention is timeouts and a config-management discrepancy — see
+the proxy design note. That work is deployment-side and happens before/outside the PR stacks.
+
+**F8 — Genuinely CPU-heavy work is narrow.** In order of cost:
+PDF figure rendering via the matplotlib PGF backend, i.e. a LaTeX subprocess per request
+(`ztf_viewer/pages/figure.py:294`, `Dockerfile:24-35`); PNG rendering; plotly figure
+assembly and the per-observation Python loop in `ztf_viewer/lc_data/plot_data.py:18`; pandas
+CSV assembly (`ztf_viewer/pages/lc_csv.py:13`). Dustmaps is *not* on this list — see F9.
+
+**F9 — offload strategy differs by *why* a call is slow; there are three cases, not one.**
+A single "offload to threads" rule flattens a real distinction. What matters is whether a
+call is waiting on a socket, burning CPU, or merely touching a large resident array.
+
+1. **Network-bound sync clients → thread pool.** `astroquery` (Vizier, Simbad, MOCServer,
+   Skybot), `alerce`, `antares-client`. These sit in `socket.recv` for most of their wall
+   time, and CPython releases the GIL there, so threads give real concurrency — twenty
+   catalogs genuinely overlap. A process pool would add pickling of astropy `Table`s and
+   per-child interpreter memory to buy nothing. Their CPU component is real but small
+   (VOTable/JSON → `Table`), tens of ms against seconds of network latency.
+2. **CPU-bound work → process pool.** Only matplotlib rendering clears this bar (F8, `aio-figures`).
+3. **`dustmaps` → neither; keep it in-process.** This is the case worth spelling out, because
+   the intuition "big scientific computation ⇒ separate process" points the wrong way here.
+   The cost is *resident memory*, not CPU: `BayestarQuery` loads a **148 MiB** HDF5 map
+   (measured on the mirror in `Dockerfile:50-56`) and `CSFDQuery` loads a comparable one, both
+   held for the process lifetime. The query itself is a healpix array lookup — microseconds to
+   low milliseconds. Move it to a `ProcessPoolExecutor` and every child loads its own copy:
+   with 2 uvicorn workers × 4 pool processes that is up to 8 × (bayestar + csfd), multiple GB,
+   to parallelize an array index. The IPC round-trip would likely cost more than the lookup.
+   The existing `NO_LOCAL_3D_DUST_MAP` escape hatch (`config.py`, `bayestar.py`) is evidence
+   that map memory has already been a pressure point. A dedicated single map-owning process
+   would avoid the duplication, but that is a service, not a pool — unjustified for a
+   sub-millisecond lookup.
+   **The genuinely slow part is the first call**, which loads 148 MiB from disk lazily
+   (`extinction/_base.py:33-39`) and stalls whoever triggers it. Fix that by warming the maps
+   at worker startup (or offloading just the load to a thread), not by pooling the query. The
+   viewer's summary calls `csfd.ebv` on essentially every object page
+   (`pages/viewer.py:1508`), so every worker pays this cost almost immediately anyway —
+   warming makes it predictable instead of landing on an unlucky user.
+
+**F9a — the lazy map init is not thread-safe, and concurrency makes that bite.**
+`_BaseLocalExtinctionQuery.query` does `if self.local_query is None: self.local_query = self.new_local_query()`
+(`ztf_viewer/catalogs/extinction/_base.py:33-39`) with no lock. Two concurrent first-callers
+can both see `None` and both construct a query object, transiently doubling a 148 MiB
+allocation. Today the serial callback structure makes that nearly impossible; `aio-gather`'s fan-out and
+the FastAPI backend make it a live race. Needs a lock (or startup warming, which sidesteps it).
+
+**F11 — the dev/PR deploy path overrides the entrypoint, and diverges from prod.**
+`.github/workflows/deploy-dev.yml` renders `.ci/docker-compose.yml.tmpl`, which **hardcodes its
+own entrypoint**, overriding the Dockerfile's:
+`entrypoint: ["gunicorn", "-w2", "-t300", "--keep-alive=75", "-b0.0.0.0:80", "ztf_viewer.__main__:app"]`.
+So `aio-uvicorn` must change **both** `Dockerfile:73` and that template — changing only the
+Dockerfile leaves every dev and PR deployment launching gunicorn against an ASGI app, which
+fails at startup. Two further divergences from prod worth keeping in mind:
+- the template sets `NO_LOCAL_3D_DUST_MAP=1`, so bayestar is **disabled** on dev and PR
+  environments. `aio-dustmaps`'s warm-up cannot be fully exercised there, and dev RSS numbers
+  will not answer the worker-count question — that needs a prod-like run.
+- dev runs `-w2 -t300` with **no `--threads`**, i.e. 2 single-threaded workers, against prod's
+  `-w2 --threads=8 -t70`. Dev is therefore *more* sensitive to blocking calls than prod, which
+  is useful: a regression in concurrency shows up on the dev server first.
+
+**F10 — dev and production run different Python minors.**
+Development runs **Python 3.14**; the image is `python:3.12-bookworm` (`Dockerfile:1`),
+`requires-python = ">=3.12"`, and black/ruff target `py312`. Tolerable for the largely
+version-agnostic code we have today, but this plan adds a lot of asyncio, where the gap
+between 3.12 and 3.14 is widest, and where a version difference is most likely to surface as
+a subtle event-loop behaviour difference rather than an obvious failure. **Resolved by upgrading production to 3.14 in the foundations stack** (item `aio-py314`) rather than by
+pinning development back. Also note `asgiref` is **not** currently installed, so `use_async` is
+`False` today (`dash/_validate.py:595`) — consistent with `aio-shim` having to add the `dash[async]`
+extra.
+
+---
+
+## Shape of the work
+
+Every PR is a branch named `aio-*`. Because of F1a/F1b, almost every one merges and deploys
+safely **on its own, on Flask**; only the four flip branches are atomic with each other.
+
+```
+foundations   python 3.14, then tests            ──┐
+prep          backend-neutral, ships on Flask    ──┤ ordered
+shell + flip  async callbacks, then FastAPI      ──┤
+                                                   │
+async I/O     real awaits, concurrent fan-out  ─┐  │
+WebSocket     transport + streaming UX         ─┤ parallel, after the flip
+process pool  CPU-bound offload                ─┘
+cleanup       remove the sync path
+```
+
+### Branch structure
+
+Each branch is cut from its predecessor, so every PR's diff shows only its own change. The
+chain is linear except where noted; branches marked ⇢ can instead be cut from `master`
+directly, since they carry no dependency on the branch above them.
+
+```
+master
+└─ aio-py314                  upgrade the interpreter first of all
+   └─ aio-fixtures            replay layer; everything below depends on it
+      ├─ aio-golden-http    ⇢ route goldens
+      ├─ aio-golden-callbacks⇢ callback snapshots
+      ├─ aio-cache-spec     ⇢ cache contract tests
+      ├─ aio-bench          ⇢ fan-out benchmark harness
+      ├─ aio-invariants     ⇢ migration guards
+      └─ aio-deflask          drop direct flask coupling
+         └─ aio-cache-core     keying + codec, no backend
+            └─ aio-cache-sync    reimplement sync cache, drop redis_lru
+               └─ aio-cache-async   add acache()
+                  └─ aio-cache-flight  single-flight
+                     └─ aio-ttlset        async unavailable_catalogs
+                        └─ aio-pytest-asyncio
+                           └─ aio-shim          all callbacks become coroutines
+                              └─ aio-loop-registry  per-loop resources
+                                 ├─ aio-pilots ⇢ native async pilots (optional)
+                                 └─ aio-fastapi-app ── the flip, merged as one ──
+                                    └─ aio-starlette-web
+                                       └─ aio-routes
+                                          └─ aio-uvicorn
+                                             ├─ aio-httpx    ── async I/O chain ──
+                                             │  └─ aio-snad-apis
+                                             │     └─ aio-conesearch
+                                             │        └─ aio-offload-threads
+                                             │           └─ aio-dustmaps
+                                             │              └─ aio-gather
+                                             ├─ aio-procpool ── process-pool chain ──
+                                             │  └─ aio-figures
+                                             │     └─ aio-profile
+                                             └─ aio-ws       ── websocket chain ──
+                                                └─ aio-stream
+                                                   └─ aio-cleanup
+```
+
+The flip sits as early as its prerequisites allow: `aio-shim` satisfies F1 (every callback is a
+coroutine) and `aio-loop-registry` satisfies F1c, and nothing else in the plan is a
+prerequisite for it. Everything downstream is then written, reviewed and soaked on the runtime
+we actually intend to ship. The async-I/O and process-pool chains do not depend on the backend
+(F1b), so if the flip stalls in review they can be cut from `aio-loop-registry` instead and
+rebased onto `aio-uvicorn` later.
+
+**Review-surface rule for the whole plan:** no PR should mix a mechanical rename/rewrap with
+a semantic change. Where a change touches many files shallowly (`aio-shim`) it gets its own PR
+whose diff is one-line-per-site and can be skimmed; where it touches one file deeply
+(`aio-snad-apis`, `aio-gather`) it gets its own PR with tests.
+
+### Deployment model and the working-code rule
+
+**No production release until the whole plan lands.** Production stays on the current Flask
+build for the duration. What must keep working continuously is the **dev server**,
+`master.ztf.snad.space`, which `deploy-dev.yml` redeploys on every push to `master`.
+
+That gives one hard rule and one very useful mechanism:
+
+- **Rule: master must always be deployable and working on the dev server.** Every *stack* must
+  leave master in that state; individual PRs need not be independently deployable.
+- **Decided: the flip lands early**, immediately after `aio-shim` + `aio-loop-registry`, so the
+  dev server runs FastAPI for the whole remaining migration and every later stack is written
+  against the runtime it will ship on.
+- **Mechanism: every PR already gets its own preview environment**, `pr<N>.ztf.snad.space`,
+  built from the same template. So "does this break the dev server?" is answerable *before*
+  merge, per PR, not discovered after. Each PR below should be smoke-checked on its own preview
+  URL before merging — that is the enforcement of the rule, and it costs nothing extra because
+  the pipeline already exists.
+
+Because prod is frozen, "risky to ship" mostly stops being a consideration; the real currencies
+are *review surface* and *keeping master green*. Two consequences worth naming:
+
+- **Inert PRs** add code nothing calls yet (`aio-cache-core`, `aio-cache-async`,
+  `aio-loop-registry`, `aio-procpool`). Merging them changes nothing at runtime, so they cannot
+  break the dev server.
+- **Live PRs** change behaviour on merge (`aio-cache-sync`, `aio-cache-flight`, `aio-shim`,
+  `aio-gather`, `aio-dustmaps`). These are the ones whose preview URL actually needs clicking
+  through before merge.
+
+The only genuinely non-deployable intermediate states are the flip branches, and they are
+exactly the sub-stack already marked atomic: `aio-starlette-web` breaks Flask and only makes
+sense once `aio-uvicorn` lands. Merged as one stack, master never sees the broken state.
+
+The foundations stack precedes everything and is worth landing even if the rest of this plan is
+deferred.
+
+---
+
+## Design note: serving `/static` after the flip
+
+Four options were considered for replacing Flask's implicit static route (F2).
+
+| Option | Cost | Verdict |
+| --- | --- | --- |
+| **A. `app.server.mount("/static", StaticFiles(...))`** | one line | **chosen** |
+| B. Let nginx serve `/static` from a shared volume | app image must publish JS9 to a volume the shared proxy can read | rejected |
+| C. Move the files into Dash's `assets/` | Dockerfile + index changes, needs `assets_ignore` | rejected |
+| D. Mount a Flask sub-app for static only | keeps a WSGI stack alive forever | rejected |
+
+**Why not B.** Superficially attractive — nginx serves several MB of JS9 better than Python
+does. But the outer proxy is *shared infrastructure* (`nginxproxy/nginx-proxy` fronting every
+service behind it, the proxy design note), not an app-local sidecar. Serving our static files from it means
+exporting JS9 from the app image into a volume the proxy container mounts, and keeping those
+two in sync across deploys. That couples our release process to shared infrastructure to save
+a few MB of proxied traffic that is already cached by browsers. If static throughput ever
+actually matters, the right move is a CDN or the app-local `proxy/` container, not the shared
+vhost proxy.
+
+**Why not C.** Dash auto-injects *every* `.js`/`.css` under `assets/` into the page, in
+filename order — that is exactly why `assets/` currently holds `10-jquery-1.9.1.min.js` and
+`20-aladin.min.js` with ordering prefixes. JS9 is deliberately *not* there: it is declared via
+`external_scripts` (`ztf_viewer/app.py:8-13`) and two files are loaded lazily through
+`dash_defer_js_import` (`viewer.py:376,455`). Moving it into `assets/` would auto-include
+files we currently defer, and would need an `assets_ignore` regex to claw that back — plus a
+Dockerfile change, since JS9's install path is fixed at build time
+(`./configure --with-webdir=/app/ztf_viewer/static/js9`). More moving parts, no benefit.
+
+**Decision: Option A**, with two details that belong in `aio-fastapi-app`:
+- **Mount ordering.** Starlette matches routes in registration order and `mount()` appends to
+  the same router table. The mount must happen at app construction — before Dash registers
+  the index and the lazy `{path:path}` catch-all (`dash/backends/_fastapi.py:326`), which is
+  set up on first request. Mounting in `ztf_viewer/app.py` right after `dash.Dash(...)`
+  guarantees precedence.
+- **Cache headers differ.** Flask sets `Cache-Control: max-age=<SEND_FILE_MAX_AGE_DEFAULT>`
+  on static sends; Starlette's `StaticFiles` sends only `ETag`/`Last-Modified`. Left alone,
+  every JS9 asset becomes a conditional revalidation request instead of a cache hit. Either
+  set explicit cache headers on the mount or add them at the proxy. **A the foundations stack test should
+  assert the response headers for `/static/js9/js9.min.js`**, so this regression is caught by
+  CI rather than by a slow page.
+
+---
+
+## Design note: deployment proxy work (do first, outside the PR stacks)
+
+The deployment fronts this app with an `nginxproxy/nginx-proxy` vhost proxy (selected by the
+`VIRTUAL_HOST` variable in `docker-compose.yml`) plus an ACME companion, configured in a
+separate private ops repository. WebSocket support itself needs no change there (F7). Three
+things do want attention, none of them blocked by this plan — they can be done now,
+independently, and they live outside this repository.
+
+1. **Confirm which proxy config is actually live.** The vhost proxy's tuning snippets
+   (`/etc/nginx/vhost.d/default`, `/etc/nginx/vhost.d/default_location`) can be baked into a
+   derived image *or* persist on a named volume, and those two can silently disagree — a
+   volume may still hold snippets written by an older image that is no longer built. **Verify
+   on the deployment host rather than reading the compose file:**
+   `docker exec <proxy-container> cat /etc/nginx/vhost.d/default_location`.
+   Then make it deliberate: either build the derived image, or manage the `vhost.d` snippets
+   as explicitly mounted files.
+2. **Timeouts matter more after this migration.** nginx's default `proxy_read_timeout` is 60 s
+   and the upstream nginx-proxy template sets none. Dash's WebSocket heartbeat defaults to
+   30 s, so an idle connection survives on heartbeats alone — but only while heartbeats stay
+   enabled and under the timeout. Long timeouts (the ops repo intends 1 h) are comfortable for
+   both persistent WS connections and slow catalog fan-out; item 1 is about making sure they
+   are actually applied. Prefer a **per-vhost** `vhost.d/<hostname>_location` file, so the
+   viewer's timeouts don't ride on a global default shared with every other service behind the
+   same proxy.
+3. **Re-check the `client_max_body_size` patch.** The ops repo applies it through a helper
+   container whose shell redirection targets a path that is not the mounted volume, so the
+   setting has likely never taken effect. Unrelated to this migration, but adjacent enough to
+   fix while in there.
+
+Also worth a look while nearby: the ops compose file still declares the obsolete
+`version: '2'` key, and the dead `location /` block in this repo's `proxy/default.conf` (F7)
+should go.
+
+---
+
+## Stack: Foundations — Python 3.14 and tests, before anything moves
+
+The single highest-leverage pre-work. Every stack below rewrites code whose only current
+specification is its behaviour in production; without a "before" snapshot we cannot tell a
+successful port from a subtly broken one. All of the foundations stack merges on today's Flask app and is
+worth having even if the rest of this plan is shelved.
+
+Order within the stack: **`aio-py314` first** (the interpreter upgrade, so the goldens are recorded
+against the version we keep), then `aio-fixtures` (which everything else depends on), then `aio-golden-http`–`aio-invariants` in any
+order.
+
+### `aio-py314` — Upgrade to Python 3.14 *(first within this stack)*
+Resolves F10 by moving production up to the version development already runs, rather than
+holding development back.
+- `Dockerfile:1` → a `python:3.14` base; `pyproject.toml` `requires-python`;
+  `[tool.black] target-version` and `[tool.ruff] target-version` → `py314`; regenerate
+  `uv.lock`; make sure CI builds on the same base (`.github/workflows/test.yml` runs tests via
+  Docker, so it follows the image).
+- **The risk here is wheels, not our code.** The dependency set includes several packages that
+  historically lag a new CPython by months and then build from source — the image already
+  installs `libhdf5-dev`, `libcfitsio-dev` and `librdkafka-dev` for exactly that reason
+  (`Dockerfile:36-42`). `confluent-kafka` (via `antares-client`) is the usual straggler;
+  `numpy`/`scipy`/`astropy`/`pandas`/`matplotlib`/`mocpy`/`dustmaps` all need checking. Do a
+  `uv lock` dry run against 3.14 **before** committing to this ordering; if something has no
+  3.14 wheel and won't build, that changes the answer to open question 7 and we stay on 3.12
+  with 3.14 added to CI instead.
+- **Why it belongs first, ahead of the fixtures and goldens.** Two reasons, one of them
+  non-obvious:
+  1. `aio-golden-http`'s CSV goldens are byte-exact, and they are produced by pandas/numpy through
+     `DataFrame.to_csv`. Recording them on 3.12 and then changing the interpreter — and with it
+     the resolved wheel versions — risks a wave of golden churn that is indistinguishable from
+     a real regression. Record them once, on the version we intend to keep.
+  2. 3.14 turns several asyncio foot-guns into hard errors rather than warnings — notably
+     implicit event-loop creation via `asyncio.get_event_loop()`, which `aio-loop-registry`'s per-loop registry
+     must avoid anyway (it uses `get_running_loop()`). We want that strictness in place
+     *while* the async code is being written, not discovered afterwards.
+- **Accept:** image builds on all three `[tool.uv] environments` targets (linux x86_64, linux
+  aarch64, darwin arm64); existing suite green; a smoke run of the app in the container.
+
+**The blocker to be honest about:** the current suite hits the live network.
+`tests/catalogs/conesearch/test_tns.py` really queries TNS; `tests/catalogs/test_ztf_ref.py`
+really downloads a FITS file. There is no `vcr`/`responses`/`respx` anywhere in the lockfile.
+So the tests we have are integration tests against third parties — they can go red because
+Simbad is down, and they cannot be used to compare before/after behaviour. `aio-fixtures` fixes that and
+everything else depends on it.
+
+### `aio-fixtures` — Fixture layer that survives the `requests` → `httpx` swap
+- Capture real upstream responses once, and store them as **our own fixture format**
+  (JSON/bytes per upstream + URL + status + headers), not as client-specific cassettes.
+- Provide two thin adapters that replay those fixtures: one `requests` transport adapter
+  (today) and one `httpx.MockTransport` (the async-I/O stack). Same fixtures, both clients — this is the
+  whole point, and it is why plain `vcrpy` is the wrong choice here: its httpx support is
+  secondary and we would be re-recording mid-migration, destroying the comparison.
+- Keep the existing live tests, marked `@pytest.mark.live` and excluded by default, so we
+  retain a way to detect upstream API drift.
+- **Accept:** the default `pytest` run makes no network calls (enforce with a socket-blocking
+  fixture); live tests still runnable on demand.
+
+### `aio-golden-http` — HTTP surface golden tests
+Characterize every route as it behaves today: index, `/dr24/view/<oid>`, `/dr24/search/...`,
+`/login`, `/tags`, `/anomalies`, `/health`, `/favicon.ico`, `/static/...`,
+`/dr24/csv/<oid>`, `/panstarrs/csv/<id>`, `/gaia/csv/<id>`, `/antares/csv/<locus>`,
+`/dr24/figure/<oid>` (png + pdf), `/dr24/figure/<oid>/folded/<period>`.
+- Assert status, `Content-Type`, `Content-Disposition`, and **exact bytes** for the CSV
+  endpoints (golden files). CSVs are pure functions of the fixtures, so they pin `aio-starlette-web`/`aio-routes`
+  precisely.
+- Assert `/static/js9/js9.min.js` returns 200 **and** record its cache headers — this is the
+  test that catches both F2 and the Flask/Starlette cache-header difference (the `/static` design note).
+- Figures: don't byte-compare PNG/PDF in CI (matplotlib/LaTeX output is not reproducible
+  across versions). Assert magic bytes, non-trivial size, and mimetype; keep an opt-in visual
+  comparison for local use.
+- **Accept:** green on Flask; must stay green through `aio-fastapi-app`–`aio-uvicorn` with no edits.
+
+### `aio-golden-callbacks` — Callback characterization (the real regression net for the async-I/O stack)
+Dash callbacks are ordinary functions. With `aio-fixtures`'s fixtures pinning upstream responses, call
+them directly and snapshot the returned component tree, serialized with
+`plotly.utils.PlotlyJSONEncoder`.
+- Priority order, matching where the rewrites land: `get_summary` (`aio-gather` rewrites its loop),
+  `set_table` for a representative catalog, `find_neighbours`, `get_metadata`,
+  `set_figure`, `set_lc_table`, `set_features_list`.
+- Include the **failure** paths, which are where a rewrite is most likely to silently drift:
+  catalog raises `NotFound`; catalog raises `CatalogUnavailable`; catalog present in
+  `unavailable_catalogs`. `aio-gather`'s `gather(..., return_exceptions=True)` must reproduce the
+  current per-catalog `except ...: continue` semantics exactly, and these snapshots are how we
+  know it does.
+- **Accept:** snapshots committed; a deliberate one-line change to a callback makes the
+  matching snapshot fail.
+
+### `aio-cache-spec` — Cache contract tests (the spec for the cache sub-stack)
+Write these *against today's* `redis_lru`/`cachetools` behaviour, then make the cache sub-stack's rewrite pass
+them unchanged:
+- key identity for the awkward argument types we actually pass — `immutabledict`,
+  `immutabledefaultdict`, `frozenset` (`lc_data/plot_data.py:82`), `tuple[int]`
+  (`model_fit.py:89`);
+- distinct functions with identical args do not collide;
+- pickle round-trip fidelity for the values we cache: `astropy.table.Table` (with units and
+  masked columns), `SkyCoord`, plain dicts;
+- TTL expiry, for both `CACHE_TYPE=memory` and `redis`.
+- **Accept:** green on the current implementation; the cache sub-stack changes no test in this file.
+
+### `aio-bench` — Concurrency benchmark harness
+- A test that drives `get_summary` against fixtures with an injected per-upstream delay and
+  records total wall-clock, asserting nothing yet.
+- `aio-gather` flips it into a real assertion: with N catalogs each delayed `d`, elapsed must be
+  `~d`, not `~N·d`. That converts "the payoff" from a claim into a CI-enforced property.
+- **Accept:** baseline number recorded in the PR description.
+
+### `aio-invariants` — Invariants that guard the migration
+Cheap tests that fail loudly if someone (including us, months from now) breaks a rule:
+- every entry in `app.callback_map` is a coroutine function — trivially false today, so land
+  it `xfail` and flip it to a hard assertion in `aio-shim`;
+- no `import flask` outside `ztf_viewer/web.py` (after `aio-deflask`);
+- `@cache()` is never applied to a coroutine function, `@acache()` never to a plain one
+  (after the cache sub-stack).
+- **Accept:** each either passes or is an explicit `xfail` with the PR that will fix it named
+  in the marker.
+
+**Why this ordering pays.** `aio-fixtures` + `aio-golden-callbacks` together mean the risky stacks — `aio-snad-apis`, `aio-conesearch`, `aio-gather` — become
+"snapshot unchanged?" reviews instead of "read the diff and hope". That is what makes the rest
+of this plan safe to do incrementally.
+
+---
+
+## Stack: Prep — backend-neutral, still on Flask
+
+Everything here is behaviour-preserving and independently valuable. Ship it first so
+the shell/flip stack stays small enough to review.
+
+### `aio-deflask` — Remove direct Flask coupling from app code
+- `ztf_viewer/akb.py:37`: `flask.request.cookies` → `dash.ctx.cookies` (F4); drop the
+  `flask` import.
+- Introduce `ztf_viewer/web.py` with backend-neutral helpers used by the routes:
+  `file_response(...)`, `csv_response(...)`, `binary_response(...)`, `query_args(request)`.
+  Implement against Flask for now, single-file swap in `aio-starlette-web`.
+- Rewrite `ztf_viewer/pages/{figure,lc_csv,favicon}.py` to call those helpers and to return
+  explicit responses instead of `(body, status)` tuples.
+- **Accept:** existing behaviour identical; `grep -rn "^import flask\|from flask" ztf_viewer`
+  matches only `ztf_viewer/web.py`.
+
+### the cache sub-stack — Async-capable cache layer *(its own stack of four PRs)*
+The cache sits under all 19 `@cache()` sites and under every catalog query; it is the one
+piece of shared infrastructure the whole migration rests on, so it gets its own reviewable
+stack rather than one big rewrite. Spec is `aio-cache-spec`, written first and unchanged throughout.
+
+- **`aio-cache-core` — Extract the keying/serialization core.** A `cache_key(func, args, kwargs)` function
+  (`module.qualname` + stable encoding of args) and a pickle value codec, as pure functions
+  with no backend and no decorator. Nothing calls them yet except tests. Reviewable in
+  isolation, and this is where the awkward `immutabledict`/`frozenset`/`tuple[int]` argument
+  handling actually lives.
+- **`aio-cache-sync` — Reimplement the *sync* `cache()` on that core, dropping `redis_lru`.**
+  Backends: `StrictRedis` (as today) and `cachetools.TTLCache`. Behaviour-preserving by
+  construction — `aio-cache-spec`'s tests are the proof, and they change by zero lines. Lands well
+  before any async exists, which is the point: the riskiest part of the cache rewrite is
+  reviewed and soaked on the dev server on its own, decoupled from everything else.
+  - Rationale for dropping `redis_lru`: it is a thin LRU-over-Redis wrapper with no async
+    path, and we need deterministic keys of our own anyway.
+- **`aio-cache-async` — Add `acache()`** on `redis.asyncio` + an `asyncio.Lock`-guarded `TTLCache`, sharing
+  `aio-cache-core`'s core so sync and async entries are *key-compatible* (a value cached by a sync caller
+  is a hit for an async one — this matters during the async-I/O stack, when some callers are converted and
+  others are not). Resources come from `aio-loop-registry`'s per-loop registry (F1c).
+- **`aio-cache-flight` — Single-flight.** Coalesce concurrent identical misses behind one shared future, on
+  both decorators. Separate PR because it is the only part with genuinely subtle concurrency
+  semantics (exception propagation to all waiters, cancellation of the leader, no cross-loop
+  future sharing). It also becomes load-bearing rather than a nicety the moment `aio-gather` lands: N
+  users on a popular object currently serialize into N identical upstream queries.
+- **Accept (whole stack):** `aio-cache-spec` passes unmodified at every step; new tests for cross-decorator
+  key compatibility (`aio-cache-async`) and dedupe under concurrent misses (`aio-cache-flight`); `pytest-redis` fixtures
+  as in `tests/test_ttl_set_redis_ttl_set.py`.
+
+Two of these four PRs are inert (`aio-cache-core`, `aio-cache-async`: nothing calls them yet)
+and two are live (`aio-cache-sync`, `aio-cache-flight`). The key scheme changes at
+`aio-cache-sync`, so existing Redis entries become unreachable on deploy — an accepted cold
+start, not something to design around.
+
+### `aio-ttlset` — Async-capable `unavailable_catalogs`
+- `ztf_viewer/ttl_set.py` `RedisTTLStringSet` → add an async variant on `redis.asyncio`
+  (`AsyncRedisTTLStringSet`), keep `LocalTTLSet` usable from async (it's pure in-memory).
+- `ztf_viewer/catalogs/unavailable_catalogs.py` gains an async accessor.
+- **Accept:** mirrored versions of the three existing `test_ttl_set_*` suites.
+
+### `aio-pytest-asyncio` — Async test support
+Route coverage now lives in `aio-golden-http`; this PR only adds what async tests need.
+- Add `pytest-asyncio` to the `tests` dependency group; `asyncio_mode = "auto"`.
+- Add the `httpx.MockTransport` adapter over `aio-fixtures`'s fixtures, so async code under test replays
+  the same recordings the sync code does.
+- **Accept:** an async test and a sync test asserting identical results from the same fixture.
+
+---
+
+## Stack: Async shell, then the flip
+
+Seven PRs. **`aio-shim`–`aio-pilots` each merge and deploy on their own, on Flask** (F1b): they are the async
+conversion, and they are safe without the backend change. Only **`aio-fastapi-app`–`aio-uvicorn` are atomic** — the
+Starlette response swap breaks Flask, so that sub-stack must land as one merge.
+
+```
+`aio-shim` dash[async] + callback shim      ← merges solo, still Flask
+`aio-loop-registry` loop-affine resource discipline  ← merges solo, still Flask
+`aio-pilots` (optional) native async pilots   ← merges solo, still Flask
+────────────────────────────────────  the flip: merge as one stack ↓
+`aio-fastapi-app` static mount + app construction
+`aio-starlette-web` web.py → Starlette
+`aio-routes` route ports
+`aio-uvicorn` uvicorn entrypoint + Dockerfile + backend default
+```
+
+### `aio-shim` — `dash[async]` and the callback shim *(small, high leverage)*
+This is the PR that dissolves the F1 constraint.
+- Add the `dash[async]` extra (pulls `asgiref`) so `use_async` auto-enables on Flask
+  (`dash/_validate.py:595`). Nothing else changes about how the app runs today.
+- Add `ztf_viewer/callbacks.py` exposing our own `callback(...)` wrapper: if the decorated
+  function is already a coroutine function, register it as-is; otherwise wrap it as
+  `async def w(*a, **kw): return await asyncio.to_thread(f, *a, **kw)` (preserving
+  `functools.wraps`) and register that. ~30 lines.
+- Mechanically repoint all 39 registrations from `app.callback` to this wrapper — a
+  one-line-per-site diff, no bodies touched, trivially skimmable in review.
+- Four registrations call `app.callback(...)(partial(...))` rather than using the decorator
+  (`ztf_viewer/pages/viewer.py:2046` `set_tables`, `:1916,:1925` `find_neighbours`). The shim
+  must unwrap/handle `functools.partial` — `inspect.iscoroutinefunction` does see through a
+  partial of an `async def`, but our own "is this sync?" check must too. Test it.
+- Contextvars: `asyncio.to_thread` propagates the current context, so `dash.ctx` access from
+  the worker thread keeps working. Add a test asserting `ctx.cookies` is readable from inside
+  the offloaded thread — the AKB/login path depends on it.
+- Bound the offload pool explicitly instead of relying on the default `min(32, cpu_count+4)`:
+  install a sized `ThreadPoolExecutor` as the loop default executor, matched to today's
+  `--threads=8`.
+- **Accept:** every entry in `app.callback_map` is a coroutine function (assert this in a
+  test — it is the invariant F1 needs); no `RuntimeWarning` from `dash/_callback.py:944`;
+  `aio-pytest-asyncio` smoke tests green; site behaves identically on Flask.
+- **Note:** on Flask this is a small *pessimization* (a per-request event loop plus a thread
+  hop, versus just a thread). It is deliberately temporary and unmeasurable at our traffic;
+  if it shows up, shorten the gap between `aio-shim` and `aio-uvicorn`.
+
+### `aio-loop-registry` — Loop-affine resource discipline
+Per F1c, prerequisite for anything in the async-I/O stack to work on both backends.
+- Any `httpx.AsyncClient`, `redis.asyncio` pool, `asyncio.Semaphore` or `Lock` is created
+  lazily through a small registry keyed by `id(asyncio.get_running_loop())`, with cleanup on
+  loop close; never at import time.
+- Retrofit the cache sub-stack's `acache()` and `aio-ttlset`'s async TTL set onto that registry.
+- **Accept:** a test that acquires each resource under two successive
+  `asyncio.run(...)` calls (simulating Flask's per-request loop) without error, and a test
+  that a single long-lived loop reuses one instance (simulating FastAPI).
+
+### `aio-pilots` — Native async pilots *(optional, recommended)*
+Convert two or three callbacks from shim to genuinely `async def` before the flip, chosen to
+exercise the risky paths: one that reads `ctx.cookies` (AKB/login), one with a `partial`
+registration, one with a fan-out. Validates the the async-I/O stack pattern while still on Flask, where
+rollback is a one-line revert.
+- **Accept:** those callbacks behave identically; the async-I/O stack's conversion recipe is written down
+  in the PR description.
+
+---
+
+*Everything below merges as one stack.*
+
+### `aio-fastapi-app` — Dependencies, app construction, static mount
+- `pyproject.toml`: add `fastapi`, `uvicorn[standard]`, `httpx`. `flask` leaves our direct
+  dependency list (stays transitive via dash).
+- `ztf_viewer/app.py`: backend selected by env var — `dash.Dash(..., backend=DASH_BACKEND)`,
+  defaulting to `flask` in this PR and flipped to `fastapi` in `aio-uvicorn`. Keep
+  `health_endpoint="/health"`.
+- Mount static explicitly (F2) when the backend is FastAPI, after app construction and before
+  any route registration or first request:
+  `app.server.mount("/static", StaticFiles(directory=<pkg>/static), name="static")`.
+- **Accept:** with `DASH_BACKEND=fastapi`, the index renders and JS9 + `logo.svg` load
+  (guards F2); with the default, nothing changes.
+
+### `aio-starlette-web` — `web.py` → Starlette
+- Swap `ztf_viewer/web.py` internals (built in `aio-deflask`) to Starlette `Response` / `FileResponse` /
+  `PlainTextResponse`, so `figure.py` / `lc_csv.py` / `favicon.py` need no edits here.
+- **Accept:** unit tests on the helpers; this is the PR that makes the stack atomic — Flask
+  is broken from here until `aio-uvicorn`.
+
+### `aio-routes` — Port the six routes
+- Registration moves to `app.server.add_api_route(...)`. Flask converters become FastAPI path
+  params: `"/<dr>/figure/<int:oid>/folded/<float:period>"` →
+  `"/{dr}/figure/{oid}/folded/{period}"` with typed signature params. The existing int/float
+  route pair (`ztf_viewer/pages/figure.py:27-28`) collapses to a single `float` route — keep
+  an int-first route only if a client depends on the distinction.
+- `request.args.getlist("other_oid")` → `request.query_params.getlist(...)` (or
+  `list[str] = Query(...)`).
+- Keep these handlers **sync** `def` — FastAPI threadpools them (F5). Making them async is
+  the process-pool stack's job, after the CPU work moves off-loop.
+- **Accept:** `aio-pytest-asyncio` smoke tests pass unchanged; figure PNG/PDF and all four CSV endpoints
+  byte-compare against the Flask build for a fixed OID.
+
+### `aio-uvicorn` — Entrypoint, deployment, and the default flip
+- `ztf_viewer/__main__.py`: dev path becomes `uvicorn.run("ztf_viewer.__main__:app.server", ...)`.
+  Do **not** use Dash's `app.run(debug=True)` under FastAPI — it re-execs uvicorn as a
+  subprocess by inspecting the caller frame (`dash/backends/_fastapi.py:384-470`), which is
+  fragile for a `python -m` entry point.
+- `Dockerfile:73`: `gunicorn -w2 --threads=8 ...` →
+  `uvicorn ztf_viewer.__main__:app.server --host 0.0.0.0 --port 80 --workers 2`. Prefer plain
+  uvicorn over `gunicorn -k uvicorn.workers.UvicornWorker` — one fewer moving part.
+- **`.ci/docker-compose.yml.tmpl` must change too** (F11): it hardcodes its own gunicorn
+  `entrypoint:`, which overrides the Dockerfile for every dev and PR deployment. Miss this and
+  the flip passes CI, then fails to start on `master.ztf.snad.space`.
+- Timeouts: `-t70 --keep-alive=75` today. Uvicorn has no per-request worker timeout; long
+  upstream calls are bounded by our own `asyncio.timeout` (F6) instead. Set
+  `--timeout-keep-alive` to match nginx.
+- Flip the `DASH_BACKEND` default to `fastapi`. `HEALTHCHECK` unchanged.
+- **Accept:** `docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build`
+  serves the site; healthcheck green; **and the PR preview at `pr<N>.ztf.snad.space` comes up
+  and serves an object page** — this is the check that would catch the F11 template trap.
+  Per-worker RSS compared against the Flask build (note dev sets `NO_LOCAL_3D_DUST_MAP=1`, so
+  a dev-server RSS figure is not the prod figure).
+
+**Rollback.** Two levels. Cheap: set `DASH_BACKEND=flask` — but note this only works for as
+long as `aio-starlette-web`/`aio-routes` keep a Flask-compatible path, which they do not, so treat the env var as a
+*development* convenience rather than a production escape hatch and delete it in the cleanup stack.
+Real rollback for `aio-fastapi-app`–`aio-uvicorn` is a revert of the merged stack, which is exactly why they merge as
+one unit. `aio-shim`–`aio-pilots` stay in place either way; they are pure async conversion and backend-neutral.
+
+---
+
+## Stack: Async I/O
+
+The `asyncio.to_thread` shims get replaced with genuine `await`s, bottom-up. Each PR is
+independently shippable and revertable.
+
+**Runs after the flip, on FastAPI.** Nothing here depends on the backend (F1b), so this stack
+*could* run on Flask — that is the escape hatch if the flip stalls in review. But it is written
+and measured on FastAPI by choice: with prod frozen there is no value in banking the win early,
+and timing `asyncio.gather` on asgiref's per-request loop would measure a configuration we
+never intend to run.
+
+### `aio-httpx` — Shared async HTTP client
+- `ztf_viewer/http.py`: an `httpx.AsyncClient` with connection limits, a default timeout, and
+  retry policy, obtained through `aio-loop-registry`'s per-loop registry (not a module-level singleton — F1c);
+  closed on loop teardown / app shutdown.
+- Replace `ztf_viewer/util.py:292` `timeout()` with `asyncio.timeout` at the call sites
+  (F6) — keep the sync `timeout()` around only while sync paths remain.
+- **Accept:** unit test that a slow endpoint raises `CatalogUnavailable` with the right
+  `catalog=` kwarg, matching today's `_base.py:108` behaviour.
+
+### `aio-snad-apis` — First-party services (highest value, lowest risk — all plain JSON over HTTP)
+Convert to `async def` + `@acache()`:
+- `ztf_viewer/catalogs/ztf_dr.py` — `FindZTFOID.find` (`:42`), `FindZTFCircle.find` (`:100`),
+  and the `get_lc` / `get_meta` / `get_coord*` accessors that call them. This one is on the
+  critical path of nearly every callback.
+- `ztf_viewer/lc_features.py` (`:18`, `:29`)
+- `ztf_viewer/model_fit.py` (`:12`, `:27`, `:86`) — also replaces the bare
+  `requests.post`/`requests.get` and their `print()` error reporting with `logging`.
+- `ztf_viewer/akb.py` — all of it; note `whoami` uses `cachetools.cached` directly
+  (`:111`, `:129`), which becomes `@acache()`.
+- `ztf_viewer/catalogs/ztf_ref.py` (`:41`) — fetch bytes with httpx, then parse the FITS from
+  an in-memory buffer instead of letting `astropy.io.fits.open` do its own blocking URL
+  fetch; parsing itself moves to a thread (or the process-pool stack's pool).
+- `ztf_viewer/date_with_frac.py:55` — scrapes an HTML index, trivial conversion.
+- **Accept:** existing catalog tests plus new ones per module; viewer page renders identically.
+
+### `aio-conesearch` — Cone-search catalogs
+- `_BaseCatalogApiQuery._api_query_region` (`ztf_viewer/catalogs/conesearch/_base.py:295`) and
+  `find` (`:145`) become async; `_BaseNameResolverQuery.resolve_name` (`:275`) likewise.
+  That covers every catalog that talks plain JSON to a SNAD-hosted API.
+- Per-catalog follow-ups where the query is bespoke: `panstarrs.py:118`, `ogle.py:63`,
+  `sdss.py:41`, `fink.py`, `colibri.py`, `otter.py`, `tns.py`, `gaia_dr3.py`.
+- **Accept:** the `tests/catalogs/conesearch/` suite, extended to cover every converted
+  catalog, and a manual check that the "catalog temporarily unavailable" path still trips
+  (`unavailable_catalogs`, now via `aio-ttlset`'s async set).
+
+### the offload pair — Sync-only third parties stay sync, offloaded according to F9
+Do **not** try to port these to async. Offload each by its actual cost profile:
+
+**`aio-offload-threads` — network-bound → `asyncio.to_thread`, with a per-upstream bounded semaphore** so one
+slow service cannot eat the shared thread pool:
+- `astroquery`: `Vizier` (`catalogs/vizier.py`, `conesearch/_base.py:328`), `Simbad`,
+  `MOCServerClass` (`vizier.py:17`), `Skybot` (`catalogs/skybot.py`)
+- `alerce.core.Alerce` (`conesearch/alerce.py:35`)
+- `antares_client.search` (`conesearch/antares.py:29`)
+- **Accept:** semaphore limits configurable; a test that a stalled upstream does not block
+  unrelated catalogs.
+
+**`aio-dustmaps` — `dustmaps` → stays in-process; warm at startup instead** (F9 case 3):
+- Add a startup warm-up that constructs `BayestarQuery` / `CSFDQuery` once per worker, so no
+  request eats the 148 MiB lazy load. Respect `NO_LOCAL_3D_DUST_MAP` — when set, skip bayestar
+  entirely rather than warming it.
+- Guard the lazy init in `_BaseLocalExtinctionQuery.query` with a lock regardless (F9a); the
+  warm-up makes the race unlikely, the lock makes it impossible.
+- Query calls themselves need no offload. If profiling later shows the lookup is slower than
+  assumed, a plain `to_thread` is the escalation — **not** a process pool.
+- **Accept:** worker RSS after warm-up measured and recorded (this is the number that decides
+  uvicorn worker count, open question 1); a concurrency test that hammers first-call
+  extinction from many tasks and allocates the map exactly once.
+
+### `aio-gather` — Concurrent fan-out (the payoff)
+- `get_summary` (`ztf_viewer/pages/viewer.py:1379`): replace the serial
+  `for catalog, query in catalog_query_objects()` loop with `asyncio.gather(...,
+  return_exceptions=True)`, preserving the current per-catalog
+  `except (NotFound, CatalogUnavailable, KeyError): continue` semantics. Note it currently
+  loops over every catalog **twice** (again at `:1451` for ML classifications) — with the
+  cache that's cheap, but the gather should compute once and reuse.
+- `find_neighbours`, `get_metadata`, `set_figure`'s external light curves
+  (`ztf_viewer/lc_data/plot_data.py:110-160`, currently a serial dict comprehension over
+  antares/gaia/panstarrs): gather.
+- `ztf_viewer/pages/lc_csv.py:13` `get_csv`: gather the per-OID `get_lc`/`ztf_ref.get`.
+- **Accept:** measured wall-clock for a cold `get_summary` on a known-busy field, before vs
+  after, recorded in the PR description. This is the number that justifies the whole project.
+
+---
+
+## Stack: WebSocket — transport and streaming UX
+
+Depends on the flip — the Flask backend has no WebSocket transport, so this is the one stack
+that could never have run early in any ordering. Independent of the async-I/O stack, but the UX win only really
+shows once `aio-gather` lands.
+
+### `aio-ws` — Transport enablement
+- Proxy prerequisites are already handled: upgrades work natively and the timeout/config
+  cleanup is the proxy design note, done ahead of the stacks. Confirm the proxy design note item 1 was actually verified on the
+  box before enabling this.
+- `dash.Dash(..., websocket_callbacks=True, websocket_allowed_origins=[...],
+  websocket_max_workers=..., websocket_inactivity_timeout=..., websocket_heartbeat_interval=...)`.
+  Origins must be set explicitly — the handler rejects on Origin mismatch
+  (`dash/backends/_fastapi.py:710`).
+- Consider enabling per-callback (`websocket=True`) first rather than globally, so the HTTP
+  path stays as a fallback while we gain confidence.
+- **Accept:** callbacks dispatch over `ws://` in devtools; reconnect after a proxy restart
+  works; HTTP fallback still functions with `websocket_callbacks=False`.
+
+### `aio-stream` — Progressive rendering
+Now the actual UX change. Convert the slow, fan-out callbacks to no-output `set_props`
+streaming so results paint as they arrive instead of in one blocking batch:
+- the per-catalog tables (`set_tables`, `ztf_viewer/pages/viewer.py:2046`) — today ~20
+  independent callbacks each waiting on one upstream; with `set_props` they can be one
+  streaming callback that pushes each table as its `gather` task completes;
+- `get_summary` — push rows incrementally, so the page is useful before Vizier answers;
+- the light-curve figure — paint ZTF DR photometry immediately, then push external
+  (antares/gaia/panstarrs) traces as they land.
+- Per `dash/backends/ws.py:44`, any persistent/streaming callback **must** be `async def` and
+  **must** check `ctx.websocket.is_shutdown` in its loop, or it leaks work after disconnect.
+- **Accept:** with an artificially delayed catalog, the rest of the page renders without
+  waiting; closing the tab mid-load stops server-side work (assert via logs).
+
+---
+
+## Stack: Process pool — CPU-bound offload
+
+Runs after the flip. Nothing here depends on the backend — the routes can `run_in_executor`
+either way — so it can be pulled earlier if convenient. Do it **after** measuring — the point of F8 is that this list is short, and a process pool costs pickling and
+memory.
+
+### `aio-procpool` — Pool infrastructure
+- A `ProcessPoolExecutor`, one per worker process, sized ~`cpu_count // workers`, created and
+  torn down through `aio-loop-registry`'s registry so it works under both loop models.
+- macOS/spawn safety: worker functions must be importable module-level functions with no
+  captured state, and every entry point stays behind `if __name__ == "__main__":`
+  (repo convention). Verify locally under spawn *and* in the Linux container under fork.
+- **Accept:** pool survives worker reload; no zombie processes; a crash in a child surfaces
+  as a 500 rather than a hang.
+
+### `aio-figures` — Figure rendering — **both PDF and PNG**
+- `ztf_viewer/pages/figure.py` `plot_data` / `plot_folded_data` / `save_fig` move into the
+  pool for *every* format, not just PDF.
+- The two paths differ in cost but not in kind. PDF is worse — `usetex=True`
+  (`figure.py:102,192`) plus `FigureCanvasPgf.print_pdf` (`:294`) shells out to a LaTeX
+  process per request, which is why the image carries `texlive-latex-extra`, `texlive-xetex`
+  and a 50 MB `main_memory` bump (`Dockerfile:24-35`). But PNG is not cheap either: it is
+  still a full matplotlib figure — `errorbar` + `scatter` per light curve, over every epoch of
+  every neighbour OID, at `dpi=300` — executed synchronously in the request. Under Flask that
+  occupies a gunicorn thread; under FastAPI, an un-offloaded sync route handler is threadpooled
+  by FastAPI (F5) but still burns a worker for the duration. PNG is also the *common* case:
+  it is the default format (`figure.py:68`), so it is what most users actually hit.
+- Treating them the same also keeps one code path: `save_fig` dispatches on `fmt` internally,
+  so splitting PNG and PDF across pool/no-pool would mean fragmenting it for no benefit.
+- The routes become `async def` and `await loop.run_in_executor(pool, ...)`; inputs are
+  already plain dicts/lists (`get_plot_data` output), so pickling is cheap.
+- **Accept:** `aio-golden-http`'s figure assertions unchanged for both formats; measure both — a concurrent
+  PNG flood and a concurrent PDF flood must each stop degrading unrelated page loads.
+
+### `aio-profile` — Candidates to evaluate, not to assume
+Measure before moving; each may be cheaper to leave on a thread:
+- `ztf_viewer/lc_data/plot_data.py:18` `plot_data` per-observation loop (pure Python over
+  every epoch; likely worth vectorizing with numpy *instead of* pooling),
+- `ztf_viewer/pages/lc_csv.py` pandas assembly,
+- `ztf_viewer/catalogs/ztf_ref.py:41` FITS parse (after `aio-snad-apis` makes the fetch async),
+- plotly figure construction in `set_figure` (`ztf_viewer/pages/viewer.py:1606`).
+- **Explicitly excluded:** dustmaps — the cost is resident memory, not CPU, and a pool would
+  duplicate a 148 MiB map per child (F9 case 3, `aio-dustmaps`).
+
+---
+
+## Stack: Cleanup
+
+### `aio-cleanup` — Remove the sync path
+- Drop the `requests` direct dependency once the async-I/O stack is complete (it stays transitive via
+  astroquery/alerce/antares).
+- Remove the sync `timeout()` helper (`ztf_viewer/util.py:292`) and the sync `cache()`
+  variant once nothing uses them.
+- Remove the `DASH_BACKEND` escape hatch and any remaining `flask[async]` extra.
+- Update `README.md`, `AGENTS.md` (run command, dev stack), `CHANGELOG.md`.
+- Add a small load-test script (`misc/`) so the concurrency claims stay verifiable.
+
+---
+
+## Cross-cutting risks
+
+| Risk | Mitigation |
+| --- | --- |
+| Sync callback silently blocks the loop after the flip (F1) | `aio-shim`'s shim makes every callback a coroutine; a test asserts the invariant over `app.callback_map`, so a newly added sync callback fails CI rather than production |
+| A callback added between `aio-shim` and `aio-uvicorn` bypasses the shim | The invariant test above catches it; also make `ztf_viewer/callbacks.py` the only sanctioned import and lint for direct `app.callback` use |
+| Cache decorator applied to a coroutine (F3) | `cache()` raises `TypeError` on a coroutine function; `acache()` raises on a plain function. Both covered by tests |
+| Static assets 404 after the flip (F2) | `aio-pytest-asyncio` smoke tests assert `/static/js9/js9.min.js` and `/static/img/logo.svg` return 200 |
+| Duplicate 148 MiB dust-map allocation under the new concurrency (F9a) | Lock the lazy init and warm at startup (`aio-dustmaps`); test that concurrent first-callers allocate once |
+| Concurrent fan-out hammers upstreams that previously saw serialized traffic | Per-upstream `asyncio.Semaphore` (the offload pair) plus the existing `unavailable_catalogs` circuit breaker; keep an eye on Vizier/Simbad rate limits |
+| Cache stampede amplified by concurrency | Single-flight in the cache sub-stack — this becomes load-bearing, not a nicety |
+| WebSocket dropped by a proxy (F7) | nginx-proxy handles upgrades natively; residual risk is timeouts and the the proxy design note config discrepancy — verify the deployed proxy config first, then roll out per-callback (`aio-ws`) with HTTP retained as fallback |
+| Static assets served with weaker caching after the flip (the `/static` design note) | `aio-golden-http` records today's cache headers for `/static/js9/js9.min.js`; set them explicitly on the mount |
+| Process pool memory blowup | `aio-procpool` sizing; dustmaps explicitly excluded (F9); compare container RSS before/after |
+| Redis client split-brain (sync `StrictRedis` in `ttl_set.py`, async elsewhere) | `aio-ttlset` lands the async set before anything async touches it; one connection pool per worker |
+| Loop-affine client reused across Flask's per-request loops (F1c) | `aio-loop-registry`'s per-loop registry, with a test that runs two successive `asyncio.run` calls |
+| Flip passes CI but breaks `master.ztf.snad.space` via the hardcoded entrypoint (F11) | `aio-uvicorn` changes `.ci/docker-compose.yml.tmpl` alongside the Dockerfile; verified on the PR preview before merge |
+| `aio-dustmaps` cannot be validated on dev (`NO_LOCAL_3D_DUST_MAP=1`, F11) | Cover the warm-up with tests rather than the dev server; get RSS numbers from a prod-like local run |
+| Async code developed on a different Python than it ships on (F10) | `aio-py314` upgrades production to 3.14 first, before any goldens are recorded or async is written |
+| A dependency has no Python 3.14 wheel and won't build | `aio-py314` opens with a `uv lock` dry run; if it fails, fall back to staying on 3.12 and adding 3.14 to CI — decided before, not during |
+| The `aio-fastapi-app`–`aio-uvicorn` stack sits open too long and drifts | It is four small PRs with no external dependencies; if review stalls, land the async-I/O stack first (it ships on Flask) rather than holding the stack open |
+
+## Open questions
+
+Tick these off as they are answered.
+
+1. **Worker count under uvicorn.** Two blocking workers today. With async, is 2 still the
+   right number, or do we go to `cpu_count` and shrink the thread pool? Needs a load test
+   (the cleanup stack's script, ideally written early).
+2. **How much of the process-pool stack is real?** `aio-figures` is clearly justified; `aio-profile` is speculative until profiled.
+   Do not build the pool for `aio-profile`'s sake alone.
+3. **Do we keep an HTTP fallback permanently** (`aio-ws` per-callback) or commit fully to WebSocket
+   transport? Depends on what the deployment proxies tolerate.
+4. **Is the `dr7` / legacy-URL behaviour** in `app_select_by_url` (`ztf_viewer/__main__.py:328`)
+   worth preserving verbatim through the route port, or can it be dropped now?
+5. **`websocket_max_workers` sizing** matters only if any sync callback survives; if `aio-shim`'s
+   invariant holds it should be irrelevant — worth asserting.
+6. **Does the foundations stack block the start, or run alongside?** `aio-fixtures` genuinely blocks `aio-golden-http`–`aio-bench` and is the
+   long pole. `aio-deflask`/`aio-cache-core` have no dependency on it and could start in parallel if we want motion
+   on two fronts.
+7. **Python 3.14 upgrade — does the dependency set cooperate?** (F10, `aio-py314`) The decision is to
+   bump production to 3.14 first. The only thing that can overturn it is a dependency without a
+   3.14 wheel that also won't build; `confluent-kafka` via `antares-client` is the likeliest
+   candidate. Answer this with a `uv lock` dry run before starting, not after.
