@@ -87,6 +87,79 @@ select:focus {
   border: 1px solid #22114C;
 }
 
+/* Dash 4 wraps dcc.Input(type="number") in a styled container div (its own
+   border/background/padding) with +/- stepper buttons. Any component that
+   sets its own style={"width": ...} in Python has that style redirected
+   onto this same wrapper by Dash 4, and the input is deliberately made to
+   fill it (Dash's own CSS: .dash-input-element { flex: 1 1 0 }) - correct
+   and wanted there (min-mjd, ref-mag-input, etc.), so just strip the
+   wrapper's own box for those, leaving the fill behavior intact.
+
+   Components with no explicit width (the majority - every per-catalog
+   search-radius field, for instance) previously relied on the browser's
+   own intrinsic input sizing, which naturally shrinks or grows with
+   whatever space its actual layout context provides. Dash's own CSS
+   forces two things that defeat that: .dash-input-container has
+   `container-type: inline-size`, a CSS containment mode that requires an
+   explicitly-resolvable width (auto/content-based sizing collapses to 0
+   under it); and .dash-input-element has `flex: 1 1 0`, which discards
+   the input's intrinsic size in favor of always filling its wrapper.
+   Undo both only for the no-width case, which lets the browser's normal
+   intrinsic/shrink-to-fit sizing take over again - this reproduces each
+   field's own pre-4.x width (they differ per layout context) without
+   hardcoding any of them or special-casing individual fields. */
+.dash-input-container.dash-input {
+  display: inline-flex;
+  border: none;
+  background: none;
+  padding: 0;
+  height: auto;
+}
+.dash-input-container.dash-input:not([style*="width"]) {
+  width: auto;
+  container-type: normal;
+}
+.dash-input-container.dash-input:not([style*="width"]) > .dash-input-element {
+  flex: none;
+  width: auto;
+}
+.dash-input-stepper {
+  display: none;
+}
+
+/* Dash 4's redesigned form controls (radio dots, checkboxes, the slider
+   handle, dropdown focus rings) all key off this custom property for their
+   "selected/interactive" color. Left at Dash's own default it's a plain
+   purple with no relation to the SNAD palette; point it at the same indigo
+   already used for links, buttons, and focus borders across this file. */
+:root {
+  --Dash-Fill-Interactive-Strong: #22114C;
+}
+
+/* Dash 4's input text now inherits color from the page (a dark gray) instead
+   of its own default black. Restore black, matching every other text field
+   style on this page (see the :focus rule above). */
+.dash-input-element {
+  color: #000;
+}
+
+/* Dash 4's dropdown renders its selected value in uppercase, semi-bold text
+   by default. Restore plain-case, regular-weight text to match every other
+   label on the page. */
+.dash-dropdown {
+  text-transform: none;
+  font-weight: 400;
+}
+
+/* Dash 4's dropdown trigger is a real <button>, so it also picks up this
+   file's generic button:hover/:focus rule below (gold text, meant for
+   actual action buttons like "GO") any time it's hovered or open. Opt it
+   back out to its normal resting text color. */
+.dash-dropdown:hover,
+.dash-dropdown:focus {
+  color: inherit;
+}
+
 #header-logo {
     height: 1.7320508076em;  /* sqrt(3) */
     width: auto;

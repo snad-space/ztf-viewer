@@ -244,7 +244,7 @@ def get_layout(pathname, search):
                                     {"label": "Folded light curve", "value": "folded"},
                                 ],
                                 value="full",
-                                labelStyle={"display": "inline-block", "margin-right": "2em"},
+                                inline=True,
                                 id="light-curve-type",
                             ),
                             html.Div(
@@ -298,8 +298,7 @@ def get_layout(pathname, search):
                                     {"label": "Closest Gaia object, apparent", "value": "gaia", "disabled": False},
                                 ],
                                 value=[],
-                                labelStyle={"display": "inline-block", "margin-right": "2em"},
-                                style={"display": "block"},
+                                inline=True,
                             ),
                             dcc.RadioItems(
                                 options=[
@@ -309,7 +308,7 @@ def get_layout(pathname, search):
                                     {"label": "diff Flux", "value": "diffflux"},
                                 ],
                                 value="mag",
-                                labelStyle={"display": "inline-block", "margin-right": "2em"},
+                                inline=True,
                                 id="light-curve-brightness",
                             ),
                             html.Div(
@@ -1314,7 +1313,7 @@ def show_ref_mag_or_magerr(oid, dr, different_filter, different_field):
                             type="number",
                             maxLength=6,
                             step=0.01,
-                            style={"width": "6em", "display": "inline"},
+                            style={"width": "6em", "display": "inline-block"},
                         ),
                         html.Div(
                             "  err ",
@@ -1328,7 +1327,7 @@ def show_ref_mag_or_magerr(oid, dr, different_filter, different_field):
                             maxLength=5,
                             min=0,
                             step=0.01,
-                            style={"width": "5em", "display": "inline"},
+                            style={"width": "5em", "display": "inline-block"},
                         ),
                     ],
                 )

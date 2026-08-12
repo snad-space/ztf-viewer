@@ -65,4 +65,6 @@ RUN uv sync --project /app --locked --group deploy
 
 ENV PATH="/app/.venv/bin:$PATH"
 
+HEALTHCHECK CMD curl -f http://localhost:80/health || exit 1
+
 ENTRYPOINT ["gunicorn", "-w2", "--threads=8", "-t70", "--keep-alive=75", "-b0.0.0.0:80", "ztf_viewer.__main__:app"]

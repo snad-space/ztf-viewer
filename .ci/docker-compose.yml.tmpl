@@ -9,6 +9,11 @@ services:
   ztf-web-viewer-app:
     build: .
     entrypoint: ["gunicorn", "-w2", "-t300", "--keep-alive=75", "-b0.0.0.0:80", "ztf_viewer.__main__:app"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     environment:
       - VIRTUAL_HOST=${SUBDOMAIN}.ztf.snad.space
       - DYNDNS_HOST=${SUBDOMAIN}.ztf.snad.space
