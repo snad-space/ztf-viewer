@@ -1243,18 +1243,6 @@ wheels = [
 ]
 
 [[package]]
-name = "redis-lru"
-version = "0.1.2"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "redis" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/d0/d8/97d2a44501c1e527b03072abaa0c8a6462e92568da5fcf5078bdcb110b4b/redis-lru-0.1.2.tar.gz", hash = "sha256:01a648cb42d8efdb9472c5c42980da3dad4be4b6d45f2d9811ff6f69bcbfb164", size = 5182, upload-time = "2022-04-16T03:25:55.807Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/96/89/46e090f178697b93dc0d88043aa96cbe93aec5c2bd39ad2ad82eb0e8baec/redis_lru-0.1.2-py2.py3-none-any.whl", hash = "sha256:e6c2f56b43900b5a8f741d1db44bdcf423f228d6f3665f48a9ec6321c5579d0a", size = 5804, upload-time = "2022-04-16T03:25:53.789Z" },
-]
-
-[[package]]
 name = "requests"
 version = "2.34.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1478,7 +1466,6 @@ dependencies = [
     { name = "plotly", extra = ["express"] },
     { name = "pydantic" },
     { name = "redis" },
-    { name = "redis-lru" },
     { name = "requests" },
     { name = "scipy" },
 ]
@@ -1516,7 +1503,6 @@ requires-dist = [
     { name = "plotly", extras = ["express"] },
     { name = "pydantic" },
     { name = "redis" },
-    { name = "redis-lru" },
     { name = "requests" },
     { name = "scipy" },
 ]
