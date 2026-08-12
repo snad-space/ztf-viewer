@@ -17,6 +17,7 @@ Version schema is `year.month.num_release`
 - Update Dash to v3.4.0 https://github.com/snad-space/ztf-viewer/issues/518
 - Run gunicorn directly against the Dash app instance instead of the underlying Flask server, now that Dash 3.1+ is WSGI-compliant on its own
 - Update Dash to v4.4.1
+- Upgrade to Python 3.14, the version used for development, `python:3.14-bookworm` is the base image now
 
 ### Removed
 

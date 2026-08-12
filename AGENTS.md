@@ -15,7 +15,7 @@
 - `pre-commit run --all-files`: run formatting and repository hygiene checks.
 
 ## Coding Style & Naming Conventions
-- Python 3.12 is required (`pyproject.toml`).
+- Python 3.14 is required (`pyproject.toml`).
 - Use 4-space indentation and keep lines within 120 chars.
 - Formatting: `black`; linting: `ruff` (with some per-file `F401` exceptions in package `__init__.py` files).
 - Use `snake_case` for functions/modules, `PascalCase` for classes, and keep file names descriptive by domain (for example, `catalogs/conesearch/tns.py`).

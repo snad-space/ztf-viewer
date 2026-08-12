@@ -23,7 +23,7 @@ def get_csv(dr, oids, min_mjd=None, max_mjd=None):
 
         try:
             ref = ztf_ref.get(oid, dr)
-        except (NotFound, CatalogUnavailable):
+        except NotFound, CatalogUnavailable:
             oid_df["ref"] = [None] * oid_df.shape[0]
             oid_df["ref_err"] = [None] * oid_df.shape[0]
         else:
@@ -95,7 +95,7 @@ def response_panstarrs_csv(obj_id):
     """Download Pan-STARRS DR2 light curve for a given objID as CSV."""
     try:
         lc = PANSTARRS_DR2_QUERY.light_curve(id=None, row={"objID": obj_id})
-    except (NotFound, CatalogUnavailable):
+    except NotFound, CatalogUnavailable:
         return "", 404
     return _lc_to_csv_response(lc, f"panstarrs_{obj_id}.csv")
 
@@ -105,7 +105,7 @@ def response_gaia_csv(source_id):
     """Download Gaia DR3 epoch photometry for a given Source ID as CSV."""
     try:
         lc = GAIA_DR3.light_curve(id=source_id)
-    except (NotFound, CatalogUnavailable):
+    except NotFound, CatalogUnavailable:
         return "", 404
     return _lc_to_csv_response(lc, f"gaia_{source_id}.csv")
 
@@ -115,6 +115,6 @@ def response_antares_csv(locus_id):
     """Download Antares light curve for a given locus ID as CSV."""
     try:
         lc = ANTARES_QUERY.light_curve(id=locus_id)
-    except (NotFound, CatalogUnavailable):
+    except NotFound, CatalogUnavailable:
         return "", 404
     return _lc_to_csv_response(lc, f"antares_{locus_id}.csv")

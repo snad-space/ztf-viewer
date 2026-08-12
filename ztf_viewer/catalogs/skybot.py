@@ -45,7 +45,7 @@ class SkybotQuery:
                 find_asteroids=True,
                 find_comets=True,
             )
-        except (RuntimeError, ValueError):
+        except RuntimeError, ValueError:
             # RuntimeError: general Skybot failure
             # ValueError("No table found"): Skybot returned an error VOTable (e.g. invalid epoch)
             raise NotFound("Skybot query failed")

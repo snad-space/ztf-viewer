@@ -253,7 +253,7 @@ def sky_coord_from_str(s):
         s = s.removeprefix("AT").removeprefix("at").removeprefix("SN").removeprefix("sn").strip()
         try:
             return TNS_QUERY.resolve_name(s)
-        except (NotFound, CatalogUnavailable):
+        except NotFound, CatalogUnavailable:
             pass
 
     if s.upper().startswith("ZTF"):
@@ -261,7 +261,7 @@ def sky_coord_from_str(s):
         s = "ZTF" + s.lower().removeprefix("ztf")
         try:
             return ANTARES_QUERY.resolve_name(s)
-        except (NotFound, CatalogUnavailable):
+        except NotFound, CatalogUnavailable:
             pass
 
     try:

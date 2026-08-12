@@ -1,5 +1,10 @@
 # See https://pre-commit.com for more information
 # See https://pre-commit.com/hooks.html for more hooks
+# Every Python hook parses our sources, and black's py314 target emits PEP 758
+# `except A, B:`, which older interpreters cannot parse
+default_language_version:
+    python: python3.14
+
 repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
