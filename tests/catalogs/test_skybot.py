@@ -7,14 +7,13 @@ temporarily unavailable and re-raise as ``pytest.skip`` so CI stays green
 even when the upstream endpoint is down.
 """
 
-import pytest
 from unittest.mock import MagicMock
 
-from astropy.coordinates import Angle
-from astropy.table import QTable, MaskedColumn
-from astropy.time import Time
 import astropy.units as u
-from requests import RequestException
+import pytest
+from astropy.coordinates import Angle
+from astropy.table import MaskedColumn, QTable
+from astropy.time import Time
 
 from ztf_viewer.exceptions import NotFound
 
@@ -126,35 +125,3 @@ def test_radius_too_large_raises_value_error():
             observatory_mjd=_OBS_MJD,
             radius_arcsec=float(Angle(query.query_radius).arcsec) + 1,
         )
-
-
-# ---------------------------------------------------------------------------
-# Integration test — requires network access to ssp.imcce.fr
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.live
-def test_ceres_integration():
-    """Query SkyBot for Ceres at a known epoch and verify it is returned.
-
-    Skipped when the SkyBot service is unavailable (network issues, downtime).
-
-    Ceres ephemeris (JPL Horizons id='Ceres', observatory I41 = Palomar):
-        epoch  2020-03-15 00:00 UTC  (MJD 58923)
-        RA  320.7912°,  Dec  -21.5888°
-    """
-    from ztf_viewer.catalogs.skybot import SkybotQuery
-
-    query = SkybotQuery()
-    try:
-        result = query.find(ra=320.7912, dec=-21.5888, observatory_mjd=_OBS_MJD, radius_arcsec=120.0)
-    except (NotFound, RequestException) as exc:
-        # The docstring above always promised this skip, but only NotFound was caught, so
-        # transport-level trouble failed the test instead: read timeouts, dropped
-        # connections, and (seen 2026-08-12) an HTTP 500 carrying a perfectly valid
-        # VOTable, which astroquery's raise_for_status turns into an HTTPError.
-        # The offline twin is tests/test_replayed_catalogs.py::test_skybot_cone_search.
-        pytest.skip(f"SkyBot service unavailable: {exc}")
-
-    names = [row["__name"] for row in result]
-    assert "Ceres" in names, f"Expected Ceres in results, got: {names}"
