@@ -1313,7 +1313,7 @@ def show_ref_mag_or_magerr(oid, dr, different_filter, different_field):
                             type="number",
                             maxLength=6,
                             step=0.01,
-                            style={"width": "6em", "display": "inline"},
+                            style={"width": "6em", "display": "inline-block"},
                         ),
                         html.Div(
                             "  err ",
@@ -1327,7 +1327,7 @@ def show_ref_mag_or_magerr(oid, dr, different_filter, different_field):
                             maxLength=5,
                             min=0,
                             step=0.01,
-                            style={"width": "5em", "display": "inline"},
+                            style={"width": "5em", "display": "inline-block"},
                         ),
                     ],
                 )

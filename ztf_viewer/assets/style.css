@@ -151,6 +151,15 @@ select:focus {
   font-weight: 400;
 }
 
+/* Dash 4's dropdown trigger is a real <button>, so it also picks up this
+   file's generic button:hover/:focus rule below (gold text, meant for
+   actual action buttons like "GO") any time it's hovered or open. Opt it
+   back out to its normal resting text color. */
+.dash-dropdown:hover,
+.dash-dropdown:focus {
+  color: inherit;
+}
+
 #header-logo {
     height: 1.7320508076em;  /* sqrt(3) */
     width: auto;
