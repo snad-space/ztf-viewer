@@ -244,7 +244,7 @@ def get_layout(pathname, search):
                                     {"label": "Folded light curve", "value": "folded"},
                                 ],
                                 value="full",
-                                labelStyle={"display": "inline-block", "margin-right": "2em"},
+                                inline=True,
                                 id="light-curve-type",
                             ),
                             html.Div(
@@ -298,8 +298,7 @@ def get_layout(pathname, search):
                                     {"label": "Closest Gaia object, apparent", "value": "gaia", "disabled": False},
                                 ],
                                 value=[],
-                                labelStyle={"display": "inline-block", "margin-right": "2em"},
-                                style={"display": "block"},
+                                inline=True,
                             ),
                             dcc.RadioItems(
                                 options=[
@@ -309,7 +308,7 @@ def get_layout(pathname, search):
                                     {"label": "diff Flux", "value": "diffflux"},
                                 ],
                                 value="mag",
-                                labelStyle={"display": "inline-block", "margin-right": "2em"},
+                                inline=True,
                                 id="light-curve-brightness",
                             ),
                             html.Div(
