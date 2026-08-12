@@ -1,6 +1,6 @@
 """That ``async def test_`` runs at all — the floor the rest of the async migration stands on.
 
-The ``upstream`` marker's behaviour under coroutines is covered in ``test_upstream_marker.py``.
+The ``network`` marker's behaviour under coroutines is covered in ``test_network_marker.py``.
 """
 
 import asyncio
@@ -17,9 +17,9 @@ async def test_async_tests_are_collected_and_awaited():
     assert asyncio.get_running_loop() is not None
 
 
-@pytest.mark.upstream
+@pytest.mark.network
 def test_ztf_dr_find_sync():
-    """The sync half of the pair: a plain first-party upstream call."""
+    """The sync half of the pair: a plain first-party network call."""
     from ztf_viewer.catalogs.ztf_dr import find_ztf_oid
 
     meta = find_ztf_oid.find(_OID, _DR)
@@ -28,9 +28,9 @@ def test_ztf_dr_find_sync():
     assert "meta" in meta
 
 
-@pytest.mark.upstream
+@pytest.mark.network
 async def test_ztf_dr_find_async_matches_sync():
-    """`to_thread` is the shim the migration leans on (plan 001, F1a) — assert it agrees."""
+    """`to_thread` is the shim the async migration leans on — assert it agrees."""
     from ztf_viewer.catalogs.ztf_dr import find_ztf_oid
 
     from_sync = find_ztf_oid.find(_OID, _DR)

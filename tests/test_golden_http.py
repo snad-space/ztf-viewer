@@ -9,14 +9,14 @@ Split by what a test needs:
 
 * Hermetic (no network): the ``/static`` mount, ``/health``, ``/favicon.ico``, the index, and the
   no-object-lookup page routes (``/login``, ``/tags``, ``/anomalies``) — these are Dash's static
-  index shell for any unmatched pathname, so hitting them makes no upstream call at all.
-* ``@pytest.mark.upstream``: the CSV and figure routes, which look up a real object through the
+  index shell for any unmatched pathname, so hitting them makes no network call at all.
+* ``@pytest.mark.network``: the CSV and figure routes, which look up a real object through the
   ZTF DR light-curve API (and, for figures, run matplotlib/LaTeX). A transport failure there is
   converted to a skip by ``tests/conftest.py``, not a failure.
 
 Left out entirely, and why:
 
-* Byte-exact CSV data rows and byte-exact PNG/PDF content — pure upstream/library payload, not
+* Byte-exact CSV data rows and byte-exact PNG/PDF content — pure network/library payload, not
   ours to pin (matplotlib and LaTeX output is not reproducible across versions either).
 * The Pan-STARRS and Gaia CSV "friends" of ``/dr24/csv/<oid>``: they share the same
   ``_lc_to_csv_response`` helper in ``ztf_viewer/pages/lc_csv.py`` as the Antares route exercised
@@ -171,7 +171,7 @@ def test_index(client):
 
 # --------------------------------------------------------------------------------------------
 # 3. Page routes that need no object lookup -- routed client-side by Dash, so the initial GET is
-#    always just the same index shell as "/" above; no upstream call happens on this path.
+#    always just the same index shell as "/" above; no network call happens on this path.
 # --------------------------------------------------------------------------------------------
 
 
@@ -186,11 +186,11 @@ def test_page_route_status_and_content_type(client, path):
 # --------------------------------------------------------------------------------------------
 # 4. CSV endpoints -- pin the header row, column set and Content-Disposition filename that
 #    `ztf_viewer/pages/lc_csv.py` authors. Never byte-compare the data rows -- those are the
-#    upstream's numbers, not ours.
+#    service's numbers, not ours.
 # --------------------------------------------------------------------------------------------
 
 
-@pytest.mark.upstream
+@pytest.mark.network
 def test_csv_dr_oid(client):
     response = client.get(f"/{_DR}/csv/{_OID}")
 
@@ -202,7 +202,7 @@ def test_csv_dr_oid(client):
     assert header_line == "oid,filter,mjd,mag,magerr,clrcoeff,ref,ref_err"
 
 
-@pytest.mark.upstream
+@pytest.mark.network
 def test_csv_antares(client):
     """Exercises the shared `_lc_to_csv_response` helper also used by the Pan-STARRS and Gaia CSV
     routes (left out of this file -- see the module docstring).
@@ -227,7 +227,7 @@ _PDF_MAGIC = b"%PDF-"
 _MIN_FIGURE_BYTES = 10_000  # a blank/broken figure is nowhere near this size
 
 
-@pytest.mark.upstream
+@pytest.mark.network
 def test_figure_png(client):
     response = client.get(f"/{_DR}/figure/{_OID}")
 
@@ -239,7 +239,7 @@ def test_figure_png(client):
     assert len(body) > _MIN_FIGURE_BYTES
 
 
-@pytest.mark.upstream
+@pytest.mark.network
 def test_figure_pdf(client):
     texsystem = _pgf_texsystem()
     if shutil.which(texsystem) is None:
@@ -255,7 +255,7 @@ def test_figure_pdf(client):
     assert len(body) > _MIN_FIGURE_BYTES
 
 
-@pytest.mark.upstream
+@pytest.mark.network
 def test_figure_folded(client):
     response = client.get(f"/{_DR}/figure/{_OID}/folded/1.5")
 

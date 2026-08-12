@@ -119,6 +119,8 @@ deploy = [
     "gunicorn>=26.0.0",
 ]
 tests = [
+    # A test dependency until the FastAPI backend makes it a real one.
+    "httpx",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.0",
     "pytest-redis>=4.0.0",

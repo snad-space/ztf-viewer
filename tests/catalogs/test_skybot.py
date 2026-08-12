@@ -4,7 +4,7 @@ The SkyBot API (ssp.imcce.fr) is an external service.  Tests that call it
 live are guarded with ``pytest.importorskip``-style logic: they catch the
 ``NotFound`` exception that is raised when the service is unreachable or
 temporarily unavailable and re-raise as ``pytest.skip`` so CI stays green
-even when the upstream endpoint is down.
+even when the service endpoint is down.
 """
 
 import pytest
