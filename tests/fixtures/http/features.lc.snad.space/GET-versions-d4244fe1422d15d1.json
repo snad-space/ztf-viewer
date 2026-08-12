@@ -1,0 +1,21 @@
+{
+ "key": "d4244fe1422d15d1",
+ "recorded_at": "2026-08-12T18:12:28+00:00",
+ "request": {
+  "method": "GET",
+  "url": "https://features.lc.snad.space/versions",
+  "body_sha256": null
+ },
+ "response": {
+  "status_code": 200,
+  "reason": "OK",
+  "headers": {
+   "Server": "nginx/1.31.1",
+   "Content-Type": "application/json",
+   "permissions-policy": "interest-cohort=()",
+   "x-content-type-options": "nosniff",
+   "x-frame-options": "SAMEORIGIN"
+  },
+  "body_text": "[\"v0.1\",\"v0.2\",\"v0.4\",\"v0.5\",\"latest\"]"
+ }
+}

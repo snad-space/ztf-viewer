@@ -1,0 +1,19 @@
+{
+ "key": "94a4ded9f61eac6f",
+ "recorded_at": "2026-08-12T18:11:46+00:00",
+ "request": {
+  "method": "POST",
+  "url": "https://otter.idies.jhu.edu/api/_db/otter/_api/cursor",
+  "body_sha256": "59ffa8fdd94dba9b930825a0d14db5beab2e6c54873595793250763466a994ed"
+ },
+ "response": {
+  "status_code": 201,
+  "reason": "Created",
+  "headers": {
+   "content-type": "application/json",
+   "vary": "Accept-Encoding, Cookie",
+   "strict-transport-security": "max-age=63072000"
+  },
+  "body_text": "{\"result\":[],\"hasMore\":false,\"count\":0,\"cached\":false,\"extra\":{\"warnings\":[],\"stats\":{\"writesExecuted\":0,\"writesIgnored\":0,\"documentLookups\":0,\"seeks\":0,\"scannedFull\":25575,\"scannedIndex\":0,\"cursorsCreated\":0,\"cursorsRearmed\":0,\"cacheHits\":0,\"cacheMisses\":0,\"filtered\":25575,\"httpRequests\":0,\"executionTime\":0.017127362021710724,\"peakMemoryUsage\":32768,\"intermediateCommits\":0}},\"error\":false,\"code\":201}"
+ }
+}

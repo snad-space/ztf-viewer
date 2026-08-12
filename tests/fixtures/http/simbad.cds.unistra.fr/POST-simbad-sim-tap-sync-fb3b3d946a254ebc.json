@@ -1,0 +1,19 @@
+{
+ "key": "fb3b3d946a254ebc",
+ "recorded_at": "2026-08-12T18:11:49+00:00",
+ "request": {
+  "method": "POST",
+  "url": "https://simbad.cds.unistra.fr/simbad/sim-tap/sync",
+  "body_sha256": "f00e8405249d3b14691fc2fcf21ba61c223fd5b524cd09de2fc1c5f539d3e7f4"
+ },
+ "response": {
+  "status_code": 200,
+  "reason": "200",
+  "headers": {
+   "Server": "Apache/2.4.52 (Ubuntu)",
+   "Access-Control-Allow-Origin": "*",
+   "Content-Type": "application/x-votable+xml;charset=UTF-8"
+  },
+  "body_text": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<VOTABLE version=\"1.3\" xmlns=\"http://www.ivoa.net/xml/VOTable/v1.3\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.ivoa.net/xml/VOTable/v1.3 http://www.ivoa.net/xml/VOTable/votable-1.3.xsd\">\n<RESOURCE type=\"results\">\n<INFO name=\"QUERY_STATUS\" value=\"OK\"/>\n<INFO name=\"PROVIDER\" value=\"CDS\">SIMBAD TAP Service</INFO>\n<INFO name=\"QUERY\" value=\"SELECT table_name, column_name, datatype, description, unit, ucd FROM TAP_SCHEMA.columns WHERE table_name NOT LIKE 'TAP_SCHEMA.%' AND LOWERCASE(table_name) = 'otypes' ORDER BY table_name, principal DESC, column_name\"/>\n<TABLE name=\"result_S1786558309677\">\n<FIELD arraysize=\"*\" datatype=\"char\" name=\"table_name\">\n<DESCRIPTION>table name from TAP_SCHEMA.tables</DESCRIPTION>\n</FIELD>\n<FIELD arraysize=\"*\" datatype=\"char\" name=\"column_name\">\n<DESCRIPTION>column name</DESCRIPTION>\n</FIELD>\n<FIELD arraysize=\"*\" datatype=\"char\" name=\"datatype\">\n<DESCRIPTION>ADQL datatype as in section 2.5</DESCRIPTION>\n</FIELD>\n<FIELD arraysize=\"*\" datatype=\"char\" name=\"description\">\n<DESCRIPTION>brief description of column</DESCRIPTION>\n</FIELD>\n<FIELD arraysize=\"*\" datatype=\"char\" name=\"unit\">\n<DESCRIPTION>unit in VO standard format</DESCRIPTION>\n</FIELD>\n<FIELD arraysize=\"*\" datatype=\"char\" name=\"ucd\">\n<DESCRIPTION>UCD of column if any</DESCRIPTION>\n</FIELD>\n<DATA>\n<BINARY>\n<STREAM encoding='base64'>\nAAAABm90eXBlcwAAAAZvaWRyZWYAAAAGQklHSU5UAAAAGk9iamVjdCBpbnRlcm5h\nbCBpZGVudGlmaWVyAAAAAAAAAAttZXRhLnJlY29yZAAAAAZvdHlwZXMAAAAGb3Jp\nZ2luAAAAC1ZBUkNIQVIoMzApAAAAImV4cGxhbmF0aW9uIG9mIG9yaWdpbiBvZiB0\naGlzIHR5cGUAAAAAAAAAAAAAAAZvdHlwZXMAAAAFb3R5cGUAAAAHVkFSQ0hBUgAA\nAAtPYmplY3QgdHlwZQAAAAAAAAAJc3JjLmNsYXNzAAAABm90eXBlcwAAAAlvdHlw\nZV90eHQAAAALVkFSQ0hBUigxMCkAAAALT2JqZWN0IHR5cGUAAAAAAAAACXNyYy5j\nbGFzcw==\n</STREAM>\n</BINARY>\n</DATA>\n</TABLE>\n</RESOURCE>\n</VOTABLE>\n"
+ }
+}

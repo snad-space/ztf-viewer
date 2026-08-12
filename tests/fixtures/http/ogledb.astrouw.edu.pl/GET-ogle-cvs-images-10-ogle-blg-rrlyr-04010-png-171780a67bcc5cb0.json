@@ -1,0 +1,18 @@
+{
+ "key": "171780a67bcc5cb0",
+ "recorded_at": "2026-08-12T18:11:46+00:00",
+ "request": {
+  "method": "GET",
+  "url": "https://ogledb.astrouw.edu.pl/~ogle/CVS/images/10/OGLE-BLG-RRLYR-04010.png",
+  "body_sha256": null
+ },
+ "response": {
+  "status_code": 404,
+  "reason": "Not Found",
+  "headers": {
+   "Server": "Apache/2.4.37 (Rocky Linux) OpenSSL/1.1.1k",
+   "Content-Type": "text/html; charset=iso-8859-1"
+  },
+  "body_text": "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\n<html><head>\n<title>404 Not Found</title>\n</head><body>\n<h1>Not Found</h1>\n<p>The requested URL was not found on this server.</p>\n</body></html>\n"
+ }
+}

@@ -80,9 +80,16 @@ ztf_viewer = [
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-addopts = "-ra -q"
+# No network by default: sockets are blocked (unix sockets stay open for pytest-redis),
+# tests marked `live` are deselected, and HTTP is replayed from tests/fixtures/http.
+# Live suite:      pytest -m live
+# Re-record:       pytest -m live --record-http
+addopts = "-ra -q -p tests.httpfixtures.plugin -m 'not live' --disable-socket --allow-unix-socket"
 testpaths = [
     "tests",
+]
+markers = [
+    "live: test talks to a real upstream service; deselected by default, run with -m live",
 ]
 
 [tool.black]
@@ -109,4 +116,7 @@ deploy = [
 tests = [
     "pytest>=9.1.1",
     "pytest-redis>=4.0.0",
+    "pytest-socket>=0.7.0",
+    # replay target for tests/httpfixtures; becomes a runtime dep in the aio-httpx stack
+    "httpx>=0.28",
 ]

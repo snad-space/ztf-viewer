@@ -1,0 +1,20 @@
+{
+ "key": "e475b04d01900abe",
+ "recorded_at": "2026-08-12T18:12:27+00:00",
+ "request": {
+  "method": "GET",
+  "url": "https://fits.ztf.snad.space/products/ref/000/field000633/zr/ccd07/q4/ztf_000633_zr_c07_q4_refpsfcat.fits",
+  "body_sha256": null
+ },
+ "response": {
+  "status_code": 200,
+  "reason": "OK",
+  "headers": {
+   "Server": "nginx/1.31.1",
+   "Content-Type": "application/octet-stream",
+   "Access-Control-Allow-Origin": "*",
+   "Access-Control-Allow-Methods": "GET,OPTIONS"
+  },
+  "body_file": "GET-products-ref-000-field000633-zr-ccd07-q4-ztf-000-e475b04d01900abe.body"
+ }
+}

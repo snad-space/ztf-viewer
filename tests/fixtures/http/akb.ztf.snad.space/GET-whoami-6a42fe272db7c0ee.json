@@ -1,0 +1,26 @@
+{
+ "key": "6a42fe272db7c0ee",
+ "recorded_at": "2026-08-12T18:12:29+00:00",
+ "request": {
+  "method": "GET",
+  "url": "https://akb.ztf.snad.space/whoami/",
+  "body_sha256": null
+ },
+ "response": {
+  "status_code": 401,
+  "reason": "Unauthorized",
+  "headers": {
+   "Server": "nginx/1.31.1",
+   "Content-Type": "application/json",
+   "WWW-Authenticate": "Token",
+   "Allow": "GET, OPTIONS",
+   "X-Frame-Options": "DENY",
+   "ETag": "\"46290973f800a764ae37598ccb35d901\"",
+   "X-Content-Type-Options": "nosniff",
+   "Referrer-Policy": "same-origin",
+   "Cross-Origin-Opener-Policy": "same-origin",
+   "Strict-Transport-Security": "max-age=31536000"
+  },
+  "body_text": "{\"detail\":\"Invalid token.\"}"
+ }
+}

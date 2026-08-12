@@ -1,0 +1,19 @@
+{
+ "key": "0645c4b6026546ac",
+ "recorded_at": "2026-08-12T18:11:49+00:00",
+ "request": {
+  "method": "POST",
+  "url": "https://simbad.cds.unistra.fr/simbad/sim-tap/sync",
+  "body_sha256": "9482d9b4e926d7159d7a9ae3337b78a6462d15af8e1a7c1afb274036602c8b46"
+ },
+ "response": {
+  "status_code": 200,
+  "reason": "200",
+  "headers": {
+   "Server": "Apache/2.4.52 (Ubuntu)",
+   "Access-Control-Allow-Origin": "*",
+   "Content-Type": "application/x-votable+xml;charset=UTF-8"
+  },
+  "body_text": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<VOTABLE version=\"1.3\" xmlns=\"http://www.ivoa.net/xml/VOTable/v1.3\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.ivoa.net/xml/VOTable/v1.3 http://www.ivoa.net/xml/VOTable/votable-1.3.xsd\">\n<RESOURCE type=\"results\">\n<INFO name=\"QUERY_STATUS\" value=\"OK\"/>\n<INFO name=\"PROVIDER\" value=\"CDS\">SIMBAD TAP Service</INFO>\n<INFO name=\"QUERY\" value=\"SELECT table_name, column_name, datatype, description, unit, ucd FROM TAP_SCHEMA.columns WHERE table_name NOT LIKE 'TAP_SCHEMA.%' AND LOWERCASE(table_name) = 'mesdistance' ORDER BY table_name, principal DESC, column_name\"/>\n<TABLE name=\"result_S1786558309809\">\n<FIELD arraysize=\"*\" datatype=\"char\" name=\"table_name\">\n<DESCRIPTION>table name from TAP_SCHEMA.tables</DESCRIPTION>\n</FIELD>\n<FIELD arraysize=\"*\" datatype=\"char\" name=\"column_name\">\n<DESCRIPTION>column name</DESCRIPTION>\n</FIELD>\n<FIELD arraysize=\"*\" datatype=\"char\" name=\"datatype\">\n<DESCRIPTION>ADQL datatype as in section 2.5</DESCRIPTION>\n</FIELD>\n<FIELD arraysize=\"*\" datatype=\"char\" name=\"description\">\n<DESCRIPTION>brief description of column</DESCRIPTION>\n</FIELD>\n<FIELD arraysize=\"*\" datatype=\"char\" name=\"unit\">\n<DESCRIPTION>unit in VO standard format</DESCRIPTION>\n</FIELD>\n<FIELD arraysize=\"*\" datatype=\"char\" name=\"ucd\">\n<DESCRIPTION>UCD of column if any</DESCRIPTION>\n</FIELD>\n<DATA>\n<BINARY>\n<STREAM encoding='base64'>\nAAAAC21lc0Rpc3RhbmNlAAAAB2JpYmNvZGUAAAAEQ0hBUgAAABNtZWFzdXJlbWVu\ndCBiaWJjb2RlAAAAAAAAABBtZXRhLmJpYi5iaWJjb2RlAAAAC21lc0Rpc3RhbmNl\nAAAABGRpc3QAAAAGRE9VQkxFAAAADkRpc3RhbmNlIHZhbHVlAAAAAAAAAAxwb3Mu\nZGlzdGFuY2UAAAALbWVzRGlzdGFuY2UAAAAJZGlzdF9wcmVjAAAACFNNQUxMSU5U\nAAAAQlByZWNpc2lvbiAoIyBvZiBkZWNpbWFsIHBvc2l0aW9ucykgYXNzb2NpYXRl\nZCB3aXRoIHRoZSBjb2x1bW4gZGlzdAAAAAAAAAAAAAAAC21lc0Rpc3RhbmNlAAAA\nBm1lc3BvcwAAAAhTTUFMTElOVAAAADNQb3NpdGlvbiBvZiBhIG1lYXN1cmVtZW50\nIGluIGEgbGlzdCBvZiBtZWFzdXJlbWVudHMAAAAAAAAACXN0YXQucmFuawAAAAtt\nZXNEaXN0YW5jZQAAAAZtZXRob2QAAAAEQ0hBUgAAABtkaXN0YW5jZSBjYWxjdWxh\ndGlvbiBtZXRob2QAAAAAAAAAC2luc3RyLnNldHVwAAAAC21lc0Rpc3RhbmNlAAAA\nCW1pbnVzX2VycgAAAAZET1VCTEUAAAALbWludXMgZXJyb3IAAAAAAAAACnN0YXQu\nZXJyb3IAAAALbWVzRGlzdGFuY2UAAAAObWludXNfZXJyX3ByZWMAAAAIU01BTExJ\nTlQAAABHUHJlY2lzaW9uICgjIG9mIGRlY2ltYWwgcG9zaXRpb25zKSBhc3NvY2lh\ndGVkIHdpdGggdGhlIGNvbHVtbiBtaW51c19lcnIAAAAAAAAAAAAAAAttZXNEaXN0\nYW5jZQAAAAZvaWRyZWYAAAAGQklHSU5UAAAAGk9iamVjdCBpbnRlcm5hbCBpZGVu\ndGlmaWVyAAAAAAAAAAttZXRhLnJlY29yZAAAAAttZXNEaXN0YW5jZQAAAAhwbHVz\nX2VycgAAAAZET1VCTEUAAAAKcGx1cyBlcnJvcgAAAAAAAAAKc3RhdC5lcnJvcgAA\nAAttZXNEaXN0YW5jZQAAAA1wbHVzX2Vycl9wcmVjAAAACFNNQUxMSU5UAAAARlBy\nZWNpc2lvbiAoIyBvZiBkZWNpbWFsIHBvc2l0aW9ucykgYXNzb2NpYXRlZCB3aXRo\nIHRoZSBjb2x1bW4gcGx1c19lcnIAAAAAAAAAAAAAAAttZXNEaXN0YW5jZQAAAARx\ndWFsAAAABENIQVIAAAAHUXVhbGl0eQAAAAAAAAAObWV0YS5jb2RlLnF1YWwAAAAL\nbWVzRGlzdGFuY2UAAAAEdW5pdAAAAARDSEFSAAAAFFVuaXQgKHBjLGtwYyBvciBN\ncGMpAAAAAAAAAAltZXRhLnVuaXQ=\n</STREAM>\n</BINARY>\n</DATA>\n</TABLE>\n</RESOURCE>\n</VOTABLE>\n"
+ }
+}

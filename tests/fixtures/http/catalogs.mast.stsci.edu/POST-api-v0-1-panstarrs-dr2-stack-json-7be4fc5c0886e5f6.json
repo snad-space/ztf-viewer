@@ -1,0 +1,25 @@
+{
+ "key": "7be4fc5c0886e5f6",
+ "recorded_at": "2026-08-12T18:11:48+00:00",
+ "request": {
+  "method": "POST",
+  "url": "https://catalogs.mast.stsci.edu/api/v0.1/panstarrs/dr2/stack.json",
+  "body_sha256": "5b34b3e03b782efe3755cfc7bfce921ba31d88fb6d4d2be882f88c60b303596d"
+ },
+ "response": {
+  "status_code": 200,
+  "reason": "OK",
+  "headers": {
+   "Server": "nginx/1.22.1",
+   "Content-Type": "application/json",
+   "X-Content-Type-Options": "nosniff",
+   "X-XSS-Protection": "1",
+   "X-Frame-Options": "sameorigin",
+   "Vary": "Origin",
+   "Strict-Transport-Security": "max-age=31536000",
+   "X-Permitted-Cross-Domain-Policies": "master-only",
+   "Content-Security-Policy": "default-src 'self' 'unsafe-inline' 'unsafe-eval' *.stsci.edu ws://*.stsci.edu wss://*.stsci.edu https://stackpath.bootstrapcdn.com https://cdnjs.cloudflare.com https://code.jquery.com https://ajax.googleapis.com https://cdn.datatables.net https://www.googletagmanager.com https://www.google-analytics.com https://cdn.materialdesignicons.com/ https://cdn.jsdelivr.net https://fastapi.tiangolo.com https://cdn.pydata.org https://cdn.bokeh.org https://cdn.datatables.net https://fonts.googleapis.com https://fonts.gstatic.com;font-src 'self' data: 'self' 'unsafe-inline' 'unsafe-eval' *.stsci.edu ws://*.stsci.edu wss://*.stsci.edu https://stackpath.bootstrapcdn.com https://cdnjs.cloudflare.com https://code.jquery.com https://ajax.googleapis.com https://cdn.datatables.net https://www.googletagmanager.com https://www.google-analytics.com https://cdn.materialdesignicons.com/ https://cdn.jsdelivr.net https://fastapi.tiangolo.com https://cdn.pydata.org https://cdn.bokeh.org https://cdn.datatables.net https://fonts.googleapis.com https://fonts.gstatic.com;img-src 'self' blob: data: https://cdn.datatables.net https://www.google-analytics.com https://validator.swagger.io;frame-src 'self' blob:;frame-ancestors 'self' https://*.stsci.edu;worker-src 'self' blob:;"
+  },
+  "body_file": "POST-api-v0-1-panstarrs-dr2-stack-json-7be4fc5c0886e5f6.body"
+ }
+}

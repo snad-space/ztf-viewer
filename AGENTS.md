@@ -24,6 +24,7 @@
 - Framework: `pytest` with tests discovered under `tests/`.
 - Name tests as `test_*.py`; mirror module behavior in file names (for example, `test_ttl_set_redis_ttl_set.py`).
 - Add regression tests for bug fixes and edge cases, especially around external catalog adapters and caching logic.
+- The default run makes **no** network calls: sockets are blocked and HTTP is replayed from `tests/fixtures/http`. Tests that talk to real upstreams are marked `@pytest.mark.live` and deselected by default; run them with `pytest -m live`, and (re-)record fixtures with `pytest -m live --record-http`. See `tests/httpfixtures/README.md`.
 - CI runs tests via Docker (`.github/workflows/test.yml`), so keep local results reproducible in containerized runs.
 
 ## Commit & Pull Request Guidelines

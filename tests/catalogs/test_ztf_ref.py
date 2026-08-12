@@ -1,6 +1,8 @@
+import pytest
 from pytest import approx
 
 
+@pytest.mark.live
 def test_fits_url():
     from ztf_viewer.catalogs.ztf_ref import ztf_ref
     from ztf_viewer.config import ZTF_FITS_PROXY_URL
@@ -13,6 +15,7 @@ def test_fits_url():
     )
 
 
+@pytest.mark.live
 def test_regression_get():
     from ztf_viewer.catalogs.ztf_ref import ztf_ref
 

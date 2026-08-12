@@ -1,0 +1,21 @@
+{
+ "key": "0ee51cdc2c6fd696",
+ "recorded_at": "2026-08-12T18:12:28+00:00",
+ "request": {
+  "method": "POST",
+  "url": "https://features.lc.snad.space/api/latest/",
+  "body_sha256": "f221a7098a5f7e6aee28af9c99add2b8c1ad419e4dcf161bfd523f15b887fe62"
+ },
+ "response": {
+  "status_code": 200,
+  "reason": "OK",
+  "headers": {
+   "Server": "nginx/1.31.1",
+   "Content-Type": "application/json",
+   "permissions-policy": "interest-cohort=()",
+   "x-content-type-options": "nosniff",
+   "x-frame-options": "SAMEORIGIN"
+  },
+  "body_text": "{\"otsu_std_upper_magn\":0.1922650349202603,\"otsu_lower_to_all_ratio_magn\":0.20273972602739726,\"lg_inter_percentile_range_10_magn\":0.1727187859902119,\"lg_otsu_mean_diff_magn\":0.08815034600049042,\"bins_window1.0_offset0.0_lg_linear_fit_slope_sigma_magn\":-4.531018836703055,\"bins_window1.0_offset0.0_cusum_magn\":0.28576971356577685,\"period_0_magn\":407.49477462390195,\"period_1_magn\":183.07736251218785,\"bins_window1.0_offset0.0_arcsinh_linear_fit_slope_magn\":0.001067460704931221,\"period_s_to_n_4_magn\":8.872328113861403,\"period_s_to_n_0_magn\":16.988249539606176,\"stetson_K_magn\":0.9178298173274111,\"bazin_fit_mag_full_amplitude_flux\":18.536472335655283,\"period_2_magn\":119.17300012585811,\"ln1p_anderson_darling_normal_flux\":3.9589820603020476,\"bazin_fit_baseline_amplitude_ratio_flux\":0.22919372881328565,\"kurtosis_magn\":0.2784933786892201,\"weighted_mean_magn\":20.114961922469213,\"excess_variance_flux\":0.390804276593663,\"ln1p_chi2_magn\":3.207136740957651,\"period_s_to_n_3_magn\":9.810248390354,\"beyond_1_std_magn\":0.2465753424657534,\"lg_inter_percentile_range_25_magn\":-0.40138975738343124,\"bazin_fit_fall_time_flux\":30.575827403165363,\"bins_window1.0_offset0.0_ln1p_eta_e_magn\":1.1675225620889604,\"bins_window1.0_offset0.0_lg_maximum_slope_magn\":-0.3190768098007291,\"period_s_to_n_2_magn\":10.75290431646506,\"bins_window1.0_offset0.0_lg_linear_trend_noise_magn\":-0.3900527659135424,\"arcsinh_skew_magn\":-1.0447695762905145,\"lg_inter_percentile_range_2_magn\":0.26561392223312547,\"period_4_magn\":140.359311259344,\"bins_window1.0_offset0.0_ln1p_linear_fit_reduced_chi2_magn\":2.6565130860004897,\"bins_window1.0_offset0.0_arcsinh_linear_trend_magn\":0.0004808857601983177,\"period_s_to_n_1_magn\":12.776409950185311,\"bins_window1.0_offset0.0_lg_linear_trend_sigma_magn\":-4.143474830536643,\"otsu_std_lower_magn\":0.24078935194428408,\"period_3_magn\":601.5399053971886,\"beyond_2_std_magn\":0.09041095890410959,\"bazin_fit_rise_time_flux\":4.909975326473873,\"ln1p_bazin_fit_reduced_chi2_flux\":0.8467545992989055}"
+ }
+}

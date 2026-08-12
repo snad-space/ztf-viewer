@@ -1,6 +1,8 @@
+import pytest
 from numpy.testing import assert_allclose
 
 
+@pytest.mark.live
 def test_cone_search():
     """Regression test against the real Otter server.
 
@@ -44,6 +46,7 @@ def test_get_url():
     assert url == "https://otter.idies.jhu.edu/transient/CSS071216:122109+125434"
 
 
+@pytest.mark.live
 def test_cone_search_not_found():
     """Non-detection: 1-arcsec radius around the example coordinates returns nothing."""
     import pytest

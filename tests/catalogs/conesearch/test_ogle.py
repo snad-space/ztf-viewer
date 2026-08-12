@@ -1,8 +1,10 @@
 from xml.etree import ElementTree as ET
 
+import pytest
 from numpy.testing import assert_allclose
 
 
+@pytest.mark.live
 def test_cone_search():
     """Regression test against the real OGLE-III mirror server.
 
@@ -38,6 +40,7 @@ def test_cone_search():
     assert "data:image/png;base64," in light_curve_html
 
 
+@pytest.mark.live
 def test_rendered_html_is_well_formed():
     """Regression test for two real bugs found in this exact rendering path.
 
@@ -66,6 +69,7 @@ def test_rendered_html_is_well_formed():
         raise AssertionError(f"Rendered OGLE table is not well-formed HTML/JSX: {e}\n{html}") from e
 
 
+@pytest.mark.live
 def test_cone_search_not_found():
     """Non-detection: a tiny radius far from any known OGLE-III field returns nothing."""
     import pytest

@@ -14,6 +14,7 @@ from astropy.coordinates import Angle
 from astropy.table import QTable, MaskedColumn
 from astropy.time import Time
 import astropy.units as u
+from requests import RequestException
 
 from ztf_viewer.exceptions import NotFound
 
@@ -132,6 +133,7 @@ def test_radius_too_large_raises_value_error():
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.live
 def test_ceres_integration():
     """Query SkyBot for Ceres at a known epoch and verify it is returned.
 
@@ -146,7 +148,12 @@ def test_ceres_integration():
     query = SkybotQuery()
     try:
         result = query.find(ra=320.7912, dec=-21.5888, observatory_mjd=_OBS_MJD, radius_arcsec=120.0)
-    except NotFound as exc:
+    except (NotFound, RequestException) as exc:
+        # The docstring above always promised this skip, but only NotFound was caught, so
+        # transport-level trouble failed the test instead: read timeouts, dropped
+        # connections, and (seen 2026-08-12) an HTTP 500 carrying a perfectly valid
+        # VOTable, which astroquery's raise_for_status turns into an HTTPError.
+        # The offline twin is tests/test_replayed_catalogs.py::test_skybot_cone_search.
         pytest.skip(f"SkyBot service unavailable: {exc}")
 
     names = [row["__name"] for row in result]

@@ -1,0 +1,18 @@
+{
+ "key": "6c983874570c8324",
+ "recorded_at": "2026-08-12T18:11:46+00:00",
+ "request": {
+  "method": "GET",
+  "url": "https://ogle3.snad.space/api/v1/circle?dec=60.0&format=tsv&ra=0.0&radius_arcsec=1.0",
+  "body_sha256": null
+ },
+ "response": {
+  "status_code": 200,
+  "reason": "OK",
+  "headers": {
+   "Server": "nginx/1.31.1",
+   "Content-Type": "text/tab-separated-values; charset=utf-8"
+  },
+  "body_text": "ID\tField\tStarID\tRA\tDecl\tType\tSubtype\tI\tV\tP_1\tA_1\tID_OGLE_II\tID_MACHO\tID_ASAS\tID_GCVS\tID_OTHER\tRemarks"
+ }
+}

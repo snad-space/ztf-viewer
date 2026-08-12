@@ -1,0 +1,18 @@
+{
+ "key": "4bd13b3e8f1d0850",
+ "recorded_at": "2026-08-12T18:12:20+00:00",
+ "request": {
+  "method": "GET",
+  "url": "https://tns.snad.space/api/v1/object?name=2018lwh",
+  "body_sha256": null
+ },
+ "response": {
+  "status_code": 200,
+  "reason": "OK",
+  "headers": {
+   "Server": "nginx/1.31.1",
+   "Content-Type": "application/json; charset=utf-8"
+  },
+  "body_text": "{\"objid\": 83988, \"name_prefix\": \"AT\", \"name\": \"2018lwh\", \"ra\": 247.45542999999998, \"declination\": 24.77282, \"redshift\": null, \"typeid\": null, \"type\": null, \"reporting_groupid\": 95.0, \"reporting_group\": \"SNAD\", \"source_groupid\": 48.0, \"source_group\": \"ZTF\", \"discoverydate\": \"2018-04-08 09:45:49.000\", \"discoverymag\": 21.11, \"discmagfilter\": 111.0, \"filter\": \"r\", \"reporters\": \"Alexandra Novinskaya on behalf of the SNAD team\", \"time_received\": \"2021-05-19 15:29:09\", \"internal_names\": \"SNAD101\", \"Discovery_ADS_bibcode\": \"2021TNSTR1713....1N\", \"Class_ADS_bibcodes\": null, \"creationdate\": \"2021-05-19 15:29:09\", \"lastmodified\": \"2021-05-19 15:29:09\", \"coord\": {\"ra\": 247.45542999999998, \"dec\": 24.77282}}"
+ }
+}

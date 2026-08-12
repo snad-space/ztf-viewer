@@ -1,0 +1,19 @@
+{
+ "key": "325a4e5c8536e3ce",
+ "recorded_at": "2026-08-12T18:11:49+00:00",
+ "request": {
+  "method": "POST",
+  "url": "https://simbad.cds.unistra.fr/simbad/sim-tap/sync",
+  "body_sha256": "f30177a129fc4706f71aedcc86bc4ac184619941f5b8422559e4cd21320cec2e"
+ },
+ "response": {
+  "status_code": 200,
+  "reason": "200",
+  "headers": {
+   "Server": "Apache/2.4.52 (Ubuntu)",
+   "Access-Control-Allow-Origin": "*",
+   "Content-Type": "application/x-votable+xml;charset=UTF-8"
+  },
+  "body_text": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<VOTABLE version=\"1.3\" xmlns=\"http://www.ivoa.net/xml/VOTable/v1.3\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.ivoa.net/xml/VOTable/v1.3 http://www.ivoa.net/xml/VOTable/votable-1.3.xsd\">\n<RESOURCE type=\"results\">\n<INFO name=\"QUERY_STATUS\" value=\"OK\"/>\n<INFO name=\"PROVIDER\" value=\"CDS\">SIMBAD TAP Service</INFO>\n<INFO name=\"QUERY\" value=\"SELECT filtername AS name, description FROM filter\"/>\n<TABLE name=\"result_S1786558309376\">\n<FIELD arraysize=\"*\" datatype=\"char\" name=\"name\" ucd=\"instr.bandpass;instr.filter\">\n<DESCRIPTION>flux filter name</DESCRIPTION>\n</FIELD>\n<FIELD arraysize=\"*\" datatype=\"unicodeChar\" name=\"description\" ucd=\"meta.note;instr.filter\">\n<DESCRIPTION>flux filter description</DESCRIPTION>\n</FIELD>\n<DATA>\n<BINARY>\n<STREAM encoding='base64'>\nAAAAAVUAAAALAE0AYQBnAG4AaQB0AHUAZABlACAAVQAAAAFCAAAACwBNAGEAZwBu\nAGkAdAB1AGQAZQAgAEIAAAABVgAAAAsATQBhAGcAbgBpAHQAdQBkAGUAIABWAAAA\nAVIAAAALAE0AYQBnAG4AaQB0AHUAZABlACAAUgAAAAFJAAAACwBNAGEAZwBuAGkA\ndAB1AGQAZQAgAEkAAAABSgAAAAsATQBhAGcAbgBpAHQAdQBkAGUAIABKAAAAAUgA\nAAALAE0AYQBnAG4AaQB0AHUAZABlACAASAAAAAFLAAAACwBNAGEAZwBuAGkAdAB1\nAGQAZQAgAEsAAAABdQAAABAATQBhAGcAbgBpAHQAdQBkAGUAIABTAEQAUwBTACAA\ndQAAAAFnAAAAEABNAGEAZwBuAGkAdAB1AGQAZQAgAFMARABTAFMAIABnAAAAAXIA\nAAAQAE0AYQBnAG4AaQB0AHUAZABlACAAUwBEAFMAUwAgAHIAAAABaQAAABAATQBh\nAGcAbgBpAHQAdQBkAGUAIABTAEQAUwBTACAAaQAAAAF6AAAAEABNAGEAZwBuAGkA\ndAB1AGQAZQAgAFMARABTAFMAIAB6AAAAAUcAAAAQAE0AYQBnAG4AaQB0AHUAZABl\nACAARwBhAGkAYQAgAEcAAAAFRjE1MFcAAAARAEoAVwBTAFQAIABOAEkAUgBDAGEA\nbQAgAEYAMQA1ADAAVwAAAAVGMjAwVwAAABEASgBXAFMAVAAgAE4ASQBSAEMAYQBt\nACAARgAyADAAMABXAAAABUY0NDRXAAAAEQBKAFcAUwBUACAATgBJAFIAQwBhAG4A\nIABGADQANAA0AFc=\n</STREAM>\n</BINARY>\n</DATA>\n</TABLE>\n</RESOURCE>\n</VOTABLE>\n"
+ }
+}

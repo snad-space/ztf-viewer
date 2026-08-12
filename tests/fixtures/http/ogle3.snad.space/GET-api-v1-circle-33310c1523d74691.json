@@ -1,0 +1,18 @@
+{
+ "key": "33310c1523d74691",
+ "recorded_at": "2026-08-12T18:11:45+00:00",
+ "request": {
+  "method": "GET",
+  "url": "https://ogle3.snad.space/api/v1/circle?dec=-22.2145&format=tsv&ra=267.57425&radius_arcsec=5.0",
+  "body_sha256": null
+ },
+ "response": {
+  "status_code": 200,
+  "reason": "OK",
+  "headers": {
+   "Server": "nginx/1.31.1",
+   "Content-Type": "text/tab-separated-values; charset=utf-8"
+  },
+  "body_text": "ID\tField\tStarID\tRA\tDecl\tType\tSubtype\tI\tV\tP_1\tA_1\tID_OGLE_II\tID_MACHO\tID_ASAS\tID_GCVS\tID_OTHER\tRemarks\nOGLE-BLG-RRLYR-04010\tBLG340.4\t116842\t17:50:17.82\t-22:12:52.2\tRRLyr\tRRab\t16.534\t18.5\t0.47742775\t0.802\t\t\t\t\t\t"
+ }
+}

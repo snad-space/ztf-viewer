@@ -1,5 +1,10 @@
 # See https://pre-commit.com for more information
 # See https://pre-commit.com/hooks.html for more hooks
+
+# Recorded upstream HTTP responses: verbatim bytes by design, so no reformatting,
+# no newline fixing, and no size limit. See tests/httpfixtures/README.md.
+exclude: '^tests/fixtures/http/'
+
 repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0

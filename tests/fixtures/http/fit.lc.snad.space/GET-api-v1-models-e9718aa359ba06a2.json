@@ -1,0 +1,18 @@
+{
+ "key": "e9718aa359ba06a2",
+ "recorded_at": "2026-08-12T18:12:29+00:00",
+ "request": {
+  "method": "GET",
+  "url": "https://fit.lc.snad.space/api/v1/models",
+  "body_sha256": null
+ },
+ "response": {
+  "status_code": 200,
+  "reason": "OK",
+  "headers": {
+   "Server": "nginx/1.31.1",
+   "Content-Type": "application/json"
+  },
+  "body_text": "{\"models\":[\"nugent-sn1a\",\"nugent-sn91t\",\"nugent-sn91bg\",\"nugent-sn1bc\",\"nugent-hyper\",\"nugent-sn2n\",\"nugent-sn2p\",\"nugent-sn2l\",\"salt2\",\"salt3-nir\",\"salt3\",\"v19-1993j\",\"v19-1998bw\",\"v19-1999em\",\"v19-2009ip\"]}"
+ }
+}

@@ -1,7 +1,9 @@
+import pytest
 from astropy.coordinates import SkyCoord
 from numpy.testing import assert_allclose
 
 
+@pytest.mark.live
 def test_regression_get_object_by_id():
     from ztf_viewer.catalogs.conesearch.antares import AntaresQuery
 

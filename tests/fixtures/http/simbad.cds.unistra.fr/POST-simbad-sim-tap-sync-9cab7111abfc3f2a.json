@@ -1,0 +1,19 @@
+{
+ "key": "9cab7111abfc3f2a",
+ "recorded_at": "2026-08-12T18:11:49+00:00",
+ "request": {
+  "method": "POST",
+  "url": "https://simbad.cds.unistra.fr/simbad/sim-tap/sync",
+  "body_sha256": "927435c91e191270fdce6146a2096d5c01050d04bf3141b1df8c2ded1bc767cb"
+ },
+ "response": {
+  "status_code": 200,
+  "reason": "200",
+  "headers": {
+   "Server": "Apache/2.4.52 (Ubuntu)",
+   "Access-Control-Allow-Origin": "*",
+   "Content-Type": "application/x-votable+xml;charset=UTF-8"
+  },
+  "body_text": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<VOTABLE version=\"1.3\" xmlns=\"http://www.ivoa.net/xml/VOTable/v1.3\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.ivoa.net/xml/VOTable/v1.3 http://www.ivoa.net/xml/VOTable/votable-1.3.xsd\">\n<RESOURCE type=\"results\">\n<INFO name=\"QUERY_STATUS\" value=\"OK\"/>\n<INFO name=\"PROVIDER\" value=\"CDS\">SIMBAD TAP Service</INFO>\n<INFO name=\"QUERY\" value=\"SELECT DISTINCT table_name AS name, tables.description\n        FROM TAP_SCHEMA.keys JOIN  TAP_SCHEMA.key_columns USING (key_id)\n        JOIN TAP_SCHEMA.tables ON TAP_SCHEMA.keys.from_table = TAP_SCHEMA.tables.table_name\n        OR TAP_SCHEMA.keys.target_table = TAP_SCHEMA.tables.table_name\n        WHERE TAP_SCHEMA.tables.schema_name = 'public'\n        AND (from_table = 'basic' OR target_table = 'basic')\n        AND from_table != 'h_link'\n        \"/>\n<TABLE name=\"result_S1786558309108\">\n<FIELD arraysize=\"*\" datatype=\"char\" name=\"name\">\n<DESCRIPTION>table name as it should be used in queries</DESCRIPTION>\n</FIELD>\n<FIELD arraysize=\"*\" datatype=\"char\" name=\"description\">\n<DESCRIPTION>brief description of table</DESCRIPTION>\n</FIELD>\n<DATA>\n<BINARY>\n<STREAM encoding='base64'>\nAAAAC21lc0RpYW1ldGVyAAAAIENvbGxlY3Rpb24gb2Ygc3RlbGxhciBkaWFtZXRl\ncnMuAAAABW1lc1BNAAAAHUNvbGxlY3Rpb24gb2YgcHJvcGVyIG1vdGlvbnMuAAAA\nBm1lc0lTTwAAAC9JbmZyYXJlZCBTcGFjZSBPYnNlcnZhdG9yeSAoSVNPKSBvYnNl\ncnZpbmcgbG9nLgAAAAZtZXNTcFQAAAAdQ29sbGVjdGlvbiBvZiBzcGVjdHJhbCB0\neXBlcy4AAAAJYWxsZmx1eGVzAAAAMGFsbCBmbHV4L21hZ25pdHVkZXMgVSxCLFYs\nSSxKLEgsSyx1XyxnXyxyXyxpXyx6XwAAAAVpZGVudAAAACVJZGVudGlmaWVycyBv\nZiBhbiBhc3Ryb25vbWljYWwgb2JqZWN0AAAABGZsdXgAAAA3TWFnbml0dWRlL0Zs\ndXggaW5mb3JtYXRpb24gYWJvdXQgYW4gYXN0cm9ub21pY2FsIG9iamVjdAAAAAht\nZXNPdHlwZQAAADlPdGhlciBvYmplY3QgdHlwZXMgYXNzb2NpYXRlZCB3aXRoIGFu\nIG9iamVjdCB3aXRoIG9yaWdpbnMAAAAGbWVzUExYAAAAJ0NvbGxlY3Rpb24gb2Yg\ndHJpZ29ub21ldHJpYyBwYXJhbGxheGVzLgAAAAhvdHlwZWRlZgAAAC5hbGwgbmFt\nZXMgYW5kIGRlZmluaXRpb25zIGZvciB0aGUgb2JqZWN0IHR5cGVzAAAAC21lc0Rp\nc3RhbmNlAAAAOkNvbGxlY3Rpb24gb2YgZGlzdGFuY2VzIChwYywga3BjIG9yIE1w\nYykgYnkgc2V2ZXJhbCBtZWFucy4AAAAGb3R5cGVzAAAAMkxpc3Qgb2YgYWxsIG9i\namVjdCB0eXBlcyBhc3NvY2lhdGVkIHdpdGggYW4gb2JqZWN0AAAABm1lc1ZhcgAA\nADRDb2xsZWN0aW9uIG9mIHN0ZWxsYXIgdmFyaWFiaWxpdHkgdHlwZXMgYW5kIHBl\ncmlvZHMuAAAABm1lc1htbQAAABJYTU0gb2JzZXJ2aW5nIGxvZy4AAAANbWVzVmVs\nb2NpdGllcwAAACpDb2xsZWN0aW9uIG9mIEhSViwgVmxzciwgY3ogYW5kIHJlZHNo\naWZ0cy4AAAAHaGFzX3JlZgAAAExBc3NvY2lhdGlvbnMgYmV0d2VlbiBhc3Ryb25v\nbWljYWwgb2JqZWN0cyBhbmQgdGhlaXIgYmlibGlvZ3JhcGhpYyByZWZlcmVuY2Vz\nAAAABm1lc1JvdAAAAB5TdGVsbGFyIFJvdGF0aW9uYWwgVmVsb2NpdGllcy4AAAAG\nYmlibGlvAAAADEJpYmxpb2dyYXBoeQAAAANpZHMAAAAgYWxsIG5hbWVzIGNvbmNh\ndGVuYXRlZCB3aXRoIHBpcGUAAAALbWVzSGVyc2NoZWwAAAAaVGhlIEhlcnNjaGVs\nIG9ic2VydmluZyBMb2cAAAAGbWVzSVVFAAAAMUludGVybmF0aW9uYWwgVWx0cmF2\naW9sZXQgRXhwbG9yZXIgb2JzZXJ2aW5nIGxvZy4AAAAHbWVzRmVfaAAAADtDb2xs\nZWN0aW9uIG9mIG1ldGFsbGljaXR5LCBhcyB3ZWxsIGFzIFRlZmYsIGxvZ2cgZm9y\nIHN0YXJzLgAAAAhhbGx0eXBlcwAAACdhbGwgb2JqZWN0IHR5cGVzIGNvbmNhdGVu\nYXRlZCB3aXRoIHBpcGUAAAAFYmFzaWMAAAApR2VuZXJhbCBkYXRhIGFib3V0IGFu\nIGFzdHJvbm9taWNhbCBvYmplY3Q=\n</STREAM>\n</BINARY>\n</DATA>\n</TABLE>\n</RESOURCE>\n</VOTABLE>\n"
+ }
+}

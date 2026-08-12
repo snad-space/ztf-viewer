@@ -17,15 +17,18 @@ def stack_table():
         return _panstarrs_request(session, "dr2", "stack", ra=_RA, dec=_DEC, radius=_RADIUS_DEG)
 
 
+@pytest.mark.live
 def test_stack_returns_rows(stack_table):
     assert len(stack_table) > 0
 
 
+@pytest.mark.live
 def test_stack_has_expected_columns(stack_table):
     for col in ("objID", "raMean", "decMean", "gPSFMag", "rPSFMag"):
         assert col in stack_table.colnames
 
 
+@pytest.mark.live
 def test_stack_coordinates_in_range(stack_table):
     # All returned objects should be within the search radius
     coord = SkyCoord(ra=_RA, dec=_DEC, unit="deg")
@@ -34,6 +37,7 @@ def test_stack_coordinates_in_range(stack_table):
     assert_array_less(sep, _RADIUS_DEG + 0.01)
 
 
+@pytest.mark.live
 def test_stack_missing_values_are_masked_not_string(stack_table):
     """Regression test for https://github.com/snad-space/ztf-viewer/issues/565
 
@@ -48,6 +52,7 @@ def test_stack_missing_values_are_masked_not_string(stack_table):
     assert all(isinstance(v, float) for v in unmasked), "unmasked pmra values should be float"
 
 
+@pytest.mark.live
 def test_query_region():
     """End-to-end test through PanstarrsDr2StackedQuery._query_region.
 
