@@ -30,7 +30,6 @@ dependencies = [
     "markupsafe",
     "requests",
     "redis",
-    "redis-lru",
     "matplotlib>=3.3",
     "cachetools",
     "scipy",

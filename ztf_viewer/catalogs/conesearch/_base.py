@@ -132,6 +132,16 @@ class _BaseCatalogQuery:
     def normalized_query_name(self):
         return self._normalize_name(self.query_name)
 
+    def __cache_key__(self):
+        """How ``@cache()`` identifies this object in the key of a cached method.
+
+        ``ztf_viewer.cache.core.encode_self`` keys ``self`` on its class, which is what makes a
+        cached method entry outlive the process that computed it.  These instances are the one
+        place in the app where that is not enough: a subclass is constructed with a catalog
+        name, so two instances of one class would be two different catalogs.
+        """
+        return self.normalized_query_name
+
     @property
     def name_column(self):
         if self._name_column is not None:
