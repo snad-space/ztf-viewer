@@ -5,7 +5,7 @@ from dash.dash_table import DataTable
 from dash.exceptions import PreventUpdate
 
 from ztf_viewer.akb import akb
-from ztf_viewer.app import app
+from ztf_viewer.callbacks import callback
 
 
 def get_layout(*args, **kwargs):
@@ -38,7 +38,7 @@ def get_layout(*args, **kwargs):
     )
 
 
-@app.callback(
+@callback(
     Output("anomaly-table", "data"),
     [Input("url", "pathname")],
 )

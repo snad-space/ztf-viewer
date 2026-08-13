@@ -22,6 +22,7 @@ from requests import ConnectionError
 from ztf_viewer import brokers
 from ztf_viewer.akb import akb
 from ztf_viewer.app import app
+from ztf_viewer.callbacks import callback
 from ztf_viewer.catalogs.conesearch import (
     ANTARES_QUERY,
     GAIA_DR3,
@@ -810,7 +811,7 @@ def get_layout(pathname, search):
     return layout
 
 
-@app.callback(
+@callback(
     Output("title", "children"),
     [
         Input("oid", "children"),
@@ -827,7 +828,7 @@ def set_title(oid, dr):
     return f"{snad_name}{oid}"
 
 
-@app.callback(
+@callback(
     Output("results-fit-layout", "style"),
     [Input("models-fit-dd", "value"), Input("models-fit-dd", "options")],
     [State("results-fit-layout", "style")],
@@ -841,7 +842,7 @@ def show_fit_params(value, list_models, old_style):
     return style
 
 
-@app.callback(
+@callback(
     Output("results-fit-header", "children"),
     [
         Input("error-fitting-message-hidden", "value"),
@@ -862,7 +863,7 @@ def show_error_message(message_fit, message_curve, list_models, old_header):
     return new_header
 
 
-@app.callback(
+@callback(
     [
         Output("results-fit", "children"),
         Output("results-fit-hidden", "data"),
@@ -948,7 +949,7 @@ def fit_lc(
     return params_show, params, message
 
 
-@app.callback(
+@callback(
     Output("akb-neighbours", "children"),
     [
         Input("different_filter_neighbours", "children"),
@@ -1073,14 +1074,14 @@ def set_akb_info(_, oid):
     return children
 
 
-app.callback(
+callback(
     Output("akb-info", "children"),
     [Input("akb-reset", "n_clicks")],
     [State("oid", "children")],
 )(set_akb_info)
 
 
-@app.callback(
+@callback(
     Output("akb-submitted", "children"),
     [Input("akb-submit", "n_clicks")],
     [
@@ -1102,7 +1103,7 @@ def update_akb(n_clicks, oid, tags, description):
         return "Error occurred"
 
 
-@app.callback(
+@callback(
     [
         Output("min-mjd", "value"),
         Output("max-mjd", "value"),
@@ -1121,7 +1122,7 @@ def set_min_max_mjd(value, dr):
     raise PreventUpdate
 
 
-@app.callback(
+@callback(
     Output("min-max-mjd-radio", "value"),
     [Input("min-mjd", "n_submit"), Input("max-mjd", "n_submit")],
     [State("min-mjd", "value"), State("max-mjd", "value"), State("dr", "children")],
@@ -1141,7 +1142,7 @@ def update_min_max_mjd_radio(_n_min_mjd, _n_max_mjd, min_mjd, max_mjd, dr):
     return None
 
 
-@app.callback(
+@callback(
     Output("fold-period-layout", "style"), [Input("light-curve-type", "value")], [State("fold-period-layout", "style")]
 )
 def show_fold_period_layout(light_curve_type, old_style):
@@ -1153,7 +1154,7 @@ def show_fold_period_layout(light_curve_type, old_style):
     return style
 
 
-@app.callback(
+@callback(
     Output("additional-light-curves", "options"),
     [Input("oid", "children"), Input("dr", "children"), Input("additional-light-curves", "value")],
     [State("additional-light-curves", "options")],
@@ -1249,7 +1250,7 @@ def get_panstarrs_lc_option(oid, dr, old):
     return option
 
 
-@app.callback(
+@callback(
     Output("ref-mag-layout", "style"),
     [
         Input("light-curve-brightness", "value"),
@@ -1266,7 +1267,7 @@ def show_ref_mag_layout(brightness_type, name_model, old_style):
     return style
 
 
-@app.callback(
+@callback(
     Output("ref-mag", "children"),
     Input("oid", "children"),
     Input("dr", "children"),
@@ -1341,7 +1342,7 @@ def show_ref_mag_or_magerr(oid, dr, different_filter, different_field):
     return layout
 
 
-@app.callback(
+@callback(
     Output(dict(type="ref-mag-input", index=MATCH), "value"),
     Output(dict(type="ref-magerr-input", index=MATCH), "value"),
     Input("dr", "children"),
@@ -1365,7 +1366,7 @@ def set_ref_mag_magerr(dr, _n_clicks, link_id, all_mag_ids, all_mag_values):
     )
 
 
-@app.callback(
+@callback(
     Output("summary", "children"),
     [
         Input("oid", "children"),
@@ -1541,7 +1542,7 @@ def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_v
     return div
 
 
-@app.callback(
+@callback(
     Output("metadata", "children"),
     [Input("oid", "children"), Input("dr", "children")],
 )
@@ -1580,7 +1581,7 @@ def neighbour_oids(different_filter, different_field) -> frozenset:
     return oids
 
 
-@app.callback(
+@callback(
     [Output("graph", "figure"), Output("error-fit-curve-message-hidden", "value")],
     [
         Input("oid", "children"),
@@ -1820,7 +1821,7 @@ def set_figure_link(
     raise ValueError(f"{lc_type = } is unknown")
 
 
-app.callback(
+callback(
     Output("figure-png-link", "href"),
     [
         Input("oid", "children"),
@@ -1837,7 +1838,7 @@ app.callback(
 )(partial(set_figure_link, fmt="png"))
 
 
-app.callback(
+callback(
     Output("figure-pdf-link", "href"),
     [
         Input("oid", "children"),
@@ -1854,7 +1855,7 @@ app.callback(
 )(partial(set_figure_link, fmt="pdf"))
 
 
-@app.callback(
+@callback(
     Output("csv-link", "href"),
     [
         Input("oid", "children"),
@@ -1914,7 +1915,7 @@ def find_neighbours(radius, center_oid, dr, different):
     return children
 
 
-app.callback(
+callback(
     Output("different_field_neighbours", "children"),
     [Input("different_field_radius", "value")],
     [
@@ -1923,7 +1924,7 @@ app.callback(
     ],
 )(partial(find_neighbours, different="fieldid"))
 
-app.callback(
+callback(
     Output("different_filter_neighbours", "children"),
     [Input("different_filter_radius", "value")],
     [
@@ -1958,7 +1959,7 @@ app.clientside_callback(
 )
 
 
-@app.callback(Output("fits-to-show", "children"), [Input("graph", "clickData")], [State("dr", "children")])
+@callback(Output("fits-to-show", "children"), [Input("graph", "clickData")], [State("dr", "children")])
 def load_fits_for_graph_clicked(data, dr):
     if data is None:
         raise PreventUpdate
@@ -1987,7 +1988,7 @@ def load_fits_for_graph_clicked(data, dr):
     ]
 
 
-@app.callback(Output("skybot", "children"), [Input("graph", "clickData")], [State("dr", "children")])
+@callback(Output("skybot", "children"), [Input("graph", "clickData")], [State("dr", "children")])
 def update_skybot_for_graph_clicked(data, dr):
     if data is None:
         raise PreventUpdate
@@ -2007,7 +2008,7 @@ def update_skybot_for_graph_clicked(data, dr):
     )
 
 
-@app.callback(
+@callback(
     Output(dict(type="search-radius", index="astro-colibri"), "value"),
     [Input("astro-colibri-search-radius-degrees", "value")],
 )
@@ -2045,7 +2046,7 @@ def set_table(radius, oid, dr, catalog):
 
 def set_tables():
     for catalog in catalog_query_objects():
-        app.callback(
+        callback(
             Output(f"{catalog}-table", "children"),
             [Input(dict(type="search-radius", index=catalog), "value")],
             [
@@ -2058,7 +2059,7 @@ def set_tables():
 set_tables()
 
 
-@app.callback(
+@callback(
     Output("search-on-vizier", "href"),
     [Input("vizier-radius", "value")],
     [
@@ -2073,7 +2074,7 @@ def set_vizier_url(radius, oid, dr):
     return find_vizier.get_search_url(ra, dec, radius)
 
 
-@app.callback(
+@callback(
     Output("vizier-list", "children"),
     [Input("vizier-button", "n_clicks")],
     [
@@ -2128,7 +2129,7 @@ def set_vizier_list(n_clicks, radius, oid, dr):
     return div
 
 
-@app.callback(
+@callback(
     Output("features-list", "children"),
     [
         Input("oid", "children"),
@@ -2154,7 +2155,7 @@ def set_features_list(oid, dr, version, min_mjd, max_mjd):
     return div
 
 
-@app.callback(
+@callback(
     Output("light-curve-table", "data"),
     [
         Input("oid", "children"),

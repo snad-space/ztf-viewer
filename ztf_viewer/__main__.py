@@ -13,6 +13,7 @@ from dash.exceptions import PreventUpdate
 
 from ztf_viewer.akb import akb
 from ztf_viewer.app import app
+from ztf_viewer.callbacks import callback
 from ztf_viewer.catalogs.conesearch import ANTARES_QUERY, TNS_QUERY
 from ztf_viewer.catalogs.snad import SnadCatalogSource
 from ztf_viewer.exceptions import CatalogUnavailable, NotFound, UnAuthorized
@@ -179,7 +180,7 @@ app.clientside_callback(
 )
 
 
-@app.callback(
+@callback(
     Output("data-release", "children"),
     [Input("url", "pathname")],
 )
@@ -205,7 +206,7 @@ def dr_switch(current_dr, current_url, switch_dr):
     return html.A(switch_dr.upper(), href=switch_url, style={"text-decoration-style": "dashed"})
 
 
-@app.callback(
+@callback(
     Output("dr-title", "children"),
     [Input("data-release", "children")],
 )
@@ -213,7 +214,7 @@ def set_dr_title(dr):
     return dr.upper()
 
 
-@app.callback(
+@callback(
     Output("username", "children"),
     [Input("url", "pathname")],
 )
@@ -272,7 +273,7 @@ def sky_coord_from_str(s):
     raise ValueError(f'Cannot parse given coordinates or a name: "{s}"')
 
 
-@app.callback(
+@callback(
     Output("url", "pathname"),
     [
         Input("button-oid", "n_clicks"),
@@ -310,7 +311,7 @@ def go_to_url(
     return current_pathname
 
 
-@app.callback(
+@callback(
     [
         Output("page-content", "children"),
         Output("input-coord-or-name", "value"),
