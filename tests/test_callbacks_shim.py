@@ -5,6 +5,7 @@ threadpool hop instead. Dash only checks ``inspect.iscoroutinefunction`` at regi
 so this is what actually guards the backend flip.
 """
 
+import asyncio
 import functools
 import inspect
 import os
@@ -154,3 +155,12 @@ def test_no_runtime_warning_on_registration():
     )
     assert result.returncode == 0, result.stderr
     assert "OK" in result.stdout
+
+
+def test_offload_pool_survives_successive_event_loops():
+    """Flask runs each request in its own ``asyncio.run()``, which shuts the loop's default
+    executor down on the way out — so the shim must not install its pool as that default."""
+    wrapped = _to_coroutine_function(lambda: "called")
+
+    assert asyncio.run(wrapped()) == "called"
+    assert asyncio.run(wrapped()) == "called"
