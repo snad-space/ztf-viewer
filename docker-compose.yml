@@ -1,6 +1,6 @@
 services:
   redis:
-    image: redis
+    image: redis:8-alpine
     command: ["redis-server", "--maxmemory", "2048mb", "--maxmemory-policy", "allkeys-lru", "--save", "", "--appendonly", "no"]
     networks:
       - app

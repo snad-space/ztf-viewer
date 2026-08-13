@@ -4,7 +4,7 @@ from dash import ALL, Input, Output, State, dcc, html
 from dash.exceptions import PreventUpdate
 
 from ztf_viewer.akb import akb
-from ztf_viewer.app import app
+from ztf_viewer.callbacks import callback
 
 
 def get_layout(*args, **kwargs):
@@ -77,7 +77,7 @@ def get_layout(*args, **kwargs):
     )
 
 
-@app.callback(
+@callback(
     Output("tags-list", "children"),
     [
         Input("url", "pathname"),
@@ -153,7 +153,7 @@ def are_tags_priorities_unique(priorities):
     return len(priorities) == len(set(priorities))
 
 
-@app.callback(
+@callback(
     Output("tags-list-save-status", "children"),
     [Input("tags-list-save-button", "n_clicks")],
     [

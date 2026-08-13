@@ -1,7 +1,7 @@
 from dash import Input, Output, State, ctx, dcc, html
 
 from ztf_viewer.akb import akb
-from ztf_viewer.app import app
+from ztf_viewer.callbacks import callback
 from ztf_viewer.exceptions import UnAuthorized
 
 
@@ -25,7 +25,7 @@ def get_layout(*args, **kwargs):
     )
 
 
-@app.callback(Output("login-status", "children"), [Input("token", "n_submit")], [State("token", "value")])
+@callback(Output("login-status", "children"), [Input("token", "n_submit")], [State("token", "value")])
 def do_login(n_submit, token):
     try:
         username = akb.username(token)

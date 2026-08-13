@@ -1,8 +1,17 @@
 import time
 
+import packaging.version
 import pytest
 
 from ztf_viewer.ttl_set import RedisTTLSet
+
+# `remove()` uses GETDEL, so an older server would fail these tests obscurely.
+MIN_REDIS_VERSION = packaging.version.parse("6.2.0")
+
+
+def test_redis_server_is_new_enough(redisdb) -> None:
+    version = packaging.version.parse(redisdb.info()["redis_version"])
+    assert version >= MIN_REDIS_VERSION, f"tests need Redis >= {MIN_REDIS_VERSION}, this server is {version}"
 
 
 def test_clear(redisdb) -> None:
