@@ -1063,6 +1063,23 @@ rollback is a one-line revert.
 - `Dockerfile:73`: `gunicorn -w2 --threads=8 ...` →
   `uvicorn ztf_viewer.__main__:app.server --host 0.0.0.0 --port 80 --workers 1`. Prefer plain
   uvicorn over `gunicorn -k uvicorn.workers.UvicornWorker` — one fewer moving part.
+- **Thread-pool sizes are decided in exactly one place — `config.py`, from an environment
+  variable set next to the entrypoint — and nowhere else.** No module may build its own
+  `ThreadPoolExecutor`, and no code path may fall through to a stdlib default: an unsized
+  `ThreadPoolExecutor` silently becomes `min(32, process_cpu_count() + 4)`, which is derived from
+  the container's CPU allocation rather than from anything we chose, and is invisible to anyone
+  reading the repo. There are **two** pools to set, not one, and missing either leaves a default
+  in play:
+  1. asyncio's default executor, which every `asyncio.to_thread` call reaches —
+     `loop.set_default_executor(...)` once in a startup hook (safe here, unlike under Flask,
+     because the loop is long-lived and never torn down per request);
+  2. anyio's limiter, which Starlette uses to run the sync `def` route handlers — default 40
+     tokens, set via `anyio.to_thread.current_default_thread_limiter().total_tokens`.
+- **Turn the shim's wrapper into an offload here** (`ztf_viewer/callbacks.py`), in the same PR
+  that creates the pool. Until this point the wrapper runs callbacks inline, which is correct on
+  Flask and catastrophic on FastAPI: flipping the backend while it is still inline serializes
+  every callback onto the loop. Add a test asserting the wrapper offloads when the FastAPI
+  backend is selected, so the two cannot drift apart.
 - **`--workers 1`, decided.** One loop, one process: concurrency now comes from the loop rather
   than from replication, and a second worker mostly buys a second copy of the resident data — the
   148 MiB bayestar map plus its CSFD counterpart, per worker (F9 case 3). It also makes the
@@ -1145,8 +1162,13 @@ slow service cannot eat the shared thread pool:
   `MOCServerClass` (`vizier.py:17`), `Skybot` (`catalogs/skybot.py`)
 - `alerce.core.Alerce` (`conesearch/alerce.py:35`)
 - `antares_client.search` (`conesearch/antares.py:29`)
-- **Accept:** semaphore limits configurable; a test that a stalled upstream does not block
-  unrelated catalogs.
+- **Size the pool against fan-out width, not core count.** `aio-uvicorn` sets the number in
+  `config.py`; this is the PR that knows what it should be. One object page fans out to ~19
+  catalogs, so a pool sized like `cpu_count + 4` serializes a *single user's* page — the very
+  thing `aio-gather` exists to fix. The shape is fan-out width × expected concurrent pages, with
+  the per-upstream semaphores providing fairness so one slow service cannot take the pool.
+- **Accept:** semaphore limits configurable **from the same single place as the pool size**; a
+  test that a stalled upstream does not block unrelated catalogs.
 
 **`aio-dustmaps` — `dustmaps` → stays in-process; warm at startup instead** (F9 case 3):
 - Add a startup warm-up that constructs `BayestarQuery` / `CSFDQuery` once per worker, so no

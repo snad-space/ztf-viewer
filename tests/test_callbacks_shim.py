@@ -11,6 +11,7 @@ import inspect
 import os
 import subprocess
 import sys
+import threading
 import types
 from pathlib import Path
 
@@ -157,9 +158,16 @@ def test_no_runtime_warning_on_registration():
     assert "OK" in result.stdout
 
 
-def test_offload_pool_survives_successive_event_loops():
-    """Flask runs each request in its own ``asyncio.run()``, which shuts the loop's default
-    executor down on the way out — so the shim must not install its pool as that default."""
+def test_wrapper_runs_inline_on_the_awaiting_thread():
+    """No thread pool of the shim's own: a pool needs a configured size, and that arrives with
+    the backend flip. Reintroducing an offload here must be a deliberate, visible change."""
+    wrapped = _to_coroutine_function(threading.get_ident)
+
+    assert asyncio.run(wrapped()) == threading.get_ident()
+
+
+def test_wrapper_works_across_successive_event_loops():
+    """Flask builds a fresh loop per request, so the wrapper must not hold loop-affine state."""
     wrapped = _to_coroutine_function(lambda: "called")
 
     assert asyncio.run(wrapped()) == "called"
