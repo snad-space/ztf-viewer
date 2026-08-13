@@ -6,20 +6,13 @@ one loop per worker. Dash only checks ``inspect.iscoroutinefunction`` at registr
 wrapping here is enough to satisfy that constraint without touching a single callback body.
 """
 
-import contextvars
+import asyncio
 import functools
 import inspect
-from asyncio import get_running_loop
 from collections.abc import Callable
-from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from ztf_viewer.app import app
-
-#: Matches gunicorn's ``--threads=8`` (Dockerfile) so the offload pool can't outgrow prod.
-MAX_WORKERS = 8
-
-_executor = ThreadPoolExecutor(max_workers=MAX_WORKERS, thread_name_prefix="callback-offload")
 
 
 def _to_coroutine_function(func: Callable[..., Any]) -> Callable[..., Any]:
@@ -29,11 +22,7 @@ def _to_coroutine_function(func: Callable[..., Any]) -> Callable[..., Any]:
 
     @functools.wraps(func)
     async def wrapper(*args: Any, **kwargs: Any) -> Any:
-        # Submit to our own pool directly: registering it via set_default_executor would let
-        # Flask's per-request asyncio.run() shut it down at the end of the first request.
-        ctx = contextvars.copy_context()
-        call = functools.partial(ctx.run, func, *args, **kwargs)
-        return await get_running_loop().run_in_executor(_executor, call)
+        return await asyncio.to_thread(func, *args, **kwargs)
 
     return wrapper
 

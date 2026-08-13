@@ -279,7 +279,7 @@ call is waiting on a socket, burning CPU, or merely touching a large resident ar
    (measured on the mirror in `Dockerfile:50-56`) and `CSFDQuery` loads a comparable one, both
    held for the process lifetime. The query itself is a healpix array lookup — microseconds to
    low milliseconds. Move it to a `ProcessPoolExecutor` and every child loads its own copy:
-   with 2 uvicorn workers × 4 pool processes that is up to 8 × (bayestar + csfd), multiple GB,
+   with 4 pool processes that is up to 4 × (bayestar + csfd), multiple GB,
    to parallelize an array index. The IPC round-trip would likely cost more than the lookup.
    The existing `NO_LOCAL_3D_DUST_MAP` escape hatch (`config.py`, `bayestar.py`) is evidence
    that map memory has already been a pressure point. A dedicated single map-owning process
@@ -1061,8 +1061,14 @@ rollback is a one-line revert.
   subprocess by inspecting the caller frame (`dash/backends/_fastapi.py:384-470`), which is
   fragile for a `python -m` entry point.
 - `Dockerfile:73`: `gunicorn -w2 --threads=8 ...` →
-  `uvicorn ztf_viewer.__main__:app.server --host 0.0.0.0 --port 80 --workers 2`. Prefer plain
+  `uvicorn ztf_viewer.__main__:app.server --host 0.0.0.0 --port 80 --workers 1`. Prefer plain
   uvicorn over `gunicorn -k uvicorn.workers.UvicornWorker` — one fewer moving part.
+- **`--workers 1`, decided.** One loop, one process: concurrency now comes from the loop rather
+  than from replication, and a second worker mostly buys a second copy of the resident data — the
+  148 MiB bayestar map plus its CSFD counterpart, per worker (F9 case 3). It also makes the
+  in-process caches and `unavailable_catalogs` whole again: with two workers they are per-process
+  and half the hits are missed (F12.5). Revisit only against a load test that shows one loop
+  saturating a core, which is what settles open question 1.
 - **`.ci/docker-compose.yml.tmpl` must change too** (F11): it hardcodes its own gunicorn
   `entrypoint:`, which overrides the Dockerfile for every dev and PR deployment. Miss this and
   the flip passes CI, then fails to start on `master.ztf.snad.space`.
@@ -1150,8 +1156,8 @@ slow service cannot eat the shared thread pool:
   warm-up makes the race unlikely, the lock makes it impossible.
 - Query calls themselves need no offload. If profiling later shows the lookup is slower than
   assumed, a plain `to_thread` is the escalation — **not** a process pool.
-- **Accept:** worker RSS after warm-up measured and recorded (this is the number that decides
-  uvicorn worker count, open question 1); a concurrency test that hammers first-call
+- **Accept:** worker RSS after warm-up measured and recorded (with `--workers 1` this is the
+  whole app's footprint, not a per-worker multiple); a concurrency test that hammers first-call
   extinction from many tasks and allocates the map exactly once.
 
 ### `aio-gather` — Concurrent fan-out (the payoff)
@@ -1259,6 +1265,13 @@ Measure before moving; each may be cheaper to leave on a thread:
 - Remove the sync `timeout()` helper (`ztf_viewer/util.py:292`) and the sync `cache()`
   variant once nothing uses them.
 - Remove the `DASH_BACKEND` escape hatch and any remaining `flask[async]` extra.
+- **Retire `ztf_viewer/callbacks.py`.** The shim is transitional, not permanent. By this point the
+  I/O-bound callbacks are natively `async def` (the shim passes those through untouched) and the
+  sync-only third parties are offloaded explicitly with their own semaphores (`aio-offload-threads`),
+  so what the shim still wraps is mostly trivial presentation callbacks — for which a thread hop
+  and a context copy cost more than running inline on the loop. Unwrap those, keep native `async
+  def` for the rest, and either drop the callbacks-are-coroutines guard or replace it with the
+  narrower rule that actually matters: no callback performs blocking I/O.
 - Update `README.md`, `AGENTS.md` (run command, dev stack), `CHANGELOG.md`.
 - Add a small load-test script (`misc/`) so the concurrency claims stay verifiable.
 
@@ -1294,9 +1307,9 @@ Measure before moving; each may be cheaper to leave on a thread:
 
 Tick these off as they are answered.
 
-1. **Worker count under uvicorn.** Two blocking workers today. With async, is 2 still the
-   right number, or do we go to `cpu_count` and shrink the thread pool? Needs a load test
-   (the cleanup stack's script, ideally written early).
+1. ~~**Worker count under uvicorn.**~~ **Answered: `--workers 1`** (see `aio-uvicorn`). Still
+   worth a load test to confirm one loop does not saturate a core under real fan-out; the
+   cleanup stack's script is where that lives.
 2. **How much of the process-pool stack is real?** `aio-figures` is clearly justified; `aio-profile` is speculative until profiled.
    Do not build the pool for `aio-profile`'s sake alone.
 3. **Do we keep an HTTP fallback permanently** (`aio-ws` per-callback) or commit fully to WebSocket
