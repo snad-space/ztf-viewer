@@ -81,12 +81,19 @@ def test_ttl(redisdb) -> None:
 
 
 def test_ttl_prolongation(redisdb) -> None:
-    ttl_set = RedisTTLSet(client=redisdb, ttl=2)
+    ttl = 10
+    ttl_set = RedisTTLSet(client=redisdb, ttl=ttl)
+    key = ttl_set._encode(1)
+
     ttl_set.add(1)
-    assert len(ttl_set) == 1
-    time.sleep(1)
+    pttl_before = redisdb.pttl(key)
+
+    time.sleep(0.3)
+    pttl_after_wait = redisdb.pttl(key)
+    assert pttl_after_wait < pttl_before
+
     ttl_set.add(1)
-    time.sleep(1)
-    assert len(ttl_set) == 1
-    time.sleep(2)
-    assert len(ttl_set) == 0
+    pttl_after_readd = redisdb.pttl(key)
+    # Re-adding resets the TTL back up close to the full value.
+    assert pttl_after_readd > pttl_after_wait
+    assert (ttl * 1000 - 2000) < pttl_after_readd <= ttl * 1000

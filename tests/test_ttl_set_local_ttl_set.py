@@ -1,6 +1,7 @@
 import time
 
 import pytest
+from cachetools import TTLCache
 
 from ztf_viewer.ttl_set import LocalTTLSet
 
@@ -81,12 +82,23 @@ def test_ttl() -> None:
 
 
 def test_ttl_prolongation() -> None:
-    ttl_set = LocalTTLSet(maxsize=2, ttl=2)
+    clock = 0.0
+
+    def fake_timer() -> float:
+        return clock
+
+    ttl = 2
+    ttl_set = LocalTTLSet(maxsize=2, ttl=ttl)
+    ttl_set.ttl_cache = TTLCache(maxsize=2, ttl=ttl, timer=fake_timer)
+
     ttl_set.add(1)
     assert len(ttl_set) == 1
-    time.sleep(1)
-    ttl_set.add(1)
-    time.sleep(1)
+
+    clock += 1.5  # most of the way to the original expiry
+    ttl_set.add(1)  # re-add resets the TTL
+
+    clock += 1  # past the original expiry, before the new one
     assert len(ttl_set) == 1
-    time.sleep(1)
+
+    clock += 1  # past the new expiry
     assert len(ttl_set) == 0
