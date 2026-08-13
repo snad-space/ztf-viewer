@@ -1,6 +1,7 @@
 # 001 — Porting the ZTF Viewer to async (Dash 4 FastAPI backend)
 
-Status: in progress · foundations landed except the two optional test items, prep half-landed
+Status: in progress · foundations landed except the two optional test items; prep landed except
+`aio-ttlset`, which is next
 Baseline: `master` after `994874e`
 Now running: Flask backend, Python 3.14
 
@@ -49,9 +50,9 @@ merged by its author, and "ready for review" is a reviewer's signal, not the aut
 - [x] `aio-deflask` — `ctx.cookies` instead of `flask.request`; routes go through `web.py` — #633 `deflask`
 - [x] `aio-cache-core` — key derivation + value codec, no backend — #628 `cache-core`
 - [x] `aio-cache-sync` — reimplement sync `cache()`, drop `redis_lru` — #629 `cache-sync`
-- [ ] `aio-pytest-asyncio` — async test support — **moved ahead of `aio-cache-async`**, see below
-- [ ] `aio-cache-async` — make `cache()` dispatch on sync vs async, one shared store
-- [ ] `aio-cache-flight` — single-flight dedupe
+- [x] `aio-pytest-asyncio` — async test support — **moved ahead of `aio-cache-async`** — #636 `pytest-asyncio`
+- [x] `aio-cache-async` — make `cache()` dispatch on sync vs async, one shared store — #637 `cache-async`
+- [x] `aio-cache-flight` — single-flight dedupe — #638 `cache-flight`
 - [ ] `aio-ttlset` — async `unavailable_catalogs`
 
 **Async shell** — last stack on Flask
