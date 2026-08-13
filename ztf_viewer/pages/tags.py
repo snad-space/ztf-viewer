@@ -113,7 +113,7 @@ def show_tags(*_):
         html.Div(
             [
                 dcc.Input(
-                    id="new-tag-priority-input",
+                    id=dict(type="new-tag-priority-input", index=0),
                     value=max((tag["priority"] for tag in akb.get_tags()), default=-1) + 1,
                     type="number",
                     step=1,
@@ -124,7 +124,7 @@ def show_tags(*_):
                 " ",
                 dcc.Input(
                     value="",
-                    id="new-tag-name-input",
+                    id=dict(type="new-tag-name-input", index=0),
                     type="text",
                     size=20,
                     placeholder="Name of new tag",
@@ -133,7 +133,7 @@ def show_tags(*_):
                 " ",
                 dcc.Input(
                     value="",
-                    id="new-tag-description-input",
+                    id=dict(type="new-tag-description-input", index=0),
                     type="text",
                     size=80,
                     placeholder="Description of new tag",
@@ -159,9 +159,9 @@ def are_tags_priorities_unique(priorities):
     [
         State(dict(type="tag-priority-input", index=ALL), "id"),
         State(dict(type="tag-priority-input", index=ALL), "value"),
-        State("new-tag-priority-input", "value"),
-        State("new-tag-name-input", "value"),
-        State("new-tag-description-input", "value"),
+        State(dict(type="new-tag-priority-input", index=ALL), "value"),
+        State(dict(type="new-tag-name-input", index=ALL), "value"),
+        State(dict(type="new-tag-description-input", index=ALL), "value"),
     ],
 )
 def set_save_status(n_clicks, tags, priorities, new_priority, new_name, new_description):
@@ -169,6 +169,10 @@ def set_save_status(n_clicks, tags, priorities, new_priority, new_name, new_desc
         raise PreventUpdate
     if not akb.is_token_valid():
         return "Error: unauthorised"
+    # New-tag inputs are only rendered when logged in, so the pattern-matching State lists are empty otherwise.
+    new_priority = new_priority[0] if new_priority else None
+    new_name = new_name[0] if new_name else ""
+    new_description = new_description[0] if new_description else ""
     tags = [dict(name=tag_id["index"], priority=priority) for tag_id, priority in zip(tags, priorities)]
     if new_name:
         if not is_tag_name_correct(new_name):
