@@ -16,7 +16,7 @@ Please use [the GitHub issue tracker](https://github.com/snad-space/ztf-viewer/i
 Environment variables to configure the server, see default values in `config.py`:
 - `CACHE_TYPE`: cache type, specify `redis` to use [redis](https://redis.io) server, or `memory` to use in-process cache
 - `UNAVAILABLE_CATALOGS_CACHE_TYPE`: unavailable catalog cache type, specify `redis` to use [redis](https://redis.io) server, or `memory` to use in-process cache
-- `REDIS_URL`: redis server address
+- `REDIS_URL`: redis server address (Redis 6.2+ required)
 - `LC_API_URL`: SNAD ZTF database API address
 - `AKB_API_URL`: knowledge database address
 - `FEATURES_API_URL`: feature extraction service address
