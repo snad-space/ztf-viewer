@@ -18,6 +18,7 @@ from ztf_viewer.cache.core import (
     cache_key_for_call,
     decode_value,
     encode_value,
+    function_id,
 )
 
 
@@ -26,6 +27,9 @@ def make_cache(backend):
 
     def cache():
         def decorator(func):
+            # Fail at import time, not on first call.
+            function_id(func)
+
             if inspect.iscoroutinefunction(func):
                 raise TypeError(
                     f"cache() cannot wrap the coroutine function {func.__qualname__}: it would cache the "

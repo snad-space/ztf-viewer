@@ -24,6 +24,7 @@ never read each other's entries.
 ``self`` is deliberately encoded by neither content nor identity — see ``encode_self``.
 """
 
+import functools
 import pickle
 from collections.abc import Mapping, Set
 from hashlib import blake2b
@@ -162,8 +163,25 @@ def encode_arguments(args=(), kwargs=None, *, method_class: type | None = None) 
 
 
 def function_id(func) -> str:
-    """``module.qualname`` — the identity of a ``@cache()`` site."""
-    return f"{getattr(func, '__module__', None)}.{getattr(func, '__qualname__', func.__name__)}"
+    """``module.qualname`` — the identity of a ``@cache()`` site.
+
+    Raises ``TypeError`` for anything it cannot identify that way.
+    """
+    if isinstance(func, functools.partial):
+        raise TypeError(
+            f"cache() cannot key {func!r}: a functools.partial's bound arguments are invisible "
+            "to key derivation, so two partials of the same function would share one cache "
+            "entry. Decorate the underlying function instead and pass those arguments at the "
+            "call site."
+        )
+    module = getattr(func, "__module__", None)
+    name = getattr(func, "__qualname__", None)
+    if name is None or not hasattr(func, "__name__"):
+        raise TypeError(
+            f"cache() cannot key {func!r}: the key is derived from module.qualname, which "
+            "requires both __name__ and __qualname__, and this callable is missing one."
+        )
+    return f"{module}.{name}"
 
 
 def self_class(func, wrapper, args) -> type | None:
