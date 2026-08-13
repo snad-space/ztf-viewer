@@ -4,7 +4,7 @@ The routes in `ztf_viewer/pages/{figure,lc_csv,favicon}.py` are registered with
 `@app.server.route(...)` rather than as Dash callbacks, so they talk to the WSGI/ASGI backend
 directly instead of through `dash.ctx`. Today that backend is Flask, and this module is the
 *only* place allowed to `import flask` (enforced by a repo-wide grep / AST guard) so that a
-later swap to Starlette (`aio-starlette-web`) touches this one file instead of every route.
+later swap to Starlette touches this one file instead of every route.
 
 Call sites should only use the names exported here, never `flask` directly.
 """

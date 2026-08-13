@@ -116,7 +116,7 @@ def _normalize(obj):
 def encode_self(instance):
     """Normalize the ``self`` argument of a cached method.
 
-    **Decision (plan 001, F12.5 / open question 8): key on the class, not on the instance.**
+    **Decision: key on the class, not on the instance.**
     Every cached method in this app lives on a module-level singleton whose per-instance state
     is API sessions, client objects and timeout decorators — none of which change the result of
     a call.  Keying on ``id(self)`` (which is what both backends do today, directly or through
@@ -147,7 +147,7 @@ def encode_arguments(args=(), kwargs=None, *, method_class: type | None = None) 
             this = encode_self(args[0])
             args = args[1:]
         # Kwargs are sorted by name, and the *name* is part of the encoding: `f(min_mjd=x)` and
-        # `f(max_mjd=x)` are different calls (plan 001, F12.2).
+        # `f(max_mjd=x)` are different calls.
         keywords = [(name, _normalize(value)) for name, value in sorted(kwargs.items())]
         return _dumps((this, _normalize(tuple(args)), keywords))
     except RecursionError as e:  # only reachable for self-referential arguments

@@ -1,37 +1,16 @@
 """Contract tests for ``ztf_viewer.cache.cache()``.
 
-This file is the *spec* for the cache sub-stack rewrite (plan 001, ``aio-cache-spec``):
-it is written against today's implementation (``redis_lru`` / ``cachetools.cached``) and the
-rewrite (``aio-cache-core`` → ``aio-cache-sync`` → ``aio-cache-async`` → ``aio-cache-flight``)
-must keep it green **without editing a single line here**.
+Black-box spec through the public ``cache()`` decorator only: no test asserts a literal key
+string, only observable hit/miss behavior via call counts on the wrapped function. The only
+implementation seam relied on is ``ztf_viewer.cache._get_cache()`` plus the module-level
+``CACHE_TYPE`` / ``TTL`` names (also used by ``tests/conftest.py``); the Redis client
+constructor is stubbed to point at the ``pytest-redis`` server.
 
-Consequences for how these tests are written:
+The Redis half needs ``pytest-redis``; on macOS the default temp dir makes the fixture's
+unix socket path too long, so run pytest with ``--basetemp=/tmp/pytest``.
 
-* Everything is black-box, through the public ``cache()`` decorator.  Nothing here knows about
-  ``redis_lru``, about ``cachetools``, or about the key format.  In particular no test asserts a
-  literal key string: the key *scheme* changes at ``aio-cache-sync`` (existing Redis entries
-  become unreachable — an accepted cold start).  What is asserted instead are the observable
-  properties a key scheme must have: equal arguments hit, different arguments miss, different
-  functions do not collide.
-* "Hit" and "miss" are observed by counting calls of the wrapped function, never by inspecting
-  the backing store.
-* The only implementation seam this file relies on is the ability to build a decorator with a
-  chosen backend and TTL, via ``ztf_viewer.cache._get_cache()`` plus the module-level
-  ``CACHE_TYPE`` / ``TTL`` names (the same seam ``tests/conftest.py`` already uses).  The rewrite
-  must keep those three names working; everything else about the module is free to change.  For
-  the Redis backend the client constructor is stubbed out to point at the ``pytest-redis``
-  server, which is the one place a rewrite might need a different stub (never a different
-  assertion).
-* The Redis half needs ``pytest-redis``, as in ``tests/test_ttl_set_redis_ttl_set.py``.  On macOS
-  the default temporary directory makes the fixture's unix socket path too long, so run pytest
-  with ``--basetemp=/tmp/pytest`` locally (this is pre-existing, and applies to the ``ttl_set``
-  tests too).
-* Seven of these tests **fail on today's implementation**, each marked with a ``FAILS TODAY``
-  comment naming the branch that fixes it (``cache-sync``, except the ``self``-keying one, which
-  is ``cache-core``).  They are plain failures rather than ``xfail`` on purpose: a known defect
-  recorded as ``xfail`` never turns CI red, so nothing forces the fix except someone remembering
-  to look.  The consequence is that this file is red until the fix lands on top of it; it is
-  meant to be read as the bottom of that stack.
+Some tests are marked ``FAILS TODAY`` and are expected to fail against today's
+implementation — plain failures rather than ``xfail``, so they can't silently rot.
 """
 
 import time
