@@ -1,14 +1,9 @@
-"""Golden HTTP-surface tests (plan 001, ``aio-golden-http``).
+"""Golden HTTP-surface tests.
 
-These pin the parts of the route responses that the FastAPI/Starlette flip
-(``aio-fastapi-app`` through ``aio-uvicorn``) is likely to break, and that this repository
-actually controls. There is deliberately no HTTP replay/fixture layer here (the original plan
-sketched one; it was dropped) — so **only assertions about what we produce are in scope**:
-status codes, headers, content types, ``Content-Disposition``, CSV header rows and column sets,
-and file magic bytes. Anything whose expected value is really a third party's payload (exact CSV
-data rows, exact PNG/PDF bytes, the full Dash index HTML) is explicitly out of scope: it would go
-red for reasons outside this repo, which is exactly the noise ``tests/conftest.py``'s ``upstream``
-marker (see #632, ``robust-upstream-tests``) just finished eliminating everywhere else.
+Pin the parts of route responses this repository actually controls: status codes, headers,
+content types, ``Content-Disposition``, CSV header rows/column sets, and file magic bytes.
+Anything that is really a third party's payload (exact CSV data rows, exact PNG/PDF bytes,
+the full Dash index HTML) is out of scope — it would go red for reasons outside this repo.
 
 Split by what a test needs:
 
@@ -23,11 +18,9 @@ Left out entirely, and why:
 
 * Byte-exact CSV data rows and byte-exact PNG/PDF content — pure upstream/library payload, not
   ours to pin (matplotlib and LaTeX output is not reproducible across versions either).
-* The Pan-STARRS and Gaia CSV "friends" of ``/dr24/csv/<oid>``. They share the same
+* The Pan-STARRS and Gaia CSV "friends" of ``/dr24/csv/<oid>``: they share the same
   ``_lc_to_csv_response`` helper in ``ztf_viewer/pages/lc_csv.py`` as the Antares route exercised
-  below, which already covers that code path; finding a Pan-STARRS ``objID`` / Gaia ``source_id``
-  that is guaranteed to stay resolvable is exactly the kind of elaborate, fragile mechanism the
-  plan asks to avoid in favour of a thin, honest test.
+  below, which already covers that code path.
 * Full Dash index HTML snapshots for any page route — Dash's index is not a stable golden and
   would churn on every Dash upgrade for reasons with nothing to do with this repo's routing.
 """
@@ -78,12 +71,10 @@ def dash_app():
 def client(dash_app):
     """A WSGI/ASGI test client for the Dash server, independent of the backend.
 
-    Today ``app.server`` is a Flask app (``.test_client()``). After the FastAPI/Starlette flip
-    (``aio-fastapi-app`` onward) it becomes an ASGI app; Starlette's own
-    ``starlette.testclient.TestClient`` wraps *any* ASGI app behind a near-identical,
-    httpx-based interface (``client.get(path)``, ``response.status_code``, ``response.headers``).
-    Try the WSGI method first, since that is today's backend; fall back to the ASGI client so this
-    file needs no edits after the flip.
+    Today ``app.server`` is a Flask app (``.test_client()``). A future ASGI backend would work
+    via ``starlette.testclient.TestClient``, which wraps any ASGI app behind a near-identical,
+    httpx-based interface. Try WSGI first, since that is today's backend; fall back to ASGI so
+    this file needs no edits if that flip happens.
     """
     server = dash_app.server
     if hasattr(server, "test_client"):
@@ -103,8 +94,8 @@ def _content_type(response):
 
 
 # --------------------------------------------------------------------------------------------
-# 1. /static -- the single highest-value test: catches F2 (bare FastAPI() has no /static at all)
-#    and the Flask-vs-Starlette cache-header difference (the "/static design note").
+# 1. /static -- the single highest-value test: catches a bare app with no /static route at all,
+#    and the Flask-vs-Starlette cache-header difference.
 # --------------------------------------------------------------------------------------------
 
 
@@ -120,20 +111,14 @@ def test_static_logo_is_mounted(client):
 
 
 def test_static_js9_js9_min_js(client):
-    """JS9 is installed into `ztf_viewer/static/js9/` at image build time (Dockerfile:14-22,
-    merged into `/app/ztf_viewer/static/js9` *after* `COPY ztf_viewer /app/ztf_viewer/` since
-    Docker COPY merges directories rather than replacing them) -- so the file exists in CI's
-    Docker build but generally not in a local checkout. Skip locally with a clear reason; this
-    must genuinely run in CI (verified against the Dockerfile, not assumed).
+    """JS9 is installed into `ztf_viewer/static/js9/` at image build time, so the file exists in
+    CI's Docker build but generally not in a local checkout. Skip locally with a clear reason;
+    this must genuinely run in CI.
 
-    The header assertions are the actual regression net: F2 is "FastAPI() has no /static route at
-    all" (this request would 404 into the Dash catch-all instead of 200), and the design note's
-    concern is that Starlette's StaticFiles only sends ETag/Last-Modified while Flask sends a
-    Cache-Control. Measured against today's Flask 3.1: Flask's `send_file` already sends
-    `Cache-Control: no-cache` (not `max-age=...` as the design note assumed -- worth a plan
-    correction, Flask's default changed) *plus* ETag/Last-Modified, so the two backends are
-    already closer than the note expected. Pin what we see today so any regression -- losing the
-    route, or losing every header -- is caught.
+    The header assertions are the real regression net: a missing /static route would 404 into
+    the Dash catch-all instead of returning 200, and a future ASGI backend's StaticFiles sends
+    only ETag/Last-Modified where Flask 3.1's `send_file` sends `Cache-Control: no-cache` plus
+    ETag/Last-Modified. Pin what we see today so losing the route or losing headers is caught.
     """
     js9_path = _PACKAGE_ROOT / "static" / "js9" / "js9.min.js"
     if not js9_path.exists():

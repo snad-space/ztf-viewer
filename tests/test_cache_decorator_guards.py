@@ -1,17 +1,13 @@
-"""Guards on how the cache decorators are applied (F3 in ``plans/001_async_dash.md``).
+"""Guards on how the cache decorators are applied.
 
-Both tests describe what is *supposed* to hold today, not a future state.
+``@cache()`` applied to an ``async def`` stores the coroutine object instead of the result, so
+a second hit returns an already-awaited coroutine, which raises instead of returning the
+cached value. The first test asserts nothing in the codebase does this; the second asserts the
+decorator refuses it outright.
 
-``@cache()`` wraps a function and stores its return value.  Applied to an
-``async def`` it stores the **coroutine object** instead of the result, so the
-second hit returns a coroutine that has already been awaited — which raises
-rather than returning the cached value.  Nothing in the codebase does this yet,
-and the first test makes sure it stays that way; the second asserts that the
-decorator refuses outright, so the mistake cannot reach a review at all.
-
-``test_sync_cache_rejects_a_coroutine_function`` fails on today's
-``redis_lru``/``cachetools`` implementation, which accepts the coroutine
-silently.  That is a real defect, fixed by the ``cache-sync`` branch.
+``test_sync_cache_rejects_a_coroutine_function`` fails on today's ``redis_lru``/``cachetools``
+implementation, which accepts the coroutine silently — a real defect, fixed by the
+``cache-sync`` branch.
 """
 
 import ast

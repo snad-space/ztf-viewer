@@ -1,9 +1,8 @@
-"""Unit tests for the backend-independent cache core (plan 001, ``aio-cache-core``).
+"""Unit tests for the backend-independent cache core.
 
 ``tests/test_cache_contract.py`` is the black-box spec for the ``@cache()`` decorator and says
-nothing about key format; this file tests the pure functions underneath it directly — the
-properties the decorator relies on but cannot observe, above all that a key is a deterministic
-function of the call rather than of ``hash()``.
+nothing about key format; this file tests the key-building functions directly, above all that
+a key is a deterministic function of the call rather than of ``hash()``.
 """
 
 import os
@@ -65,7 +64,7 @@ def test_key_contains_the_function_id():
 
 
 def test_distinct_functions_get_distinct_keys():
-    """Plan 001, F12.1: the function is part of the key on every backend."""
+    """The function is part of the key on every backend."""
     assert cache_key(some_function, (1, "dr23")) != cache_key(another_function, (1, "dr23"))
 
 
@@ -119,7 +118,6 @@ def test_key_is_a_deterministic_function_of_the_arguments():
 
 
 def test_kwarg_names_are_part_of_the_key():
-    """Plan 001, F12.2."""
     assert key(min_mjd=58000.0) != key(max_mjd=58000.0)
 
 
@@ -199,7 +197,7 @@ def test_immutabledefaultdict_missing_key_lookup_does_not_change_the_key():
 
 
 def test_unhashable_arguments_are_keyed_rather_than_rejected():
-    """Plan 001, F12.4: neither backend may raise, and content is better than a bypass."""
+    """Neither backend may raise, and content is better than a bypass."""
     assert key([1, 2, 3]) == key([1, 2, 3])
     assert key([1, 2, 3]) != key([1, 2])
     assert key({"a": [1]}) == key({"a": [1]})
@@ -297,7 +295,7 @@ def test_self_class_ignores_a_staticmethod():
 
 
 def test_method_key_ignores_instance_identity_but_not_the_class():
-    """Plan 001, F12.5 decision: cached methods key on the class."""
+    """Cached methods key on the class."""
     first = Recorder(session=object())
     second = Recorder(session=object())
     other = OtherRecorder(session=object())

@@ -1,8 +1,8 @@
-"""Decorator-level tests for the sync ``cache()`` (plan 001, ``aio-cache-sync``).
+"""Decorator-level tests for the sync ``cache()``.
 
 ``tests/test_cache_contract.py`` is the spec and covers hit/miss/TTL/value fidelity on both
-backends.  This file covers what the spec deliberately does not: the guards and the escape
-hatches that are properties of *this* implementation rather than of any cache.
+backends. This file covers what the spec deliberately does not: guards and escape hatches
+specific to this implementation rather than to any cache.
 """
 
 import pytest
@@ -20,7 +20,7 @@ def cache(monkeypatch):
 
 
 def test_cache_rejects_a_coroutine_function(cache):
-    """Plan 001, F3: caching a coroutine object hands out an exhausted awaitable."""
+    """Caching a coroutine object would hand out an exhausted awaitable."""
 
     async def coro():
         return 1

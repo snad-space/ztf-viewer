@@ -5,7 +5,7 @@ Keying and serialization live in :mod:`ztf_viewer.cache.core`; the stores live i
 ``get(key)`` and ``set(key, blob)`` over pickled bytes.
 
 This replaces ``redis_lru``/``cachetools.cached``, whose behaviour differed between backends in
-five ways (plan 001, F12); ``tests/test_cache_contract.py`` is the spec.
+five ways; ``tests/test_cache_contract.py`` is the spec.
 """
 
 import functools

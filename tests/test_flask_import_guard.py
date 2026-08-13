@@ -1,10 +1,9 @@
-"""Guard that Flask coupling stays confined to ``ztf_viewer/web.py`` (F4/F5 in
-``plans/001_async_dash.md``, reassigned to this branch by PR #626).
+"""Guard that Flask coupling stays confined to ``ztf_viewer/web.py``.
 
-``ztf_viewer/web.py`` is the seam a later PR (``aio-starlette-web``) will swap to Starlette
-without touching any call site. That only works if nothing else in the package imports
-``flask`` directly. This is a plain passing assertion, not an ``xfail``: after ``aio-deflask``
-it simply holds, and the point of the test is to catch a future reintroduction.
+``ztf_viewer/web.py`` is the seam a later PR can swap to Starlette without touching any call
+site — that only works if nothing else in the package imports ``flask`` directly. This is a
+plain passing assertion, not an ``xfail``: it holds today, and the point of the test is to
+catch a future reintroduction.
 """
 
 import ast
