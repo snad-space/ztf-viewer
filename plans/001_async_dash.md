@@ -42,14 +42,15 @@ merged by its author, and "ready for review" is a reviewer's signal, not the aut
       **corrected the callback count, see F1a′**.
       - no `import flask` outside `web.py` → `aio-deflask`
       - every `callback_map` entry is a coroutine → `aio-shim`
-      - `@acache()` guards → `aio-cache-async`
+      - the async-decorator guards → **dropped**: `aio-cache-async` makes `cache()` dispatch instead, so
+        the choice a guard would police no longer exists
 
 **Prep** — backend-neutral, on Flask
 - [x] `aio-deflask` — `ctx.cookies` instead of `flask.request`; routes go through `web.py` — #633 `deflask`
 - [x] `aio-cache-core` — key derivation + value codec, no backend — #628 `cache-core`
 - [x] `aio-cache-sync` — reimplement sync `cache()`, drop `redis_lru` — #629 `cache-sync`
 - [ ] `aio-pytest-asyncio` — async test support — **moved ahead of `aio-cache-async`**, see below
-- [ ] `aio-cache-async` — add `acache()`, key-compatible with the sync one
+- [ ] `aio-cache-async` — make `cache()` dispatch on sync vs async, one shared store
 - [ ] `aio-cache-flight` — single-flight dedupe
 - [ ] `aio-ttlset` — async `unavailable_catalogs`
 
@@ -430,8 +431,8 @@ master
       └─ aio-deflask          drop direct flask coupling
          └─ aio-cache-core     keying + codec, no backend
             └─ aio-cache-sync    reimplement sync cache, drop redis_lru
-               └─ aio-pytest-asyncio  async test support (moved up: acache() needs it)
-                  └─ aio-cache-async   add acache()
+               └─ aio-pytest-asyncio  async test support (moved up: the async cache needs it)
+                  └─ aio-cache-async   cache() dispatches on sync vs async
                      └─ aio-cache-flight  single-flight
                         └─ aio-ttlset        async unavailable_catalogs
                            └─ aio-shim          all callbacks become coroutines
@@ -787,11 +788,13 @@ for a coherent reason: those describe **today's** behaviour including its defect
 real specification; these described tomorrow's.
 
 **What landed** (the subset that already holds today, so it is an ordinary passing test):
-- `@cache()` is never applied to a coroutine function and `@acache()` never to a plain one — an
-  `ast` scan over the package (F3);
+- `@cache()` is never applied to a coroutine function — an `ast` scan over the package (F3);
 - the sync `cache()` decorator itself should *refuse* a coroutine function. This one **failed**
   on merge — today's `redis_lru`/`cachetools` accepts it silently — and was fixed by
   `aio-cache-sync`.
+
+Both were **deleted again by `aio-cache-async`**, which makes `cache()` dispatch on the kind of
+function it wraps: there is no longer a choice for a guard to police.
 
 **What was reassigned**, each to be written as a plain passing assertion in the PR that makes it
 true:
@@ -803,7 +806,9 @@ true:
   importing `ztf_viewer.__main__`; a static source scan cannot work, because after `aio-shim` the
   source still says `def` and the wrapping happens at registration time. The import is
   session-scoped, does no network or Redis I/O, and costs ~0 s marginally inside the full suite.
-- **`acache()` guards → `aio-cache-async`**, once the symbol exists.
+- **The async-decorator guards → dropped.** `aio-cache-async` makes the single `cache()` dispatch on
+  `inspect.iscoroutinefunction`, so there is no longer a wrong decorator to pick and nothing for
+  a guard to police.
 
 Two guards from the original list are worth keeping wherever they land, because they are
 permanent facts rather than migration states: that `inspect.iscoroutinefunction` really does see
@@ -901,11 +906,14 @@ stack rather than one big rewrite. Spec is `aio-cache-spec`, written first and u
   - Rationale for dropping `redis_lru`: it is a thin LRU-over-Redis wrapper with no async
     path, it is the direct cause of F12.2 and F12.3, and we need deterministic keys of our own
     anyway.
-- **`aio-cache-async` — Add `acache()`** (and, with it, the `@acache()`-on-a-plain-`def` guard,
-  which becomes writable as a passing test only once the symbol exists) on `redis.asyncio` + an `asyncio.Lock`-guarded `TTLCache`, sharing
-  `aio-cache-core`'s core so sync and async entries are *key-compatible* (a value cached by a sync caller
-  is a hit for an async one — this matters during the async-I/O stack, when some callers are converted and
-  others are not). Resources come from `aio-loop-registry`'s per-loop registry (F1c).
+- **`aio-cache-async` — Make `cache()` dispatch.** One public decorator: `cache()` inspects the
+  function it wraps (`inspect.iscoroutinefunction`, which sees through `functools.partial`, F1a')
+  and routes to an internal sync factory or an async one on `redis.asyncio` + an
+  `asyncio.Lock`-guarded `TTLCache`. Both share `aio-cache-core`'s core so entries are
+  *key-compatible* regardless of which path wrote them (a value cached via a sync call is a hit
+  for an async one — this matters during the async-I/O stack, when some callers are converted and
+  others are not). No call site ever chooses a decorator, so the F3 mistake is unreachable rather
+  than merely guarded against. Resources come from `aio-loop-registry`'s per-loop registry (F1c).
 - **`aio-cache-flight` — Single-flight.** Coalesce concurrent identical misses behind one shared future, on
   both decorators. Separate PR because it is the only part with genuinely subtle concurrency
   semantics (exception propagation to all waiters, cancellation of the leader, no cross-loop
@@ -993,7 +1001,7 @@ Per F1c, prerequisite for anything in the async-I/O stack to work on both backen
 - Any `httpx.AsyncClient`, `redis.asyncio` pool, `asyncio.Semaphore` or `Lock` is created
   lazily through a small registry keyed by `id(asyncio.get_running_loop())`, with cleanup on
   loop close; never at import time.
-- Retrofit the cache sub-stack's `acache()` and `aio-ttlset`'s async TTL set onto that registry.
+- Retrofit the cache sub-stack's async path and `aio-ttlset`'s async TTL set onto that registry.
 - **Accept:** a test that acquires each resource under two successive
   `asyncio.run(...)` calls (simulating Flask's per-request loop) without error, and a test
   that a single long-lived loop reuses one instance (simulating FastAPI).
@@ -1096,7 +1104,7 @@ never intend to run.
   `catalog=` kwarg, matching today's `_base.py:108` behaviour.
 
 ### `aio-snad-apis` — First-party services (highest value, lowest risk — all plain JSON over HTTP)
-Convert to `async def` + `@acache()`:
+Convert to `async def` — the `@cache()` line stays as it is:
 - `ztf_viewer/catalogs/ztf_dr.py` — `FindZTFOID.find` (`:42`), `FindZTFCircle.find` (`:100`),
   and the `get_lc` / `get_meta` / `get_coord*` accessors that call them. This one is on the
   critical path of nearly every callback.
@@ -1104,7 +1112,7 @@ Convert to `async def` + `@acache()`:
 - `ztf_viewer/model_fit.py` (`:12`, `:27`, `:86`) — also replaces the bare
   `requests.post`/`requests.get` and their `print()` error reporting with `logging`.
 - `ztf_viewer/akb.py` — all of it; note `whoami` uses `cachetools.cached` directly
-  (`:111`, `:129`), which becomes `@acache()`.
+  (`:111`, `:129`), which becomes `@cache()`.
 - `ztf_viewer/catalogs/ztf_ref.py` (`:41`) — fetch bytes with httpx, then parse the FITS from
   an in-memory buffer instead of letting `astropy.io.fits.open` do its own blocking URL
   fetch; parsing itself moves to a thread (or the process-pool stack's pool).
@@ -1261,7 +1269,7 @@ Measure before moving; each may be cheaper to leave on a thread:
 | --- | --- |
 | Sync callback silently blocks the loop after the flip (F1) | `aio-shim`'s shim makes every callback a coroutine; a test asserts the invariant over `app.callback_map`, so a newly added sync callback fails CI rather than production |
 | A callback added between `aio-shim` and `aio-uvicorn` bypasses the shim | The invariant test above catches it; also make `ztf_viewer/callbacks.py` the only sanctioned import and lint for direct `app.callback` use |
-| Cache decorator applied to a coroutine (F3) | `cache()` raises `TypeError` on a coroutine function; `acache()` raises on a plain function. Both covered by tests |
+| Cache decorator applied to a coroutine (F3) | No longer reachable: `cache()` dispatches on `inspect.iscoroutinefunction` instead of requiring the caller to pick a decorator. Covered by tests |
 | Golden snapshots recorded through a colliding memory cache, baking a wrong value in as the spec (F12.1) | Record `aio-golden-callbacks` snapshots with caching disabled, or after `aio-cache-sync` fixes the shared keyspace — not merely with the cache cleared between tests |
 | The cache rewrite silently preserves one of today's defects (F12) | The five defects are recorded as named `xfail`s in `aio-cache-spec`; `aio-cache-sync`'s accept criterion is that F12.1–F12.4 turn XPASS, so preserving a bug fails the criterion rather than passing quietly |
 | `aio-shim` misses the 19 loop-registered `set_table` callbacks (F1a′) | The invariant asserts over all 57 registrations, not the 39 source sites, so a missed loop fails CI |

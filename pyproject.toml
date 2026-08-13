@@ -86,10 +86,16 @@ ztf_viewer = [
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-addopts = "-ra -q"
+# -p pytester: bundled, off by default; tests/test_async_support.py runs pytest inside pytest.
+addopts = "-ra -q -p pytester"
 testpaths = [
     "tests",
 ]
+# "auto": an `async def test_` needs no per-test marker.
+asyncio_mode = "auto"
+# Explicit because the default is deprecated; a fresh loop per test also matches Flask's
+# per-request loop (plan 001, F1c), so a leaked loop-affine resource fails here.
+asyncio_default_fixture_loop_scope = "function"
 
 [tool.black]
 line-length = 120
@@ -113,6 +119,9 @@ deploy = [
     "gunicorn>=26.0.0",
 ]
 tests = [
+    # A test dependency until the FastAPI backend makes it a real one.
+    "httpx",
     "pytest>=9.1.1",
+    "pytest-asyncio>=1.0",
     "pytest-redis>=4.0.0",
 ]

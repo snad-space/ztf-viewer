@@ -6,6 +6,8 @@ RUN apt update \
 WORKDIR /app
 RUN uv sync --locked --group tests --group deploy
 
-COPY tests /tests
+# Under /app, so pytest finds pyproject.toml walking up and applies [tool.pytest.ini_options];
+# from /tests the rootdir was / and every option there was silently ignored.
+COPY tests /app/tests
 
-ENTRYPOINT ["python", "-m", "pytest", "/tests"]
+ENTRYPOINT ["python", "-m", "pytest", "/app/tests"]
