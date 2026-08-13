@@ -1,8 +1,22 @@
+"""TTL-bounded sets: a local in-memory backend and a Redis-backed one, each with an async variant.
+
+The sync classes (`LocalTTLSet`, `RedisTTLSet`, `RedisTTLStringSet`) implement
+`collections.abc.MutableSet`. The async ones (`AsyncLocalTTLSet`, `AsyncRedisTTLSet`,
+`AsyncRedisTTLStringSet`) are deliberately not `MutableSet`s: `__contains__`, `__len__` and
+`__iter__` cannot be made awaitable, so there is no async counterpart to that interface. Instead
+they expose plain async methods with names chosen to read naturally with `await`: `add`,
+`discard`, `remove`, `clear`, `contains`, `size`, `values`.
+"""
+
+import asyncio
 import pickle
+import threading
+import weakref
 from abc import ABC, abstractmethod
 from collections.abc import MutableSet
-from typing import Generic, Hashable, Iterator, TypeVar
+from typing import Callable, Generic, Hashable, Iterator, TypeVar
 
+import redis.asyncio
 from cachetools import TTLCache
 from redis import StrictRedis
 
@@ -108,6 +122,127 @@ class RedisTTLSet(_BaseTTLSet[_T_Redis], Generic[_T_Redis]):
 
 
 class RedisTTLStringSet(RedisTTLSet[str]):
+    def _encode(self, value: str) -> bytes:
+        return self.prefix + value.encode()
+
+    def _decode(self, key: bytes) -> str:
+        return key.removeprefix(self.prefix).decode()
+
+
+_T_AsyncLocal = TypeVar("_T_AsyncLocal", bound=Hashable)
+
+
+class AsyncLocalTTLSet(Generic[_T_AsyncLocal]):
+    """Async facade over :class:`LocalTTLSet`.
+
+    `LocalTTLSet` is pure in-memory and never blocks, so there is nothing here to actually await
+    — this exists only so a caller can use the same awaitable method names regardless of which
+    backend `unavailable_catalogs` was configured with.
+    """
+
+    def __init__(self, local: "LocalTTLSet[_T_AsyncLocal] | None" = None, *, maxsize: int = 0, ttl: int = 0):
+        self._local = local if local is not None else LocalTTLSet(maxsize=maxsize, ttl=ttl)
+
+    async def add(self, value: _T_AsyncLocal) -> None:
+        self._local.add(value)
+
+    async def discard(self, value: _T_AsyncLocal) -> None:
+        self._local.discard(value)
+
+    async def remove(self, value: _T_AsyncLocal) -> None:
+        self._local.remove(value)
+
+    async def clear(self) -> None:
+        self._local.clear()
+
+    async def contains(self, value: _T_AsyncLocal) -> bool:
+        return value in self._local
+
+    async def size(self) -> int:
+        return len(self._local)
+
+    async def values(self) -> list[_T_AsyncLocal]:
+        return list(self._local)
+
+
+_T_AsyncRedis = TypeVar("_T_AsyncRedis")
+
+
+class AsyncRedisTTLSet(Generic[_T_AsyncRedis]):
+    """Async counterpart to :class:`RedisTTLSet`, on ``redis.asyncio``.
+
+    A connection pool is bound to the loop that created it, so the client is built lazily per
+    running loop rather than once in ``__init__`` — mirrors ``AsyncRedisBackend`` in
+    ``ztf_viewer/cache/redis.py``; keep the two in sync if that pattern changes.
+
+    Nothing here does I/O in ``__init__``.
+    """
+
+    def __init__(
+        self,
+        ttl: int,
+        client_factory: Callable[[], "redis.asyncio.Redis"],
+        prefix: str = "RedisTTLSet",
+    ):
+        self.ttl = ttl
+        self._client_factory = client_factory
+
+        self.prefix = prefix.encode()
+        if b"*" in self.prefix:
+            raise ValueError('prefix must not contain "*"')
+
+        self._clients: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()
+        self._registry_lock = threading.Lock()
+
+    def _client(self) -> "redis.asyncio.Redis":
+        loop = asyncio.get_running_loop()
+        # threading.Lock, not asyncio: the WeakKeyDictionary itself is shared across threads, one loop each.
+        with self._registry_lock:
+            client = self._clients.get(loop)
+            if client is None:
+                client = self._clients[loop] = self._client_factory()
+        return client
+
+    def _encode(self, value: _T_AsyncRedis) -> bytes:
+        serialized = pickle.dumps(value, protocol=pickle.HIGHEST_PROTOCOL)
+        return self.prefix + serialized
+
+    def _decode(self, key: bytes) -> _T_AsyncRedis:
+        return pickle.loads(key.removeprefix(self.prefix))
+
+    async def add(self, value: _T_AsyncRedis) -> None:
+        key = self._encode(value)
+        # `set(..., ex=)` rather than the deprecated `setex`, matching the cache's Redis backend.
+        await self._client().set(key, 0, ex=self.ttl)
+
+    async def discard(self, value: _T_AsyncRedis) -> None:
+        key = self._encode(value)
+        await self._client().delete(key)
+
+    async def remove(self, value: _T_AsyncRedis) -> None:
+        key = self._encode(value)
+        if await self._client().getdel(key) is None:
+            raise KeyError(f"{value} not found")
+
+    async def clear(self) -> None:
+        client = self._client()
+        for key in await client.keys(self.prefix + b"*"):
+            await client.delete(key)
+
+    async def contains(self, value: _T_AsyncRedis) -> bool:
+        key = self._encode(value)
+        return await self._client().exists(key) > 0
+
+    async def size(self) -> int:
+        client = self._client()
+        return len(await client.keys(self.prefix + b"*"))
+
+    async def values(self) -> list[_T_AsyncRedis]:
+        client = self._client()
+        return [self._decode(key) for key in await client.keys(self.prefix + b"*")]
+
+
+class AsyncRedisTTLStringSet(AsyncRedisTTLSet[str]):
     def _encode(self, value: str) -> bytes:
         return self.prefix + value.encode()
 
