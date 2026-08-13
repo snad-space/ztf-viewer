@@ -367,6 +367,22 @@ to its original content — latent today because both backends behave identicall
 rebuilds these mappings per callback, but a hazard if `aio-cache-core` starts keying on content
 instead of `hash()`.
 
+**F14 — the cache key cannot identify every callable, and failed unsafely in two ways.**
+*(Found while reviewing `aio-cache-async`; both defects predate it, in `cache_core`'s
+`function_id`.)* The key is `module.qualname` plus the encoded arguments, and `function_id` read
+that as `getattr(func, "__qualname__", func.__name__)`. Python evaluates the default eagerly, so
+`__name__` was required even when `__qualname__` was present — a callable carrying one but not
+the other raised `AttributeError` from inside the wrapper, on the first *call*, which is exactly
+what the decorator's `UncacheableArgument` bypass exists to prevent. Worse, a `functools.partial`
+labelled with both attributes passed the check and then keyed on the wrapped function alone: its
+bound arguments live in `partial.args`, which key derivation never sees, so two partials of one
+function shared a single entry and returned each other's values. **Decision: refuse both at
+decoration time** — partials by type (labelled or not), anything else by missing attribute — so a
+bad `@cache()` site fails when its module is imported. Supporting partials by unwrapping them was
+rejected: it fixes the name and leaves the wrong-value defect standing. No call site is affected
+today; the risk grows as `aio-shim` introduces partial wrapping and the async-I/O stack converts
+cached methods.
+
 **F13 — `web.py` is backend-neutral except for one name: `request`.** *(Found reviewing what
 `aio-deflask` actually landed, #633.)* The helpers came out as specified plus three more —
 `request_body`, `error_response` and a `QueryArgs` view — and all of them take the request as an
