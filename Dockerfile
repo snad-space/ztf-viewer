@@ -31,28 +31,10 @@ RUN echo "main_memory = 50000000" > /etc/texmf/texmf.d/10main_memory.cnf \
     && texhash \
     && fmtutil-sys --all || test 1
 
-# Install Python build deps, mostly needed for ARM64
-# healpy: cfitsio
-# h5py: hdf5
-# confluence-kafka: rdkafka
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends libhdf5-dev libcfitsio-dev librdkafka-dev \
-    && rm -rf /var/lib/apt/lists/*
-
 # Install dependencies, including gunicorn (the "deploy" dependency group), but
 # not the project itself yet, so this layer stays cached across source changes
 COPY pyproject.toml uv.lock /app/
 RUN uv sync --project /app --locked --no-install-project --group deploy
-
-# Configure and download dustmaps
-RUN echo '{"data_dir": "/dustmaps"}' > /dustmapsrc
-ENV DUSTMAPS_CONFIG_FNAME /dustmapsrc
-# Our copy of the best-fit-only Bayestar19 map, bayestar.fetch() is blocked by
-# the Harvard Dataverse WAF, see https://github.com/gregreen/dustmaps/issues/54
-ARG BAYESTAR_URL=https://sai.snad.space/tmp/viewer-files/bayestar2019-bestfit.h5
-RUN uv run --project /app python -c "from dustmaps.fetch_utils import download_and_verify; \
-    download_and_verify('$BAYESTAR_URL', '4dd35460f1da9bb4f4e535f25eb0c530', '/dustmaps/bayestar/bayestar2019.h5')"
-RUN uv run --project /app python -c 'from dustmaps import csfd; csfd.fetch()'
 
 EXPOSE 80
 

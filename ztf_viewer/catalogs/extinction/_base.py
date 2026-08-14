@@ -1,11 +1,14 @@
 from abc import ABC, abstractmethod
+from typing import ClassVar
+
+import requests
 
 from ztf_viewer.exceptions import CatalogUnavailable
 
 
 class _BaseExtinctionQuery(ABC):
     # http://svo2.cab.inta-csic.es/svo/theory/fps3/index.php?mode=browse&gname=Palomar&gname2=ZTF&asttype=
-    af2av = {
+    af2av: ClassVar = {
         "zg": 1.21,
         "zr": 0.848,
         "zi": 0.622,
@@ -13,7 +16,7 @@ class _BaseExtinctionQuery(ABC):
     r = 3.1
 
     def __call__(self, coord):
-        av = self.r * self.ebv(coord).item()
+        av = self.r * self.ebv(coord)
         return {band: av * af2av for band, af2av in self.af2av.items()}
 
     @abstractmethod
@@ -21,20 +24,20 @@ class _BaseExtinctionQuery(ABC):
         raise NotImplementedError
 
 
-class _BaseLocalExtinctionQuery(_BaseExtinctionQuery):
-    # We used to fall back to web queries, but argonaut.skymaps.info is gone
+class _BaseApiExtinctionQuery(_BaseExtinctionQuery):
+    # https://dustmaps.snad.space
+    url: str
+
     def __init__(self):
-        super().__init__()
-        self.local_query = None
+        self._api_session = requests.Session()
 
-    @abstractmethod
-    def new_local_query(self):
-        raise NotImplementedError
-
-    def query(self, coord):
-        if self.local_query is None:
-            try:
-                self.local_query = self.new_local_query()
-            except OSError as e:
-                raise CatalogUnavailable(str(e)) from e
-        return self.local_query(coord)
+    def query(self, params):
+        try:
+            response = self._api_session.get(self.url, params=params, timeout=10)
+            response.raise_for_status()
+            ebv = response.json()["ebv"]
+        except requests.RequestException as e:
+            raise CatalogUnavailable(str(e)) from e
+        if ebv is None:
+            raise CatalogUnavailable(f"{self.url} has no data for the given coordinates")
+        return ebv

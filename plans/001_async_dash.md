@@ -72,7 +72,6 @@ merged by its author, and "ready for review" is a reviewer's signal, not the aut
 - [ ] `aio-snad-apis` — ztf_dr, features, model_fit, akb, ztf_ref
 - [ ] `aio-conesearch` — cone-search base + per-catalog
 - [ ] `aio-offload-threads` — astroquery / alerce / antares behind bounded semaphores
-- [ ] `aio-dustmaps` — warm maps at startup, lock the lazy init
 - [ ] `aio-gather` — concurrent fan-out; `aio-bench` becomes an assertion
 
 **WebSocket**
@@ -131,9 +130,9 @@ callbacks, and a WebSocket callback transport with `set_props` streaming. That u
 **Non-goals**
 
 - No UI redesign, no new pages, no change to the public URL surface.
-- Not rewriting third-party sync clients (`astroquery`, `alerce`, `antares-client`,
-  `dustmaps`) — they keep their sync APIs. *How* each is offloaded differs by what it actually
-  does; see F9 and the offload pair, which split them into three cases rather than one.
+- Not rewriting third-party sync clients (`astroquery`, `alerce`, `antares-client`) — they keep
+  their sync APIs. *How* each is offloaded differs by what it actually does; see F9 and
+  `aio-offload-threads`.
 - Not adopting Dash background callbacks / Celery. Our long tasks are I/O, not batch jobs.
 
 ## Findings that shape the plan
@@ -260,11 +259,11 @@ the proxy design note. That work is deployment-side and happens before/outside t
 PDF figure rendering via the matplotlib PGF backend, i.e. a LaTeX subprocess per request
 (`ztf_viewer/pages/figure.py:294`, `Dockerfile:24-35`); PNG rendering; plotly figure
 assembly and the per-observation Python loop in `ztf_viewer/lc_data/plot_data.py:18`; pandas
-CSV assembly (`ztf_viewer/pages/lc_csv.py:13`). Dustmaps is *not* on this list — see F9.
+CSV assembly (`ztf_viewer/pages/lc_csv.py:13`).
 
-**F9 — offload strategy differs by *why* a call is slow; there are three cases, not one.**
+**F9 — offload strategy differs by *why* a call is slow; there are two cases, not one.**
 A single "offload to threads" rule flattens a real distinction. What matters is whether a
-call is waiting on a socket, burning CPU, or merely touching a large resident array.
+call is waiting on a socket or burning CPU.
 
 1. **Network-bound sync clients → thread pool.** `astroquery` (Vizier, Simbad, MOCServer,
    Skybot), `alerce`, `antares-client`. These sit in `socket.recv` for most of their wall
@@ -273,31 +272,6 @@ call is waiting on a socket, burning CPU, or merely touching a large resident ar
    per-child interpreter memory to buy nothing. Their CPU component is real but small
    (VOTable/JSON → `Table`), tens of ms against seconds of network latency.
 2. **CPU-bound work → process pool.** Only matplotlib rendering clears this bar (F8, `aio-figures`).
-3. **`dustmaps` → neither; keep it in-process.** This is the case worth spelling out, because
-   the intuition "big scientific computation ⇒ separate process" points the wrong way here.
-   The cost is *resident memory*, not CPU: `BayestarQuery` loads a **148 MiB** HDF5 map
-   (measured on the mirror in `Dockerfile:50-56`) and `CSFDQuery` loads a comparable one, both
-   held for the process lifetime. The query itself is a healpix array lookup — microseconds to
-   low milliseconds. Move it to a `ProcessPoolExecutor` and every child loads its own copy:
-   with 4 pool processes that is up to 4 × (bayestar + csfd), multiple GB,
-   to parallelize an array index. The IPC round-trip would likely cost more than the lookup.
-   The existing `NO_LOCAL_3D_DUST_MAP` escape hatch (`config.py`, `bayestar.py`) is evidence
-   that map memory has already been a pressure point. A dedicated single map-owning process
-   would avoid the duplication, but that is a service, not a pool — unjustified for a
-   sub-millisecond lookup.
-   **The genuinely slow part is the first call**, which loads 148 MiB from disk lazily
-   (`extinction/_base.py:33-39`) and stalls whoever triggers it. Fix that by warming the maps
-   at worker startup (or offloading just the load to a thread), not by pooling the query. The
-   viewer's summary calls `csfd.ebv` on essentially every object page
-   (`pages/viewer.py:1508`), so every worker pays this cost almost immediately anyway —
-   warming makes it predictable instead of landing on an unlucky user.
-
-**F9a — the lazy map init is not thread-safe, and concurrency makes that bite.**
-`_BaseLocalExtinctionQuery.query` does `if self.local_query is None: self.local_query = self.new_local_query()`
-(`ztf_viewer/catalogs/extinction/_base.py:33-39`) with no lock. Two concurrent first-callers
-can both see `None` and both construct a query object, transiently doubling a 148 MiB
-allocation. Today the serial callback structure makes that nearly impossible; `aio-gather`'s fan-out and
-the FastAPI backend make it a live race. Needs a lock (or startup warming, which sidesteps it).
 
 **F11 — the dev/PR deploy path overrides the entrypoint, and diverges from prod.**
 `.github/workflows/deploy-dev.yml` renders `.ci/docker-compose.yml.tmpl`, which **hardcodes its
@@ -305,13 +279,10 @@ own entrypoint**, overriding the Dockerfile's:
 `entrypoint: ["gunicorn", "-w2", "-t300", "--keep-alive=75", "-b0.0.0.0:80", "ztf_viewer.__main__:app"]`.
 So `aio-uvicorn` must change **both** `Dockerfile:73` and that template — changing only the
 Dockerfile leaves every dev and PR deployment launching gunicorn against an ASGI app, which
-fails at startup. Two further divergences from prod worth keeping in mind:
-- the template sets `NO_LOCAL_3D_DUST_MAP=1`, so bayestar is **disabled** on dev and PR
-  environments. `aio-dustmaps`'s warm-up cannot be fully exercised there, and dev RSS numbers
-  will not answer the worker-count question — that needs a prod-like run.
-- dev runs `-w2 -t300` with **no `--threads`**, i.e. 2 single-threaded workers, against prod's
-  `-w2 --threads=8 -t70`. Dev is therefore *more* sensitive to blocking calls than prod, which
-  is useful: a regression in concurrency shows up on the dev server first.
+fails at startup. One further divergence from prod worth keeping in mind: dev runs `-w2 -t300`
+with **no `--threads`**, i.e. 2 single-threaded workers, against prod's `-w2 --threads=8 -t70`.
+Dev is therefore *more* sensitive to blocking calls than prod, which is useful: a regression in
+concurrency shows up on the dev server first.
 
 **F10 — dev and production run different Python minors.**
 Development runs **Python 3.14**; the image is `python:3.12-bookworm` (`Dockerfile:1`),
@@ -447,8 +418,7 @@ master
                                              │  └─ aio-snad-apis
                                              │     └─ aio-conesearch
                                              │        └─ aio-offload-threads
-                                             │           └─ aio-dustmaps
-                                             │              └─ aio-gather
+                                             │           └─ aio-gather
                                              ├─ aio-procpool ── process-pool chain ──
                                              │  └─ aio-figures
                                              │     └─ aio-profile
@@ -495,8 +465,8 @@ are *review surface* and *keeping master green*. Two consequences worth naming:
   `aio-loop-registry`, `aio-procpool`). Merging them changes nothing at runtime, so they cannot
   break the dev server.
 - **Live PRs** change behaviour on merge (`aio-cache-sync`, `aio-cache-flight`, `aio-shim`,
-  `aio-gather`, `aio-dustmaps`). These are the ones whose preview URL actually needs clicking
-  through before merge.
+  `aio-gather`). These are the ones whose preview URL actually needs clicking through before
+  merge.
 
 The only genuinely non-deployable intermediate states are the flip branches, and they are
 exactly the sub-stack already marked atomic: `aio-starlette-web` breaks Flask and only makes
@@ -625,10 +595,8 @@ holding development back.
   `uv.lock`; make sure CI builds on the same base (`.github/workflows/test.yml` runs tests via
   Docker, so it follows the image).
 - **The risk here is wheels, not our code.** The dependency set includes several packages that
-  historically lag a new CPython by months and then build from source — the image already
-  installs `libhdf5-dev`, `libcfitsio-dev` and `librdkafka-dev` for exactly that reason
-  (`Dockerfile:36-42`). `confluent-kafka` (via `antares-client`) is the usual straggler;
-  `numpy`/`scipy`/`astropy`/`pandas`/`matplotlib`/`mocpy`/`dustmaps` all need checking. Do a
+  historically lag a new CPython by months and then build from source —
+  `numpy`/`scipy`/`astropy`/`pandas`/`matplotlib`/`mocpy` all need checking. Do a
   `uv lock` dry run against 3.14 **before** committing to this ordering; if something has no
   3.14 wheel and won't build, that changes the answer to open question 7 and we stay on 3.12
   with 3.14 added to CI instead.
@@ -1081,11 +1049,10 @@ rollback is a one-line revert.
   every callback onto the loop. Add a test asserting the wrapper offloads when the FastAPI
   backend is selected, so the two cannot drift apart.
 - **`--workers 1`, decided.** One loop, one process: concurrency now comes from the loop rather
-  than from replication, and a second worker mostly buys a second copy of the resident data — the
-  148 MiB bayestar map plus its CSFD counterpart, per worker (F9 case 3). It also makes the
-  in-process caches and `unavailable_catalogs` whole again: with two workers they are per-process
-  and half the hits are missed (F12.5). Revisit only against a load test that shows one loop
-  saturating a core, which is what settles open question 1.
+  than from replication, and it makes the in-process caches and `unavailable_catalogs` whole
+  again: with two workers they are per-process and half the hits are missed (F12.5). Revisit
+  only against a load test that shows one loop saturating a core, which is what settles open
+  question 1.
 - **`.ci/docker-compose.yml.tmpl` must change too** (F11): it hardcodes its own gunicorn
   `entrypoint:`, which overrides the Dockerfile for every dev and PR deployment. Miss this and
   the flip passes CI, then fails to start on `master.ztf.snad.space`.
@@ -1096,8 +1063,7 @@ rollback is a one-line revert.
 - **Accept:** `docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build`
   serves the site; healthcheck green; **and the PR preview at `pr<N>.ztf.snad.space` comes up
   and serves an object page** — this is the check that would catch the F11 template trap.
-  Per-worker RSS compared against the Flask build (note dev sets `NO_LOCAL_3D_DUST_MAP=1`, so
-  a dev-server RSS figure is not the prod figure).
+  Per-worker RSS compared against the Flask build.
 
 **Rollback.** Two levels. Cheap: set `DASH_BACKEND=flask` — but note this only works for as
 long as `aio-starlette-web`/`aio-routes` keep a Flask-compatible path, which they do not, so treat the env var as a
@@ -1153,11 +1119,9 @@ Convert to `async def` — the `@cache()` line stays as it is:
   catalog, and a manual check that the "catalog temporarily unavailable" path still trips
   (`unavailable_catalogs`, now via `aio-ttlset`'s async set).
 
-### the offload pair — Sync-only third parties stay sync, offloaded according to F9
-Do **not** try to port these to async. Offload each by its actual cost profile:
-
-**`aio-offload-threads` — network-bound → `asyncio.to_thread`, with a per-upstream bounded semaphore** so one
-slow service cannot eat the shared thread pool:
+### `aio-offload-threads` — Sync-only third parties stay sync, offloaded according to F9
+Do **not** try to port these to async. **Network-bound → `asyncio.to_thread`, with a
+per-upstream bounded semaphore** so one slow service cannot eat the shared thread pool:
 - `astroquery`: `Vizier` (`catalogs/vizier.py`, `conesearch/_base.py:328`), `Simbad`,
   `MOCServerClass` (`vizier.py:17`), `Skybot` (`catalogs/skybot.py`)
 - `alerce.core.Alerce` (`conesearch/alerce.py:35`)
@@ -1169,18 +1133,6 @@ slow service cannot eat the shared thread pool:
   the per-upstream semaphores providing fairness so one slow service cannot take the pool.
 - **Accept:** semaphore limits configurable **from the same single place as the pool size**; a
   test that a stalled upstream does not block unrelated catalogs.
-
-**`aio-dustmaps` — `dustmaps` → stays in-process; warm at startup instead** (F9 case 3):
-- Add a startup warm-up that constructs `BayestarQuery` / `CSFDQuery` once per worker, so no
-  request eats the 148 MiB lazy load. Respect `NO_LOCAL_3D_DUST_MAP` — when set, skip bayestar
-  entirely rather than warming it.
-- Guard the lazy init in `_BaseLocalExtinctionQuery.query` with a lock regardless (F9a); the
-  warm-up makes the race unlikely, the lock makes it impossible.
-- Query calls themselves need no offload. If profiling later shows the lookup is slower than
-  assumed, a plain `to_thread` is the escalation — **not** a process pool.
-- **Accept:** worker RSS after warm-up measured and recorded (with `--workers 1` this is the
-  whole app's footprint, not a per-worker multiple); a concurrency test that hammers first-call
-  extinction from many tasks and allocates the map exactly once.
 
 ### `aio-gather` — Concurrent fan-out (the payoff)
 - `get_summary` (`ztf_viewer/pages/viewer.py:1379`): replace the serial
@@ -1274,8 +1226,6 @@ Measure before moving; each may be cheaper to leave on a thread:
 - `ztf_viewer/pages/lc_csv.py` pandas assembly,
 - `ztf_viewer/catalogs/ztf_ref.py:41` FITS parse (after `aio-snad-apis` makes the fetch async),
 - plotly figure construction in `set_figure` (`ztf_viewer/pages/viewer.py:1606`).
-- **Explicitly excluded:** dustmaps — the cost is resident memory, not CPU, and a pool would
-  duplicate a 148 MiB map per child (F9 case 3, `aio-dustmaps`).
 
 ---
 
@@ -1310,17 +1260,15 @@ Measure before moving; each may be cheaper to leave on a thread:
 | The cache rewrite silently preserves one of today's defects (F12) | The five defects are recorded as named `xfail`s in `aio-cache-spec`; `aio-cache-sync`'s accept criterion is that F12.1–F12.4 turn XPASS, so preserving a bug fails the criterion rather than passing quietly |
 | `aio-shim` misses the 19 loop-registered `set_table` callbacks (F1a′) | The invariant asserts over all 57 registrations, not the 39 source sites, so a missed loop fails CI |
 | Static assets 404 after the flip (F2) | `aio-golden-http` asserts `/static/js9/js9.min.js` and `/static/img/logo.svg` return 200 — landed, #634 |
-| Duplicate 148 MiB dust-map allocation under the new concurrency (F9a) | Lock the lazy init and warm at startup (`aio-dustmaps`); test that concurrent first-callers allocate once |
-| Concurrent fan-out hammers upstreams that previously saw serialized traffic | Per-upstream `asyncio.Semaphore` (the offload pair) plus the existing `unavailable_catalogs` circuit breaker; keep an eye on Vizier/Simbad rate limits |
+| Concurrent fan-out hammers upstreams that previously saw serialized traffic | Per-upstream `asyncio.Semaphore` (`aio-offload-threads`) plus the existing `unavailable_catalogs` circuit breaker; keep an eye on Vizier/Simbad rate limits |
 | Cache stampede amplified by concurrency | Single-flight in the cache sub-stack — this becomes load-bearing, not a nicety |
 | WebSocket dropped by a proxy (F7) | nginx-proxy handles upgrades natively; residual risk is timeouts and the the proxy design note config discrepancy — verify the deployed proxy config first, then roll out per-callback (`aio-ws`) with HTTP retained as fallback |
 | Static assets served with weaker caching after the flip (the `/static` design note) | `aio-golden-http` records today's cache headers for `/static/js9/js9.min.js`; set them explicitly on the mount |
-| Process pool memory blowup | `aio-procpool` sizing; dustmaps explicitly excluded (F9); compare container RSS before/after |
+| Process pool memory blowup | `aio-procpool` sizing; compare container RSS before/after |
 | Redis client split-brain (sync `StrictRedis` in `ttl_set.py`, async elsewhere) | `aio-ttlset` lands the async set before anything async touches it; one connection pool per worker |
 | Loop-affine client reused across Flask's per-request loops (F1c) | `aio-loop-registry`'s per-loop registry, with a test that runs two successive `asyncio.run` calls |
 | `aio-starlette-web` is assumed to be a one-file swap, but the ambient `request` re-export has no Starlette equivalent (F13) | The four call sites are named in `aio-routes`, inside the same atomic sub-stack; `aio-golden-http` fails if any of those routes changes shape |
 | Flip passes CI but breaks `master.ztf.snad.space` via the hardcoded entrypoint (F11) | `aio-uvicorn` changes `.ci/docker-compose.yml.tmpl` alongside the Dockerfile; verified on the PR preview before merge |
-| `aio-dustmaps` cannot be validated on dev (`NO_LOCAL_3D_DUST_MAP=1`, F11) | Cover the warm-up with tests rather than the dev server; get RSS numbers from a prod-like local run |
 | Async code developed on a different Python than it ships on (F10) | `aio-py314` upgrades production to 3.14 first, before any goldens are recorded or async is written |
 | A dependency has no Python 3.14 wheel and won't build | `aio-py314` opens with a `uv lock` dry run; if it fails, fall back to staying on 3.12 and adding 3.14 to CI — decided before, not during |
 | The `aio-fastapi-app`–`aio-uvicorn` stack sits open too long and drifts | It is four small PRs with no external dependencies; if review stalls, land the async-I/O stack first (it ships on Flask) rather than holding the stack open |

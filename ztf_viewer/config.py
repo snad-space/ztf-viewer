@@ -12,4 +12,4 @@ OGLE_III_API_URL = os.environ.get("OGLE_III_API_URL", "https://ogle3.snad.space"
 ZTF_PERIODIC_API_URL = os.environ.get("ZTF_PERIODIC_API_URL", "https://periodic.ztf.snad.space")
 TNS_API_URL = os.environ.get("TNS_API_URL", "https://tns.snad.space")
 JS9_URL = os.environ.get("JS9_URL", "https://www.js9.org/js9.html")
-NO_LOCAL_3D_DUST_MAP = os.environ.get("NO_LOCAL_3D_DUST_MAP", "").lower() in ("1", "true", "yes")
+DUSTMAPS_API_URL = os.environ.get("DUSTMAPS_API_URL", "https://dustmaps.snad.space")
