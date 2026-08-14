@@ -1,26 +1,18 @@
-from functools import partial
-
 import astropy.units as u
-from dustmaps.bayestar import BayestarQuery as LocalQuery
 
-from ztf_viewer.catalogs.extinction._base import _BaseLocalExtinctionQuery
-from ztf_viewer.config import NO_LOCAL_3D_DUST_MAP
-from ztf_viewer.exceptions import CatalogUnavailable
+from ztf_viewer.catalogs.extinction._base import _BaseApiExtinctionQuery
+from ztf_viewer.config import DUSTMAPS_API_URL
 
 
-class BayestarQuery(_BaseLocalExtinctionQuery):
-    # We use best fit because it leads to much less memory usage
-    # Median would be better
-    def new_local_query(self):
-        if NO_LOCAL_3D_DUST_MAP:
-            raise CatalogUnavailable("Local 3D dust map disabled via NO_LOCAL_3D_DUST_MAP")
-        return partial(LocalQuery(max_samples=0), mode="best")
+class BayestarQuery(_BaseApiExtinctionQuery):
+    # Bayestar19 (Green et al. 2019), mode="best", 0.884 conversion factor already applied
+    url = f"{DUSTMAPS_API_URL}/api/v1/bayestar2019"
 
     def ebv(self, coord):
         if not coord.distance.unit.is_equivalent(u.pc):
             raise ValueError("coord must include distance")
-        # http://argonaut.skymaps.info/usage
-        return 0.884 * self.query(coord)
+        icrs = coord.icrs
+        return self.query({"ra": icrs.ra.deg, "dec": icrs.dec.deg, "distance": icrs.distance.to_value(u.pc)})
 
 
 bayestar = BayestarQuery()

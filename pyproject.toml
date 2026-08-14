@@ -36,8 +36,6 @@ dependencies = [
     # v4 brake our immutabledefaultdict implementation
     "immutabledict<4",
     "alerce",
-    # supports astropy 5
-    "dustmaps>=1.0.10",
     "antares-client>=1.2.0",
     "plotly[express]",
     # required by plotly

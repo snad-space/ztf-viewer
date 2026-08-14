@@ -1,14 +1,14 @@
-from dustmaps.csfd import CSFDQuery
+from ztf_viewer.catalogs.extinction._base import _BaseApiExtinctionQuery
+from ztf_viewer.config import DUSTMAPS_API_URL
 
-from ztf_viewer.catalogs.extinction._base import _BaseLocalExtinctionQuery
 
-
-class CsfdQuery(_BaseLocalExtinctionQuery):
-    def new_local_query(self):
-        return CSFDQuery()
+class CsfdQuery(_BaseApiExtinctionQuery):
+    # CSFD (Chiang 2023)
+    url = f"{DUSTMAPS_API_URL}/api/v1/csfd"
 
     def ebv(self, coord):
-        return self.query(coord)
+        icrs = coord.icrs
+        return self.query({"ra": icrs.ra.deg, "dec": icrs.dec.deg})
 
 
 csfd = CsfdQuery()

@@ -18,6 +18,7 @@ Version schema is `year.month.num_release`
 - Run gunicorn directly against the Dash app instance instead of the underlying Flask server, now that Dash 3.1+ is WSGI-compliant on its own
 - Update Dash to v4.4.1
 - Upgrade to Python 3.14, the version used for development, `python:3.14-bookworm` is the base image now
+- Use https://dustmaps.snad.space for dustmap queries
 
 ### Removed
 
