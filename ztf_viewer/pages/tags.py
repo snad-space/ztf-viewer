@@ -85,7 +85,7 @@ def get_layout(*args, **kwargs):
         Input("tags-list-reset", "n_clicks"),
     ],
 )
-def show_tags(*_):
+async def show_tags(*_):
     if not akb.is_token_valid():
         raise PreventUpdate
     tags = akb.get_tags()

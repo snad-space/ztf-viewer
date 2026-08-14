@@ -8,7 +8,10 @@ unpack those single-element (or empty) lists back into scalars.
 """
 
 import inspect
+import types
 from unittest.mock import patch
+
+from dash._callback_context import context_value
 
 from ztf_viewer.pages import tags
 
@@ -42,3 +45,25 @@ def test_set_save_status_tolerates_empty_new_tag_state():
             new_description=[],
         )
     mock_akb.post_tags.assert_called_once_with([])
+
+
+async def test_show_tags_is_a_native_coroutine_that_reads_ctx_cookies():
+    """``show_tags`` is ``async def`` directly, not shim-wrapped; ``dash.ctx.cookies`` must
+    still resolve to the token from the current callback context."""
+    assert inspect.iscoroutinefunction(tags.show_tags)
+
+    token = context_value.set(types.SimpleNamespace(cookies={"akb_token": "abc123"}))
+    try:
+        with (
+            patch.object(tags.akb, "_is_token_valid") as mock_is_token_valid,
+            patch.object(tags.akb, "get_tags", return_value=[]),
+        ):
+            mock_is_token_valid.return_value = True
+            result = await tags.show_tags(None, None, None)
+    finally:
+        context_value.reset(token)
+
+    # The mock is only reachable through `is_token_valid` -> `_token_from_cookies`, so this
+    # also proves the cookie set above is the value that made it through.
+    mock_is_token_valid.assert_called_once_with(token="abc123")
+    assert isinstance(result, list)

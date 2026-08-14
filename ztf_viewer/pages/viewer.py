@@ -1377,7 +1377,7 @@ def set_ref_mag_magerr(dr, _n_clicks, link_id, all_mag_ids, all_mag_values):
         Input(dict(type="search-radius", index=ALL), "value"),
     ],
 )
-def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_values):
+async def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_values):
     if None in radius_values:
         raise PreventUpdate
     radii = {id["index"]: float(value) for id, value in zip(radius_ids, radius_values)}
@@ -1795,7 +1795,7 @@ def set_figure(
     return fw, message_fit
 
 
-def set_figure_link(
+async def set_figure_link(
     cur_oid, dr, title, different_filter, different_field, min_mjd, max_mjd, lc_type, period, phase0, fmt
 ):
     if lc_type == "folded" and not period:
