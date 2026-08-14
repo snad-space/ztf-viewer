@@ -12,6 +12,7 @@ import weakref
 from cachetools import TTLCache
 
 from ztf_viewer.cache.decorator import make_async_cache
+from ztf_viewer.loop_registry import LoopRegistry
 
 # Every live memory backend, so that `clear_memory_caches()` can reach the ones captured by
 # functions that were decorated at import time.
@@ -51,30 +52,20 @@ class AsyncMemoryBackend:
     holding it, and because a lock is the cheapest guard against ever assuming otherwise.  It is
     created lazily, per running loop, rather than once in ``__init__`` — an ``asyncio.Lock``
     binds to whichever loop first uses it, and this must keep working across successive
-    ``asyncio.run()`` calls (Flask's per-request loop model). A `weakref.WeakKeyDictionary` here
-    is a stand-in for a per-loop registry a later change will retrofit onto this.
+    ``asyncio.run()`` calls (Flask's per-request loop model) — via
+    :class:`~ztf_viewer.loop_registry.LoopRegistry`.
     """
 
     def __init__(self, backend: MemoryBackend):
         self._backend = backend
-        self._locks = weakref.WeakKeyDictionary()
-        self._registry_lock = threading.Lock()
-
-    def _lock(self) -> asyncio.Lock:
-        loop = asyncio.get_running_loop()
-        # threading.Lock, not asyncio: the WeakKeyDictionary itself is shared across threads, one loop each.
-        with self._registry_lock:
-            lock = self._locks.get(loop)
-            if lock is None:
-                lock = self._locks[loop] = asyncio.Lock()
-        return lock
+        self._locks = LoopRegistry(asyncio.Lock)
 
     async def get(self, key):
-        async with self._lock():
+        async with self._locks.get():
             return self._backend.get(key)
 
     async def set(self, key, blob):
-        async with self._lock():
+        async with self._locks.get():
             self._backend.set(key, blob)
 
 

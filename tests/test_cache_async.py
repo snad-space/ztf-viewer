@@ -314,7 +314,7 @@ def test_two_successive_asyncio_run_calls_both_work(request, monkeypatch, cache_
 
 # --------------------------------------------------------------------------------------------
 # Cross-thread registry safety: many threads, each its own loop, populate the same
-# WeakKeyDictionary concurrently (a threading.Lock guards the get-and-create, not an asyncio one)
+# LoopRegistry concurrently (a threading.Lock guards the get-and-create, not an asyncio one)
 # --------------------------------------------------------------------------------------------
 
 N_THREADS = 8
@@ -352,13 +352,13 @@ def _run_from_n_threads(touch):
 
 
 def test_async_memory_backend_lock_registry_survives_concurrent_threads():
-    """threading.Lock, not asyncio: the WeakKeyDictionary is shared across threads, one loop each."""
+    """threading.Lock, not asyncio: the LoopRegistry is shared across threads, one loop each."""
     from ztf_viewer.cache.memory import AsyncMemoryBackend, create_memory_backend
 
     backend = AsyncMemoryBackend(create_memory_backend(1 << 16, ttl=3600))
 
     async def touch():
-        return backend._lock()
+        return backend._locks.get()
 
     loops, locks = _run_from_n_threads(touch)
 
@@ -367,13 +367,13 @@ def test_async_memory_backend_lock_registry_survives_concurrent_threads():
 
 
 def test_async_redis_backend_client_registry_survives_concurrent_threads():
-    """threading.Lock, not asyncio: the WeakKeyDictionary is shared across threads, one loop each."""
+    """threading.Lock, not asyncio: the LoopRegistry is shared across threads, one loop each."""
     from ztf_viewer.cache.redis import AsyncRedisBackend
 
     backend = AsyncRedisBackend(lambda: redis.asyncio.Redis(host="localhost"), ttl=3600)
 
     async def touch():
-        return backend._client()
+        return backend._clients.get()
 
     loops, clients = _run_from_n_threads(touch)
 

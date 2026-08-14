@@ -674,12 +674,12 @@ async def test_async_singleflight_inflight_entry_cleared_after_reentrancy_error(
 
 # --------------------------------------------------------------------------------------------
 # Cross-thread registry safety: many threads, each its own loop, populate the same
-# WeakKeyDictionary concurrently (a threading.Lock guards the get-and-create, not an asyncio one)
+# LoopRegistry concurrently (a threading.Lock guards the get-and-create, not an asyncio one)
 # --------------------------------------------------------------------------------------------
 
 
 def test_async_singleflight_table_registry_survives_concurrent_threads():
-    """threading.Lock, not asyncio: the WeakKeyDictionary is shared across threads, one loop each."""
+    """threading.Lock, not asyncio: the LoopRegistry is shared across threads, one loop each."""
     sf = AsyncSingleFlight()
     n = 8
     barrier = threading.Barrier(n)
@@ -689,7 +689,7 @@ def test_async_singleflight_table_registry_survives_concurrent_threads():
 
     async def body():
         barrier.wait(timeout=5)
-        return asyncio.get_running_loop(), sf._table()
+        return asyncio.get_running_loop(), sf._tables.get()
 
     def worker(i):
         try:

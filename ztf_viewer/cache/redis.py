@@ -13,15 +13,12 @@ the memory backend): both just point at the same Redis server and use the same k
 (``ztf_viewer.cache.core``), so a value either writes is a hit for the other.
 """
 
-import asyncio
-import threading
-import weakref
-
 import redis
 import redis.asyncio
 
 from ztf_viewer import config
 from ztf_viewer.cache.decorator import make_async_cache, make_cache
+from ztf_viewer.loop_registry import LoopRegistry
 
 
 class RedisBackend:
@@ -45,31 +42,19 @@ class AsyncRedisBackend:
 
     A connection pool is loop-affine — building it at import or construction time would bind it
     to whatever loop happens to be running then, and break on a second ``asyncio.run()`` (Flask's
-    per-request loop model). ``client_factory`` is called again for each new running loop
-    instead. A `weakref.WeakKeyDictionary` here is a stand-in for a per-loop registry a later
-    change will retrofit onto this.
+    per-request loop model). ``client_factory`` is called again for each new running loop instead,
+    via :class:`~ztf_viewer.loop_registry.LoopRegistry`.
     """
 
     def __init__(self, client_factory, ttl):
-        self._client_factory = client_factory
         self._ttl = ttl
-        self._clients = weakref.WeakKeyDictionary()
-        self._registry_lock = threading.Lock()
-
-    def _client(self):
-        loop = asyncio.get_running_loop()
-        # threading.Lock, not asyncio: the WeakKeyDictionary itself is shared across threads, one loop each.
-        with self._registry_lock:
-            client = self._clients.get(loop)
-            if client is None:
-                client = self._clients[loop] = self._client_factory()
-        return client
+        self._clients = LoopRegistry(client_factory)
 
     async def get(self, key):
-        return await self._client().get(key)
+        return await self._clients.get().get(key)
 
     async def set(self, key, blob):
-        await self._client().set(key, blob, ex=self._ttl)
+        await self._clients.get().set(key, blob, ex=self._ttl)
 
 
 def create_async_redis_cache(ttl):
