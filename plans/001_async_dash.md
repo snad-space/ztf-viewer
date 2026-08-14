@@ -1,7 +1,7 @@
 # 001 — Porting the ZTF Viewer to async (Dash 4 FastAPI backend)
 
-Status: in progress · foundations landed except the two optional test items; prep landed except
-`aio-ttlset`, which is next
+Status: in progress · foundations landed except the two optional test items; prep landed in full;
+the async shell has started — `aio-shim` landed, `aio-loop-registry` is next
 Baseline: `master` after `994874e`
 Now running: Flask backend, Python 3.14
 
@@ -53,11 +53,23 @@ merged by its author, and "ready for review" is a reviewer's signal, not the aut
 - [x] `aio-pytest-asyncio` — async test support — **moved ahead of `aio-cache-async`** — #636 `pytest-asyncio`
 - [x] `aio-cache-async` — make `cache()` dispatch on sync vs async, one shared store — #637 `cache-async`
 - [x] `aio-cache-flight` — single-flight dedupe — #638 `cache-flight`
-- [ ] `aio-ttlset` — async `unavailable_catalogs`
+- [x] `aio-ttlset` — async `unavailable_catalogs` — #644 `ttl-set-async`. Came with #645
+      `redis-min-version`, which raised the floor to Redis 6.2 and pinned the server image —
+      not in the plan, but a real prerequisite the port surfaced. It also **retired the
+      import-time `info()` probe** in `RedisTTLSet.__init__`, so one of the two blocking-I/O-at-import
+      sites `aio-loop-registry` was told to deal with is already gone; the `astroquery.gaia` one
+      remains.
 
 **Async shell** — last stack on Flask
-- [ ] `aio-shim` — every callback becomes a coroutine (registration-layer wrap); adds the
-      callbacks-are-coroutines guard as a plain passing test
+- [x] `aio-shim` — every callback becomes a coroutine (registration-layer wrap); adds the
+      callbacks-are-coroutines guard as a plain passing test — #647 `callback-shim`.
+      **Landed without the bounded thread pool the section below specifies**: the wrapper runs
+      the callback inline, on the thread that awaits it, exactly as before the shim existed. A
+      pool needs a size and a size needs one configured home, and neither exists until
+      `aio-uvicorn` introduces them together — so the offload moves there. Consequence: the
+      pessimization the section warns about is not incurred on Flask, and F1's requirement is
+      still met, since it is about *registration* kind, not about where the body runs.
+      Follow-up #648 fixed a client-side `State` error on `/tags` for logged-out users.
 - [ ] `aio-loop-registry` — per-loop clients/pools/semaphores
 - [ ] `aio-pilots` — 2–3 natively async callbacks (optional)
 
@@ -951,9 +963,11 @@ This is the PR that dissolves the F1 constraint.
 - Contextvars: `asyncio.to_thread` propagates the current context, so `dash.ctx` access from
   the worker thread keeps working. Add a test asserting `ctx.cookies` is readable from inside
   the offloaded thread — the AKB/login path depends on it.
-- Bound the offload pool explicitly instead of relying on the default `min(32, cpu_count+4)`:
+- ~~Bound the offload pool explicitly instead of relying on the default `min(32, cpu_count+4)`:
   install a sized `ThreadPoolExecutor` as the loop default executor, matched to today's
-  `--threads=8`.
+  `--threads=8`.~~ **Moved to `aio-uvicorn`**, which is where thread-pool sizes get their single
+  configured home. As landed, the wrapper awaits the callback inline rather than offloading it,
+  so there is no pool here to bound.
 - **Accept:** every **server-side** entry in `app.callback_map` is a coroutine function — write
   this guard **here**, as a plain passing test, since this is the PR that makes it true (it is
   the invariant F1 needs; see the no-tests-in-advance rule). Bring the two permanent facts with
@@ -961,9 +975,9 @@ This is the PR that dissolves the F1 constraint.
   anti-vacuity check that `callback_map` is populated at all. Exclude clientside callbacks
   explicitly or the guard `KeyError`s instead of failing cleanly. Also: no `RuntimeWarning` from `dash/_callback.py:944`;
   `aio-golden-http` green; site behaves identically on Flask.
-- **Note:** on Flask this is a small *pessimization* (a per-request event loop plus a thread
-  hop, versus just a thread). It is deliberately temporary and unmeasurable at our traffic;
-  if it shows up, shorten the gap between `aio-shim` and `aio-uvicorn`.
+- ~~**Note:** on Flask this is a small *pessimization* (a per-request event loop plus a thread
+  hop, versus just a thread).~~ **Did not materialize**, because the thread hop was dropped
+  along with the pool: on Flask the cost is the per-request event loop alone.
 
 ### `aio-loop-registry` — Loop-affine resource discipline
 Per F1c, prerequisite for anything in the async-I/O stack to work on both backends.
