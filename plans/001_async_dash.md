@@ -1,7 +1,7 @@
 # 001 — Porting the ZTF Viewer to async (Dash 4 FastAPI backend)
 
-Status: in progress · foundations landed except the two optional test items; prep landed except
-`aio-ttlset`, which is next
+Status: in progress · foundations landed except the two optional test items; prep landed in full;
+the async shell has started — `aio-shim` landed, `aio-loop-registry` is next
 Baseline: `master` after `994874e`
 Now running: Flask backend, Python 3.14
 
@@ -53,11 +53,23 @@ merged by its author, and "ready for review" is a reviewer's signal, not the aut
 - [x] `aio-pytest-asyncio` — async test support — **moved ahead of `aio-cache-async`** — #636 `pytest-asyncio`
 - [x] `aio-cache-async` — make `cache()` dispatch on sync vs async, one shared store — #637 `cache-async`
 - [x] `aio-cache-flight` — single-flight dedupe — #638 `cache-flight`
-- [ ] `aio-ttlset` — async `unavailable_catalogs`
+- [x] `aio-ttlset` — async `unavailable_catalogs` — #644 `ttl-set-async`. Came with #645
+      `redis-min-version`, which raised the floor to Redis 6.2 and pinned the server image —
+      not in the plan, but a real prerequisite the port surfaced. It also **retired the
+      import-time `info()` probe** in `RedisTTLSet.__init__`, so one of the two blocking-I/O-at-import
+      sites `aio-loop-registry` was told to deal with is already gone; the `astroquery.gaia` one
+      remains.
 
 **Async shell** — last stack on Flask
-- [ ] `aio-shim` — every callback becomes a coroutine (registration-layer wrap); adds the
-      callbacks-are-coroutines guard as a plain passing test
+- [x] `aio-shim` — every callback becomes a coroutine (registration-layer wrap); adds the
+      callbacks-are-coroutines guard as a plain passing test — #647 `callback-shim`.
+      **Landed without the bounded thread pool the section below specifies**: the wrapper runs
+      the callback inline, on the thread that awaits it, exactly as before the shim existed. A
+      pool needs a size and a size needs one configured home, and neither exists until
+      `aio-uvicorn` introduces them together — so the offload moves there. Consequence: the
+      pessimization the section warns about is not incurred on Flask, and F1's requirement is
+      still met, since it is about *registration* kind, not about where the body runs.
+      Follow-up #648 fixed a client-side `State` error on `/tags` for logged-out users.
 - [ ] `aio-loop-registry` — per-loop clients/pools/semaphores
 - [ ] `aio-pilots` — 2–3 natively async callbacks (optional)
 
@@ -151,9 +163,10 @@ to a bounded shared `ThreadPoolExecutor`, `websocket_max_workers`, default 4.)
 
 **F1a — but that does *not* force one big PR.** Dash only checks
 `inspect.iscoroutinefunction(func)` at registration time (`dash/_callback.py:937`) to pick
-the async dispatch wrapper. A registration-layer shim that wraps any sync callback into
-`async def ...: return await asyncio.to_thread(f, ...)` satisfies F1 for every callback in
-one ~30-line change, with no edits to a single callback body. Native async conversion then
+the async dispatch wrapper. A registration-layer shim that wraps any sync callback into an `async def` satisfies F1 for every
+callback in one ~30-line change, with no edits to a single callback body. *(As shipped the wrapper
+awaits the callback inline rather than `asyncio.to_thread`-ing it; the offload waits for
+`aio-uvicorn`, per the threading rule.)* Native async conversion then
 proceeds one callback at a time, at leisure, with the shim as the safety net. This is what
 makes the shell/flip stack a stack of small PRs rather than a monolith.
 
@@ -433,6 +446,31 @@ prerequisite for it. Everything downstream is then written, reviewed and soaked 
 we actually intend to ship. The async-I/O and process-pool chains do not depend on the backend
 (F1b), so if the flip stalls in review they can be cut from `aio-loop-registry` instead and
 rebased onto `aio-uvicorn` later.
+
+**Threading rule for the whole plan: no thread pool exists before `aio-uvicorn`, and after it
+there is exactly one place that sizes threads.** Decided deliberately, and it constrains every PR
+in between.
+
+Until the entrypoint flips, code that would otherwise offload to a thread runs inline instead —
+that is why `aio-shim` shipped without the `ThreadPoolExecutor` its section originally specified.
+The reason is control, not simplicity: a pool created before there is one configured home for its
+size is a pool nobody owns. An unsized `ThreadPoolExecutor` silently becomes
+`min(32, process_cpu_count() + 4)`, derived from the container's CPU allocation rather than from
+anything we chose, and several such pools in several modules multiply without anyone being able to
+read the total off the repo.
+
+So: **no module builds its own `ThreadPoolExecutor`, and no code path falls through to a stdlib
+default.** `aio-uvicorn` runs uvicorn with `--workers 1` — one process, one loop — and sizes both
+thread pools (asyncio's default executor and anyio's limiter) from `config.py`. All concurrency
+then lives *inside* the application, where it is counted, rather than being spread across worker
+replication and implicit pools. Any PR that wants to offload work to a thread before that point is
+in the wrong order: move the offload to `aio-uvicorn` or later, not the pool earlier.
+
+One violation predates the rule and is inherited, not introduced: `util.py`'s `timeout()` spawns a
+`ThreadPoolExecutor(max_workers=1)` **per call**, on every cone-search query (F6). It is the
+clearest existing case of threads nobody counts, and `aio-conesearch` retires it by replacing it
+with `asyncio.timeout`. Until then it stays as-is — the rule forbids adding pools, not tolerating
+the one already there.
 
 **Review-surface rule for the whole plan:** no PR should mix a mechanical rename/rewrap with
 a semantic change. Where a change touches many files shallowly (`aio-shim`) it gets its own PR
@@ -934,8 +972,9 @@ This is the PR that dissolves the F1 constraint.
   (`dash/_validate.py:595`). Nothing else changes about how the app runs today.
 - Add `ztf_viewer/callbacks.py` exposing our own `callback(...)` wrapper: if the decorated
   function is already a coroutine function, register it as-is; otherwise wrap it as
-  `async def w(*a, **kw): return await asyncio.to_thread(f, *a, **kw)` (preserving
-  `functools.wraps`) and register that. ~30 lines.
+  an `async def` (preserving `functools.wraps`) and register that. ~30 lines. **The wrapper awaits
+  the callback inline; it does not `asyncio.to_thread` it** — that offload arrives with the pool in
+  `aio-uvicorn`, per the threading rule.
 - Mechanically repoint all **39 source sites** from `app.callback` to this wrapper — a
   one-line-per-site diff, no bodies touched, trivially skimmable in review. Note those 39 sites
   produce **57 server-side registrations** (F1a′), because `set_tables`
@@ -948,12 +987,16 @@ This is the PR that dissolves the F1 constraint.
   "is this sync?" check must too. The loop registration is the easiest one to miss in review.
 - The 2 **clientside** callbacks have no `"callback"` key in `callback_map` and are not ours to
   wrap — exclude them explicitly in the invariant.
-- Contextvars: `asyncio.to_thread` propagates the current context, so `dash.ctx` access from
-  the worker thread keeps working. Add a test asserting `ctx.cookies` is readable from inside
-  the offloaded thread — the AKB/login path depends on it.
-- Bound the offload pool explicitly instead of relying on the default `min(32, cpu_count+4)`:
+- Contextvars: **moot while the wrapper is inline** — `dash.ctx` is read on the same thread that
+  set it. It becomes live again in `aio-uvicorn`, where the wrapper starts offloading:
+  `asyncio.to_thread` propagates the current context, so `dash.ctx` still works, but the test
+  asserting `ctx.cookies` is readable from inside the offloaded thread belongs *there*, with the
+  offload it protects. The AKB/login path depends on it.
+- ~~Bound the offload pool explicitly instead of relying on the default `min(32, cpu_count+4)`:
   install a sized `ThreadPoolExecutor` as the loop default executor, matched to today's
-  `--threads=8`.
+  `--threads=8`.~~ **Moved to `aio-uvicorn`**, which is where thread-pool sizes get their single
+  configured home. As landed, the wrapper awaits the callback inline rather than offloading it,
+  so there is no pool here to bound.
 - **Accept:** every **server-side** entry in `app.callback_map` is a coroutine function — write
   this guard **here**, as a plain passing test, since this is the PR that makes it true (it is
   the invariant F1 needs; see the no-tests-in-advance rule). Bring the two permanent facts with
@@ -961,9 +1004,9 @@ This is the PR that dissolves the F1 constraint.
   anti-vacuity check that `callback_map` is populated at all. Exclude clientside callbacks
   explicitly or the guard `KeyError`s instead of failing cleanly. Also: no `RuntimeWarning` from `dash/_callback.py:944`;
   `aio-golden-http` green; site behaves identically on Flask.
-- **Note:** on Flask this is a small *pessimization* (a per-request event loop plus a thread
-  hop, versus just a thread). It is deliberately temporary and unmeasurable at our traffic;
-  if it shows up, shorten the gap between `aio-shim` and `aio-uvicorn`.
+- ~~**Note:** on Flask this is a small *pessimization* (a per-request event loop plus a thread
+  hop, versus just a thread).~~ **Did not materialize**, because the thread hop was dropped
+  along with the pool: on Flask the cost is the per-request event loop alone.
 
 ### `aio-loop-registry` — Loop-affine resource discipline
 Per F1c, prerequisite for anything in the async-I/O stack to work on both backends.
@@ -1031,13 +1074,10 @@ rollback is a one-line revert.
 - `Dockerfile:73`: `gunicorn -w2 --threads=8 ...` →
   `uvicorn ztf_viewer.__main__:app.server --host 0.0.0.0 --port 80 --workers 1`. Prefer plain
   uvicorn over `gunicorn -k uvicorn.workers.UvicornWorker` — one fewer moving part.
-- **Thread-pool sizes are decided in exactly one place — `config.py`, from an environment
-  variable set next to the entrypoint — and nowhere else.** No module may build its own
-  `ThreadPoolExecutor`, and no code path may fall through to a stdlib default: an unsized
-  `ThreadPoolExecutor` silently becomes `min(32, process_cpu_count() + 4)`, which is derived from
-  the container's CPU allocation rather than from anything we chose, and is invisible to anyone
-  reading the repo. There are **two** pools to set, not one, and missing either leaves a default
-  in play:
+- **This is where the threading rule is discharged** (see "Shape of the work"): thread-pool sizes
+  are decided in exactly one place — `config.py`, from an environment variable set next to the
+  entrypoint — and nowhere else. There are **two** pools to set, not one, and missing either
+  leaves a stdlib default in play:
   1. asyncio's default executor, which every `asyncio.to_thread` call reaches —
      `loop.set_default_executor(...)` once in a startup hook (safe here, unlike under Flask,
      because the loop is long-lived and never torn down per request);
