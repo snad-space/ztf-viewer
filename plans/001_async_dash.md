@@ -1343,6 +1343,13 @@ memory.
   it is the default format (`figure.py:68`), so it is what most users actually hit.
 - Treating them the same also keeps one code path: `save_fig` dispatches on `fmt` internally,
   so splitting PNG and PDF across pool/no-pool would mean fragmenting it for no benefit.
+- **Correction to "differ in cost but not in kind": under threads they differ in kind, and the
+  cheaper format is the more hostile one.** *(Noted while reviewing `aio-snad-apis`, which put both
+  renderers on `asyncio.to_thread`.)* PDF's cost is dominated by **waiting on the LaTeX child
+  process**, and waiting on a subprocess releases the GIL — so on a thread a PDF request already
+  overlaps with everything else. PNG is in-process Agg rendering, which does not. So the case for
+  a process pool rests more on PNG, the *common* format, than on the expensive one, and the
+  "pool both" decision above stands for the code-path reason rather than the cost ordering.
 - The routes become `async def` and `await loop.run_in_executor(pool, ...)`; inputs are
   already plain dicts/lists (`get_plot_data` output), so pickling is cheap.
 - **Accept:** `aio-golden-http`'s figure assertions unchanged for both formats; measure both — a concurrent
@@ -1355,6 +1362,26 @@ Measure before moving; each may be cheaper to leave on a thread:
 - `ztf_viewer/pages/lc_csv.py` pandas assembly,
 - `ztf_viewer/catalogs/ztf_ref.py:41` FITS parse (after `aio-snad-apis` makes the fetch async),
 - plotly figure construction in `set_figure` (`ztf_viewer/pages/viewer.py:1606`).
+
+**The question here is promotion, not introduction.** `aio-snad-apis` had to put the FITS parse,
+the pandas CSV assembly and both matplotlib renderers behind `asyncio.to_thread` the moment their
+callers became coroutines — a thread was the only offload available, since no process pool exists
+until `aio-procpool`. So this section inherits work that is already *off the loop* and asks a
+narrower question: does moving it further, to a process, earn the pickling and the child-process
+memory? Answer it per site, with a measurement.
+
+The GIL is what makes that question non-obvious, and it does not rank the candidates the way
+"CPU-bound" would suggest. Work that spends its time in C that releases the GIL — numpy, much of
+pandas, astropy's FITS reader — already overlaps with the loop on a thread and has the weakest
+case for a process. Pure-Python loops have the strongest. That is why `lc_data/plot_data.py:18`
+heads this list and why vectorizing it may beat pooling it outright.
+
+**Rule that came out of reviewing `aio-snad-apis`: none of this reasoning belongs in a code
+comment.** A comment that labels work "CPU-bound" next to an `asyncio.to_thread` call states a
+classification and pairs it with the mechanism that does not follow from it, and a comment that
+says a call is "out of scope here" is describing a PR boundary that is stale as soon as the next
+PR lands. Both facts live in this plan, which is versioned, and in the PR description, which is
+dated. `await asyncio.to_thread(x)` needs no gloss.
 
 ---
 
