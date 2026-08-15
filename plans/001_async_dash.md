@@ -71,7 +71,10 @@ merged by its author, and "ready for review" is a reviewer's signal, not the aut
       still met, since it is about *registration* kind, not about where the body runs.
       Follow-up #648 fixed a client-side `State` error on `/tags` for logged-out users.
 - [ ] `aio-loop-registry` — per-loop clients/pools/semaphores
-- [ ] `aio-pilots` — 2–3 natively async callbacks (optional)
+- [x] ~~`aio-pilots`~~ — **dropped** (#652, closed). Converting a callback to `async def` before
+      its body has anything to await opts it out of the offload `aio-uvicorn` installs in the
+      shim's wrapper — see F15. The mechanics it would have proved are already covered by
+      `tests/test_callbacks_shim.py`.
 
 **The flip** — merge as one stack
 - [ ] `aio-fastapi-app` — deps, `backend=`, mount `/static`
@@ -380,6 +383,29 @@ this one. Those four call sites must take `request` as a parameter — cheap, bu
 in the same atomic sub-stack, and it is most naturally done in `aio-routes`, which is already
 rewriting those handler signatures for path parameters.
 
+**F15 — a callback converted to `async def` too early opts itself out of the offload.**
+*(Found reviewing `aio-pilots`, #652, which was closed because of it.)* The shim returns the
+function **unchanged** when it is already a coroutine — that is the whole point of
+`_to_coroutine_function`. But `aio-uvicorn` installs the thread offload *inside that same
+wrapper*, so the offload only ever covers callbacks the shim actually wrapped. A callback that is
+`async def` while its body still makes blocking `requests`/`astroquery` calls therefore runs
+inline on the one event loop after the flip, with nothing to catch it — which is precisely F1, the
+failure the shim exists to prevent. The damage scales with the body: `get_summary`, the ~20-catalog
+sequential fan-out, is the worst possible candidate.
+
+**Rule: a callback becomes `async def` in the same change that gives it something to await** —
+never earlier. This kills the "convert a few pilots first" idea outright, and it kills the larger
+version too: converting all 39 sites ahead of the async-I/O work would opt the entire application
+out of the offload and reinstate F1 wholesale. Mass conversion is the *last* step of the async-I/O
+stack, not a step before it.
+
+Two consequences to carry forward:
+- `aio-uvicorn` must state which callbacks its offload actually covers. If any natively-async
+  callback still has a blocking body when the flip lands, the offload must cover it too — or the
+  flip is shipping a known loop-blocker.
+- `aio-snad-apis`, `aio-conesearch` and `aio-gather` each convert bodies *and* signatures
+  together. None of them may leave a callback `async def` with a blocking body behind.
+
 ---
 
 ## Shape of the work
@@ -422,7 +448,6 @@ master
                         └─ aio-ttlset        async unavailable_catalogs
                            └─ aio-shim          all callbacks become coroutines
                               └─ aio-loop-registry  per-loop resources
-                                 ├─ aio-pilots ⇢ native async pilots (optional)
                                  └─ aio-fastapi-app ── the flip, merged as one ──
                                     └─ aio-starlette-web
                                        └─ aio-routes
@@ -951,14 +976,13 @@ sounds: method-site entries are already per-process and per-boot today.
 
 ## Stack: Async shell, then the flip
 
-Seven PRs. **`aio-shim`–`aio-pilots` each merge and deploy on their own, on Flask** (F1b): they are the async
+Six PRs. **`aio-shim` and `aio-loop-registry` each merge and deploy on their own, on Flask** (F1b): they are the async
 conversion, and they are safe without the backend change. Only **`aio-fastapi-app`–`aio-uvicorn` are atomic** — the
 Starlette response swap breaks Flask, so that sub-stack must land as one merge.
 
 ```
 `aio-shim` dash[async] + callback shim      ← merges solo, still Flask
 `aio-loop-registry` loop-affine resource discipline  ← merges solo, still Flask
-`aio-pilots` (optional) native async pilots   ← merges solo, still Flask
 ────────────────────────────────────  the flip: merge as one stack ↓
 `aio-fastapi-app` static mount + app construction
 `aio-starlette-web` web.py → Starlette
@@ -1011,20 +1035,36 @@ This is the PR that dissolves the F1 constraint.
 ### `aio-loop-registry` — Loop-affine resource discipline
 Per F1c, prerequisite for anything in the async-I/O stack to work on both backends.
 - Any `httpx.AsyncClient`, `redis.asyncio` pool, `asyncio.Semaphore` or `Lock` is created
-  lazily through a small registry keyed by `id(asyncio.get_running_loop())`, with cleanup on
-  loop close; never at import time.
+  lazily through a small registry keyed by the running loop, never at import time. **Not by
+  `id(loop)`** — ids are recycled, so a new loop can inherit a dead loop's resource.
+- **"Cleanup on loop close" is not achievable as written.** `aclose()` needs a live loop;
+  `transport.close()` raises `RuntimeError: Event loop is closed`; and `weakref.finalize` on the
+  loop cannot help, because holding the resource in order to close it later is exactly what keeps
+  the loop alive, so the finalizer runs at interpreter exit instead. Weak keys alone do not even
+  reclaim the *entry*: a `WeakKeyDictionary` holds values strongly and a connected
+  `redis.asyncio` client references its loop via `transport._loop`, so it pins its own key —
+  measured at one leaked entry per loop. What works is sweeping entries whose loop `is_closed()`,
+  which bounds the table by the number of live loops. Graceful close belongs to a shutdown hook on
+  a live loop, i.e. after the flip.
 - Retrofit the cache sub-stack's async path and `aio-ttlset`'s async TTL set onto that registry.
 - **Accept:** a test that acquires each resource under two successive
   `asyncio.run(...)` calls (simulating Flask's per-request loop) without error, and a test
   that a single long-lived loop reuses one instance (simulating FastAPI).
 
-### `aio-pilots` — Native async pilots *(optional, recommended)*
-Convert two or three callbacks from shim to genuinely `async def` before the flip, chosen to
-exercise the risky paths: one that reads `ctx.cookies` (AKB/login), one with a `partial`
-registration, one with a fan-out. Validates the the async-I/O stack pattern while still on Flask, where
-rollback is a one-line revert.
-- **Accept:** those callbacks behave identically; the async-I/O stack's conversion recipe is written down
-  in the PR description.
+### ~~`aio-pilots`~~ — Native async pilots *(dropped; #652 closed)*
+The idea was to convert two or three callbacks to genuinely `async def` before the flip — one
+reading `ctx.cookies`, one `partial`-registered, one fan-out — to validate the conversion pattern
+while rollback was still a one-line revert.
+
+**It validates nothing and costs something.** Per F15, a callback that is `async def` with a
+blocking body bypasses the offload `aio-uvicorn` puts in the shim's wrapper, so the pilots would
+have quietly excluded themselves — `get_summary` above all — from the protection the flip depends
+on. And the mechanics they were meant to prove are already proved: `tests/test_callbacks_shim.py`
+covers `iscoroutinefunction` through nested partials, the shim passing a coroutine through
+unwrapped, and `dash.ctx.cookies` resolving through the shim path.
+
+The conversion recipe this PR was to produce belongs with the first PR that actually converts a
+body, in the async-I/O stack.
 
 ---
 
@@ -1088,6 +1128,10 @@ rollback is a one-line revert.
   Flask and catastrophic on FastAPI: flipping the backend while it is still inline serializes
   every callback onto the loop. Add a test asserting the wrapper offloads when the FastAPI
   backend is selected, so the two cannot drift apart.
+  **State what the offload covers** (F15): it reaches only callbacks the shim wrapped, so any
+  callback that is natively `async def` bypasses it. That is correct exactly when such a callback
+  genuinely awaits its I/O. Before flipping, check that every natively-async callback does — a
+  blocking body behind an `async def` is a loop-blocker the offload will not catch.
 - **`--workers 1`, decided.** One loop, one process: concurrency now comes from the loop rather
   than from replication, and it makes the in-process caches and `unavailable_catalogs` whole
   again: with two workers they are per-process and half the hits are missed (F12.5). Revisit
@@ -1109,7 +1153,7 @@ rollback is a one-line revert.
 long as `aio-starlette-web`/`aio-routes` keep a Flask-compatible path, which they do not, so treat the env var as a
 *development* convenience rather than a production escape hatch and delete it in the cleanup stack.
 Real rollback for `aio-fastapi-app`–`aio-uvicorn` is a revert of the merged stack, which is exactly why they merge as
-one unit. `aio-shim`–`aio-pilots` stay in place either way; they are pure async conversion and backend-neutral.
+one unit. `aio-shim` and `aio-loop-registry` stay in place either way; they are pure async conversion and backend-neutral.
 
 ---
 
