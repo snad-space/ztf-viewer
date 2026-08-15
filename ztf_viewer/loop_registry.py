@@ -17,8 +17,9 @@ its own key alive: a connected ``redis.asyncio`` client reaches its loop through
 ``transport._loop``, and that entry then survives every collection — five successive
 ``asyncio.run`` calls left five entries before the sweep existed. Values that hold nothing, an
 ``asyncio.Lock`` or a plain ``dict``, were reclaimed even without it. A closed loop is never
-coming back, so dropping its entry on the next lookup bounds the table by the number of live
-loops, whatever the value happens to reference. ``discard()`` drops one entry immediately.
+coming back, so dropping its entry when a *new* loop asks for a resource bounds the table by the
+number of live loops, whatever the value happens to reference — and a hit stays a plain lookup.
+``discard()`` drops one entry immediately.
 
 Cleaning up *after* a loop is gone is not an option worth designing toward: ``aclose()`` needs a
 live loop, ``transport.close()`` raises ``RuntimeError: Event loop is closed``, and a
@@ -57,9 +58,9 @@ class LoopRegistry(Generic[_T]):
     def get(self) -> _T:
         loop = asyncio.get_running_loop()
         with self._registry_lock:
-            self._sweep()
             resource = self._entries.get(loop)
             if resource is None:
+                self._sweep()
                 resource = self._entries[loop] = self._factory()
         return resource
 
@@ -68,6 +69,9 @@ class LoopRegistry(Generic[_T]):
 
         A value that references its own loop keeps its key alive, so weak keys alone never
         reclaim it. Closedness is the signal weakness cannot provide.
+
+        Only a miss can grow the table, so sweeping there alone holds the same bound and keeps
+        the scan off the hit path — under one long-lived loop it runs once, ever.
         """
         for loop in [loop for loop in list(self._entries) if loop.is_closed()]:
             del self._entries[loop]
