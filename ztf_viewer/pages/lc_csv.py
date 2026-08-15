@@ -99,9 +99,6 @@ def response_antares_csv(locus_id: str):
 # Keep last: `oid` is an int, so this also matches the catalog routes above.
 @app.server.api_route("/{dr}/csv/{oid}")
 async def response_csv(dr: str, oid: int, request: Request):
-    """Async because `get_csv` calls `find_ztf_oid.get_lc`, which now awaits; the FastAPI
-    threadpool that plain-`def` routes get doesn't apply once a route itself needs to await.
-    """
     args = query_args(request)
 
     try:

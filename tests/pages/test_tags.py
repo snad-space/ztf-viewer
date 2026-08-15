@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock, patch
 
 from ztf_viewer import config
 
-# `ztf_viewer.pages.tags` now pulls in `ztf_viewer.akb`, which pulls in `ztf_viewer.cache`, whose
+# `ztf_viewer.pages.tags` pulls in `ztf_viewer.akb`, which pulls in `ztf_viewer.cache`, whose
 # module-level `cache()` decorator is bound to a backend at first import and never rebinds. Set
 # this before that import, the same guard other test modules that import the app use.
 config.CACHE_TYPE = "memory"

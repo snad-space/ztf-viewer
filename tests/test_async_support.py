@@ -19,9 +19,7 @@ async def test_async_tests_are_collected_and_awaited():
 
 @pytest.mark.network
 async def test_ztf_dr_find_is_awaited():
-    """`find_ztf_oid.find` is a real ``async def`` — a plain first-party network call, awaited
-    directly rather than bridged through a thread.
-    """
+    """A plain first-party network call, awaited directly."""
     from ztf_viewer.catalogs.ztf_dr import find_ztf_oid
 
     meta = await find_ztf_oid.find(_OID, _DR)
