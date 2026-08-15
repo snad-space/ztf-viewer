@@ -34,7 +34,10 @@ app = dash.Dash(
     __name__,
     external_stylesheets=js9_css,
     external_scripts=js9_js,
-    health_endpoint="/health",
+    # No leading slash: Dash concatenates this straight onto `routes_pathname_prefix`
+    # ("/" by default), same as its own internal route names ("_dash-layout" etc.). A leading
+    # slash here doubles up to "//health", which Starlette (unlike Flask) does not collapse.
+    health_endpoint="health",
     backend="fastapi",
 )
 app.config.suppress_callback_exceptions = True
