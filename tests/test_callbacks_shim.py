@@ -158,12 +158,12 @@ def test_no_runtime_warning_on_registration():
     assert "OK" in result.stdout
 
 
-def test_wrapper_runs_inline_on_the_awaiting_thread():
-    """No thread pool of the shim's own: a pool needs a configured size, and that arrives with
-    the backend flip. Reintroducing an offload here must be a deliberate, visible change."""
+def test_wrapper_offloads_to_a_different_thread():
+    """A sync callback run inline on the loop would serialize the whole app; the wrapper must
+    hand it to the executor instead."""
     wrapped = _to_coroutine_function(threading.get_ident)
 
-    assert asyncio.run(wrapped()) == threading.get_ident()
+    assert asyncio.run(wrapped()) != threading.get_ident()
 
 
 def test_wrapper_works_across_successive_event_loops():
