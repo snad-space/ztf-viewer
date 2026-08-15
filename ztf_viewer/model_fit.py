@@ -1,41 +1,36 @@
+import logging
+
+import httpx
 import numpy as np
-import requests
 from pydantic import BaseModel
 from typing import Literal, List, Dict, Optional
 
 from ztf_viewer.cache import cache
 from ztf_viewer.catalogs.ztf_dr import find_ztf_oid
-from ztf_viewer.config import MODEL_FIT_API_URL
+from ztf_viewer.config import MODEL_FIT_API_URL, TIMEOUT_MODEL_FIT
+from ztf_viewer.http import get_client
 from ztf_viewer.util import ABZPMAG_JY, LN10_04, immutabledefaultdict
 
 
-def post_request(url, data):
+async def post_request(url, data):
     try:
-        response = requests.post(url, json=data.model_dump())
+        client = get_client()
+        response = await client.post(url, json=data.model_dump(), timeout=TIMEOUT_MODEL_FIT)
         response.raise_for_status()
         return {"success": True, "body": response.json()}
-    except (
-        requests.exceptions.HTTPError,
-        requests.exceptions.ConnectionError,
-        requests.exceptions.Timeout,
-        requests.exceptions.RequestException,
-    ) as e:
-        print(f"A model-fit-api error occurred: {e}")
+    except httpx.HTTPError as e:
+        logging.warning(f"A model-fit-api error occurred: {e}")
         return {"success": False, "body": "API is unavailable"}
 
 
-def get_request(url):
+async def get_request(url):
     try:
-        response = requests.get(url)
+        client = get_client()
+        response = await client.get(url, timeout=TIMEOUT_MODEL_FIT)
         response.raise_for_status()
         return {"success": True, "body": response.json()}
-    except (
-        requests.exceptions.HTTPError,
-        requests.exceptions.ConnectionError,
-        requests.exceptions.Timeout,
-        requests.exceptions.RequestException,
-    ) as e:
-        print(f"A model-fit-api error occurred: {e}")
+    except httpx.HTTPError as e:
+        logging.warning(f"A model-fit-api error occurred: {e}")
         return {"success": False, "body": "API is unavailable"}
 
 
@@ -80,11 +75,8 @@ class ModelFit:
     _fit_api_url = _base_api_url + "/sncosmo/fit"
     _get_curve_api_url = _base_api_url + "/sncosmo/get_curve"
 
-    def __init__(self):
-        self._api_session = requests.Session()
-
     @cache()
-    def fit(
+    async def fit(
         self,
         oids: tuple[int],
         dr: str,
@@ -98,8 +90,8 @@ class ModelFit:
     ):
         observations = []
         for oid in oids:
-            lc = find_ztf_oid.get_lc(oid, dr, min_mjd=min_mjd, max_mjd=max_mjd)
-            flt = find_ztf_oid.get_meta(oid, dr)["filter"]
+            lc = await find_ztf_oid.get_lc(oid, dr, min_mjd=min_mjd, max_mjd=max_mjd)
+            flt = (await find_ztf_oid.get_meta(oid, dr))["filter"]
             ref_flux = 10 ** (-0.4 * (ref_mag[oid] - ABZPMAG_JY))
             ref_fluxerr = LN10_04 * ref_flux * ref_magerr[oid]
             for obs in lc:
@@ -115,7 +107,7 @@ class ModelFit:
                         band="ztf" + flt[1:],
                     )
                 )
-        res_fit = post_request(
+        res_fit = await post_request(
             self._fit_api_url,
             Target(light_curve=observations, ebv=ebv, name_model=fit_model),
         )
@@ -124,7 +116,7 @@ class ModelFit:
         else:
             return Response(success=res_fit["success"], data={"parameters": {}}, message=res_fit["body"])
 
-    def get_curve(
+    async def get_curve(
         self,
         oids: tuple[int],
         dr: str,
@@ -141,8 +133,8 @@ class ModelFit:
         mjd_values = []
 
         for oid in oids:
-            lc = find_ztf_oid.get_lc(oid, dr, min_mjd=min_mjd, max_mjd=max_mjd)
-            flt = find_ztf_oid.get_meta(oid, dr)["filter"]
+            lc = await find_ztf_oid.get_lc(oid, dr, min_mjd=min_mjd, max_mjd=max_mjd)
+            flt = (await find_ztf_oid.get_meta(oid, dr))["filter"]
             ref_flux = 10 ** (-0.4 * (ref_mag[oid] - ABZPMAG_JY))
             for obs in lc:
                 mjd_values.append(obs["mjd"])
@@ -154,7 +146,7 @@ class ModelFit:
         mjd_min = min(mjd_values)
         mjd_max = max(mjd_values)
 
-        res_curve = post_request(
+        res_curve = await post_request(
             self._get_curve_api_url,
             ModelData(
                 parameters=dict(params),
@@ -171,8 +163,8 @@ class ModelFit:
         else:
             return Response(success=res_curve["success"], data={"bright": {}}, message=res_curve["body"])
 
-    def get_list_models(self):
-        res_models = get_request(self._models_api_url)
+    async def get_list_models(self):
+        res_models = await get_request(self._models_api_url)
         if res_models["success"]:
             return Response(success=res_models["success"], data=res_models["body"])
         else:
