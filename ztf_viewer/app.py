@@ -34,7 +34,7 @@ app = dash.Dash(
     __name__,
     external_stylesheets=js9_css,
     external_scripts=js9_js,
-    health_endpoint="/health",
+    health_endpoint="health",
     backend="fastapi",
 )
 app.config.suppress_callback_exceptions = True

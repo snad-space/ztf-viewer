@@ -1,9 +1,9 @@
-"""Guard that Flask coupling stays confined to ``ztf_viewer/web.py``.
+"""Guard that ``flask`` never creeps back into the package.
 
-``ztf_viewer/web.py`` is the seam a later PR can swap to Starlette without touching any call
-site — that only works if nothing else in the package imports ``flask`` directly. This is a
-plain passing assertion, not an ``xfail``: it holds today, and the point of the test is to
-catch a future reintroduction.
+``ztf_viewer`` runs entirely on FastAPI/Starlette now; ``flask`` is only a transitive
+dependency (via ``dash``), not something any module here should import. This is a plain
+passing assertion, not an ``xfail``: it holds today, and the point of the test is to catch a
+future reintroduction.
 """
 
 import ast
@@ -12,7 +12,6 @@ import pathlib
 import ztf_viewer
 
 PACKAGE_ROOT = pathlib.Path(ztf_viewer.__file__).parent
-ALLOWED_FILE = PACKAGE_ROOT / "web.py"
 
 
 def _source_files():
@@ -40,16 +39,20 @@ def _flask_import_sites(path):
     return sites
 
 
-def test_flask_is_only_imported_by_web_py():
-    """No module under ``ztf_viewer/`` imports ``flask`` except ``ztf_viewer/web.py``."""
+def test_flask_is_not_imported_anywhere():
+    """No module under ``ztf_viewer/`` imports ``flask``."""
     offenders = []
     for path in _source_files():
-        if path == ALLOWED_FILE:
-            continue
         offenders.extend(_flask_import_sites(path))
-    assert not offenders, "flask imported outside ztf_viewer/web.py:\n  " + "\n  ".join(offenders)
+    assert not offenders, "flask imported under ztf_viewer/:\n  " + "\n  ".join(offenders)
 
 
-def test_web_py_still_imports_flask():
-    """Sanity check that the scan itself works: web.py is expected to import flask."""
-    assert _flask_import_sites(ALLOWED_FILE), "ztf_viewer/web.py no longer imports flask — did the scan break?"
+def test_scan_detects_a_flask_import(tmp_path):
+    """Sanity check that the scan itself works, against a throwaway module."""
+    module = tmp_path / "has_flask.py"
+    module.write_text("import flask\n", encoding="utf-8")
+
+    imports = [node for node in ast.walk(_parse(module)) if isinstance(node, ast.Import)]
+    assert any(
+        alias.name == "flask" for node in imports for alias in node.names
+    ), "scan found no flask import in a module that has one — did it break?"

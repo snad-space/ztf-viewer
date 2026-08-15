@@ -1,22 +1,14 @@
-"""Backend-neutral request/response helpers for the plain HTTP routes.
+"""Request/response helpers for the plain HTTP routes.
 
-The routes in `ztf_viewer/pages/{figure,lc_csv,favicon}.py` are registered with
-`@app.server.route(...)` rather than as Dash callbacks, so they talk to the WSGI/ASGI backend
-directly instead of through `dash.ctx`. Today that backend is Starlette (via FastAPI), and this
-module is the *only* place allowed to `import flask` (enforced by a repo-wide grep / AST guard).
-
-Call sites should only use the names exported here, never `flask` or `starlette` directly.
+The routes in `ztf_viewer/pages/{figure,lc_csv,favicon}.py` are registered directly on
+`app.server` (a FastAPI instance) rather than as Dash callbacks, so they talk to the ASGI
+backend directly instead of through `dash.ctx`. Call sites should only use the names exported
+here, never `fastapi`/`starlette` request/response types directly.
 """
 
 import pathlib
 
-import flask
 from fastapi.responses import FileResponse, HTMLResponse, Response
-
-#: The current request, re-exported so call sites never import `flask` themselves.
-#: Starlette has no ambient request equivalent -- this is the one name in this module that
-#: still needs a real request object threaded through as a handler argument at every call site.
-request = flask.request
 
 _PACKAGE_ROOT = pathlib.Path(__file__).parent
 
@@ -34,14 +26,9 @@ class QueryArgs:
         return list(self._args.getlist(key))
 
 
-def query_args(request) -> QueryArgs:  # noqa: F811 - shadows the module-level `request` on purpose
+def query_args(request) -> QueryArgs:
     """Return the query-string arguments of `request` as a `QueryArgs`."""
-    return QueryArgs(request.args)
-
-
-def request_body(request) -> bytes:
-    """Return the raw body bytes of `request`."""
-    return request.get_data(cache=False)
+    return QueryArgs(request.query_params)
 
 
 def file_response(path, mimetype):

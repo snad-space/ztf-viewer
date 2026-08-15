@@ -7,9 +7,10 @@ the full Dash index HTML) is out of scope — it would go red for reasons outsid
 
 Split by what a test needs:
 
-* Hermetic (no network): the ``/static`` mount, ``/health``, ``/favicon.ico``, the index, and the
+* Hermetic (no network): the ``/static`` mount, ``/health``, ``/favicon.ico``, the index, the
   no-object-lookup page routes (``/login``, ``/tags``, ``/anomalies``) — these are Dash's static
-  index shell for any unmatched pathname, so hitting them makes no network call at all.
+  index shell for any unmatched pathname, so hitting them makes no network call at all — and the
+  CSV route registration order (which handler a path resolves to, not what it returns).
 * ``@pytest.mark.network``: the CSV and figure routes, which look up a real object through the
   ZTF DR light-curve API (and, for figures, run matplotlib/LaTeX). A transport failure there is
   converted to a skip by ``tests/conftest.py``, not a failure.
@@ -44,18 +45,20 @@ _DR = "dr24"
 _ANTARES_LOCUS_ID = "ANT2020g7nq"
 
 
-@pytest.fixture(scope="session")
-def dash_app():
+def _load_app():
     """Import and return the Dash ``app``, forcing the in-memory cache backends first.
 
     ``ztf_viewer.catalogs.unavailable_catalogs`` connects to Redis *eagerly* at import time
     (``RedisTTLStringSet.__init__`` calls ``client.info()``), so ``CACHE_TYPE`` /
     ``UNAVAILABLE_CATALOGS_CACHE_TYPE`` must already be ``"memory"`` before
     ``ztf_viewer.__main__`` (which pulls in ``ztf_viewer.catalogs``) is imported for the first
-    time. ``tests/conftest.py`` does the same thing per-test via ``pytest_runtest_setup``, but
-    that is a hook race against fixture setup we would rather not depend on — setting it directly
-    here, before the import, is unambiguous regardless of hook/fixture ordering or what any other
-    test module happened to import first.
+    time.
+
+    Called at module level, below, rather than lazily inside a fixture: pytest imports every
+    test module before running any test, so this runs before any other module's fixture can
+    build a ``TestClient`` around the same shared ``ztf_viewer.app.app`` and trigger the ASGI
+    lifespan -- which registers Dash's ``{path:path}`` catch-all. Do that before the six routes
+    below are registered and the catch-all shadows every one of them for the rest of the session.
     """
     from ztf_viewer import config
 
@@ -67,26 +70,29 @@ def dash_app():
     return main_module.app
 
 
+_APP = _load_app()
+
+
+@pytest.fixture(scope="session")
+def dash_app():
+    return _APP
+
+
 @pytest.fixture(scope="session")
 def client(dash_app):
-    """A WSGI/ASGI test client for the Dash server, independent of the backend.
+    """An ASGI test client for the Dash server.
 
-    Today ``app.server`` is a Flask app (``.test_client()``). A future ASGI backend would work
-    via ``starlette.testclient.TestClient``, which wraps any ASGI app behind a near-identical,
-    httpx-based interface. Try WSGI first, since that is today's backend; fall back to ASGI so
-    this file needs no edits if that flip happens.
+    Constructed as a context manager so ASGI lifespan actually runs -- without it, Dash never
+    registers its catch-all route and every page route 404s.
     """
-    server = dash_app.server
-    if hasattr(server, "test_client"):
-        return server.test_client()
-    from starlette.testclient import TestClient
+    from fastapi.testclient import TestClient
 
-    return TestClient(server)
+    with TestClient(dash_app.server) as test_client:
+        yield test_client
 
 
 def _body(response):
-    """Response body as bytes, whichever of Flask's or httpx's response shape we got."""
-    return response.data if hasattr(response, "data") else response.content
+    return response.content
 
 
 def _content_type(response):
@@ -188,6 +194,31 @@ def test_page_route_status_and_content_type(client, path):
 #    `ztf_viewer/pages/lc_csv.py` authors. Never byte-compare the data rows -- those are the
 #    service's numbers, not ours.
 # --------------------------------------------------------------------------------------------
+
+
+def test_specific_csv_routes_are_registered_before_the_generic_one(dash_app):
+    """`/{dr}/csv/{oid}` has an int-typed `oid`, so `dr="panstarrs"`/`dr="gaia"` plus a numeric
+    id would satisfy it too. Starlette matches routes in registration order and stops at the
+    first match, so if the generic route were registered first it would silently shadow these
+    two -- no network needed, this is purely about which handler a path resolves to.
+    """
+    from fastapi.routing import Match
+
+    def _first_match(path):
+        scope = {"type": "http", "method": "GET", "path": path}
+        for route in dash_app.server.router.routes:
+            match, _ = route.matches(scope)
+            if match == Match.FULL:
+                return route
+        return None
+
+    panstarrs_route = _first_match("/panstarrs/csv/12345")
+    assert panstarrs_route is not None
+    assert panstarrs_route.endpoint.__name__ == "response_panstarrs_csv"
+
+    gaia_route = _first_match("/gaia/csv/12345")
+    assert gaia_route is not None
+    assert gaia_route.endpoint.__name__ == "response_gaia_csv"
 
 
 @pytest.mark.network

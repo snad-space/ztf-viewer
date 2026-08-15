@@ -21,7 +21,6 @@ from ztf_viewer.web import (
     error_response,
     file_response,
     query_args,
-    request_body,
 )
 
 _PACKAGE_ROOT = pathlib.Path(ztf_viewer.__file__).parent
@@ -110,29 +109,15 @@ def test_query_args_wraps_any_get_getlist_multidict():
     assert args.get("missing", "default") == "default"
 
 
-def test_query_args_function_still_reads_flask_style_dot_args():
-    """`query_args(request)` still reaches for `request.args` (Flask's attribute name), because
-    the ambient `request` it is fed today is still `flask.request`. Swapping this to
-    `request.query_params` belongs with the route port that starts passing a real Starlette
-    request in.
+def test_query_args_function_reads_starlette_query_params():
+    """`query_args(request)` reads `request.query_params`, the attribute a real Starlette/FastAPI
+    `Request` exposes.
     """
 
-    class _FakeFlaskRequest:
-        args = QueryParams("a=1&b=2&b=3")
+    class _FakeRequest:
+        query_params = QueryParams("a=1&b=2&b=3")
 
-    wrapped = query_args(_FakeFlaskRequest())
+    wrapped = query_args(_FakeRequest())
 
     assert wrapped.get("a") == "1"
     assert wrapped.getlist("b") == ["2", "3"]
-
-
-def test_request_body_is_left_as_is_for_now():
-    """`request_body` still expects Flask's sync `get_data`; it is not called from a Starlette
-    handler anywhere yet, so this only pins the current (Flask-shaped) behaviour.
-    """
-
-    class _FakeFlaskRequest:
-        def get_data(self, cache=False):
-            return b"payload"
-
-    assert request_body(_FakeFlaskRequest()) == b"payload"
