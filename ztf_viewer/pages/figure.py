@@ -4,6 +4,7 @@ from io import BytesIO
 import matplotlib
 import matplotlib.backends.backend_pgf
 import numpy as np
+from fastapi import Body, Request
 from immutabledict import immutabledict
 from matplotlib.ticker import AutoMinorLocator
 
@@ -16,7 +17,7 @@ from ztf_viewer.util import (
     flip,
     parse_json_to_immutable,
 )
-from ztf_viewer.web import binary_response, error_response, query_args, request, request_body
+from ztf_viewer.web import binary_response, error_response, query_args
 
 MIMES = {
     "pdf": "application/pdf",
@@ -28,9 +29,8 @@ class UnknownFormat(Exception):
     """Raised by `parse_figure_args_helper` when `format` isn't one of `MIMES`."""
 
 
-@app.server.route("/<dr>/figure/<int:oid>/folded/<int:period>")
-@app.server.route("/<dr>/figure/<int:oid>/folded/<float:period>")
-def response_figure_folded(dr, oid, period):
+@app.server.api_route("/{dr}/figure/{oid}/folded/{period}")
+def response_figure_folded(dr: str, oid: int, period: float, request: Request):
     args = query_args(request)
     try:
         kwargs = parse_figure_args_helper(args)
@@ -51,11 +51,11 @@ def response_figure_folded(dr, oid, period):
     return binary_response(img, mimetype=MIMES[fmt], filename=f"{oid}.{fmt}")
 
 
-@app.server.route("/<dr>/figure/<int:oid>", methods=["GET", "POST"])
-def response_figure(dr, oid):
+@app.server.api_route("/{dr}/figure/{oid}", methods=["GET", "POST"])
+def response_figure(dr: str, oid: int, request: Request, body: bytes = Body(default=b"")):
     args = query_args(request)
     try:
-        kwargs = parse_figure_args_helper(args, request_body(request))
+        kwargs = parse_figure_args_helper(args, body)
     except UnknownFormat:
         return error_response("", 404)
     fmt = kwargs.pop("fmt")

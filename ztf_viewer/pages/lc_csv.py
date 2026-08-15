@@ -1,13 +1,14 @@
 from io import StringIO
 
 import pandas as pd
+from fastapi import Request
 
 from ztf_viewer.app import app
 from ztf_viewer.catalogs import find_ztf_oid
 from ztf_viewer.exceptions import NotFound, CatalogUnavailable
 from ztf_viewer.catalogs.ztf_ref import ztf_ref
 from ztf_viewer.catalogs.conesearch import ANTARES_QUERY, GAIA_DR3, PANSTARRS_DR2_QUERY
-from ztf_viewer.web import csv_response, error_response, query_args, request
+from ztf_viewer.web import csv_response, error_response, query_args
 
 
 def get_csv(dr, oids, min_mjd=None, max_mjd=None):
@@ -42,8 +43,53 @@ def get_csv(dr, oids, min_mjd=None, max_mjd=None):
     return string_io.getvalue()
 
 
-@app.server.route("/<dr>/csv/<int:oid>")
-def response_csv(dr, oid):
+def _lc_to_csv_response(lc, filename):
+    """Convert a list-of-dicts light curve to a CSV response."""
+    if not lc:
+        return error_response("", 404)
+    df = pd.DataFrame.from_records(lc)
+    df.sort_values(by="mjd", inplace=True)
+    string_io = StringIO()
+    df.to_csv(string_io, index=False)
+    return csv_response(string_io.getvalue(), filename=filename)
+
+
+# Registered ahead of the generic /{dr}/csv/{oid} route below: that route's `oid` path param is
+# an int, so "panstarrs"/"gaia" would otherwise satisfy `dr` and shadow these more specific ones.
+
+
+@app.server.api_route("/panstarrs/csv/{obj_id}")
+def response_panstarrs_csv(obj_id: int):
+    """Download Pan-STARRS DR2 light curve for a given objID as CSV."""
+    try:
+        lc = PANSTARRS_DR2_QUERY.light_curve(id=None, row={"objID": obj_id})
+    except NotFound, CatalogUnavailable:
+        return error_response("", 404)
+    return _lc_to_csv_response(lc, f"panstarrs_{obj_id}.csv")
+
+
+@app.server.api_route("/gaia/csv/{source_id}")
+def response_gaia_csv(source_id: int):
+    """Download Gaia DR3 epoch photometry for a given Source ID as CSV."""
+    try:
+        lc = GAIA_DR3.light_curve(id=source_id)
+    except NotFound, CatalogUnavailable:
+        return error_response("", 404)
+    return _lc_to_csv_response(lc, f"gaia_{source_id}.csv")
+
+
+@app.server.api_route("/antares/csv/{locus_id}")
+def response_antares_csv(locus_id: str):
+    """Download Antares light curve for a given locus ID as CSV."""
+    try:
+        lc = ANTARES_QUERY.light_curve(id=locus_id)
+    except NotFound, CatalogUnavailable:
+        return error_response("", 404)
+    return _lc_to_csv_response(lc, f"antares_{locus_id}.csv")
+
+
+@app.server.api_route("/{dr}/csv/{oid}")
+def response_csv(dr: str, oid: int, request: Request):
     args = query_args(request)
 
     try:
@@ -71,44 +117,3 @@ def response_csv(dr, oid):
     except NotFound:
         return error_response("", 404)
     return csv_response(csv, filename=f"{oid}.csv")
-
-
-def _lc_to_csv_response(lc, filename):
-    """Convert a list-of-dicts light curve to a CSV response."""
-    if not lc:
-        return error_response("", 404)
-    df = pd.DataFrame.from_records(lc)
-    df.sort_values(by="mjd", inplace=True)
-    string_io = StringIO()
-    df.to_csv(string_io, index=False)
-    return csv_response(string_io.getvalue(), filename=filename)
-
-
-@app.server.route("/panstarrs/csv/<int:obj_id>")
-def response_panstarrs_csv(obj_id):
-    """Download Pan-STARRS DR2 light curve for a given objID as CSV."""
-    try:
-        lc = PANSTARRS_DR2_QUERY.light_curve(id=None, row={"objID": obj_id})
-    except NotFound, CatalogUnavailable:
-        return error_response("", 404)
-    return _lc_to_csv_response(lc, f"panstarrs_{obj_id}.csv")
-
-
-@app.server.route("/gaia/csv/<int:source_id>")
-def response_gaia_csv(source_id):
-    """Download Gaia DR3 epoch photometry for a given Source ID as CSV."""
-    try:
-        lc = GAIA_DR3.light_curve(id=source_id)
-    except NotFound, CatalogUnavailable:
-        return error_response("", 404)
-    return _lc_to_csv_response(lc, f"gaia_{source_id}.csv")
-
-
-@app.server.route("/antares/csv/<locus_id>")
-def response_antares_csv(locus_id):
-    """Download Antares light curve for a given locus ID as CSV."""
-    try:
-        lc = ANTARES_QUERY.light_curve(id=locus_id)
-    except NotFound, CatalogUnavailable:
-        return error_response("", 404)
-    return _lc_to_csv_response(lc, f"antares_{locus_id}.csv")
