@@ -2,17 +2,23 @@
 
 The routes in `ztf_viewer/pages/{figure,lc_csv,favicon}.py` are registered with
 `@app.server.route(...)` rather than as Dash callbacks, so they talk to the WSGI/ASGI backend
-directly instead of through `dash.ctx`. Today that backend is Flask, and this module is the
-*only* place allowed to `import flask` (enforced by a repo-wide grep / AST guard) so that a
-later swap to Starlette touches this one file instead of every route.
+directly instead of through `dash.ctx`. Today that backend is Starlette (via FastAPI), and this
+module is the *only* place allowed to `import flask` (enforced by a repo-wide grep / AST guard).
 
-Call sites should only use the names exported here, never `flask` directly.
+Call sites should only use the names exported here, never `flask` or `starlette` directly.
 """
 
+import pathlib
+
 import flask
+from fastapi.responses import FileResponse, HTMLResponse, Response
 
 #: The current request, re-exported so call sites never import `flask` themselves.
+#: Starlette has no ambient request equivalent -- this is the one name in this module that
+#: still needs a real request object threaded through as a handler argument at every call site.
 request = flask.request
+
+_PACKAGE_ROOT = pathlib.Path(__file__).parent
 
 
 class QueryArgs:
@@ -39,24 +45,31 @@ def request_body(request) -> bytes:
 
 
 def file_response(path, mimetype):
-    """Serve a file from disk (e.g. the favicon)."""
-    return flask.send_file(path, mimetype=mimetype)
+    """Serve a file from disk (e.g. the favicon).
+
+    `path` may be relative (as `favicon.py` passes it); resolve it against the package
+    directory rather than the process CWD, matching Flask's `send_file` app-root resolution.
+    """
+    path = pathlib.Path(path)
+    if not path.is_absolute():
+        path = _PACKAGE_ROOT / path
+    return FileResponse(path, media_type=mimetype)
 
 
 def binary_response(data: bytes, mimetype: str, filename: str):
     """A binary attachment response, e.g. a rendered PNG/PDF figure."""
-    return flask.Response(
+    return Response(
         data,
-        mimetype=mimetype,
+        media_type=mimetype,
         headers={"Content-disposition": f"attachment; filename={filename}"},
     )
 
 
 def csv_response(text: str, filename: str):
     """A CSV attachment response."""
-    return flask.Response(
+    return Response(
         text,
-        mimetype="text/csv",
+        media_type="text/csv",
         headers={"Content-disposition": f"attachment; filename={filename}"},
     )
 
@@ -64,7 +77,7 @@ def csv_response(text: str, filename: str):
 def error_response(body: str, status: int):
     """An error response, replacing the old `(body, status)` tuple pattern.
 
-    No explicit mimetype is set so this matches Flask's own default (`text/html`) for a bare
-    `(body, status)` return, keeping behaviour identical to what these routes did before.
+    Explicit `text/html` so this matches Flask's own default for a bare `(body, status)`
+    return, keeping behaviour identical to what these routes did before.
     """
-    return flask.Response(body, status=status)
+    return HTMLResponse(body, status_code=status)
