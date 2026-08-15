@@ -1,10 +1,10 @@
 # 001 — Porting the ZTF Viewer to async (Dash 4 FastAPI backend)
 
 Status: in progress · foundations landed except the two optional test items; prep landed in full;
-the async shell has landed in full (`aio-shim`, `aio-loop-registry`; `aio-pilots` dropped) — the
-flip is next, and it is the first sub-stack that merges as one unit
+the async shell has landed in full (`aio-shim`, `aio-loop-registry`; `aio-pilots` dropped); **the
+flip has landed** (#658–#661, merged as one stack) — the three post-flip chains are now unblocked
 Baseline: `master` after `994874e`
-Now running: Flask backend, Python 3.14
+Now running: FastAPI backend under uvicorn, one worker, one loop; Python 3.14
 
 Note on names: branches and PRs drop the `aio-` prefix the plan uses (`aio-py314` shipped as
 `python-3.14`, `aio-cache-core` as `cache-core`, and so on). The plan keeps the prefixed names
@@ -85,11 +85,38 @@ merged by its author, and "ready for review" is a reviewer's signal, not the aut
       shim's wrapper — see F15. The mechanics it would have proved are already covered by
       `tests/test_callbacks_shim.py`.
 
-**The flip** — merge as one stack
-- [ ] `aio-fastapi-app` — deps, `backend=`, mount `/static`
-- [ ] `aio-starlette-web` — `web.py` to Starlette *(breaks Flask from here)*
-- [ ] `aio-routes` — port the six routes
-- [ ] `aio-uvicorn` — entrypoint: Dockerfile **and `.ci/docker-compose.yml.tmpl`** (F11)
+**The flip** — merged as one stack, as specified
+- [x] `aio-fastapi-app` — deps, `backend=`, mount `/static` — #658 `fastapi-app`. **No
+      `DASH_BACKEND` env var was built**: review dropped it because `aio-starlette-web` kills the
+      Flask path in `web.py` one PR later, so the var's only real user was CI on #658 in
+      isolation. The backend is hardcoded `"fastapi"`. Consequence: the rollback paragraph below
+      and `aio-cleanup`'s "remove the escape hatch" item are void — there is nothing to remove.
+      The `/static` mount is a `StaticFiles` subclass that adds `Cache-Control: no-cache`, so the
+      header improvement the `/static` design note left open was taken here after all. `httpx`
+      stayed a test-only dependency; it becomes a runtime one in `aio-httpx`, where it is first
+      imported.
+- [x] `aio-starlette-web` — `web.py` to Starlette *(broke Flask from here)* — #659
+      `starlette-web`. Responses import from `fastapi.responses`, not `starlette.*`: `starlette`
+      is transitive and undeclared, `fastapi` is what `pyproject.toml` names, and the classes are
+      the same objects. `starlette.routing.Route` is the one import with no `fastapi` re-export.
+- [x] `aio-routes` — port the six routes — #661 `starlette-routes`. Discharged F13: the ambient
+      `request` re-export is gone and the four call sites take `request: Request`. `flask` left
+      the direct dependency list and the import guard was widened to the whole package. Two
+      things the plan did not anticipate, both now guarded by tests:
+      **route registration order is load-bearing** — `/{dr}/csv/{oid}` takes an int `oid`, so it
+      matches `/panstarrs/csv/12345` too, and Starlette stops at the first match where Flask
+      picked the most specific rule; the three specific CSV routes must stay registered ahead of
+      the generic one. And **`health_endpoint` must not carry a leading slash** — Dash
+      concatenates it onto the route prefix, so `"/health"` registered as `"//health"` and fell
+      through to the catch-all. The int/float folded-period pair did collapse to one `float`
+      route, as the section allowed.
+- [x] `aio-uvicorn` — entrypoint: Dockerfile **and `.ci/docker-compose.yml.tmpl`** (F11) — #660
+      `uvicorn-entrypoint`. Both entrypoints now run the identical uvicorn command, so the
+      dev/prod divergence F11 flagged is gone rather than patched. The shim's wrapper became a
+      real thread offload here, as specified. **The two pools are sized independently at
+      `THREAD_POOL_SIZE` each, not jointly**: anyio's limiter runs sync route handlers on its own
+      worker threads, not on asyncio's default executor, so the default of 16 is up to 32
+      blocking threads per process — the number `aio-offload-threads` has to size against.
 
 **Async I/O** — the payoff
 - [ ] `aio-httpx` — shared async client, `asyncio.timeout`
@@ -108,7 +135,7 @@ merged by its author, and "ready for review" is a reviewer's signal, not the aut
 - [ ] `aio-profile` — measure the rest; pool only what earns it
 
 **Cleanup**
-- [ ] `aio-cleanup` — drop `requests`, sync `timeout()`, `DASH_BACKEND`; update docs
+- [ ] `aio-cleanup` — drop `requests` and the sync `timeout()`; update docs
 
 **Out-of-band** — deployment side, not PRs in this repo
 - [ ] Verify which proxy config is live on the deployment host
@@ -1164,10 +1191,10 @@ body, in the async-I/O stack.
   and serves an object page** — this is the check that would catch the F11 template trap.
   Per-worker RSS compared against the Flask build.
 
-**Rollback.** Two levels. Cheap: set `DASH_BACKEND=flask` — but note this only works for as
-long as `aio-starlette-web`/`aio-routes` keep a Flask-compatible path, which they do not, so treat the env var as a
-*development* convenience rather than a production escape hatch and delete it in the cleanup stack.
-Real rollback for `aio-fastapi-app`–`aio-uvicorn` is a revert of the merged stack, which is exactly why they merge as
+**Rollback.** One level, not two. This section originally offered `DASH_BACKEND=flask` as a cheap
+first resort; that env var was dropped during review of `aio-fastapi-app` precisely because
+`aio-starlette-web`/`aio-routes` keep no Flask-compatible path for it to select. Rollback for
+`aio-fastapi-app`–`aio-uvicorn` is a revert of the merged stack, which is exactly why they merge as
 one unit. `aio-shim` and `aio-loop-registry` stay in place either way; they are pure async conversion and backend-neutral.
 
 ---
@@ -1225,8 +1252,11 @@ per-upstream bounded semaphore** so one slow service cannot eat the shared threa
   `MOCServerClass` (`vizier.py:17`), `Skybot` (`catalogs/skybot.py`)
 - `alerce.core.Alerce` (`conesearch/alerce.py:35`)
 - `antares_client.search` (`conesearch/antares.py:29`)
-- **Size the pool against fan-out width, not core count.** `aio-uvicorn` sets the number in
-  `config.py`; this is the PR that knows what it should be. One object page fans out to ~19
+- **Size the pool against fan-out width, not core count.** `aio-uvicorn` set the number in
+  `config.py` (`THREAD_POOL_SIZE`, default 16); this is the PR that knows what it should be. Note
+  it sizes **two** independent pools to that same value — asyncio's default executor and anyio's
+  sync-route limiter — so the process ceiling is twice the number, and only the first of the two
+  is what `asyncio.to_thread` reaches. One object page fans out to ~19
   catalogs, so a pool sized like `cpu_count + 4` serializes a *single user's* page — the very
   thing `aio-gather` exists to fix. The shape is fan-out width × expected concurrent pages, with
   the per-upstream semaphores providing fairness so one slow service cannot take the pool.
@@ -1335,7 +1365,8 @@ Measure before moving; each may be cheaper to leave on a thread:
   astroquery/alerce/antares).
 - Remove the sync `timeout()` helper (`ztf_viewer/util.py:292`) and the sync `cache()`
   variant once nothing uses them.
-- Remove the `DASH_BACKEND` escape hatch and any remaining `flask[async]` extra.
+- Remove any remaining `flask[async]` extra. *(The `DASH_BACKEND` escape hatch this item also
+  named was never built — see the flip's Progress entry.)*
 - **Retire `ztf_viewer/callbacks.py`.** The shim is transitional, not permanent. By this point the
   I/O-bound callbacks are natively `async def` (the shim passes those through untouched) and the
   sync-only third parties are offloaded explicitly with their own semaphores (`aio-offload-threads`),
