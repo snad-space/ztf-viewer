@@ -8,18 +8,27 @@ unpack those single-element (or empty) lists back into scalars.
 """
 
 import inspect
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
-from ztf_viewer.pages import tags
+from ztf_viewer import config
+
+# `ztf_viewer.pages.tags` now pulls in `ztf_viewer.akb`, which pulls in `ztf_viewer.cache`, whose
+# module-level `cache()` decorator is bound to a backend at first import and never rebinds. Set
+# this before that import, the same guard other test modules that import the app use.
+config.CACHE_TYPE = "memory"
+config.UNAVAILABLE_CATALOGS_CACHE_TYPE = "memory"
+
+from ztf_viewer.pages import tags  # noqa: E402
 
 # Callback registration may wrap the function; the body under test is the innermost one.
 set_save_status = inspect.unwrap(tags.set_save_status)
 
 
-def test_set_save_status_unpacks_pattern_matched_new_tag_state():
+async def test_set_save_status_unpacks_pattern_matched_new_tag_state():
     with patch("ztf_viewer.pages.tags.akb") as mock_akb:
-        mock_akb.is_token_valid.return_value = True
-        set_save_status(
+        mock_akb.is_token_valid = AsyncMock(return_value=True)
+        mock_akb.post_tags = AsyncMock()
+        await set_save_status(
             n_clicks=1,
             tags=[],
             priorities=[],
@@ -30,10 +39,11 @@ def test_set_save_status_unpacks_pattern_matched_new_tag_state():
     mock_akb.post_tags.assert_called_once_with([dict(name="foo", priority=5, description="bar")])
 
 
-def test_set_save_status_tolerates_empty_new_tag_state():
+async def test_set_save_status_tolerates_empty_new_tag_state():
     with patch("ztf_viewer.pages.tags.akb") as mock_akb:
-        mock_akb.is_token_valid.return_value = True
-        set_save_status(
+        mock_akb.is_token_valid = AsyncMock(return_value=True)
+        mock_akb.post_tags = AsyncMock()
+        await set_save_status(
             n_clicks=1,
             tags=[],
             priorities=[],
