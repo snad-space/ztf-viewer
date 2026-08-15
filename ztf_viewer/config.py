@@ -15,5 +15,5 @@ JS9_URL = os.environ.get("JS9_URL", "https://www.js9.org/js9.html")
 DUSTMAPS_API_URL = os.environ.get("DUSTMAPS_API_URL", "https://dustmaps.snad.space")
 
 # Size of both thread pools the entrypoint installs: asyncio's default executor and anyio's
-# sync-route limiter. Matches today's gunicorn `--threads=8`.
-THREAD_POOL_SIZE = int(os.environ.get("THREAD_POOL_SIZE", "8"))
+# sync-route limiter. Caps how many blocking calls the single event loop can have in flight.
+THREAD_POOL_SIZE = int(os.environ.get("THREAD_POOL_SIZE", "16"))

@@ -1600,6 +1600,7 @@ dependencies = [
     { name = "redis" },
     { name = "requests" },
     { name = "scipy" },
+    { name = "uvicorn", extra = ["standard"] },
 ]
 
 [package.dev-dependencies]
@@ -1634,6 +1635,7 @@ requires-dist = [
     { name = "redis" },
     { name = "requests" },
     { name = "scipy" },
+    { name = "uvicorn", extras = ["standard"] },
 ]
 
 [package.metadata.requires-dev]

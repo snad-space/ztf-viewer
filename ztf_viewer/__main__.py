@@ -36,14 +36,19 @@ from ztf_viewer.version import version_string, version_url
 logging.basicConfig(level=logging.INFO)
 
 
-async def _size_thread_pools() -> None:
-    """Size asyncio's default executor and anyio's sync-route limiter from config.
+# One pool per process, not per loop: `set_default_executor` replaces the executor without
+# shutting the old one down, so building it here keeps a second startup from doubling the
+# thread count. Threads are spawned on first use, so this costs nothing at import.
+_thread_pool = ThreadPoolExecutor(max_workers=THREAD_POOL_SIZE, thread_name_prefix="ztf-viewer")
 
-    Both fall back to a stdlib default derived from CPU count if left unset; this is the one
-    place, run once at startup, that pins them instead.
+
+async def _size_thread_pools() -> None:
+    """Point asyncio's default executor and anyio's sync-route limiter at our own sizes.
+
+    Both otherwise fall back to a stdlib default derived from CPU count. The limiter is a
+    per-loop value, so it has to be set on each startup; the executor is shared.
     """
-    loop = asyncio.get_running_loop()
-    loop.set_default_executor(ThreadPoolExecutor(max_workers=THREAD_POOL_SIZE))
+    asyncio.get_running_loop().set_default_executor(_thread_pool)
     anyio.to_thread.current_default_thread_limiter().total_tokens = THREAD_POOL_SIZE
 
 
