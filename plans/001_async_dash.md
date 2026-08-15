@@ -1,7 +1,8 @@
 # 001 — Porting the ZTF Viewer to async (Dash 4 FastAPI backend)
 
 Status: in progress · foundations landed except the two optional test items; prep landed in full;
-the async shell has started — `aio-shim` landed, `aio-loop-registry` is next
+the async shell has landed in full (`aio-shim`, `aio-loop-registry`; `aio-pilots` dropped) — the
+flip is next, and it is the first sub-stack that merges as one unit
 Baseline: `master` after `994874e`
 Now running: Flask backend, Python 3.14
 
@@ -70,7 +71,15 @@ merged by its author, and "ready for review" is a reviewer's signal, not the aut
       pessimization the section warns about is not incurred on Flask, and F1's requirement is
       still met, since it is about *registration* kind, not about where the body runs.
       Follow-up #648 fixed a client-side `State` error on `/tags` for logged-out users.
-- [ ] `aio-loop-registry` — per-loop clients/pools/semaphores
+- [x] `aio-loop-registry` — per-loop clients/pools/semaphores — #651 `loop-registry`. One
+      `LoopRegistry`, keyed on the loop object itself rather than `id(loop)` (ids are recycled, so
+      a new loop could inherit a dead loop's resource), replacing the four ad-hoc
+      `WeakKeyDictionary` + `threading.Lock` copies that had grown in the cache and TTL-set paths.
+      **Reclamation is not automatic for every resource**, contrary to what the PR first claimed: a
+      connected `redis.asyncio` client references its own loop, so it pins its own weak key and the
+      table grows one entry per Flask request loop. Follow-up #654 sweeps closed loops out —
+      **when a new loop asks for a resource, not on every lookup**, so the common path stays a
+      plain dict hit.
 - [x] ~~`aio-pilots`~~ — **dropped** (#652, closed). Converting a callback to `async def` before
       its body has anything to await opts it out of the offload `aio-uvicorn` installs in the
       shim's wrapper — see F15. The mechanics it would have proved are already covered by
@@ -1050,6 +1059,12 @@ Per F1c, prerequisite for anything in the async-I/O stack to work on both backen
 - **Accept:** a test that acquires each resource under two successive
   `asyncio.run(...)` calls (simulating Flask's per-request loop) without error, and a test
   that a single long-lived loop reuses one instance (simulating FastAPI).
+- *(Landed as #651 `loop-registry` + #654. The registry keys on the loop **object**, not
+  `id(loop)`, and the four existing ad-hoc per-loop caches were retrofitted onto it. One thing the
+  design did not survive contact with: weak keys alone do not reclaim a `redis.asyncio` client,
+  which holds its own loop through its transport, so #654 added the closed-loop sweep. No
+  `httpx.AsyncClient` or `asyncio.Semaphore` exists yet — those arrive with the async-I/O stack and
+  are expected to use the registry from the start.)*
 
 ### ~~`aio-pilots`~~ — Native async pilots *(dropped; #652 closed)*
 The idea was to convert two or three callbacks to genuinely `async def` before the flip — one
