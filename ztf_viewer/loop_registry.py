@@ -9,10 +9,25 @@ resources lazily, keyed by ``asyncio.get_running_loop()``, one instance per loop
 
 Keying on ``id(loop)`` would be a bug: ids are recycled once a loop is garbage collected, so a
 brand-new loop can silently inherit a dead loop's entry. Keying the table on the loop object
-itself, held only weakly, sidesteps this: identity, not a reused integer, decides equality, and
-the entry disappears on its own once nothing else holds the loop — which is exactly when Flask
-drops it after a request. ``discard()`` exists for callers that want that deterministic rather
-than GC-timed.
+itself, held only weakly, sidesteps this — identity, not a reused integer, decides equality.
+
+**Weak keys do not by themselves reclaim entries, and for two of the current values they do not
+reclaim them at all.** A ``WeakKeyDictionary`` holds its values strongly, so any value that
+references its own loop keeps its own key alive: a connected ``redis.asyncio`` client reaches its
+loop through ``transport._loop``, and that entry then survives every collection. Measured: five
+successive ``asyncio.run`` calls leave five entries, growing without bound. The values that hold
+nothing — an ``asyncio.Lock``, a plain ``dict`` — are reclaimed as expected.
+
+Nothing in the app reaches the affected paths yet, and under a single long-lived loop one entry
+is the whole population, so this bites only a loop-per-request backend driving a real client. It
+needs an explicit sweep of closed loops rather than more weakness; that lands separately.
+``discard()`` drops one entry deterministically in the meantime.
+
+Cleaning up *after* a loop is gone is not an option worth designing toward: ``aclose()`` needs a
+live loop, ``transport.close()`` raises ``RuntimeError: Event loop is closed``, and a
+``weakref.finalize`` on the loop cannot help either — holding the resource to close it later is
+exactly what keeps the loop alive, so the finalizer never runs until interpreter exit. A resource
+is closed on its own loop, while that loop still runs, or it is left to the garbage collector.
 
 No lock is needed around the body that runs after ``get()`` returns: only one task runs at a
 time per loop, so two tasks on the *same* loop can never race to create two resources for that
