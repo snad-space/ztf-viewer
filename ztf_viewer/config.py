@@ -53,4 +53,4 @@ TIMEOUT_EXTINCTION = httpx.Timeout(10.0)  # extinction/_base.py
 TIMEOUT_FEATURES = httpx.Timeout(60.0)  # lc_features.py: feature extraction over a full light curve
 TIMEOUT_MODEL_FIT = httpx.Timeout(120.0)  # model_fit.py: the heaviest per-request compute of the first-party APIs
 TIMEOUT_AKB = httpx.Timeout(10.0)  # akb.py: small CRUD-shaped JSON requests
-TIMEOUT_ZTF_FITS_PROXY = httpx.Timeout(60.0)  # catalogs/ztf_ref.py, date_with_frac.py: same proxy as the light curves
+TIMEOUT_ZTF_FITS_PROXY = httpx.Timeout(60.0)  # catalogs/ztf_ref.py, date_with_frac.py: both hit ZTF_FITS_PROXY_URL
