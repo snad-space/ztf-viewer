@@ -52,6 +52,26 @@ def test_cleanup_drops_entries_via_gc() -> None:
     assert len(registry) == 0
 
 
+def test_a_value_holding_its_own_loop_does_not_accumulate() -> None:
+    """The shape a connected `redis.asyncio` client has: the value reaches its loop, so weak keys
+    alone never reclaim it and the table grew once per loop until `get()` started sweeping."""
+
+    class HoldsItsLoop:
+        def __init__(self) -> None:
+            self.loop = asyncio.get_running_loop()
+
+    registry = LoopRegistry(HoldsItsLoop)
+
+    async def body():
+        registry.get()
+
+    for _ in range(5):
+        asyncio.run(body())
+        gc.collect()
+
+    assert len(registry) <= 1
+
+
 def test_discard_drops_the_entry_immediately() -> None:
     """`discard()` is the deterministic counterpart to relying on garbage collection."""
     registry = LoopRegistry(object)

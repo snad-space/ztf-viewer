@@ -362,7 +362,7 @@ def test_async_memory_backend_lock_registry_survives_concurrent_threads():
 
     loops, locks = _run_from_n_threads(touch)
 
-    assert len(backend._locks) == N_THREADS, "one registry entry per still-live loop"
+    assert len({id(lock) for lock in locks}) == N_THREADS, "each loop gets its own lock, never a shared one"
     assert all(isinstance(lock, asyncio.Lock) for lock in locks)
 
 
@@ -377,5 +377,5 @@ def test_async_redis_backend_client_registry_survives_concurrent_threads():
 
     loops, clients = _run_from_n_threads(touch)
 
-    assert len(backend._clients) == N_THREADS, "one registry entry per still-live loop"
+    assert len({id(client) for client in clients}) == N_THREADS, "each loop gets its own client, never a shared one"
     assert all(isinstance(client, redis.asyncio.Redis) for client in clients)

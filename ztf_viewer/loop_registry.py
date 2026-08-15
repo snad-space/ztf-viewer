@@ -11,17 +11,14 @@ Keying on ``id(loop)`` would be a bug: ids are recycled once a loop is garbage c
 brand-new loop can silently inherit a dead loop's entry. Keying the table on the loop object
 itself, held only weakly, sidesteps this — identity, not a reused integer, decides equality.
 
-**Weak keys do not by themselves reclaim entries, and for two of the current values they do not
-reclaim them at all.** A ``WeakKeyDictionary`` holds its values strongly, so any value that
-references its own loop keeps its own key alive: a connected ``redis.asyncio`` client reaches its
-loop through ``transport._loop``, and that entry then survives every collection. Measured: five
-successive ``asyncio.run`` calls leave five entries, growing without bound. The values that hold
-nothing — an ``asyncio.Lock``, a plain ``dict`` — are reclaimed as expected.
-
-Nothing in the app reaches the affected paths yet, and under a single long-lived loop one entry
-is the whole population, so this bites only a loop-per-request backend driving a real client. It
-needs an explicit sweep of closed loops rather than more weakness; that lands separately.
-``discard()`` drops one entry deterministically in the meantime.
+**Weak keys alone do not reclaim entries, which is why :meth:`get` sweeps.** A
+``WeakKeyDictionary`` holds its values strongly, so any value that references its own loop keeps
+its own key alive: a connected ``redis.asyncio`` client reaches its loop through
+``transport._loop``, and that entry then survives every collection — five successive
+``asyncio.run`` calls left five entries before the sweep existed. Values that hold nothing, an
+``asyncio.Lock`` or a plain ``dict``, were reclaimed even without it. A closed loop is never
+coming back, so dropping its entry on the next lookup bounds the table by the number of live
+loops, whatever the value happens to reference. ``discard()`` drops one entry immediately.
 
 Cleaning up *after* a loop is gone is not an option worth designing toward: ``aclose()`` needs a
 live loop, ``transport.close()`` raises ``RuntimeError: Event loop is closed``, and a
@@ -60,10 +57,20 @@ class LoopRegistry(Generic[_T]):
     def get(self) -> _T:
         loop = asyncio.get_running_loop()
         with self._registry_lock:
+            self._sweep()
             resource = self._entries.get(loop)
             if resource is None:
                 resource = self._entries[loop] = self._factory()
         return resource
+
+    def _sweep(self) -> None:
+        """Drop entries whose loop is closed. Call with the lock held.
+
+        A value that references its own loop keeps its key alive, so weak keys alone never
+        reclaim it. Closedness is the signal weakness cannot provide.
+        """
+        for loop in [loop for loop in list(self._entries) if loop.is_closed()]:
+            del self._entries[loop]
 
     def discard(self, loop: Optional[asyncio.AbstractEventLoop] = None) -> None:
         """Drop the entry for `loop` (the running loop by default), if any."""
