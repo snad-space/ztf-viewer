@@ -26,6 +26,7 @@ dependencies = [
     "numpy",
     "astropy",
     "astroquery",
+    "httpx",
     "jinja2",
     "markupsafe",
     "requests",
