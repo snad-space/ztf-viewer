@@ -4,10 +4,10 @@ from dataclasses import dataclass
 from urllib.parse import urljoin
 
 import numpy as np
-import requests
 
 from ztf_viewer.cache import cache
-from ztf_viewer.config import ZTF_FITS_PROXY_URL
+from ztf_viewer.config import TIMEOUT_ZTF_FITS_PROXY, ZTF_FITS_PROXY_URL
+from ztf_viewer.http import get_client
 from ztf_viewer.util import ccdid_from_rcid, hmjd_to_earth, qid_from_rcid
 
 
@@ -53,15 +53,16 @@ class DateWithFrac:
 
 
 @cache()
-def _fracs(products_root):
+async def _fracs(products_root):
     url = urljoin(ZTF_FITS_PROXY_URL, products_root)
-    body = requests.get(url).text
-    fracs = re.findall(r'<a href="(\d{6})/">\1/</a>', body)
+    client = get_client()
+    response = await client.get(url, timeout=TIMEOUT_ZTF_FITS_PROXY)
+    fracs = re.findall(r'<a href="(\d{6})/">\1/</a>', response.text)
     return sorted(int(f) for f in fracs)
 
 
-def correct_date(date_with_frac):
-    fracs = _fracs(date_with_frac.products_root)
+async def correct_date(date_with_frac):
+    fracs = await _fracs(date_with_frac.products_root)
     digits = 6
     i = np.searchsorted(fracs, date_with_frac.frac_digits(digits))
     date_with_frac.fraction = fracs[i - 1] / (10.0**digits)
