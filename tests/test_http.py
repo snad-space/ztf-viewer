@@ -52,7 +52,7 @@ def test_client_is_configured_from_config() -> None:
         client = get_client()
         try:
             assert isinstance(client, httpx.AsyncClient)
-            assert client.timeout.connect == config.HTTP_TIMEOUT_SECONDS
+            assert client.timeout == config.HTTP_DEFAULT_TIMEOUT
             pool = client._transport._pool
             assert pool._max_connections == config.HTTP_MAX_CONNECTIONS
             assert pool._max_keepalive_connections == config.HTTP_MAX_KEEPALIVE_CONNECTIONS
@@ -83,6 +83,21 @@ async def test_async_timeout_raises_catalog_unavailable_with_catalog_kwarg(monke
         await hangs_forever()
 
     assert catalog.query_name in str(excinfo.value)
+
+
+def test_per_api_timeouts_match_the_requests_audit() -> None:
+    """Pins the numbers `config.py` seeds from today's synchronous call sites (see the PR
+    description's audit table), so a later edit changes them on purpose, not by accident."""
+    assert config.TIMEOUT_ZTF_DR == httpx.Timeout(60.0)
+    assert config.TIMEOUT_CONESEARCH_API == httpx.Timeout(10.0)
+    assert config.TIMEOUT_OGLE_LIGHT_CURVE == httpx.Timeout(60.0)
+    assert config.TIMEOUT_PANSTARRS == httpx.Timeout(10.0, read=600.0)
+    assert config.TIMEOUT_EXTINCTION == httpx.Timeout(10.0)
+    # No timeout at all today (`requests` waits forever); picked deliberately, not inherited.
+    assert config.TIMEOUT_FEATURES == httpx.Timeout(60.0)
+    assert config.TIMEOUT_MODEL_FIT == httpx.Timeout(120.0)
+    assert config.TIMEOUT_AKB == httpx.Timeout(10.0)
+    assert config.TIMEOUT_ZTF_FITS_PROXY == httpx.Timeout(60.0)
 
 
 async def test_async_timeout_lets_fast_calls_through() -> None:

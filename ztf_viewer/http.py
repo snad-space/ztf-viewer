@@ -5,6 +5,11 @@ module-level singleton: an ``httpx.AsyncClient`` opens its connection pool again
 event loop is running when it is first used, and reusing it from a different loop breaks. One
 client per loop, sized from ``config.py``, sidesteps that.
 
+The client-level timeout (``config.HTTP_DEFAULT_TIMEOUT``) is a backstop, not the intended knob:
+upstreams disagree by two orders of magnitude on how long they need, so a caller is expected to
+pass its own ``timeout=`` per request (``config.py``'s ``TIMEOUT_*`` constants) and this default
+only catches the case where one forgets to.
+
 Nothing in the app calls :func:`get_client` yet — this module only builds the client and wires
 its shutdown, ready for callers to adopt incrementally.
 """
@@ -22,12 +27,11 @@ def _build_client() -> httpx.AsyncClient:
         max_connections=config.HTTP_MAX_CONNECTIONS,
         max_keepalive_connections=config.HTTP_MAX_KEEPALIVE_CONNECTIONS,
     )
-    timeout = httpx.Timeout(config.HTTP_TIMEOUT_SECONDS)
     # `retries` only covers connection failures (DNS, refused/reset connections) before a
     # request reaches the server. It does not retry timeouts on an established connection, and
     # it never retries a request that got any response, including a 5xx one.
     transport = httpx.AsyncHTTPTransport(retries=config.HTTP_CONNECT_RETRIES)
-    return httpx.AsyncClient(limits=limits, timeout=timeout, transport=transport)
+    return httpx.AsyncClient(limits=limits, timeout=config.HTTP_DEFAULT_TIMEOUT, transport=transport)
 
 
 _CLIENT_REGISTRY: LoopRegistry[httpx.AsyncClient] = LoopRegistry(_build_client)
