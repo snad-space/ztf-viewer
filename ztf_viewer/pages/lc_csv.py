@@ -5,6 +5,7 @@ match wins, so the specific catalog routes must be registered before the generic
 `/{dr}/csv/{oid}` one.
 """
 
+import asyncio
 from io import StringIO
 
 import pandas as pd
@@ -18,19 +19,19 @@ from ztf_viewer.catalogs.conesearch import ANTARES_QUERY, GAIA_DR3, PANSTARRS_DR
 from ztf_viewer.web import csv_response, error_response, query_args
 
 
-def get_csv(dr, oids, min_mjd=None, max_mjd=None):
+async def get_csv(dr, oids, min_mjd=None, max_mjd=None):
     dfs = []
     for oid in oids:
-        lc = find_ztf_oid.get_lc(oid, dr, min_mjd=min_mjd, max_mjd=max_mjd)
+        lc = await find_ztf_oid.get_lc(oid, dr, min_mjd=min_mjd, max_mjd=max_mjd)
         if lc is None:
             raise NotFound
-        meta = find_ztf_oid.get_meta(oid, dr)
+        meta = await find_ztf_oid.get_meta(oid, dr)
         oid_df = pd.DataFrame.from_records(lc)
         oid_df["oid"] = oid
         oid_df["filter"] = meta["filter"]
 
         try:
-            ref = ztf_ref.get(oid, dr)
+            ref = await ztf_ref.get(oid, dr)
         except NotFound, CatalogUnavailable:
             oid_df["ref"] = [None] * oid_df.shape[0]
             oid_df["ref_err"] = [None] * oid_df.shape[0]
@@ -41,6 +42,11 @@ def get_csv(dr, oids, min_mjd=None, max_mjd=None):
             oid_df["ref_err"] = ref_err
 
         dfs.append(oid_df)
+    # pandas concat/sort is CPU-bound; keep it off the event loop.
+    return await asyncio.to_thread(_dfs_to_csv, dfs)
+
+
+def _dfs_to_csv(dfs):
     df = pd.concat(dfs, axis="index")
     df.sort_values(by="mjd", inplace=True)
     df = df[["oid", "filter", "mjd", "mag", "magerr", "clrcoeff", "ref", "ref_err"]]
@@ -93,7 +99,10 @@ def response_antares_csv(locus_id: str):
 
 # Keep last: `oid` is an int, so this also matches the catalog routes above.
 @app.server.api_route("/{dr}/csv/{oid}")
-def response_csv(dr: str, oid: int, request: Request):
+async def response_csv(dr: str, oid: int, request: Request):
+    """Async because `get_csv` calls `find_ztf_oid.get_lc`, which now awaits; the FastAPI
+    threadpool that plain-`def` routes get doesn't apply once a route itself needs to await.
+    """
     args = query_args(request)
 
     try:
@@ -117,7 +126,7 @@ def response_csv(dr: str, oid: int, request: Request):
             return error_response("max_mjd query parameter must be a float", 400)
 
     try:
-        csv = get_csv(dr, oids, min_mjd=min_mjd, max_mjd=max_mjd)
+        csv = await get_csv(dr, oids, min_mjd=min_mjd, max_mjd=max_mjd)
     except NotFound:
         return error_response("", 404)
     return csv_response(csv, filename=f"{oid}.csv")
