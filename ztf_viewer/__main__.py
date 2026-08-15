@@ -22,6 +22,7 @@ from ztf_viewer.catalogs.conesearch import ANTARES_QUERY, TNS_QUERY
 from ztf_viewer.catalogs.snad import SnadCatalogSource
 from ztf_viewer.config import THREAD_POOL_SIZE
 from ztf_viewer.exceptions import CatalogUnavailable, NotFound, UnAuthorized
+from ztf_viewer.http import aclose_client
 from ztf_viewer.pages import favicon as _  # noqa: F811,F401
 from ztf_viewer.pages import figure as _  # noqa: F811,F401
 from ztf_viewer.pages import lc_csv as _  # noqa: F811,F401
@@ -55,6 +56,7 @@ async def _size_thread_pools() -> None:
 # Registered unconditionally so it fires whether uvicorn imports this module directly
 # (the Dockerfile entrypoint) or runs it via `uvicorn.run` below (dev).
 app.server.router.add_event_handler("startup", _size_thread_pools)
+app.server.router.add_event_handler("shutdown", aclose_client)
 
 
 app.title = "SNAD ZTF viewer"

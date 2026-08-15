@@ -17,3 +17,12 @@ DUSTMAPS_API_URL = os.environ.get("DUSTMAPS_API_URL", "https://dustmaps.snad.spa
 # Size of both thread pools the entrypoint installs: asyncio's default executor and anyio's
 # sync-route limiter. Caps how many blocking calls the single event loop can have in flight.
 THREAD_POOL_SIZE = int(os.environ.get("THREAD_POOL_SIZE", "16"))
+
+# Shared httpx.AsyncClient tuning (ztf_viewer/http.py). Limits/timeout are per client, and one
+# client is built per event loop, so these bound a single worker's outbound connections.
+HTTP_MAX_CONNECTIONS = int(os.environ.get("HTTP_MAX_CONNECTIONS", "100"))
+HTTP_MAX_KEEPALIVE_CONNECTIONS = int(os.environ.get("HTTP_MAX_KEEPALIVE_CONNECTIONS", "20"))
+HTTP_TIMEOUT_SECONDS = float(os.environ.get("HTTP_TIMEOUT_SECONDS", "10.0"))
+# Connection-level retries only (httpx.AsyncHTTPTransport); never retries a request that got a
+# response, even an error one.
+HTTP_CONNECT_RETRIES = int(os.environ.get("HTTP_CONNECT_RETRIES", "2"))
