@@ -8,7 +8,7 @@ services:
 
   ztf-web-viewer-app:
     build: .
-    entrypoint: ["gunicorn", "-w2", "-t300", "--keep-alive=75", "-b0.0.0.0:80", "ztf_viewer.__main__:app"]
+    entrypoint: ["uvicorn", "ztf_viewer.__main__:app.server", "--host", "0.0.0.0", "--port", "80", "--workers", "1", "--timeout-keep-alive", "75"]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:80/health"]
       interval: 30s

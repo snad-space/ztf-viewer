@@ -5,12 +5,13 @@ hop, so leaving any callback as a plain ``def`` would serialize the whole app on
 worker. Dash only checks ``inspect.iscoroutinefunction`` at registration time, so wrapping here
 is enough to satisfy that constraint without touching a single callback body.
 
-The wrapper runs the callback **inline**, on the thread that awaits it — today the gunicorn
-worker thread, exactly as before this shim existed. Offloading it to a thread pool is what the
-FastAPI backend will need, and it is deliberately not done here: a pool needs a size, a size
-needs one configured home, and neither exists until the backend flip introduces them together.
+The wrapper offloads the callback via ``asyncio.to_thread``, which runs it on the event loop's
+default executor and propagates the current context — so ``dash.ctx`` still resolves correctly
+inside the offloaded call. That executor is sized once, from config, by the entrypoint; nothing
+here creates a pool of its own.
 """
 
+import asyncio
 import functools
 import inspect
 from collections.abc import Callable
@@ -26,7 +27,7 @@ def _to_coroutine_function(func: Callable[..., Any]) -> Callable[..., Any]:
 
     @functools.wraps(func)
     async def wrapper(*args: Any, **kwargs: Any) -> Any:
-        return func(*args, **kwargs)
+        return await asyncio.to_thread(func, *args, **kwargs)
 
     return wrapper
 

@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 
 import argparse
+import asyncio
 import logging
 import pathlib
 import re
 import urllib.parse
+from concurrent.futures import ThreadPoolExecutor
 
+import anyio.to_thread
+import uvicorn
 from astropy.coordinates import SkyCoord, get_icrs_coordinates
 from astropy.coordinates.name_resolve import NameResolveError
 from dash import Input, Output, State, dcc, html, no_update
@@ -16,6 +20,7 @@ from ztf_viewer.app import app
 from ztf_viewer.callbacks import callback
 from ztf_viewer.catalogs.conesearch import ANTARES_QUERY, TNS_QUERY
 from ztf_viewer.catalogs.snad import SnadCatalogSource
+from ztf_viewer.config import THREAD_POOL_SIZE
 from ztf_viewer.exceptions import CatalogUnavailable, NotFound, UnAuthorized
 from ztf_viewer.pages import favicon as _  # noqa: F811,F401
 from ztf_viewer.pages import figure as _  # noqa: F811,F401
@@ -29,6 +34,27 @@ from ztf_viewer.util import DEFAULT_DR, YEAR, available_drs, list_join
 from ztf_viewer.version import version_string, version_url
 
 logging.basicConfig(level=logging.INFO)
+
+
+# One pool per process, not per loop: `set_default_executor` replaces the executor without
+# shutting the old one down, so building it here keeps a second startup from doubling the
+# thread count. Threads are spawned on first use, so this costs nothing at import.
+_thread_pool = ThreadPoolExecutor(max_workers=THREAD_POOL_SIZE, thread_name_prefix="ztf-viewer")
+
+
+async def _size_thread_pools() -> None:
+    """Point asyncio's default executor and anyio's sync-route limiter at our own sizes.
+
+    Both otherwise fall back to a stdlib default derived from CPU count. The limiter is a
+    per-loop value, so it has to be set on each startup; the executor is shared.
+    """
+    asyncio.get_running_loop().set_default_executor(_thread_pool)
+    anyio.to_thread.current_default_thread_limiter().total_tokens = THREAD_POOL_SIZE
+
+
+# Registered unconditionally so it fires whether uvicorn imports this module directly
+# (the Dockerfile entrypoint) or runs it via `uvicorn.run` below (dev).
+app.server.router.add_event_handler("startup", _size_thread_pools)
 
 
 app.title = "SNAD ZTF viewer"
@@ -578,4 +604,12 @@ def parse_args(args):
 
 if __name__ == "__main__":
     args = parse_args(None)
-    app.run(host=args.host, debug=True)
+    # Not `app.run(debug=True)`: under the FastAPI backend that re-execs uvicorn as a
+    # subprocess by inspecting the caller frame, which is fragile for a `python -m` entry point.
+    uvicorn.run(
+        "ztf_viewer.__main__:app.server",
+        host=args.host,
+        port=8050,
+        reload=True,
+        timeout_keep_alive=75,
+    )
