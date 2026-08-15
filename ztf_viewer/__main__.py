@@ -49,6 +49,14 @@ async def _size_thread_pools() -> None:
     Both otherwise fall back to a stdlib default derived from CPU count. The limiter is a
     per-loop value, so it has to be set on each startup; the executor is shared.
     """
+    global _thread_pool
+    # `asyncio.run`'s teardown calls `shutdown_default_executor()` on whatever executor a loop
+    # ends with, which shuts down the shared object, not just that loop's use of it. The single
+    # production worker only ever starts up once, so this never fires there; it only bites
+    # multiple independent event loops sharing this process (several test clients in one run),
+    # where an earlier loop's teardown would otherwise leave the pool dead for every later one.
+    if _thread_pool._shutdown:
+        _thread_pool = ThreadPoolExecutor(max_workers=THREAD_POOL_SIZE, thread_name_prefix="ztf-viewer")
     asyncio.get_running_loop().set_default_executor(_thread_pool)
     anyio.to_thread.current_default_thread_limiter().total_tokens = THREAD_POOL_SIZE
 
