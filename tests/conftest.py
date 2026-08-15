@@ -98,6 +98,36 @@ def setup_cache(item):
     cache.clear_memory_caches()
 
 
+def reset_shared_thread_pool():
+    """Give ``ztf_viewer.__main__``'s module-level thread pool a fresh executor.
+
+    That pool is a single object shared by every event loop in the process — correct for
+    production, where the entrypoint starts exactly one loop. This suite instead builds several
+    independent ``TestClient``s, each driving its own ``asyncio.run`` lifespan, and
+    ``asyncio.run``'s teardown shuts down whatever object was set as *that* loop's default
+    executor — the object itself, not just that loop's use of it. Since every lifespan points at
+    the same shared pool, the first one to finish would otherwise leave it dead for every
+    ``TestClient`` built afterwards.
+
+    Call this before constructing a ``TestClient`` around ``ztf_viewer.app.app`` (or anything that
+    imports it), never from application code — the app itself only ever sees one startup.
+    """
+    import sys
+
+    if "ztf_viewer.__main__" not in sys.modules:
+        # Nothing registered `_size_thread_pools` as a startup handler yet, so there is nothing
+        # to reset; importing `ztf_viewer.__main__` just to reset it would be its own bug source.
+        return
+
+    from concurrent.futures import ThreadPoolExecutor
+
+    import ztf_viewer.__main__ as main_module
+
+    main_module._thread_pool = ThreadPoolExecutor(
+        max_workers=main_module.THREAD_POOL_SIZE, thread_name_prefix="ztf-viewer-test"
+    )
+
+
 def pytest_addoption(parser):
     parser.addoption(
         "--no-net-skip",
