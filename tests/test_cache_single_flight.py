@@ -705,5 +705,5 @@ def test_async_singleflight_table_registry_survives_concurrent_threads():
 
     assert not errors, errors
     assert len(set(id(loop) for loop in loops)) == n, "each thread must run its own loop"
-    assert len(sf._tables) == n, "one registry entry per still-live loop"
+    assert len({id(table) for table in tables}) == n, "each loop gets its own table, never a shared one"
     assert all(isinstance(table, dict) for table in tables)
