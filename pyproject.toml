@@ -112,9 +112,6 @@ target-version = "py314"
 "ztf_viewer/lc_data/__init__.py" = ["F401"]
 
 [dependency-groups]
-deploy = [
-    "gunicorn>=26.0.0",
-]
 tests = [
     # Used by the ASGI test client and by conftest's network-error classifier.
     "httpx",

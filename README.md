@@ -62,8 +62,6 @@ Add or change a dependency with `uv add`/`uv remove` (this updates both `pyproje
 uv add "some-package>=1.0"
 ```
 
-The `deploy` group (`gunicorn`) is only needed outside `uv run`, i.e. by `Dockerfile`.
-
 After editing `pyproject.toml` by hand, refresh the lockfile with:
 ```sh
 uv lock

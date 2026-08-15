@@ -31,10 +31,10 @@ RUN echo "main_memory = 50000000" > /etc/texmf/texmf.d/10main_memory.cnf \
     && texhash \
     && fmtutil-sys --all || test 1
 
-# Install dependencies, including gunicorn (the "deploy" dependency group), but
-# not the project itself yet, so this layer stays cached across source changes
+# Install dependencies, but not the project itself yet, so this layer stays cached
+# across source changes
 COPY pyproject.toml uv.lock /app/
-RUN uv sync --project /app --locked --no-install-project --group deploy
+RUN uv sync --project /app --locked --no-install-project
 
 EXPOSE 80
 
@@ -43,10 +43,10 @@ ENV PYTHONUNBUFFERED TRUE
 COPY ztf_viewer /app/ztf_viewer/
 ARG GITHUB_SHA
 RUN if [ -z ${GITHUB_SHA+x} ]; then echo "$GITHUB_SHA is not set"; else echo "github_sha = \"${GITHUB_SHA}\"" >> /app/ztf_viewer/_version.py; fi
-RUN uv sync --project /app --locked --group deploy
+RUN uv sync --project /app --locked
 
 ENV PATH="/app/.venv/bin:$PATH"
 
 HEALTHCHECK CMD curl -f http://localhost:80/health || exit 1
 
-ENTRYPOINT ["gunicorn", "-w2", "--threads=8", "-t70", "--keep-alive=75", "-b0.0.0.0:80", "ztf_viewer.__main__:app"]
+ENTRYPOINT ["uvicorn", "ztf_viewer.__main__:app.server", "--host", "0.0.0.0", "--port", "80", "--workers", "1", "--timeout-keep-alive", "75"]
