@@ -36,10 +36,10 @@ HTTP_DEFAULT_TIMEOUT = httpx.Timeout(30.0)
 # Per-API request budgets. Each of the first five mirrors what that call site's `requests` call
 # already uses today (`git grep timeout= ztf_viewer`), so the async conversions that follow start
 # from current behaviour rather than a guess. The last four have no timeout at all today --
-# `requests` then waits forever -- so a value had to be picked rather than inherited; see the
-# aio-httpx PR description for that reasoning. Named for the API they serve, not the number, so
-# the value can move without a rename. Plain constants, not env vars: these encode a per-upstream
-# behaviour decision, not a deployment knob, unlike the pool/backstop settings above.
+# `requests` then waits forever -- so each value below was chosen deliberately rather than
+# inherited from a shared default. Named for the API they serve, not the number, so the value can
+# move without a rename. Plain constants, not env vars: these encode a per-upstream behaviour
+# decision, not a deployment knob, unlike the pool/backstop settings above.
 TIMEOUT_ZTF_DR = httpx.Timeout(60.0)  # catalogs/ztf_dr.py: FindZTFOID.find, FindZTFCircle.find
 # The generic SNAD-hosted conesearch endpoint shared by _BaseCatalogApiQuery subclasses,
 # including OGLE's own circle-search call (conesearch/_base.py, conesearch/ogle.py).
