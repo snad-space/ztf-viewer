@@ -8,10 +8,7 @@ they expose plain async methods with names chosen to read naturally with `await`
 `discard`, `remove`, `clear`, `contains`, `size`, `values`.
 """
 
-import asyncio
 import pickle
-import threading
-import weakref
 from abc import ABC, abstractmethod
 from collections.abc import MutableSet
 from typing import Callable, Generic, Hashable, Iterator, TypeVar
@@ -19,6 +16,8 @@ from typing import Callable, Generic, Hashable, Iterator, TypeVar
 import redis.asyncio
 from cachetools import TTLCache
 from redis import StrictRedis
+
+from ztf_viewer.loop_registry import LoopRegistry
 
 _T_Base = TypeVar("_T_Base")
 
@@ -172,8 +171,8 @@ class AsyncRedisTTLSet(Generic[_T_AsyncRedis]):
     """Async counterpart to :class:`RedisTTLSet`, on ``redis.asyncio``.
 
     A connection pool is bound to the loop that created it, so the client is built lazily per
-    running loop rather than once in ``__init__`` — mirrors ``AsyncRedisBackend`` in
-    ``ztf_viewer/cache/redis.py``; keep the two in sync if that pattern changes.
+    running loop rather than once in ``__init__``, through
+    :class:`~ztf_viewer.loop_registry.LoopRegistry`.
 
     Nothing here does I/O in ``__init__``.
     """
@@ -185,23 +184,15 @@ class AsyncRedisTTLSet(Generic[_T_AsyncRedis]):
         prefix: str = "RedisTTLSet",
     ):
         self.ttl = ttl
-        self._client_factory = client_factory
 
         self.prefix = prefix.encode()
         if b"*" in self.prefix:
             raise ValueError('prefix must not contain "*"')
 
-        self._clients: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()
-        self._registry_lock = threading.Lock()
+        self._clients = LoopRegistry(client_factory)
 
     def _client(self) -> "redis.asyncio.Redis":
-        loop = asyncio.get_running_loop()
-        # threading.Lock, not asyncio: the WeakKeyDictionary itself is shared across threads, one loop each.
-        with self._registry_lock:
-            client = self._clients.get(loop)
-            if client is None:
-                client = self._clients[loop] = self._client_factory()
-        return client
+        return self._clients.get()
 
     def _encode(self, value: _T_AsyncRedis) -> bytes:
         serialized = pickle.dumps(value, protocol=pickle.HIGHEST_PROTOCOL)

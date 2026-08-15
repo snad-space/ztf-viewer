@@ -4,8 +4,8 @@ function, not N.
 Both implementations are the same shape — the leader resolves a future, the followers read it —
 over the two kinds of concurrency: threads (``concurrent.futures.Future``) and tasks within one
 event loop (``asyncio.Future``). Asyncio futures are loop-affine, so a leader in one loop can
-never share its future with a waiter in another; that table is keyed by loop, a stand-in for a
-per-loop registry a later change will retrofit onto this (as with the async cache backends).
+never share its future with a waiter in another; that table is keyed by loop, via
+:class:`~ztf_viewer.loop_registry.LoopRegistry` (as with the async cache backends).
 
 In both implementations a leader that raises propagates that same exception object to every
 waiter — including a leader whose own task was cancelled: cancellation is just the leader's
@@ -14,8 +14,9 @@ exception in this scheme, never a reason to leave the followers hanging.
 
 import asyncio
 import threading
-import weakref
 from concurrent.futures import Future
+
+from ztf_viewer.loop_registry import LoopRegistry
 
 
 class SingleFlight:
@@ -60,20 +61,10 @@ class AsyncSingleFlight:
     """Coalesce concurrent calls under the same key onto one task's call, within one loop."""
 
     def __init__(self):
-        self._tables = weakref.WeakKeyDictionary()
-        self._registry_lock = threading.Lock()
-
-    def _table(self) -> dict:
-        loop = asyncio.get_running_loop()
-        # threading.Lock, not asyncio: the WeakKeyDictionary itself is shared across threads, one loop each.
-        with self._registry_lock:
-            table = self._tables.get(loop)
-            if table is None:
-                table = self._tables[loop] = {}
-        return table
+        self._tables = LoopRegistry(dict)
 
     async def run(self, key, compute):
-        table = self._table()
+        table = self._tables.get()
         task = asyncio.current_task()
         entry = table.get(key)
         if entry is not None:
