@@ -1,3 +1,10 @@
+"""CSV download routes.
+
+Registration order matters here: routes are matched in the order they are registered, first
+match wins, so the specific catalog routes must be registered before the generic
+`/{dr}/csv/{oid}` one.
+"""
+
 from io import StringIO
 
 import pandas as pd
@@ -54,10 +61,6 @@ def _lc_to_csv_response(lc, filename):
     return csv_response(string_io.getvalue(), filename=filename)
 
 
-# Registered ahead of the generic /{dr}/csv/{oid} route below: that route's `oid` path param is
-# an int, so "panstarrs"/"gaia" would otherwise satisfy `dr` and shadow these more specific ones.
-
-
 @app.server.api_route("/panstarrs/csv/{obj_id}")
 def response_panstarrs_csv(obj_id: int):
     """Download Pan-STARRS DR2 light curve for a given objID as CSV."""
@@ -88,6 +91,7 @@ def response_antares_csv(locus_id: str):
     return _lc_to_csv_response(lc, f"antares_{locus_id}.csv")
 
 
+# Keep last: `oid` is an int, so this also matches the catalog routes above.
 @app.server.api_route("/{dr}/csv/{oid}")
 def response_csv(dr: str, oid: int, request: Request):
     args = query_args(request)
