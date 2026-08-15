@@ -1344,12 +1344,15 @@ memory.
 - Treating them the same also keeps one code path: `save_fig` dispatches on `fmt` internally,
   so splitting PNG and PDF across pool/no-pool would mean fragmenting it for no benefit.
 - **Correction to "differ in cost but not in kind": under threads they differ in kind, and the
-  cheaper format is the more hostile one.** *(Noted while reviewing `aio-snad-apis`, which put both
-  renderers on `asyncio.to_thread`.)* PDF's cost is dominated by **waiting on the LaTeX child
-  process**, and waiting on a subprocess releases the GIL — so on a thread a PDF request already
-  overlaps with everything else. PNG is in-process Agg rendering, which does not. So the case for
-  a process pool rests more on PNG, the *common* format, than on the expensive one, and the
-  "pool both" decision above stands for the code-path reason rather than the cost ordering.
+  cheaper format is the more hostile one.** *(Measured while reviewing `aio-snad-apis`, which put
+  both renderers on `asyncio.to_thread`; numbers in the `aio-profile` table.)* PDF's cost is
+  dominated by **waiting on the LaTeX child process**, which releases the GIL — four concurrent PDF
+  renders on four threads come out at **3.33x**, i.e. they already overlap. PNG is in-process Agg
+  rendering and manages **1.25x**, barely above the GIL-bound control. So the process pool is
+  needed for PNG — the *default* format (`figure.py:68`), and therefore the common one — while PDF,
+  the expensive one, is the case a thread already handles. This inverts F8's cost ordering as a
+  guide to what needs pooling, and it means the "pool both formats" decision rests on the
+  one-code-path argument alone, not on PDF being worse.
 - The routes become `async def` and `await loop.run_in_executor(pool, ...)`; inputs are
   already plain dicts/lists (`get_plot_data` output), so pickling is cheap.
 - **Accept:** `aio-golden-http`'s figure assertions unchanged for both formats; measure both — a concurrent
@@ -1370,11 +1373,32 @@ until `aio-procpool`. So this section inherits work that is already *off the loo
 narrower question: does moving it further, to a process, earn the pickling and the child-process
 memory? Answer it per site, with a measurement.
 
-The GIL is what makes that question non-obvious, and it does not rank the candidates the way
-"CPU-bound" would suggest. Work that spends its time in C that releases the GIL — numpy, much of
-pandas, astropy's FITS reader — already overlaps with the loop on a thread and has the weakest
-case for a process. Pure-Python loops have the strongest. That is why `lc_data/plot_data.py:18`
-heads this list and why vectorizing it may beat pooling it outright.
+**Measured, not assumed: a thread buys these workloads almost nothing.** It is tempting to argue
+that numpy/pandas/astropy spend their time in C that releases the GIL, so threads are enough. That
+argument was made during review and is **wrong**. `misc/gil_bench.py` runs each workload as 4
+tasks on 4 threads against the same 4 run serially, on the interpreter we ship (CPython 3.14, GIL
+enabled), with two controls to bracket the range:
+
+| workload | serial | threaded | speedup |
+| --- | --- | --- | --- |
+| `time.sleep` — control, pure wait | 0.612 s | 0.154 s | **3.98x** |
+| Python arithmetic — control, GIL-bound | 0.390 s | 0.399 s | **0.98x** |
+| astropy FITS parse, 2M rows (`ztf_ref`) | 0.058 s | 0.035 s | **1.65x** |
+| pandas concat + sort + `to_csv` (`lc_csv`) | 2.826 s | 2.594 s | **1.09x** |
+| matplotlib Agg PNG (`figure`) | 1.146 s | 0.916 s | **1.25x** |
+| matplotlib PGF → LaTeX PDF (`figure`) | 5.111 s | 1.533 s | **3.33x** |
+| per-observation loop (`plot_data`) | 0.209 s | 0.220 s | **0.95x** |
+
+pandas and Agg sit at the GIL-bound control, not near the parallel one. The per-observation loop is
+*slower* on threads than serially — thread overhead on top of no parallelism at all. The FITS parse
+does release partially, but 57 ms for 2M rows is negligible against a real reference catalog.
+
+**So the destination for this work is a process, and the `to_thread` calls `aio-snad-apis` had to
+introduce are keeping the loop responsive, nothing more.** The one real exception is the LaTeX/PDF
+path, which parallelizes because it waits on a child process — see the correction under
+`aio-figures`. `lc_data/plot_data.py:18` still heads the list, and vectorizing it with numpy may
+still beat pooling it, but that is now a claim about *that* loop rather than about C extensions in
+general.
 
 **Rule that came out of reviewing `aio-snad-apis`: none of this reasoning belongs in a code
 comment.** A comment that labels work "CPU-bound" next to an `asyncio.to_thread` call states a
