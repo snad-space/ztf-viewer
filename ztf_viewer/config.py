@@ -13,3 +13,7 @@ ZTF_PERIODIC_API_URL = os.environ.get("ZTF_PERIODIC_API_URL", "https://periodic.
 TNS_API_URL = os.environ.get("TNS_API_URL", "https://tns.snad.space")
 JS9_URL = os.environ.get("JS9_URL", "https://www.js9.org/js9.html")
 DUSTMAPS_API_URL = os.environ.get("DUSTMAPS_API_URL", "https://dustmaps.snad.space")
+
+# Size of both thread pools the entrypoint installs: asyncio's default executor and anyio's
+# sync-route limiter. Matches today's gunicorn `--threads=8`.
+THREAD_POOL_SIZE = int(os.environ.get("THREAD_POOL_SIZE", "8"))
