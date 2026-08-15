@@ -42,10 +42,10 @@ def get_layout(*args, **kwargs):
     Output("anomaly-table", "data"),
     [Input("url", "pathname")],
 )
-def set_table_data(pathname):
-    if not akb.is_token_valid():
+async def set_table_data(pathname):
+    if not await akb.is_token_valid():
         raise PreventUpdate
-    objs = akb.get_objects()
+    objs = await akb.get_objects()
     objs = sorted(objs, key=lambda obj: obj["oid"])
     for item in objs:
         oid = item["oid"]

@@ -26,9 +26,9 @@ def get_layout(*args, **kwargs):
 
 
 @callback(Output("login-status", "children"), [Input("token", "n_submit")], [State("token", "value")])
-def do_login(n_submit, token):
+async def do_login(n_submit, token):
     try:
-        username = akb.username(token)
+        username = await akb.username(token)
     except UnAuthorized:
         return "Login failed: wrong token"
     if token:

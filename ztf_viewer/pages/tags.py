@@ -85,10 +85,10 @@ def get_layout(*args, **kwargs):
         Input("tags-list-reset", "n_clicks"),
     ],
 )
-def show_tags(*_):
-    if not akb.is_token_valid():
+async def show_tags(*_):
+    if not await akb.is_token_valid():
         raise PreventUpdate
-    tags = akb.get_tags()
+    tags = await akb.get_tags()
     children = [
         html.Div(
             [
@@ -114,7 +114,7 @@ def show_tags(*_):
             [
                 dcc.Input(
                     id=dict(type="new-tag-priority-input", index=0),
-                    value=max((tag["priority"] for tag in akb.get_tags()), default=-1) + 1,
+                    value=max((tag["priority"] for tag in await akb.get_tags()), default=-1) + 1,
                     type="number",
                     step=1,
                     size=3,
@@ -164,10 +164,10 @@ def are_tags_priorities_unique(priorities):
         State(dict(type="new-tag-description-input", index=ALL), "value"),
     ],
 )
-def set_save_status(n_clicks, tags, priorities, new_priority, new_name, new_description):
+async def set_save_status(n_clicks, tags, priorities, new_priority, new_name, new_description):
     if not n_clicks:
         raise PreventUpdate
-    if not akb.is_token_valid():
+    if not await akb.is_token_valid():
         return "Error: unauthorised"
     # New-tag inputs are only rendered when logged in, so the pattern-matching State lists are empty otherwise.
     new_priority = new_priority[0] if new_priority else None
@@ -180,5 +180,5 @@ def set_save_status(n_clicks, tags, priorities, new_priority, new_name, new_desc
         tags.append(dict(name=new_name, priority=new_priority, description=new_description))
     if not are_tags_priorities_unique([tag["priority"] for tag in tags]):
         return "Error: tag priorities should be unique"
-    akb.post_tags(tags)
+    await akb.post_tags(tags)
     return "saved"
