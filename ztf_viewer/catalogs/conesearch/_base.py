@@ -274,8 +274,6 @@ class _BaseLightCurveQuery:
 
     async def closest_light_curve_by_oid(self, oid, dr, radius_arcsec, fail_on_empty=True, fail_on_unavailable=True):
         ra, dec = await find_ztf_oid.get_coord(oid, dr)
-        # `closest_light_curve` is still sync conesearch code (out of scope here); offload to
-        # a thread with a bare `asyncio.to_thread`.
         return await asyncio.to_thread(
             self.closest_light_curve,
             ra,

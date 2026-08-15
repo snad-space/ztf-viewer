@@ -42,7 +42,6 @@ async def get_csv(dr, oids, min_mjd=None, max_mjd=None):
             oid_df["ref_err"] = ref_err
 
         dfs.append(oid_df)
-    # pandas concat/sort is CPU-bound; keep it off the event loop.
     return await asyncio.to_thread(_dfs_to_csv, dfs)
 
 

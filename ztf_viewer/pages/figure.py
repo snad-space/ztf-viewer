@@ -50,7 +50,6 @@ async def response_figure_folded(dr: str, oid: int, period: float, request: Requ
         repeat = int(repeat)
 
     data = await get_folded_plot_data(oid, dr, period=period, offset=offset, **kwargs)
-    # matplotlib rendering is CPU-heavy; keep it off the event loop.
     img = await asyncio.to_thread(
         plot_folded_data, oid, data, period=period, repeat=repeat, fmt=fmt, caption=caption, title=title
     )
@@ -73,7 +72,6 @@ async def response_figure(dr: str, oid: int, request: Request, body: bytes = Bod
     title = kwargs.pop("title")
 
     data = await get_plot_data(oid, dr, **kwargs)
-    # matplotlib rendering is CPU-heavy; keep it off the event loop.
     img = await asyncio.to_thread(plot_data, oid, data, fmt=fmt, caption=caption, title=title)
 
     return binary_response(img, mimetype=MIMES[fmt], filename=f"{oid}.{fmt}")

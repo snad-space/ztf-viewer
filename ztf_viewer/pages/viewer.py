@@ -916,7 +916,6 @@ async def fit_lc(
     other_oids = neighbour_oids(different_filter, different_field)
     coord = await find_ztf_oid.get_sky_coord(cur_oid, dr)
     try:
-        # csfd is still a sync `requests` client (out of scope here); offload to a thread.
         ebv = await asyncio.to_thread(csfd.ebv, coord)
     except CatalogUnavailable:
         ebv = None
@@ -1188,7 +1187,6 @@ async def get_antares_lc_option(oid, dr, old):
     option = old.copy()
     ra, dec = await find_ztf_oid.get_coord(oid, dr)
     try:
-        # `find_closest` is still sync conesearch code (out of scope here); offload to a thread.
         row = await asyncio.to_thread(
             ANTARES_QUERY.find_closest, ra, dec, radius_arcsec=ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC
         )
@@ -1411,7 +1409,6 @@ async def get_summary(oid, dr, different_filter, different_field, radius_ids, ra
     elements = OrderedDict()
     for catalog, query in catalog_query_objects().items():
         try:
-            # `query.find` is still sync conesearch code (out of scope here); offload to a thread.
             table = await asyncio.to_thread(query.find, ra, dec, radii[catalog])
         except NotFound, CatalogUnavailable, KeyError:
             continue
@@ -1531,7 +1528,6 @@ async def get_summary(oid, dr, different_filter, different_field, radius_ids, ra
         elements["Average mag (including neighbourhood)"].append(f'(zg–zr) {mean_mag["zg"] - mean_mag["zr"]: .2f}')
 
     try:
-        # csfd/bayestar are still sync `requests` clients (out of scope here); offload to a thread.
         ebv = await asyncio.to_thread(csfd.ebv, coord)
         elements["Extinction"] = [f"CSFD E(B-V) = {ebv:.2f}"]
     except CatalogUnavailable:
@@ -2027,7 +2023,6 @@ async def update_skybot_for_graph_clicked(data, dr):
     coord = await find_ztf_oid.get_sky_coord(oid, dr)
     observatory_mjd = hmjd_to_earth(mjd, coord).mjd
     try:
-        # SKYBOT_QUERY is still a sync astroquery client (out of scope here); offload to a thread.
         table = await asyncio.to_thread(
             SKYBOT_QUERY.find, coord.ra.deg, coord.dec.deg, observatory_mjd, radius_arcsec=15.0
         )
@@ -2056,7 +2051,6 @@ async def set_table(radius, oid, dr, catalog):
         return html.P("Radius should be positive")
     query = get_catalog_query(catalog)
     try:
-        # `query.find` is still sync conesearch code (out of scope here); offload to a thread.
         table = await asyncio.to_thread(query.find, ra, dec, radius)
     except NotFound:
         return html.P(
@@ -2125,7 +2119,6 @@ async def set_vizier_list(n_clicks, radius, oid, dr):
     radius = float(radius)
     ra, dec = await find_ztf_oid.get_coord(oid, dr)
 
-    # `find_vizier.find` is still a sync astroquery client (out of scope here); offload to a thread.
     table_list = await asyncio.to_thread(find_vizier.find, ra, dec, radius)
     if len(table_list) == 0:
         return html.P(f"No vizier catalogs found within {format_sep(radius, 0, 0)} from {ra:.5f}, {dec:.5f}")

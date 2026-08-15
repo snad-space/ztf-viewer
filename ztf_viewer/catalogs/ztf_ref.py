@@ -16,7 +16,7 @@ from ztf_viewer.util import ccdid_from_rcid, qid_from_rcid
 
 
 def _parse_fits(data: bytes, url: str, sourceid: int) -> dict:
-    """Parse the reference-catalog FITS payload. CPU-bound, meant to run in a thread."""
+    """Parse the reference-catalog FITS payload and pull out the row for `sourceid`."""
     with fits.open(BytesIO(data)) as f:
         header = f[0].header
         table = f[1].data
