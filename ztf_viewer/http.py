@@ -39,10 +39,15 @@ def get_client() -> httpx.AsyncClient:
 
 
 async def aclose_client() -> None:
-    """Close the running loop's client, if one was built, and drop its registry entry.
+    """Close the running loop's client and drop its registry entry.
 
     Meant for a Starlette ``"shutdown"`` handler: a client can only be closed on the loop that
     owns it, so this must run before that loop stops, not after.
+
+    Calls :func:`get_client` first, which builds a client if this loop never made a request —
+    ``LoopRegistry`` has no way to check for an entry without creating one, so a shutdown with
+    nothing to close still constructs an ``AsyncClient`` just to close it. That's cheap (no
+    socket opens before the first request) and not worth a registry method of its own.
     """
     loop = asyncio.get_running_loop()
     client = get_client()
