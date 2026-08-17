@@ -67,10 +67,10 @@ def _lc_to_csv_response(lc, filename):
 
 
 @app.server.api_route("/panstarrs/csv/{obj_id}")
-def response_panstarrs_csv(obj_id: int):
+async def response_panstarrs_csv(obj_id: int):
     """Download Pan-STARRS DR2 light curve for a given objID as CSV."""
     try:
-        lc = PANSTARRS_DR2_QUERY.light_curve(id=None, row={"objID": obj_id})
+        lc = await PANSTARRS_DR2_QUERY.light_curve(id=None, row={"objID": obj_id})
     except NotFound, CatalogUnavailable:
         return error_response("", 404)
     return _lc_to_csv_response(lc, f"panstarrs_{obj_id}.csv")

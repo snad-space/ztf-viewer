@@ -265,7 +265,7 @@ def oid_from_input(s: str):
     return s
 
 
-def sky_coord_from_str(s):
+async def sky_coord_from_str(s):
     s = s.strip()
     if s.upper().startswith("SNAD"):
         try:
@@ -281,7 +281,7 @@ def sky_coord_from_str(s):
     if s.upper().startswith("AT") or s.upper().startswith("SN"):
         s = s.removeprefix("AT").removeprefix("at").removeprefix("SN").removeprefix("sn").strip()
         try:
-            return TNS_QUERY.resolve_name(s)
+            return await TNS_QUERY.resolve_name(s)
         except NotFound, CatalogUnavailable:
             pass
 
@@ -289,12 +289,13 @@ def sky_coord_from_str(s):
         # make cases right
         s = "ZTF" + s.lower().removeprefix("ztf")
         try:
-            return ANTARES_QUERY.resolve_name(s)
+            return await ANTARES_QUERY.resolve_name(s)
         except NotFound, CatalogUnavailable:
             pass
 
     try:
-        return get_icrs_coordinates(s)
+        # `get_icrs_coordinates` is a still-sync Sesame lookup; offload to a thread.
+        return await asyncio.to_thread(get_icrs_coordinates, s)
     except NameResolveError:
         pass
 
@@ -541,7 +542,7 @@ archivePrefix = {arXiv},
     ):
         coord_or_name = urllib.parse.unquote(search_match["coord_or_name"])
         try:
-            coordinates = sky_coord_from_str(coord_or_name)
+            coordinates = await sky_coord_from_str(coord_or_name)
         except ValueError:
             return [
                 html.Div(
