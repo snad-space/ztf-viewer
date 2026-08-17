@@ -10,11 +10,14 @@ _RADIUS_DEG = 0.05
 
 @pytest.fixture(scope="module")
 def stack_table():
-    import requests as req
+    import asyncio
+
     from ztf_viewer.catalogs.conesearch.panstarrs import _panstarrs_request
 
-    with req.Session() as session:
-        return _panstarrs_request(session, "dr2", "stack", ra=_RA, dec=_DEC, radius=_RADIUS_DEG)
+    async def fetch():
+        return await _panstarrs_request("dr2", "stack", ra=_RA, dec=_DEC, radius=_RADIUS_DEG)
+
+    return asyncio.run(fetch())
 
 
 def test_stack_returns_rows(stack_table):
@@ -48,7 +51,7 @@ def test_stack_missing_values_are_masked_not_string(stack_table):
     assert all(isinstance(v, float) for v in unmasked), "unmasked pmra values should be float"
 
 
-def test_query_region():
+async def test_query_region():
     """End-to-end test through PanstarrsDr2StackedQuery._query_region.
 
     The base class passes radius as a string of arcseconds, e.g. "180.0s".
@@ -58,6 +61,6 @@ def test_query_region():
 
     q = PanstarrsDr2StackedQuery("test")
     coord = SkyCoord(ra=_RA, dec=_DEC, unit="deg")
-    table = q._query_region(coord, f"{_RADIUS_DEG * 3600}s")
+    table = await q._query_region(coord, f"{_RADIUS_DEG * 3600}s")
     assert len(table) > 0
     assert "raMean" in table.colnames

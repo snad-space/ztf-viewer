@@ -1,7 +1,7 @@
 from numpy.testing import assert_allclose
 
 
-def test_cone_search():
+async def test_cone_search():
     """Regression test against the real Otter server.
 
     Coordinates taken from the example in
@@ -18,7 +18,7 @@ def test_cone_search():
 
     otter_query = OtterQuery("Test Otter")
     # 1-degree cone around the example coordinates
-    table = otter_query._api_query_region(ra=185.0, dec=12.0, radius_arcsec=3600.0)
+    table = await otter_query._api_query_region(ra=185.0, dec=12.0, radius_arcsec=3600.0)
 
     assert table is not None
     assert len(table) > 0
@@ -44,7 +44,7 @@ def test_get_url():
     assert url == "https://otter.idies.jhu.edu/transient/CSS071216:122109+125434"
 
 
-def test_cone_search_not_found():
+async def test_cone_search_not_found():
     """Non-detection: 1-arcsec radius around the example coordinates returns nothing."""
     import pytest
     from ztf_viewer.catalogs.conesearch.otter import OtterQuery
@@ -52,4 +52,4 @@ def test_cone_search_not_found():
 
     otter_query = OtterQuery("Test Otter 3")
     with pytest.raises(NotFound):
-        otter_query._api_query_region(ra=185.0, dec=12.0, radius_arcsec=1.0)
+        await otter_query._api_query_region(ra=185.0, dec=12.0, radius_arcsec=1.0)

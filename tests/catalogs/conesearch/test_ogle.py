@@ -3,7 +3,7 @@ from xml.etree import ElementTree as ET
 from numpy.testing import assert_allclose
 
 
-def test_cone_search():
+async def test_cone_search():
     """Regression test against the real OGLE-III mirror server.
 
     OGLE-BLG-RRLYR-04010 is a known RR Lyrae star (coordinates from the OGLE-III
@@ -15,7 +15,7 @@ def test_cone_search():
     ogle_query = OgleQuery("Test OGLE")
     # 17:50:17.82 -22:12:52.2, converted to decimal degrees
     ra, dec = 267.574250, -22.214500
-    table = ogle_query._api_query_region(ra, dec, radius_arcsec=5.0)
+    table = await ogle_query._api_query_region(ra, dec, radius_arcsec=5.0)
 
     assert table is not None
     assert len(table) > 0
@@ -38,7 +38,7 @@ def test_cone_search():
     assert "data:image/png;base64," in light_curve_html
 
 
-def test_rendered_html_is_well_formed():
+async def test_rendered_html_is_well_formed():
     """Regression test for two real bugs found in this exact rendering path.
 
     OGLE's table cells are the only ones in the app built from a <form>+<input> (the
@@ -57,7 +57,7 @@ def test_rendered_html_is_well_formed():
 
     ogle_query = OgleQuery("Test OGLE 3")
     ra, dec = 267.574250, -22.214500
-    table = ogle_query.find(ra, dec, radius_arcsec=5.0)
+    table = await ogle_query.find(ra, dec, radius_arcsec=5.0)
 
     html = html_from_astropy_table(table, ogle_query.columns, html_columns=ogle_query.html_columns)
     try:
@@ -66,7 +66,7 @@ def test_rendered_html_is_well_formed():
         raise AssertionError(f"Rendered OGLE table is not well-formed HTML/JSX: {e}\n{html}") from e
 
 
-def test_cone_search_not_found():
+async def test_cone_search_not_found():
     """Non-detection: a tiny radius far from any known OGLE-III field returns nothing."""
     import pytest
     from ztf_viewer.catalogs.conesearch.ogle import OgleQuery
@@ -74,4 +74,4 @@ def test_cone_search_not_found():
 
     ogle_query = OgleQuery("Test OGLE 2")
     with pytest.raises(NotFound):
-        ogle_query.find(ra=0.0, dec=60.0, radius_arcsec=1.0)
+        await ogle_query.find(ra=0.0, dec=60.0, radius_arcsec=1.0)

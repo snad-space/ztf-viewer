@@ -23,20 +23,13 @@ from ztf_viewer import config
 config.CACHE_TYPE = "memory"
 config.UNAVAILABLE_CATALOGS_CACHE_TYPE = "memory"
 
-from ztf_viewer.catalogs.conesearch._base import _BaseLightCurveQuery  # noqa: E402
 from ztf_viewer.pages import viewer  # noqa: E402
 
 # function (or unbound method) -> a substring of the sync call it must route through a thread
 CALLBACKS_WITH_REMAINING_BLOCKING_CALLS = {
     viewer.fit_lc: "csfd.ebv",
-    viewer.get_antares_lc_option: "ANTARES_QUERY.find_closest",
-    viewer.get_gaia_lc_option: "GAIA_DR3.find_closest",
-    viewer.get_panstarrs_lc_option: "PANSTARRS_DR2_QUERY.find_closest",
-    viewer.get_summary: "query.find",
     viewer.update_skybot_for_graph_clicked: "SKYBOT_QUERY.find",
-    viewer.set_table: "query.find",
     viewer.set_vizier_list: "find_vizier.find",
-    _BaseLightCurveQuery.closest_light_curve_by_oid: "self.closest_light_curve",
 }
 
 
