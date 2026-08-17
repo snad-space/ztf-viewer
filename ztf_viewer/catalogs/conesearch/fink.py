@@ -5,7 +5,9 @@ import pandas as pd
 from astropy.table import Table
 
 from ztf_viewer.catalogs.conesearch._base import _BaseCatalogApiQuery
+from ztf_viewer.config import TIMEOUT_CONESEARCH_API
 from ztf_viewer.exceptions import NotFound
+from ztf_viewer.http import get_client
 
 
 class FinkQuery(_BaseCatalogApiQuery):
@@ -43,7 +45,7 @@ class FinkQuery(_BaseCatalogApiQuery):
     _api_url = urljoin(_base_url, "/api/v1/conesearch")
     _api_url_objects = urljoin(_base_url, "/api/v1/objects")
 
-    def _get_classifications(self, object_ids) -> pd.DataFrame:
+    async def _get_classifications(self, object_ids) -> pd.DataFrame:
         time_column = "i:jd"
         columns = [time_column, self.id_column] + list(c for c in self.columns if c.startswith("d:"))
         json_dict = {
@@ -51,7 +53,7 @@ class FinkQuery(_BaseCatalogApiQuery):
             "columns": ",".join(columns),
             "output-format": "json",
         }
-        response = self._api_session.post(self._api_url_objects, json=json_dict, timeout=10)
+        response = await get_client().post(self._api_url_objects, json=json_dict, timeout=TIMEOUT_CONESEARCH_API)
         self._raise_if_not_ok(response)
         df = pd.read_json(BytesIO(response.content))
         # Select the latest classification for each object
@@ -59,19 +61,19 @@ class FinkQuery(_BaseCatalogApiQuery):
         del df[time_column]
         return df.reset_index(drop=True)
 
-    def _api_query_region(self, ra, dec, radius_arcsec):
+    async def _api_query_region(self, ra, dec, radius_arcsec):
         json_dict = {
             "ra": ra,
             "dec": dec,
             "radius": radius_arcsec,
             "output-format": "json",
         }
-        response = self._api_session.post(self._api_url, json=json_dict, timeout=10)
+        response = await get_client().post(self._api_url, json=json_dict, timeout=TIMEOUT_CONESEARCH_API)
         self._raise_if_not_ok(response)
         df = pd.read_json(BytesIO(response.content))
         if len(df) == 0:
             raise NotFound
-        classifications = self._get_classifications(df[self.id_column])
+        classifications = await self._get_classifications(df[self.id_column])
         df = df.join(
             classifications.reset_index(drop=True).set_index(self.id_column),
             on=self.id_column,

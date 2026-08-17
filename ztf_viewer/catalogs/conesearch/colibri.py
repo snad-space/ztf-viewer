@@ -3,7 +3,9 @@ from astropy.table import Table
 from astropy.time import Time
 
 from ztf_viewer.catalogs.conesearch._base import _BaseCatalogApiQuery
+from ztf_viewer.config import TIMEOUT_CONESEARCH_API
 from ztf_viewer.exceptions import NotFound
+from ztf_viewer.http import get_client
 from ztf_viewer.util import safe_link
 
 
@@ -28,10 +30,10 @@ class ColibriQuery(_BaseCatalogApiQuery):
     _base_api_url = f"{__root_api_url}/cone_search"
     _declared_html_columns = frozenset({"simbad_url"})  # get_link() below returns plain text
 
-    def _api_query_region(self, ra, dec, radius_arcsec):
+    async def _api_query_region(self, ra, dec, radius_arcsec):
         radius_deg = radius_arcsec / 3600.0
         query = {"cone": f"[{ra},{dec},{radius_deg}]", "datemin": 0, "datemax": ((1 << 31) - 1) * 1000}
-        response = self._api_session.get(self._get_api_url(query), timeout=10)
+        response = await get_client().get(self._get_api_url(query), timeout=TIMEOUT_CONESEARCH_API)
         self._raise_if_not_ok(response)
         data = response.json()
         vo_events = data["voevents"]

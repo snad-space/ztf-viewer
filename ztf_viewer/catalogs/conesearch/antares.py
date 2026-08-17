@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 import antares_client.search
@@ -110,6 +111,6 @@ class AntaresQuery(_BaseCatalogApiQuery, _BaseLightCurveQuery, _BaseNameResolver
         return locus
 
     @cache()
-    def resolve_name(self, id) -> SkyCoord:
-        locus = self.get_record_by_id(id)
+    async def resolve_name(self, id) -> SkyCoord:
+        locus = await asyncio.to_thread(self.get_record_by_id, id)
         return locus.coordinates

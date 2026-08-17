@@ -1,10 +1,12 @@
 import math
 
 import astropy.table
-from requests.exceptions import RequestException
+import httpx
 
 from ztf_viewer.catalogs.conesearch._base import _BaseCatalogApiQuery
+from ztf_viewer.config import TIMEOUT_CONESEARCH_API
 from ztf_viewer.exceptions import CatalogUnavailable, NotFound
+from ztf_viewer.http import get_client
 
 
 class OtterQuery(_BaseCatalogApiQuery):
@@ -26,10 +28,10 @@ class OtterQuery(_BaseCatalogApiQuery):
     _api_auth = ("user-guest", "test")
 
     def _raise_if_not_ok(self, response):
-        if not response.ok:
+        if not response.is_success:
             raise CatalogUnavailable(response.text, catalog=self)
 
-    def _api_query_region(self, ra, dec, radius_arcsec):
+    async def _api_query_region(self, ra, dec, radius_arcsec):
         radius_deg = radius_arcsec / 3600.0
         # Pre-filter box, see https://github.com/astro-otter/otter/issues/45#issuecomment-4188199127
         # Use cos(|dec| + sep) as the RA scaling factor — the smallest cos over the cone's dec range,
@@ -54,14 +56,14 @@ class OtterQuery(_BaseCatalogApiQuery):
             "bindVars": bind_vars,
         }
         try:
-            response = self._api_session.post(
+            response = await get_client().post(
                 self._base_api_url,
                 json=query,
                 auth=self._api_auth,
-                timeout=10,
+                timeout=TIMEOUT_CONESEARCH_API,
             )
             self._raise_if_not_ok(response)
-        except RequestException as e:
+        except httpx.HTTPError as e:
             raise CatalogUnavailable(str(e), catalog=self)
 
         results = response.json().get("result", [])

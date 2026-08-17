@@ -39,8 +39,8 @@ class SdssQuasarsQuery(_BaseVizierQuery):
     _vizier_catalog = "VII/289/superset"
 
     @cache()
-    def find(self, ra, dec, radius_arcsec):
-        table = super().find(ra, dec, radius_arcsec)
+    async def find(self, ra, dec, radius_arcsec):
+        table = await super().find(ra, dec, radius_arcsec)
         table["__type"] = table["Class"] = [self._class_map[c] for c in table["Class"]]
         return table
 

@@ -3,6 +3,7 @@ from ztf_viewer.catalogs.conesearch._base import (
     _BaseNameResolverQuery,
 )
 from ztf_viewer.config import TNS_API_URL
+from ztf_viewer.http import get_client
 
 
 class TnsQuery(_BaseCatalogApiQuery, _BaseNameResolverQuery):
@@ -28,15 +29,15 @@ class TnsQuery(_BaseCatalogApiQuery, _BaseNameResolverQuery):
     def get_url(self, id, row=None):
         return f"//www.wis-tns.org/object/{id}"
 
-    def _api_query_region(self, ra, dec, radius_arcsec):
-        table = super()._api_query_region(ra, dec, radius_arcsec)
+    async def _api_query_region(self, ra, dec, radius_arcsec):
+        table = await super()._api_query_region(ra, dec, radius_arcsec)
         table["fullname"] = [f'{row["name_prefix"] or ""}{row["name"]}' for row in table]
         return table
 
     _resolve_api_url = f"{TNS_API_URL}/api/v1/object"
 
-    def get_record_by_id(self, id):
+    async def get_record_by_id(self, id):
         """id is something like 2018lwh, not AT2018lwh"""
-        response = self._api_session.get(self._resolve_api_url, params={"name": id}, timeout=1)
+        response = await get_client().get(self._resolve_api_url, params={"name": id}, timeout=1)
         self._raise_if_not_ok(response)
         return response.json()
