@@ -234,7 +234,7 @@ def test_partial_of_a_coroutine_function_is_refused(cache):
 async def test_uncacheable_argument_bypasses_the_cache(cache):
     """A cache is transparent: a legal call must not become an error, nor a false hit."""
     counter = AsyncCounter(cache)
-    unpicklable = lambda: None  # noqa: E731 - deliberately unpicklable
+    unpicklable = lambda: None
     assert await counter(unpicklable) == "result-1"
     assert await counter(unpicklable) == "result-2", "an uncacheable argument must never be cached as a hit"
     assert counter.calls == 2

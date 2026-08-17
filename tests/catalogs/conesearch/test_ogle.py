@@ -69,6 +69,7 @@ def test_rendered_html_is_well_formed():
 def test_cone_search_not_found():
     """Non-detection: a tiny radius far from any known OGLE-III field returns nothing."""
     import pytest
+
     from ztf_viewer.catalogs.conesearch.ogle import OgleQuery
     from ztf_viewer.exceptions import NotFound
 

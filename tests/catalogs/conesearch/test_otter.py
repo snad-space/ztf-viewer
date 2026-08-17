@@ -47,6 +47,7 @@ def test_get_url():
 def test_cone_search_not_found():
     """Non-detection: 1-arcsec radius around the example coordinates returns nothing."""
     import pytest
+
     from ztf_viewer.catalogs.conesearch.otter import OtterQuery
     from ztf_viewer.exceptions import NotFound
 

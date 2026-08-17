@@ -12,9 +12,9 @@ from fastapi import Request
 
 from ztf_viewer.app import app
 from ztf_viewer.catalogs import find_ztf_oid
-from ztf_viewer.exceptions import NotFound, CatalogUnavailable
-from ztf_viewer.catalogs.ztf_ref import ztf_ref
 from ztf_viewer.catalogs.conesearch import ANTARES_QUERY, GAIA_DR3, PANSTARRS_DR2_QUERY
+from ztf_viewer.catalogs.ztf_ref import ztf_ref
+from ztf_viewer.exceptions import CatalogUnavailable, NotFound
 from ztf_viewer.web import csv_response, error_response, query_args
 
 

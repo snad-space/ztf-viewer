@@ -38,7 +38,8 @@ the purpose.
 import asyncio
 import threading
 import weakref
-from typing import Callable, Generic, Optional, TypeVar
+from collections.abc import Callable
+from typing import Generic, TypeVar
 
 _T = TypeVar("_T")
 
@@ -52,7 +53,7 @@ class LoopRegistry(Generic[_T]):
 
     def __init__(self, factory: Callable[[], _T]):
         self._factory = factory
-        self._entries: "weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, _T]" = weakref.WeakKeyDictionary()
+        self._entries: weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, _T] = weakref.WeakKeyDictionary()
         self._registry_lock = threading.Lock()
 
     def get(self) -> _T:
@@ -76,7 +77,7 @@ class LoopRegistry(Generic[_T]):
         for loop in [loop for loop in list(self._entries) if loop.is_closed()]:
             del self._entries[loop]
 
-    def discard(self, loop: Optional[asyncio.AbstractEventLoop] = None) -> None:
+    def discard(self, loop: asyncio.AbstractEventLoop | None = None) -> None:
         """Drop the entry for `loop` (the running loop by default), if any."""
         if loop is None:
             loop = asyncio.get_running_loop()

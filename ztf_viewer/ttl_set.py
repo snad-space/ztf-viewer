@@ -10,8 +10,8 @@ they expose plain async methods with names chosen to read naturally with `await`
 
 import pickle
 from abc import ABC, abstractmethod
-from collections.abc import MutableSet
-from typing import Callable, Generic, Hashable, Iterator, TypeVar
+from collections.abc import Callable, Hashable, Iterator, MutableSet
+from typing import Generic, TypeVar
 
 import redis.asyncio
 from cachetools import TTLCache
@@ -139,7 +139,7 @@ class AsyncLocalTTLSet(Generic[_T_AsyncLocal]):
     backend `unavailable_catalogs` was configured with.
     """
 
-    def __init__(self, local: "LocalTTLSet[_T_AsyncLocal] | None" = None, *, maxsize: int = 0, ttl: int = 0):
+    def __init__(self, local: LocalTTLSet[_T_AsyncLocal] | None = None, *, maxsize: int = 0, ttl: int = 0):
         self._local = local if local is not None else LocalTTLSet(maxsize=maxsize, ttl=ttl)
 
     async def add(self, value: _T_AsyncLocal) -> None:
@@ -180,7 +180,7 @@ class AsyncRedisTTLSet(Generic[_T_AsyncRedis]):
     def __init__(
         self,
         ttl: int,
-        client_factory: Callable[[], "redis.asyncio.Redis"],
+        client_factory: Callable[[], redis.asyncio.Redis],
         prefix: str = "RedisTTLSet",
     ):
         self.ttl = ttl
@@ -191,7 +191,7 @@ class AsyncRedisTTLSet(Generic[_T_AsyncRedis]):
 
         self._clients = LoopRegistry(client_factory)
 
-    def _client(self) -> "redis.asyncio.Redis":
+    def _client(self) -> redis.asyncio.Redis:
         return self._clients.get()
 
     def _encode(self, value: _T_AsyncRedis) -> bytes:

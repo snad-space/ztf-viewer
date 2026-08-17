@@ -50,7 +50,7 @@ def test_an_unencodable_argument_bypasses_the_cache_instead_of_raising(cache):
         calls.append(arg)
         return len(calls)
 
-    unencodable = lambda: None  # noqa: E731 - a lambda cannot be pickled
+    unencodable = lambda: None
 
     assert counted(unencodable) == 1
     assert counted(unencodable) == 2, "an uncacheable argument must bypass, not poison, the cache"

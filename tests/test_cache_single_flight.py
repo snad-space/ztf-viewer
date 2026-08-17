@@ -533,9 +533,8 @@ def test_singleflight_reentrant_same_key_raises_instead_of_hanging():
     def outer():
         return sf.run("key", lambda: sf.run("key", lambda: "never"))
 
-    with ThreadPoolExecutor(max_workers=1) as pool:
-        with pytest.raises(RuntimeError, match="re-entered itself"):
-            pool.submit(outer).result(timeout=5)
+    with ThreadPoolExecutor(max_workers=1) as pool, pytest.raises(RuntimeError, match="re-entered itself"):
+        pool.submit(outer).result(timeout=5)
 
 
 async def test_async_singleflight_reentrant_same_key_raises_instead_of_hanging():
@@ -649,9 +648,8 @@ def test_singleflight_inflight_entry_cleared_after_reentrancy_error():
     def outer():
         return sf.run("key", lambda: sf.run("key", lambda: "never"))
 
-    with ThreadPoolExecutor(max_workers=1) as pool:
-        with pytest.raises(RuntimeError, match="re-entered itself"):
-            pool.submit(outer).result(timeout=5)
+    with ThreadPoolExecutor(max_workers=1) as pool, pytest.raises(RuntimeError, match="re-entered itself"):
+        pool.submit(outer).result(timeout=5)
 
     assert sf.run("key", lambda: "fresh") == "fresh"
 
