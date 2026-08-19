@@ -57,5 +57,10 @@ class AsyncRedisBackend:
         await self._clients.get().set(key, blob, ex=self._ttl)
 
 
+def create_async_redis_client():
+    # Keyword, not positional: `redis.asyncio.Redis` takes `host` keyword-only, unlike `StrictRedis`.
+    return redis.asyncio.Redis(host=config.REDIS_HOSTNAME)
+
+
 def create_async_redis_cache(ttl):
-    return make_async_cache(AsyncRedisBackend(lambda: redis.asyncio.Redis(config.REDIS_HOSTNAME), ttl=ttl))
+    return make_async_cache(AsyncRedisBackend(create_async_redis_client, ttl=ttl))
