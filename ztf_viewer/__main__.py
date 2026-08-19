@@ -15,6 +15,7 @@ from astropy.coordinates.name_resolve import NameResolveError
 from dash import Input, Output, State, dcc, html, no_update
 from dash.exceptions import PreventUpdate
 
+from ztf_viewer import offload
 from ztf_viewer.akb import akb
 from ztf_viewer.app import app
 from ztf_viewer.callbacks import callback
@@ -295,7 +296,7 @@ async def sky_coord_from_str(s):
 
     try:
         # `get_icrs_coordinates` is a still-sync Sesame lookup; offload to a thread.
-        return await asyncio.to_thread(get_icrs_coordinates, s)
+        return await offload.to_thread("sesame", get_icrs_coordinates, s)
     except NameResolveError:
         pass
 

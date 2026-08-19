@@ -2014,9 +2014,7 @@ async def update_skybot_for_graph_clicked(data, dr):
     coord = await find_ztf_oid.get_sky_coord(oid, dr)
     observatory_mjd = hmjd_to_earth(mjd, coord).mjd
     try:
-        table = await asyncio.to_thread(
-            SKYBOT_QUERY.find, coord.ra.deg, coord.dec.deg, observatory_mjd, radius_arcsec=15.0
-        )
+        table = await SKYBOT_QUERY.find(coord.ra.deg, coord.dec.deg, observatory_mjd, radius_arcsec=15.0)
     except NotFound:
         return html.Div("No minor planets found in 15″")
 
@@ -2110,7 +2108,7 @@ async def set_vizier_list(n_clicks, radius, oid, dr):
     radius = float(radius)
     ra, dec = await find_ztf_oid.get_coord(oid, dr)
 
-    table_list = await asyncio.to_thread(find_vizier.find, ra, dec, radius)
+    table_list = await find_vizier.find(ra, dec, radius)
     if len(table_list) == 0:
         return html.P(f"No vizier catalogs found within {format_sep(radius, 0, 0)} from {ra:.5f}, {dec:.5f}")
 
@@ -2118,7 +2116,7 @@ async def set_vizier_list(n_clicks, radius, oid, dr):
     lengths = []
     for catalog, table in zip(table_list.keys(), table_list.values()):
         try:
-            description = await asyncio.to_thread(vizier_catalog_details.description, catalog)
+            description = await vizier_catalog_details.description(catalog)
         except NotFound:
             description = catalog
         n = len(table)

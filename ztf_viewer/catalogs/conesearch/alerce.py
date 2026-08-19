@@ -9,12 +9,15 @@ from alerce.exceptions import APIError
 from astropy.table import Table
 from requests import RequestException
 
+from ztf_viewer import offload
 from ztf_viewer.cache import cache
 from ztf_viewer.catalogs.conesearch._base import _BaseCatalogApiQuery
 from ztf_viewer.exceptions import CatalogUnavailable, NotFound
 
 
 class AlerceQuery(_BaseCatalogApiQuery):
+    _query_region_upstream = "alerce"
+
     _classifiers = {"Stamp": "stamp_classifier", "Light curve": "lc_classifier"}
 
     id_column = "oid"
@@ -109,7 +112,12 @@ class AlerceQuery(_BaseCatalogApiQuery):
         table = Table.from_pandas(df)
         return table
 
-    def add_prob_class_columns(self, table):
+    async def add_prob_class_columns(self, table):
+        # Queries Alerce per row (`_get_classifications`), so it has to go through the same
+        # bounded offload as `_query_region` rather than running inline on the event loop.
+        await offload.to_thread("alerce", self._add_prob_class_columns_sync, table)
+
+    def _add_prob_class_columns_sync(self, table):
         for column in self._prob_class_columns.values():
             table[column] = [{} for _ in range(len(table))]
         for row in table:

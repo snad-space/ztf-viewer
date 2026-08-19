@@ -4,6 +4,7 @@ from astropy.coordinates import SkyCoord, Angle
 from astropy.time import Time
 from astroquery.imcce import Skybot
 
+from ztf_viewer import offload
 from ztf_viewer.cache import cache
 from ztf_viewer.exceptions import NotFound
 from ztf_viewer.util import PALOMAR_OBS_CODE
@@ -17,7 +18,7 @@ class SkybotQuery:
     """Radius to use for Skybot queries, results will be sub-sampled to the requested radius"""
 
     @cache()
-    def find(self, ra, dec, observatory_mjd, radius_arcsec):
+    async def find(self, ra, dec, observatory_mjd, radius_arcsec):
         """Find Solar System objects near (ra, dec) at a given epoch.
 
         Parameters
@@ -28,6 +29,9 @@ class SkybotQuery:
             Passed as a plain float so that the cache key is stable and
             serialisable regardless of the backend (memory or Redis).
         """
+        return await offload.to_thread("skybot", self._find_sync, ra, dec, observatory_mjd, radius_arcsec)
+
+    def _find_sync(self, ra, dec, observatory_mjd, radius_arcsec):
         logging.info(f"Querying Skybot ra={ra}, dec={dec}, mjd={observatory_mjd}, r={radius_arcsec}")
         coord = SkyCoord(ra, dec, unit="deg", frame="icrs")
         radius = Angle(radius_arcsec, "arcsec")

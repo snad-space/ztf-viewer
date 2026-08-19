@@ -7,6 +7,8 @@ from ztf_viewer.catalogs.conesearch._base import _BaseCatalogQuery
 
 
 class SimbadQuery(_BaseCatalogQuery):
+    _query_region_upstream = "simbad"
+
     id_column = "main_id"
     type_column = "otype"
     _table_ra = "RA"

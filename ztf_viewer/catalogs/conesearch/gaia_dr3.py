@@ -16,6 +16,10 @@ from ztf_viewer.util import LGE_25
 
 
 class GaiaDr3Query(_BaseVizierQuery, _BaseLightCurveQuery):
+    # `_query_region` is Vizier (inherited from `_BaseVizierQuery`); `light_curve` below hits
+    # the separate Gaia archive, so it gets its own upstream bucket.
+    _light_curve_upstream = "gaia"
+
     id_column = "Source"
     columns = {
         "__link": "Source ID",
@@ -156,7 +160,7 @@ class GaiaDr3Query(_BaseVizierQuery, _BaseLightCurveQuery):
             raise NotFound
         return self._table_to_light_curve(id, table)
 
-    def add_prob_class_columns(self, table):
+    async def add_prob_class_columns(self, table):
         table["classifications"] = [{} for _ in range(len(table))]
         for row in table:
             for pretty_name, column_name in [("Quasar", "PQSO"), ("galaxy", "PGal"), ("single star", "PSS")]:

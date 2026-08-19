@@ -18,7 +18,25 @@ DUSTMAPS_API_URL = os.environ.get("DUSTMAPS_API_URL", "https://dustmaps.snad.spa
 
 # Size of both thread pools the entrypoint installs: asyncio's default executor and anyio's
 # sync-route limiter. Caps how many blocking calls the single event loop can have in flight.
-THREAD_POOL_SIZE = int(os.environ.get("THREAD_POOL_SIZE", "16"))
+# Sized against fan-out width (a page fans out to ~19 catalogs), not core count -- see the PR
+# description for the arithmetic.
+THREAD_POOL_SIZE = int(os.environ.get("THREAD_POOL_SIZE", "32"))
+
+# Per-upstream bounded thread offload for sync-only third-party clients that are not being
+# ported to async (astroquery, alerce, antares_client -- see ztf_viewer/offload.py). Each
+# upstream gets its own asyncio.Semaphore, sized well under THREAD_POOL_SIZE, so a slow or
+# hanging one cannot fill the shared pool above and starve catalogs that have nothing to do
+# with it.
+UPSTREAM_THREAD_LIMITS = {
+    "vizier": int(os.environ.get("UPSTREAM_THREADS_VIZIER", "10")),
+    "simbad": int(os.environ.get("UPSTREAM_THREADS_SIMBAD", "6")),
+    "mocserver": int(os.environ.get("UPSTREAM_THREADS_MOCSERVER", "4")),
+    "skybot": int(os.environ.get("UPSTREAM_THREADS_SKYBOT", "4")),
+    "gaia": int(os.environ.get("UPSTREAM_THREADS_GAIA", "4")),
+    "sesame": int(os.environ.get("UPSTREAM_THREADS_SESAME", "4")),
+    "alerce": int(os.environ.get("UPSTREAM_THREADS_ALERCE", "6")),
+    "antares": int(os.environ.get("UPSTREAM_THREADS_ANTARES", "6")),
+}
 
 # Shared httpx.AsyncClient tuning (ztf_viewer/http.py). Limits are per client, and one client is
 # built per event loop, so these bound a single worker's outbound connections.
