@@ -1375,7 +1375,7 @@ memory? Answer it per site, with a measurement.
 
 **Measured, not assumed: a thread buys these workloads almost nothing.** It is tempting to argue
 that numpy/pandas/astropy spend their time in C that releases the GIL, so threads are enough. That
-argument was made during review and is **wrong**. `misc/gil_bench.py` runs each workload as 4
+argument was made during review and is **wrong**. `plans/misc/gil_bench.py` runs each workload as 4
 tasks on 4 threads against the same 4 run serially, on the interpreter we ship (CPython 3.14, GIL
 enabled), with two controls to bracket the range:
 
@@ -1426,7 +1426,7 @@ dated. `await asyncio.to_thread(x)` needs no gloss.
   def` for the rest, and either drop the callbacks-are-coroutines guard or replace it with the
   narrower rule that actually matters: no callback performs blocking I/O.
 - Update `README.md`, `AGENTS.md` (run command, dev stack), `CHANGELOG.md`.
-- Add a small load-test script (`misc/`) so the concurrency claims stay verifiable.
+- Add a small load-test script (`plans/misc/`) so the concurrency claims stay verifiable.
 
 ---
 

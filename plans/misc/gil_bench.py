@@ -9,7 +9,7 @@ process pool; one near the sleep control is already overlapping fine.
 The workloads mirror the real call sites rather than reproducing them, so this stays a
 standalone script with no import of the app.
 
-Run: python misc/gil_bench.py
+Run: python plans/misc/gil_bench.py
 """
 
 import io
