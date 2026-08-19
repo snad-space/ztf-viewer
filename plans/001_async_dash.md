@@ -1,10 +1,15 @@
 # 001 — Porting the ZTF Viewer to async (Dash 4 FastAPI backend)
 
-Status: in progress · foundations landed except the two optional test items; prep landed in full;
+Status: in progress · foundations landed except `aio-golden-callbacks`; prep landed in full;
 the async shell has landed in full (`aio-shim`, `aio-loop-registry`; `aio-pilots` dropped); **the
-flip has landed** (#658–#661, merged as one stack) — the three post-flip chains are now unblocked
+flip has landed** (#658–#661, merged as one stack); the async-I/O stack is **three of five in**
+(`aio-httpx`, `aio-snad-apis`, `aio-conesearch` — #664, #665, #668), leaving `aio-offload-threads`
+and `aio-gather`. The WebSocket and process-pool stacks are unblocked and untouched.
 Baseline: `master` after `994874e`
 Now running: FastAPI backend under uvicorn, one worker, one loop; Python 3.14
+First-party HTTP and every JSON cone-search catalog now go through one shared async `httpx`
+client; the sync third parties (astroquery, alerce, antares) reach a **bare, unbounded**
+`asyncio.to_thread` until `aio-offload-threads` lands.
 
 Note on names: branches and PRs drop the `aio-` prefix the plan uses (`aio-py314` shipped as
 `python-3.14`, `aio-cache-core` as `cache-core`, and so on). The plan keeps the prefixed names
@@ -36,7 +41,16 @@ merged by its author, and "ready for review" is a reviewer's signal, not the aut
 - [ ] `aio-golden-callbacks` — **re-scoped** the same way; likely a thin subset
 - [x] `aio-cache-spec` — cache contract tests (keys, TTL, pickle round-trip) — **found five defects in
       today's cache, see F12** — #627 `cache-contract-tests`
-- [ ] `aio-bench` — fan-out latency harness, records a baseline
+- [x] `aio-bench` — fan-out latency harness, records a baseline — #674 `fanout-bench`.
+      Shipped as `plans/misc/fanout_bench.py`, next to #667's `gil_bench.py`. It drives the
+      **loop shape** over sleep-stubs, not the real `get_summary`, which also pulls in dust maps,
+      light-curve fetches and broker links — none of it the fan-out being measured. It therefore
+      imports nothing from `ztf_viewer` and can only regress against itself. It also models only
+      the **first** of `get_summary`'s two catalog loops, on the argument that the second hits
+      `find()`'s `@cache()`, so 9.5s is a floor on today's cost rather than a fair figure for it.
+      Baseline: 19 stubs × 0.5s ⇒ **9.522s** serial, against an illustrative `gather` run at
+      0.504s. Consequence: this number does **not** discharge `aio-gather`'s acceptance, which
+      asks for a cold `get_summary` against real upstreams.
 - [~] `aio-invariants` — **deliberately cut down, not landed as specified** (#626). Only the two
       cache-decorator guards landed (`tests/test_cache_decorator_guards.py`); the rest were
       **reassigned to the PRs that establish each rule**, where they are plain passing assertions
@@ -52,7 +66,14 @@ merged by its author, and "ready for review" is a reviewer's signal, not the aut
 - [x] `aio-cache-core` — key derivation + value codec, no backend — #628 `cache-core`
 - [x] `aio-cache-sync` — reimplement sync `cache()`, drop `redis_lru` — #629 `cache-sync`
 - [x] `aio-pytest-asyncio` — async test support — **moved ahead of `aio-cache-async`** — #636 `pytest-asyncio`
-- [x] `aio-cache-async` — make `cache()` dispatch on sync vs async, one shared store — #637 `cache-async`
+- [x] `aio-cache-async` — make `cache()` dispatch on sync vs async, one shared store —
+      #637 `cache-async`.
+      Follow-up #673 fixed a defect only the async stack could reach: both async client factories
+      (here and in `aio-ttlset`'s `unavailable_catalogs`) passed `host` **positionally**, but
+      `redis.asyncio.Redis.__init__` takes it keyword-only, unlike the sync `StrictRedis`. Every
+      async cache lookup against the redis backend raised `TypeError`, so the viewer page rendered
+      empty with all its callbacks 500ing. Latent on master and invisible in production, and the
+      existing tests all built their own clients with keywords — which is why none caught it.
 - [x] `aio-cache-flight` — single-flight dedupe — #638 `cache-flight`
 - [x] `aio-ttlset` — async `unavailable_catalogs` — #644 `ttl-set-async`. Came with #645
       `redis-min-version`, which raised the floor to Redis 6.2 and pinned the server image —
@@ -119,11 +140,47 @@ merged by its author, and "ready for review" is a reviewer's signal, not the aut
       blocking threads per process — the number `aio-offload-threads` has to size against.
 
 **Async I/O** — the payoff
-- [ ] `aio-httpx` — shared async client, `asyncio.timeout`
-- [ ] `aio-snad-apis` — ztf_dr, features, model_fit, akb, ztf_ref
-- [ ] `aio-conesearch` — cone-search base + per-catalog
-- [ ] `aio-offload-threads` — astroquery / alerce / antares behind bounded semaphores
-- [ ] `aio-gather` — concurrent fan-out; `aio-bench` becomes an assertion
+- [x] `aio-httpx` — shared async client, `asyncio.timeout` — #664 `httpx-client`. Landed
+      **inert**: nothing called `get_client()` or `async_timeout()` until #665. The single
+      `HTTP_TIMEOUT_SECONDS` this section implies was rejected in review — upstreams disagree by
+      two orders of magnitude, so `config.py` grew **nine named per-API `httpx.Timeout`
+      constants** instead, with `HTTP_DEFAULT_TIMEOUT` left only as a backstop for a call site
+      that forgets one. Pan-STARRS is the proof no single default works: connect 10s, read 600s.
+      **Five sites that had no timeout at all** are now bounded — a real behaviour change on
+      `lc_features`, `model_fit`, `akb` and the FITS proxy, and the values there are judgement
+      calls, not measurements. One shared client, not one per API: `httpx.Limits` is per-client,
+      so N clients would leave nobody holding a total connection cap for the ~19-way fan-out.
+      Also retired the sync `timeout()`'s only caller later, in #668.
+- [x] `aio-snad-apis` — ztf_dr, features, model_fit, akb, ztf_ref — #665 `snad-apis-async`. The
+      ripple was much wider than the module list here: awaiting `find_ztf_oid` reaches nearly
+      every callback in `pages/viewer.py`, plus `search`/`login`/`tags`/`akb_table` and
+      `lc_data/plot_data.py`. Three things the plan did not anticipate:
+      **`pages/figure.py`'s two routes had to go `async def` too**, not just `lc_csv.py`'s as F5
+      assumed, because they await `get_plot_data`. **`get_layout` lost its `@lru_cache`** —
+      `lru_cache` on a coroutine function caches the coroutine object, which can only be awaited
+      once, so every hit past the first would raise; the inner network calls are still `@cache()`d,
+      but Python-side layout assembly is no longer memoized, and no wall-clock number is attached
+      to what that costs. And `asyncio.run()`'s teardown shuts down the *object* set as a loop's
+      default executor, so the process-wide `_thread_pool` died for every later loop once several
+      `TestClient`s shared a pytest run — **test-only**, fixed in `tests/conftest.py`, cannot fire
+      on one worker with one loop.
+- [x] `aio-conesearch` — cone-search base + per-catalog — #668 `conesearch-async`. Added
+      `_ensure_coroutine` in `_base.py`: `find()` is shared between the JSON-API catalogs and the
+      astroquery ones that F9 says never convert, so it wraps a sync `_query_region` and passes a
+      coroutine one through. Two surprises: **`httpx.Response` has no `.ok`** (`otter.py` used it;
+      now `is_success`), and **converting Pan-STARRS reaches past the cone search** — its
+      `light_curve()` shares `_panstarrs_request`, so `closest_light_curve` and the
+      `/panstarrs/csv/{obj_id}` route went async too. This also retired the per-call
+      `ThreadPoolExecutor(max_workers=1)` inside `util.timeout()` — spawned on *every* cone-search
+      query, and the one pre-existing violation of the threading rule.
+- [ ] `aio-offload-threads` — astroquery / alerce / antares behind bounded semaphores.
+      **#665 and #668 both deferred to this PR**, so astroquery (`Vizier`, `MOCServerClass`,
+      `Skybot`), alerce, antares and the `csfd`/`bayestar` extinction lookups currently sit on a
+      *bare* `asyncio.to_thread` with no fairness between them at all. That is the standing risk
+      until this lands, and `aio-gather` sharpens it.
+- [ ] `aio-gather` — concurrent fan-out; `aio-bench` becomes an assertion. Note #674 measured
+      sleep-stubs, so the cold-`get_summary`-on-a-busy-field number this section asks for is still
+      owed here.
 
 **WebSocket**
 - [ ] `aio-ws` — enable transport (verify deployed proxy config first)
