@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import json
 import logging
@@ -303,6 +304,26 @@ def timeout(seconds: float, exception=TimeoutError, exception_kwargs=None) -> Ca
                     if exception_kwargs is None:
                         raise exception
                     raise exception(**exception_kwargs)
+
+        return wrapper
+
+    return decorator
+
+
+def async_timeout(seconds: float, exception=TimeoutError, exception_kwargs=None) -> Callable:
+    """The async sibling of :func:`timeout`: wraps a coroutine function in ``asyncio.timeout``
+    instead of spawning a thread."""
+
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            try:
+                async with asyncio.timeout(seconds):
+                    return await func(*args, **kwargs)
+            except TimeoutError:
+                if exception_kwargs is None:
+                    raise exception
+                raise exception(**exception_kwargs)
 
         return wrapper
 
