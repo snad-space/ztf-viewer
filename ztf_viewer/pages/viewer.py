@@ -1,6 +1,7 @@
+import asyncio
 import pathlib
 from collections import OrderedDict, defaultdict
-from functools import lru_cache, partial
+from functools import partial
 from itertools import chain
 from typing import Any
 from urllib.parse import parse_qs, urlencode, urljoin, urlparse
@@ -126,9 +127,9 @@ def parse_search(search_query: str) -> dict[str, Any]:
     return result
 
 
-def set_div_for_aladin(oid, version):
-    ra, dec = find_ztf_oid.get_coord(oid, version)
-    coord = find_ztf_oid.get_coord_string(oid, version)
+async def set_div_for_aladin(oid, version):
+    ra, dec = await find_ztf_oid.get_coord(oid, version)
+    coord = await find_ztf_oid.get_coord_string(oid, version)
     style = {"display": "none"}
     return html.Div(
         [
@@ -141,11 +142,12 @@ def set_div_for_aladin(oid, version):
     )
 
 
-@lru_cache(maxsize=128)
-def get_layout(pathname, search):
+# Not `@lru_cache`: it caches a coroutine object by identity, and a coroutine can only be
+# awaited once. The `@cache()`-decorated calls this makes are already cached below it.
+async def get_layout(pathname, search):
     dr, oid, is_short = parse_pathname(pathname)
     try:
-        find_ztf_oid.find(oid, dr)
+        await find_ztf_oid.find(oid, dr)
     except NotFound:
         return html.Div(
             [
@@ -154,8 +156,8 @@ def get_layout(pathname, search):
             ]
         )
     other_drs = [other_dr for other_dr in available_drs if other_dr != dr]
-    ra, dec = find_ztf_oid.get_coord(oid, dr)
-    coord = find_ztf_oid.get_coord_string(oid, dr)
+    ra, dec = await find_ztf_oid.get_coord(oid, dr)
+    coord = await find_ztf_oid.get_coord_string(oid, dr)
 
     short_min_mjd, short_max_mjd = min_max_mjd_short(dr)
     min_mjd, max_mjd = (short_min_mjd, short_max_mjd) if is_short else (-INF, INF)
@@ -164,9 +166,14 @@ def get_layout(pathname, search):
     max_mjd = search_query_parsed.get("max_mjd", max_mjd)
 
     try:
-        features = light_curve_features(oid, dr, version="latest", min_mjd=min_mjd, max_mjd=max_mjd)
+        features = await light_curve_features(oid, dr, version="latest", min_mjd=min_mjd, max_mjd=max_mjd)
     except NotFound:
         features = None
+
+    akb_info = await set_akb_info(0, oid)
+    list_models = await model_fit.get_list_models()
+    feature_versions = sorted(await light_curve_features.versions())
+    aladin_div = await set_div_for_aladin(oid, dr)
     layout = html.Div(
         [
             html.Div("", id="placeholder", style={"display": "none"}),
@@ -174,7 +181,7 @@ def get_layout(pathname, search):
             html.Div(f"{dr}", id="dr", style={"display": "none"}),
             html.H2(id="title"),
             html.Div(id="akb-neighbours"),
-            html.Div(set_akb_info(0, oid), id="akb-info"),
+            html.Div(akb_info, id="akb-info"),
             html.Div(
                 [
                     html.Div(
@@ -320,7 +327,7 @@ def get_layout(pathname, search):
                                                 [
                                                     html.H3("Supernova model"),
                                                     dcc.Dropdown(
-                                                        model_fit.get_list_models().data["models"],
+                                                        list_models.data["models"],
                                                         id="models-fit-dd",
                                                         style={"width": "200px", "marginLeft": "20px"},
                                                     ),
@@ -448,7 +455,7 @@ def get_layout(pathname, search):
                     html.Div(
                         [
                             html.H2(html.A("Aladin", href=f"//aladin.u-strasbg.fr/AladinLite/?target={coord}")),
-                            set_div_for_aladin(oid, dr),
+                            aladin_div,
                             html.Div(
                                 id="aladin-lite-div",
                                 style={"width": "450px", "height": "450px"},
@@ -771,7 +778,7 @@ def get_layout(pathname, search):
                                 placeholder="light-curve-feature version",
                                 options=[
                                     dict(value=v, label=f"{v}{LIGHT_CURVE_VALUE_VERSION_ANNOTATION[v]}")
-                                    for v in sorted(light_curve_features.versions())
+                                    for v in feature_versions
                                 ],
                                 value="latest",
                                 multi=False,
@@ -818,8 +825,8 @@ def get_layout(pathname, search):
         Input("dr", "children"),
     ],
 )
-def set_title(oid, dr):
-    ra, dec = find_ztf_oid.get_coord(oid, dr)
+async def set_title(oid, dr):
+    ra, dec = await find_ztf_oid.get_coord(oid, dr)
     try:
         snad_name = snad_catalog.search_region(ra, dec, radius_arcsec=3)
         snad_name = f"{snad_name} — "
@@ -883,7 +890,7 @@ def show_error_message(message_fit, message_curve, list_models, old_header):
         Input("models-fit-dd", "value"),
     ],
 )
-def fit_lc(
+async def fit_lc(
     cur_oid,
     dr,
     different_filter,
@@ -907,9 +914,9 @@ def fit_lc(
     )
 
     other_oids = neighbour_oids(different_filter, different_field)
-    coord = find_ztf_oid.get_sky_coord(cur_oid, dr)
+    coord = await find_ztf_oid.get_sky_coord(cur_oid, dr)
     try:
-        ebv = csfd.ebv(coord)
+        ebv = await asyncio.to_thread(csfd.ebv, coord)
     except CatalogUnavailable:
         ebv = None
     items = []
@@ -921,7 +928,7 @@ def fit_lc(
         if ebv is None:
             return [], {}, "Extinction data unavailable, cannot fit model"
         oids = (cur_oid,) + tuple(sorted(other_oids))
-        response = model_fit.fit(
+        response = await model_fit.fit(
             oids,
             dr,
             fit_model=name_model,
@@ -956,12 +963,12 @@ def fit_lc(
         Input("different_field_neighbours", "children"),
     ],
 )
-def set_akb_neighbours(different_filter, different_field):
-    if not akb.is_token_valid():
+async def set_akb_neighbours(different_filter, different_field):
+    if not await akb.is_token_valid():
         return None
 
     oids = neighbour_oids(different_filter, different_field)
-    labeled_oids = [oid for oid in oids if akb.oid_exists(oid)]
+    labeled_oids = [oid for oid in oids if await akb.oid_exists(oid)]
     if len(labeled_oids) == 0:
         return None
 
@@ -972,13 +979,13 @@ def set_akb_neighbours(different_filter, different_field):
     )
 
 
-def set_akb_info(_, oid):
-    if not akb.is_token_valid():
+async def set_akb_info(_, oid):
+    if not await akb.is_token_valid():
         return None
 
-    available_tags = akb.get_tags()
+    available_tags = await akb.get_tags()
     try:
-        akb_item = akb.get_by_oid(oid)
+        akb_item = await akb.get_by_oid(oid)
         tags_enabled = frozenset(akb_item["tags"])
         description = akb_item["description"]
     except NotFound:
@@ -1040,7 +1047,7 @@ def set_akb_info(_, oid):
         ),
     ]
 
-    log = akb.get_object_log(oid)
+    log = await akb.get_object_log(oid)
     for entry in log:
         entry["tags_str"] = ", ".join(chain(*entry["tags"]))
         entry["changed_by_str"] = ", ".join(entry["changed_by"])
@@ -1090,14 +1097,14 @@ callback(
         State("akb-description", "value"),
     ],
 )
-def update_akb(n_clicks, oid, tags, description):
+async def update_akb(n_clicks, oid, tags, description):
     if n_clicks == 0 or n_clicks is None or tags is None:
         raise PreventUpdate
     if description is None:
         description = ""
     tags = list(chain.from_iterable(tags))
     try:
-        akb.post_object(oid, tags, description)
+        await akb.post_object(oid, tags, description)
         return "Submitted"
     except RuntimeError:
         return "Error occurred"
@@ -1159,28 +1166,30 @@ def show_fold_period_layout(light_curve_type, old_style):
     [Input("oid", "children"), Input("dr", "children"), Input("additional-light-curves", "value")],
     [State("additional-light-curves", "options")],
 )
-def update_additional_light_curve_options(oid, dr, values, old_options):
+async def update_additional_light_curve_options(oid, dr, values, old_options):
     if len(values) == 0:
         raise PreventUpdate
     options_dict = {option["value"]: option for option in old_options}
     for value in values:
         if value == "antares":
-            option = get_antares_lc_option(oid, dr, old=options_dict[value])
+            option = await get_antares_lc_option(oid, dr, old=options_dict[value])
         elif value == "gaia":
-            option = get_gaia_lc_option(oid, dr, old=options_dict[value])
+            option = await get_gaia_lc_option(oid, dr, old=options_dict[value])
         elif value == "panstarrs":
-            option = get_panstarrs_lc_option(oid, dr, old=options_dict[value])
+            option = await get_panstarrs_lc_option(oid, dr, old=options_dict[value])
         else:
             raise ValueError(f'additional light curve value "{value}" unknown')
         options_dict[value] = option
     return list(options_dict.values())
 
 
-def get_antares_lc_option(oid, dr, old):
+async def get_antares_lc_option(oid, dr, old):
     option = old.copy()
-    ra, dec = find_ztf_oid.get_coord(oid, dr)
+    ra, dec = await find_ztf_oid.get_coord(oid, dr)
     try:
-        row = ANTARES_QUERY.find_closest(ra, dec, radius_arcsec=ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC)
+        row = await asyncio.to_thread(
+            ANTARES_QUERY.find_closest, ra, dec, radius_arcsec=ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC
+        )
     except NotFound:
         option["label"] = f"Antares object (not found in {ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC}″)"
         option["disabled"] = True
@@ -1199,11 +1208,17 @@ def get_antares_lc_option(oid, dr, old):
     return option
 
 
-def get_gaia_lc_option(oid, dr, old):
+async def get_gaia_lc_option(oid, dr, old):
     option = old.copy()
-    ra, dec = find_ztf_oid.get_coord(oid, dr)
+    ra, dec = await find_ztf_oid.get_coord(oid, dr)
     try:
-        row = GAIA_DR3.find_closest(ra, dec, radius_arcsec=ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC, has_light_curve=True)
+        row = await asyncio.to_thread(
+            GAIA_DR3.find_closest,
+            ra,
+            dec,
+            radius_arcsec=ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC,
+            has_light_curve=True,
+        )
     except NotFound:
         option["label"] = f"Gaia object (not found in {ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC}″)"
         option["disabled"] = True
@@ -1218,8 +1233,13 @@ def get_gaia_lc_option(oid, dr, old):
         option["disabled"] = False
     # Check if we can load data
     try:
-        _ = GAIA_DR3.closest_light_curve(
-            ra, dec, radius_arcsec=ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC, fail_on_empty=False, fail_on_unavailable=True
+        _ = await asyncio.to_thread(
+            GAIA_DR3.closest_light_curve,
+            ra,
+            dec,
+            radius_arcsec=ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC,
+            fail_on_empty=False,
+            fail_on_unavailable=True,
         )
     except CatalogUnavailable:
         option["label"] = "Gaia DataLink is unavailable now"
@@ -1227,11 +1247,13 @@ def get_gaia_lc_option(oid, dr, old):
     return option
 
 
-def get_panstarrs_lc_option(oid, dr, old):
+async def get_panstarrs_lc_option(oid, dr, old):
     option = old.copy()
-    ra, dec = find_ztf_oid.get_coord(oid, dr)
+    ra, dec = await find_ztf_oid.get_coord(oid, dr)
     try:
-        row = PANSTARRS_DR2_QUERY.find_closest(ra, dec, radius_arcsec=ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC)
+        row = await asyncio.to_thread(
+            PANSTARRS_DR2_QUERY.find_closest, ra, dec, radius_arcsec=ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC
+        )
     except NotFound:
         option["label"] = f"Pan-STARRS object (not found in {ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC}″)"
         option["disabled"] = True
@@ -1274,12 +1296,12 @@ def show_ref_mag_layout(brightness_type, name_model, old_style):
     Input("different_filter_neighbours", "children"),
     Input("different_field_neighbours", "children"),
 )
-def show_ref_mag_or_magerr(oid, dr, different_filter, different_field):
+async def show_ref_mag_or_magerr(oid, dr, different_filter, different_field):
     oids = sorted(neighbour_oids(different_filter, different_field) | {oid}, key=int)
 
     filters = defaultdict(list)
     for objectid in oids:
-        fltr = find_ztf_oid.get_meta(objectid, dr)["filter"]
+        fltr = (await find_ztf_oid.get_meta(objectid, dr))["filter"]
         filters[fltr].append(objectid)
 
     layout = []
@@ -1351,13 +1373,13 @@ def show_ref_mag_or_magerr(oid, dr, different_filter, different_field):
     State(dict(type="ref-mag-input", index=ALL), "id"),
     State(dict(type="ref-mag-input", index=ALL), "value"),
 )
-def set_ref_mag_magerr(dr, _n_clicks, link_id, all_mag_ids, all_mag_values):
+async def set_ref_mag_magerr(dr, _n_clicks, link_id, all_mag_ids, all_mag_values):
     objectid = link_id["index"]
     existing = {i["index"]: v for i, v in zip(all_mag_ids, all_mag_values) if v is not None}
     if objectid in existing:
         raise PreventUpdate
     try:
-        ref = ztf_ref.get(objectid, dr)
+        ref = await ztf_ref.get(objectid, dr)
     except NotFound, CatalogUnavailable:
         raise PreventUpdate
     return (
@@ -1377,17 +1399,17 @@ def set_ref_mag_magerr(dr, _n_clicks, link_id, all_mag_ids, all_mag_values):
         Input(dict(type="search-radius", index=ALL), "value"),
     ],
 )
-def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_values):
+async def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_values):
     if None in radius_values:
         raise PreventUpdate
     radii = {id["index"]: float(value) for id, value in zip(radius_ids, radius_values)}
-    ra, dec = find_ztf_oid.get_coord(oid, dr)
-    coord = find_ztf_oid.get_sky_coord(oid, dr)
+    ra, dec = await find_ztf_oid.get_coord(oid, dr)
+    coord = await find_ztf_oid.get_sky_coord(oid, dr)
 
     elements = OrderedDict()
     for catalog, query in catalog_query_objects().items():
         try:
-            table = query.find(ra, dec, radii[catalog])
+            table = await asyncio.to_thread(query.find, ra, dec, radii[catalog])
         except NotFound, CatalogUnavailable, KeyError:
             continue
         idx = np.argmin(table["separation"])
@@ -1429,7 +1451,7 @@ def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_v
                 )
             )
     try:
-        features = light_curve_features(oid, dr, version="latest")
+        features = await light_curve_features(oid, dr, version="latest")
         period = features.get("period_0_magn", features.get("period_0"))
         period_s2n = features.get("period_s_to_n_0_magn", features.get("period_s_to_n_0"))
         el = elements.setdefault("Period, days", [])
@@ -1454,7 +1476,7 @@ def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_v
     ml_classifications = []
     for catalog, query in catalog_query_objects().items():
         try:
-            table = query.find(ra, dec, radii[catalog])
+            table = await asyncio.to_thread(query.find, ra, dec, radii[catalog])
         except NotFound, CatalogUnavailable, KeyError:
             continue
         if len(table) == 0:
@@ -1494,7 +1516,7 @@ def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_v
             pass
 
     other_oids = neighbour_oids(different_filter, different_field)
-    lcs = get_plot_data(oid, dr, other_oids=other_oids)
+    lcs = await get_plot_data(oid, dr, other_oids=other_oids)
     mags = {}
     for obs in chain.from_iterable(lcs.values()):
         mags.setdefault(obs["filter"], []).append(obs["mag"])
@@ -1506,15 +1528,16 @@ def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_v
         elements["Average mag (including neighbourhood)"].append(f'(zg–zr) {mean_mag["zg"] - mean_mag["zr"]: .2f}')
 
     try:
-        elements["Extinction"] = [f"CSFD E(B-V) = {csfd.ebv(coord):.2f}"]
+        ebv = await asyncio.to_thread(csfd.ebv, coord)
+        elements["Extinction"] = [f"CSFD E(B-V) = {ebv:.2f}"]
     except CatalogUnavailable:
         pass
     try:
-        table = get_catalog_query("Gaia EDR3 Distances").find(ra, dec, 1)
+        table = await asyncio.to_thread(get_catalog_query("Gaia EDR3 Distances").find, ra, dec, 1)
         row = QTable(table[np.argmin(table["separation"])])
 
         distance = row["__distance"]
-        af = bayestar(SkyCoord(coord, distance=distance))
+        af = await asyncio.to_thread(bayestar, SkyCoord(coord, distance=distance))
         elements["Extinction"].append(
             f'Bayestar & Gaia EDR distance Ag = {af["zg"]:.2f} Ar = {af["zr"]:.2f} Ai = {af["zi"]:.2f}'
         )
@@ -1529,8 +1552,8 @@ def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_v
     ]
 
     elements["Coordinates"] = [
-        f"Eq {find_ztf_oid.get_coord_string(oid, dr, frame=None)}",
-        f'Gal {find_ztf_oid.get_coord_string(oid, dr, frame="galactic")}',
+        f"Eq {await find_ztf_oid.get_coord_string(oid, dr, frame=None)}",
+        f'Gal {await find_ztf_oid.get_coord_string(oid, dr, frame="galactic")}',
     ]
 
     div = html.Div(
@@ -1546,12 +1569,12 @@ def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_v
     Output("metadata", "children"),
     [Input("oid", "children"), Input("dr", "children")],
 )
-def get_metadata(oid, dr):
-    meta = find_ztf_oid.get_meta(oid, dr).copy()
-    meta["coord_string"] = find_ztf_oid.get_coord_string(oid, dr)
+async def get_metadata(oid, dr):
+    meta = (await find_ztf_oid.get_meta(oid, dr)).copy()
+    meta["coord_string"] = await find_ztf_oid.get_coord_string(oid, dr)
 
     try:
-        ref = ztf_ref.get(oid, dr)
+        ref = await ztf_ref.get(oid, dr)
     except NotFound, CatalogUnavailable:
         pass
     else:
@@ -1604,7 +1627,7 @@ def neighbour_oids(different_filter, different_field) -> frozenset:
         Input("results-fit-hidden", "data"),
     ],
 )
-def set_figure(
+async def set_figure(
     cur_oid,
     dr,
     different_filter,
@@ -1666,7 +1689,7 @@ def set_figure(
 
     other_oids = neighbour_oids(different_filter, different_field)
     if lc_type == "full":
-        lcs = get_plot_data(
+        lcs = await get_plot_data(
             cur_oid,
             dr,
             other_oids=other_oids,
@@ -1678,7 +1701,7 @@ def set_figure(
         )
     elif lc_type == "folded":
         offset = -(phase0 or 0.0) * period
-        lcs = get_folded_plot_data(
+        lcs = await get_folded_plot_data(
             cur_oid,
             dr,
             period=period,
@@ -1754,7 +1777,7 @@ def set_figure(
     message_fit = ""
     if fit_params:
         oids = (cur_oid,) + tuple(sorted(other_oids))
-        response = model_fit.get_curve(
+        response = await model_fit.get_curve(
             oids,
             dr,
             bright=bright,
@@ -1882,16 +1905,17 @@ def set_csv_link(oid, dr, different_filter, different_field, min_mjd, max_mjd):
     return url
 
 
-def find_neighbours(radius, center_oid, dr, different):
+async def find_neighbours(radius, center_oid, dr, different):
     if radius is None:
         return html.P("No radius is specified")
     if float(radius) <= 0:
         return html.P("Radius should be positive")
-    ra, dec = find_ztf_oid.get_coord(center_oid, dr)
+    ra, dec = await find_ztf_oid.get_coord(center_oid, dr)
     kwargs = dict(ra=ra, dec=dec, radius_arcsec=radius, dr=dr)
-    fltr = find_ztf_oid.get_meta(center_oid, dr)["filter"]
-    fieldid = find_ztf_oid.get_meta(center_oid, dr)["fieldid"]
-    j = find_ztf_circle.find(**kwargs)
+    meta = await find_ztf_oid.get_meta(center_oid, dr)
+    fltr = meta["filter"]
+    fieldid = meta["fieldid"]
+    j = await find_ztf_circle.find(**kwargs)
     if different == "filter":
         j = {
             oid: value
@@ -1960,17 +1984,17 @@ app.clientside_callback(
 
 
 @callback(Output("fits-to-show", "children"), [Input("graph", "clickData")], [State("dr", "children")])
-def load_fits_for_graph_clicked(data, dr):
+async def load_fits_for_graph_clicked(data, dr):
     if data is None:
         raise PreventUpdate
     if not (points := data.get("points")):
         raise PreventUpdate
     point = points[0]
     mjd, oid, fieldid, rcid, fltr, *_ = point["customdata"]
-    ra, dec = find_ztf_oid.get_coord(oid, dr)
-    coord = find_ztf_oid.get_sky_coord(oid, dr)
+    ra, dec = await find_ztf_oid.get_coord(oid, dr)
+    coord = await find_ztf_oid.get_sky_coord(oid, dr)
     date = DateWithFrac.from_hmjd(mjd, coord=coord)
-    correct_date(date)
+    await correct_date(date)
     fits_url = urljoin(ZTF_FITS_PROXY_URL, date.sciimg_path(fieldid=fieldid, rcid=rcid, filter=fltr))
     cutout_query = urlencode(dict(size="449pix", gzip="false", center=f"{ra},{dec}"))
     fits_cutout_url = f"{fits_url}?{cutout_query}"
@@ -1989,17 +2013,19 @@ def load_fits_for_graph_clicked(data, dr):
 
 
 @callback(Output("skybot", "children"), [Input("graph", "clickData")], [State("dr", "children")])
-def update_skybot_for_graph_clicked(data, dr):
+async def update_skybot_for_graph_clicked(data, dr):
     if data is None:
         raise PreventUpdate
     if not (points := data.get("points")):
         raise PreventUpdate
     point = points[0]
     mjd, oid, *_ = point["customdata"]
-    coord = find_ztf_oid.get_sky_coord(oid, dr)
+    coord = await find_ztf_oid.get_sky_coord(oid, dr)
     observatory_mjd = hmjd_to_earth(mjd, coord).mjd
     try:
-        table = SKYBOT_QUERY.find(coord.ra.deg, coord.dec.deg, observatory_mjd, radius_arcsec=15.0)
+        table = await asyncio.to_thread(
+            SKYBOT_QUERY.find, coord.ra.deg, coord.dec.deg, observatory_mjd, radius_arcsec=15.0
+        )
     except NotFound:
         return html.Div("No minor planets found in 15″")
 
@@ -2016,8 +2042,8 @@ def convert_astro_colibri_search_radius_to_arcsec(radius_deg):
     return int(np.round(float(radius_deg) * 3600))
 
 
-def set_table(radius, oid, dr, catalog):
-    ra, dec = find_ztf_oid.get_coord(oid, dr)
+async def set_table(radius, oid, dr, catalog):
+    ra, dec = await find_ztf_oid.get_coord(oid, dr)
     if radius is None:
         return html.P("No radius is specified")
     radius = float(radius)
@@ -2025,7 +2051,7 @@ def set_table(radius, oid, dr, catalog):
         return html.P("Radius should be positive")
     query = get_catalog_query(catalog)
     try:
-        table = query.find(ra, dec, radius)
+        table = await asyncio.to_thread(query.find, ra, dec, radius)
     except NotFound:
         return html.P(
             f'No {catalog.replace("-", " ")} objects within {format_sep(radius, 0, 0)} from {ra:.5f}, {dec:.5f}'
@@ -2067,8 +2093,8 @@ set_tables()
         State("dr", "children"),
     ],
 )
-def set_vizier_url(radius, oid, dr):
-    ra, dec = find_ztf_oid.get_coord(oid, dr)
+async def set_vizier_url(radius, oid, dr):
+    ra, dec = await find_ztf_oid.get_coord(oid, dr)
     if radius is None:
         radius = 0
     return find_vizier.get_search_url(ra, dec, radius)
@@ -2083,7 +2109,7 @@ def set_vizier_url(radius, oid, dr):
         State("dr", "children"),
     ],
 )
-def set_vizier_list(n_clicks, radius, oid, dr):
+async def set_vizier_list(n_clicks, radius, oid, dr):
     if n_clicks == 0:
         return ""
 
@@ -2091,9 +2117,9 @@ def set_vizier_list(n_clicks, radius, oid, dr):
         return html.P("No radius is specified")
 
     radius = float(radius)
-    ra, dec = find_ztf_oid.get_coord(oid, dr)
+    ra, dec = await find_ztf_oid.get_coord(oid, dr)
 
-    table_list = find_vizier.find(ra, dec, radius)
+    table_list = await asyncio.to_thread(find_vizier.find, ra, dec, radius)
     if len(table_list) == 0:
         return html.P(f"No vizier catalogs found within {format_sep(radius, 0, 0)} from {ra:.5f}, {dec:.5f}")
 
@@ -2101,7 +2127,7 @@ def set_vizier_list(n_clicks, radius, oid, dr):
     lengths = []
     for catalog, table in zip(table_list.keys(), table_list.values()):
         try:
-            description = vizier_catalog_details.description(catalog)
+            description = await asyncio.to_thread(vizier_catalog_details.description, catalog)
         except NotFound:
             description = catalog
         n = len(table)
@@ -2139,11 +2165,11 @@ def set_vizier_list(n_clicks, radius, oid, dr):
         Input("max-mjd", "value"),
     ],
 )
-def set_features_list(oid, dr, version, min_mjd, max_mjd):
+async def set_features_list(oid, dr, version, min_mjd, max_mjd):
     if min_mjd is not None and max_mjd is not None and min_mjd >= max_mjd:
         raise PreventUpdate
     try:
-        features = light_curve_features(oid, dr, version=version, min_mjd=min_mjd, max_mjd=max_mjd)
+        features = await light_curve_features(oid, dr, version=version, min_mjd=min_mjd, max_mjd=max_mjd)
     except NotFound:
         return "Not available"
     items = [f"**{k}**: {v:.4g}" for k, v in sorted(features.items(), key=lambda item: item[0])]
@@ -2164,7 +2190,7 @@ def set_features_list(oid, dr, version, min_mjd, max_mjd):
         Input("max-mjd", "value"),
     ],
 )
-def set_lc_table(oid, dr, min_mjd, max_mjd):
+async def set_lc_table(oid, dr, min_mjd, max_mjd):
     if min_mjd is not None and max_mjd is not None and min_mjd >= max_mjd:
         raise PreventUpdate
-    return find_ztf_oid.get_lc(oid, dr, min_mjd=min_mjd, max_mjd=max_mjd)
+    return await find_ztf_oid.get_lc(oid, dr, min_mjd=min_mjd, max_mjd=max_mjd)

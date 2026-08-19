@@ -1,27 +1,43 @@
+import asyncio
 import logging
+from io import BytesIO
 from pathlib import Path
-from urllib.error import HTTPError, URLError
 
+import httpx
 import numpy as np
-import requests
 from astropy.io import fits
 
 from ztf_viewer.cache import cache
 from ztf_viewer.catalogs import find_ztf_oid
-from ztf_viewer.config import ZTF_FITS_PROXY_URL
+from ztf_viewer.config import TIMEOUT_ZTF_FITS_PROXY, ZTF_FITS_PROXY_URL
 from ztf_viewer.exceptions import NotFound, CatalogUnavailable
+from ztf_viewer.http import get_client
 from ztf_viewer.util import ccdid_from_rcid, qid_from_rcid
+
+
+def _parse_fits(data: bytes, url: str, sourceid: int) -> dict:
+    """Parse the reference-catalog FITS payload and pull out the row for `sourceid`."""
+    with fits.open(BytesIO(data)) as f:
+        header = f[0].header
+        table = f[1].data
+        where = np.where(table["sourceid"] == sourceid)[0]
+        if where.size == 0:
+            logging.warning(f"Object with sourceid={sourceid} is not found in the reference catalog file {url}")
+            raise NotFound
+        idx = where.item()
+        record = dict(zip(table.names, table[idx]))
+        record["magzp"] = header["MAGZP"]
+        record["magzp_rms"] = header["MAGZPRMS"]
+        record["infobits"] = header["INFOBITS"]
+    return record
 
 
 class ZTFRef:
     _base_fits_url = f"{ZTF_FITS_PROXY_URL}"
     _base_path = "/products/ref/"
 
-    def __init__(self):
-        self._api_session = requests.Session()
-
-    def fits_url(self, oid, dr):
-        meta = find_ztf_oid.get_meta(oid, dr)
+    async def fits_url(self, oid, dr):
+        meta = await find_ztf_oid.get_meta(oid, dr)
         if meta["fieldid"] < 1000:
             root = "000"
         else:
@@ -39,28 +55,18 @@ class ZTFRef:
         return f"{self._base_fits_url}{path}"
 
     @cache()
-    def get(self, oid, dr):
-        url = self.fits_url(oid, dr)
+    async def get(self, oid, dr):
+        url = await self.fits_url(oid, dr)
         sourceid = int(oid) % 10_000_000
+        client = get_client()
         try:
-            with fits.open(url) as f:
-                header = f[0].header
-                data = f[1].data
-                where = np.where(data["sourceid"] == sourceid)[0]
-                if where.size == 0:
-                    logging.warning(f"Object {oid} is not found in the reference catalog file {url}")
-                    raise NotFound
-                idx = where.item()
-                record = dict(zip(data.names, data[idx]))
-                record["magzp"] = header["MAGZP"]
-                record["magzp_rms"] = header["MAGZPRMS"]
-                record["infobits"] = header["INFOBITS"]
-        except HTTPError:
+            response = await client.get(url, timeout=TIMEOUT_ZTF_FITS_PROXY)
+            response.raise_for_status()
+        except httpx.HTTPStatusError:
             raise NotFound
-        except URLError:
+        except httpx.RequestError:
             raise CatalogUnavailable
-
-        return record
+        return await asyncio.to_thread(_parse_fits, response.content, url, sourceid)
 
 
 ztf_ref = ZTFRef()

@@ -246,9 +246,9 @@ def set_dr_title(dr):
     Output("username", "children"),
     [Input("url", "pathname")],
 )
-def set_username(_url):
+async def set_username(_url):
     try:
-        return akb.username()
+        return await akb.username()
     except UnAuthorized:
         return html.A("login", href="/login")
 
@@ -350,7 +350,7 @@ def go_to_url(
         Input("url", "search"),
     ],
 )
-def app_select_by_url(pathname, search):
+async def app_select_by_url(pathname, search):
     if not isinstance(pathname, str):
         raise PreventUpdate
     # DR7 is not supported anymore:
@@ -518,13 +518,13 @@ archivePrefix = {arXiv},
         ]
     if match := re.search(r"^/+view/+(\d+)", pathname):
         return [
-            get_viewer_layout(f"/{DEFAULT_DR}/view/{match.group(1)}", search),
+            await get_viewer_layout(f"/{DEFAULT_DR}/view/{match.group(1)}", search),
             no_update,
             no_update,
         ]
     if re.search(r"^/+dr\d{1,2}/+view/+(\d+)", pathname):
         return [
-            get_viewer_layout(pathname, search),
+            await get_viewer_layout(pathname, search),
             no_update,
             no_update,
         ]
@@ -569,7 +569,7 @@ archivePrefix = {arXiv},
             ]
         dr = search_match.group("dr") or DEFAULT_DR
         return [
-            get_search_layout(coordinates, radius_arcsec, dr),
+            await get_search_layout(coordinates, radius_arcsec, dr),
             coord_or_name,
             radius_arcsec,
         ]

@@ -14,12 +14,12 @@ COLUMNS = {
 }
 
 
-def get_layout(coordinates, radius_arcsec, dr):
+async def get_layout(coordinates, radius_arcsec, dr):
     ra = coordinates.ra.to_value("deg")
     dec = coordinates.dec.to_value("deg")
     cone_str = f"({ra:.5f} deg, {dec:.5f} deg), r = {radius_arcsec:.1f}″"
     try:
-        j = find_ztf_circle.find(ra, dec, radius_arcsec, dr)
+        j = await find_ztf_circle.find(ra, dec, radius_arcsec, dr)
     except NotFound:
         return html.Div(
             [

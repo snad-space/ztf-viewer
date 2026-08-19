@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime
 from io import BytesIO
 
@@ -30,7 +31,7 @@ class UnknownFormat(Exception):
 
 
 @app.server.api_route("/{dr}/figure/{oid}/folded/{period}")
-def response_figure_folded(dr: str, oid: int, period: float, request: Request):
+async def response_figure_folded(dr: str, oid: int, period: float, request: Request):
     args = query_args(request)
     try:
         kwargs = parse_figure_args_helper(args)
@@ -45,14 +46,16 @@ def response_figure_folded(dr: str, oid: int, period: float, request: Request):
     if repeat is not None:
         repeat = int(repeat)
 
-    data = get_folded_plot_data(oid, dr, period=period, offset=offset, **kwargs)
-    img = plot_folded_data(oid, data, period=period, repeat=repeat, fmt=fmt, caption=caption, title=title)
+    data = await get_folded_plot_data(oid, dr, period=period, offset=offset, **kwargs)
+    img = await asyncio.to_thread(
+        plot_folded_data, oid, data, period=period, repeat=repeat, fmt=fmt, caption=caption, title=title
+    )
 
     return binary_response(img, mimetype=MIMES[fmt], filename=f"{oid}.{fmt}")
 
 
 @app.server.api_route("/{dr}/figure/{oid}", methods=["GET", "POST"])
-def response_figure(dr: str, oid: int, request: Request, body: bytes = Body(default=b"")):
+async def response_figure(dr: str, oid: int, request: Request, body: bytes = Body(default=b"")):
     args = query_args(request)
     try:
         kwargs = parse_figure_args_helper(args, body)
@@ -62,8 +65,8 @@ def response_figure(dr: str, oid: int, request: Request, body: bytes = Body(defa
     caption = kwargs.pop("caption")
     title = kwargs.pop("title")
 
-    data = get_plot_data(oid, dr, **kwargs)
-    img = plot_data(oid, data, fmt=fmt, caption=caption, title=title)
+    data = await get_plot_data(oid, dr, **kwargs)
+    img = await asyncio.to_thread(plot_data, oid, data, fmt=fmt, caption=caption, title=title)
 
     return binary_response(img, mimetype=MIMES[fmt], filename=f"{oid}.{fmt}")
 

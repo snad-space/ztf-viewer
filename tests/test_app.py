@@ -23,8 +23,11 @@ def client():
     `app` is a module-level singleton, so assigning its layout here would otherwise outlive this
     file and race with whatever set it first.
     """
+    from tests.conftest import reset_shared_thread_pool
+
     original = app._layout, app._layout_is_function
     app.layout = html.Div("test")
+    reset_shared_thread_pool()
     try:
         with TestClient(app.server) as test_client:
             yield test_client

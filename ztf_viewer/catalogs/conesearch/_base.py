@@ -1,3 +1,4 @@
+import asyncio
 import dataclasses
 import logging
 import urllib.parse
@@ -271,10 +272,15 @@ class _BaseLightCurveQuery:
                 raise
             return self._empty_light_curve()
 
-    def closest_light_curve_by_oid(self, oid, dr, radius_arcsec, fail_on_empty=True, fail_on_unavailable=True):
-        ra, dec = find_ztf_oid.get_coord(oid, dr)
-        return self.closest_light_curve(
-            ra, dec, radius_arcsec, fail_on_empty=fail_on_empty, fail_on_unavailable=fail_on_unavailable
+    async def closest_light_curve_by_oid(self, oid, dr, radius_arcsec, fail_on_empty=True, fail_on_unavailable=True):
+        ra, dec = await find_ztf_oid.get_coord(oid, dr)
+        return await asyncio.to_thread(
+            self.closest_light_curve,
+            ra,
+            dec,
+            radius_arcsec,
+            fail_on_empty=fail_on_empty,
+            fail_on_unavailable=fail_on_unavailable,
         )
 
 

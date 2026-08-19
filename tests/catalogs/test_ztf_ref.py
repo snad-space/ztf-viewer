@@ -1,7 +1,7 @@
 from pytest import approx
 
 
-def test_fits_url():
+async def test_fits_url():
     from ztf_viewer.catalogs.ztf_ref import ztf_ref
     from ztf_viewer.config import ZTF_FITS_PROXY_URL
 
@@ -9,11 +9,11 @@ def test_fits_url():
     dr = "dr8"  # any supported
     assert (
         f"{ZTF_FITS_PROXY_URL}/products/ref/000/field000633/zr/ccd07/q4/ztf_000633_zr_c07_q4_refpsfcat.fits"
-        == ztf_ref.fits_url(oid, dr)
+        == await ztf_ref.fits_url(oid, dr)
     )
 
 
-def test_regression_get():
+async def test_regression_get():
     from ztf_viewer.catalogs.ztf_ref import ztf_ref
 
     oid = 633207400004730
@@ -38,6 +38,6 @@ def test_regression_get():
         "infobits": 0,
     }
 
-    actual = ztf_ref.get(oid, dr)
+    actual = await ztf_ref.get(oid, dr)
 
     assert expected == approx(actual)
