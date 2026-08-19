@@ -28,6 +28,8 @@ import pytest
 import redis
 import redis.asyncio
 
+from ztf_viewer import config
+
 LONG_TTL = 3600
 SHORT_TTL = 1
 
@@ -379,3 +381,20 @@ def test_async_redis_backend_client_registry_survives_concurrent_threads():
 
     assert len({id(client) for client in clients}) == N_THREADS, "each loop gets its own client, never a shared one"
     assert all(isinstance(client, redis.asyncio.Redis) for client in clients)
+
+
+def test_production_async_redis_client_factories_build_a_client():
+    """``redis.asyncio.Redis`` takes ``host`` keyword-only; the sync ``StrictRedis`` takes it positionally.
+
+    Every other test here builds its client itself, with keywords, so a positional call left in
+    the production factories stays invisible until a real async ``@cache()`` call reaches Redis --
+    and then every one of them raises ``TypeError``. Constructing a client opens no connection,
+    so this needs no server.
+    """
+    from ztf_viewer.cache.redis import create_async_redis_client
+    from ztf_viewer.catalogs.unavailable_catalogs import _create_async_redis_client
+
+    for factory in (create_async_redis_client, _create_async_redis_client):
+        client = factory()
+        assert isinstance(client, redis.asyncio.Redis)
+        assert client.connection_pool.connection_kwargs["host"] == config.REDIS_HOSTNAME

@@ -29,11 +29,14 @@ def _get_unavailable_catalogs():
 unavailable_catalogs = _get_unavailable_catalogs()
 
 
+def _create_async_redis_client():
+    # Keyword, not positional: `redis.asyncio.Redis` takes `host` keyword-only, unlike `StrictRedis`.
+    return redis.asyncio.Redis(host=REDIS_HOSTNAME)
+
+
 def _create_async_redis():
     # No client at construction time: AsyncRedisTTLStringSet builds one lazily, per running loop.
-    return AsyncRedisTTLStringSet(
-        TTL, client_factory=lambda: redis.asyncio.Redis(REDIS_HOSTNAME), prefix="unavailable_catalogs"
-    )
+    return AsyncRedisTTLStringSet(TTL, client_factory=_create_async_redis_client, prefix="unavailable_catalogs")
 
 
 ASYNC_CREATORS = {
