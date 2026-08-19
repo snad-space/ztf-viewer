@@ -1,12 +1,13 @@
 import asyncio
 import dataclasses
+import inspect
 import logging
 import urllib.parse
 from functools import partial
 from typing import Dict, List, Optional
 
+import httpx
 import pandas as pd
-import requests
 from astropy.coordinates import SkyCoord
 from astropy.cosmology import FlatLambdaCDM
 from astropy.table import Table
@@ -15,11 +16,29 @@ from astroquery.vizier import Vizier
 from requests import RequestException
 
 from ztf_viewer.cache import cache
-from ztf_viewer.catalogs import find_ztf_oid, unavailable_catalogs
+from ztf_viewer.catalogs import find_ztf_oid, unavailable_catalogs, unavailable_catalogs_async
+from ztf_viewer.config import TIMEOUT_CONESEARCH_API
 from ztf_viewer.exceptions import CatalogUnavailable, NotFound
-from ztf_viewer.util import compose_plus_minus_expression, safe_link, to_str, timeout
+from ztf_viewer.http import get_client
+from ztf_viewer.util import async_timeout, compose_plus_minus_expression, safe_link, to_str
 
 COSMO = FlatLambdaCDM(H0=70, Om0=0.3)
+
+
+def _ensure_coroutine(func):
+    """Wrap a sync callable in ``asyncio.to_thread``; pass an already-async one through unchanged.
+
+    Lets ``find()`` await ``_query_region`` uniformly regardless of whether a given catalog's
+    implementation is genuine async I/O or a still-sync third-party client (astroquery, an
+    unconverted ``requests`` call). Mirrors ``ztf_viewer.callbacks._to_coroutine_function``.
+    """
+    if inspect.iscoroutinefunction(func):
+        return func
+
+    async def wrapper(*args, **kwargs):
+        return await asyncio.to_thread(func, *args, **kwargs)
+
+    return wrapper
 
 
 @dataclasses.dataclass
@@ -106,7 +125,7 @@ class _BaseCatalogQuery:
 
     def __init__(self, query_name):
         self.__query_name = query_name
-        self._timeout_decorator = timeout(
+        self._timeout_decorator = async_timeout(
             seconds=10.0,
             exception=CatalogUnavailable,
             exception_kwargs=dict(catalog=self),
@@ -153,15 +172,20 @@ class _BaseCatalogQuery:
         if self.query_name in unavailable_catalogs:
             raise CatalogUnavailable(self.query_name, prolongate=False)
 
+    async def _raise_if_unavailable_async(self):
+        if await unavailable_catalogs_async.contains(self.query_name):
+            raise CatalogUnavailable(self.query_name, prolongate=False)
+
     @cache()
-    def find(self, ra, dec, radius_arcsec):
-        self._raise_if_unavailable()
+    async def find(self, ra, dec, radius_arcsec):
+        await self._raise_if_unavailable_async()
         coord = SkyCoord(ra, dec, unit="deg", frame="icrs")
         radius = f"{radius_arcsec}s"
         logging.info(f"Querying ra={ra}, dec={dec}, r={radius_arcsec}")
+        query_region = self._timeout_decorator(_ensure_coroutine(self._query_region))
         try:
-            table = self._timeout_decorator(self._query_region)(coord, radius=radius)
-        except RequestException as e:  # this gives a good chance to catch network or service problem
+            table = await query_region(coord, radius=radius)
+        except (RequestException, httpx.HTTPError) as e:  # a good chance to catch network or service problems
             logging.warning(str(e))
             raise CatalogUnavailable(catalog=self)
         if table is None:
@@ -177,8 +201,8 @@ class _BaseCatalogQuery:
         table.sort("separation")
         return table
 
-    def find_closest(self, ra, dec, radius_arcsec, has_light_curve=True):
-        table = self.find(ra, dec, radius_arcsec)
+    async def find_closest(self, ra, dec, radius_arcsec, has_light_curve=True):
+        table = await self.find(ra, dec, radius_arcsec)
         return table[0]
 
     def add_additional_columns(self, table):
@@ -259,10 +283,11 @@ class _BaseLightCurveQuery:
     def _empty_light_curve():
         return Table(dict.fromkeys(["oid", "mjd", "mag", "magerr", "filter"], []))
 
-    def closest_light_curve(self, ra, dec, radius_arcsec, fail_on_empty=True, fail_on_unavailable=True):
+    async def closest_light_curve(self, ra, dec, radius_arcsec, fail_on_empty=True, fail_on_unavailable=True):
         try:
-            row = self.find_closest(ra, dec, radius_arcsec, has_light_curve=True)
-            return self.light_curve(row[self.id_column], row=row)
+            row = await self.find_closest(ra, dec, radius_arcsec, has_light_curve=True)
+            light_curve = _ensure_coroutine(self.light_curve)
+            return await light_curve(row[self.id_column], row=row)
         except NotFound:
             if fail_on_empty:
                 raise
@@ -274,13 +299,9 @@ class _BaseLightCurveQuery:
 
     async def closest_light_curve_by_oid(self, oid, dr, radius_arcsec, fail_on_empty=True, fail_on_unavailable=True):
         ra, dec = await find_ztf_oid.get_coord(oid, dr)
-        return await asyncio.to_thread(
-            self.closest_light_curve,
-            ra,
-            dec,
-            radius_arcsec,
-            fail_on_empty=fail_on_empty,
-            fail_on_unavailable=fail_on_unavailable,
+        closest_light_curve = _ensure_coroutine(self.closest_light_curve)
+        return await closest_light_curve(
+            ra, dec, radius_arcsec, fail_on_empty=fail_on_empty, fail_on_unavailable=fail_on_unavailable
         )
 
 
@@ -289,8 +310,9 @@ class _BaseNameResolverQuery:
         raise NotImplementedError
 
     @cache()
-    def resolve_name(self, id) -> SkyCoord:
-        obj = self.get_record_by_id(id)
+    async def resolve_name(self, id) -> SkyCoord:
+        get_record_by_id = _ensure_coroutine(self.get_record_by_id)
+        obj = await get_record_by_id(id)
         return self._construct_coord(obj)
 
 
@@ -299,30 +321,26 @@ class _BaseCatalogApiQuery(_BaseCatalogQuery):
     def _base_api_url(self):
         raise NotImplementedError
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._api_session = requests.Session()
-
     def _raise_if_not_ok(self, response):
         if response.status_code != 200:
             logging.warning(response.text)
             raise CatalogUnavailable(response.text, catalog=self)
 
-    def _api_query_region(self, ra, dec, radius_arcsec):
+    async def _api_query_region(self, ra, dec, radius_arcsec):
         query = {"ra": ra, "dec": dec, "radius_arcsec": radius_arcsec}
-        response = self._api_session.get(self._get_api_url(query), timeout=10)
+        response = await get_client().get(self._get_api_url(query), timeout=TIMEOUT_CONESEARCH_API)
         self._raise_if_not_ok(response)
         j = response.json()
         table = Table.from_pandas(pd.DataFrame.from_records(j))
         return table
 
-    def _query_region(self, coord, radius):
+    async def _query_region(self, coord, radius):
         ra = coord.ra.to_value("deg")
         dec = coord.dec.to_value("deg")
         if not (isinstance(radius, str) and radius.endswith("s")):
             raise ValueError('radius argument should be a string that ends with "s" letter')
         radius_arcsec = float(radius[:-1])
-        return self._api_query_region(ra, dec, radius_arcsec)
+        return await self._api_query_region(ra, dec, radius_arcsec)
 
     def _get_api_url(self, query):
         query_string = urllib.parse.urlencode(query)

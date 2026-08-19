@@ -1187,9 +1187,7 @@ async def get_antares_lc_option(oid, dr, old):
     option = old.copy()
     ra, dec = await find_ztf_oid.get_coord(oid, dr)
     try:
-        row = await asyncio.to_thread(
-            ANTARES_QUERY.find_closest, ra, dec, radius_arcsec=ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC
-        )
+        row = await ANTARES_QUERY.find_closest(ra, dec, radius_arcsec=ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC)
     except NotFound:
         option["label"] = f"Antares object (not found in {ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC}″)"
         option["disabled"] = True
@@ -1212,12 +1210,8 @@ async def get_gaia_lc_option(oid, dr, old):
     option = old.copy()
     ra, dec = await find_ztf_oid.get_coord(oid, dr)
     try:
-        row = await asyncio.to_thread(
-            GAIA_DR3.find_closest,
-            ra,
-            dec,
-            radius_arcsec=ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC,
-            has_light_curve=True,
+        row = await GAIA_DR3.find_closest(
+            ra, dec, radius_arcsec=ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC, has_light_curve=True
         )
     except NotFound:
         option["label"] = f"Gaia object (not found in {ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC}″)"
@@ -1233,8 +1227,7 @@ async def get_gaia_lc_option(oid, dr, old):
         option["disabled"] = False
     # Check if we can load data
     try:
-        _ = await asyncio.to_thread(
-            GAIA_DR3.closest_light_curve,
+        _ = await GAIA_DR3.closest_light_curve(
             ra,
             dec,
             radius_arcsec=ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC,
@@ -1251,9 +1244,7 @@ async def get_panstarrs_lc_option(oid, dr, old):
     option = old.copy()
     ra, dec = await find_ztf_oid.get_coord(oid, dr)
     try:
-        row = await asyncio.to_thread(
-            PANSTARRS_DR2_QUERY.find_closest, ra, dec, radius_arcsec=ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC
-        )
+        row = await PANSTARRS_DR2_QUERY.find_closest(ra, dec, radius_arcsec=ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC)
     except NotFound:
         option["label"] = f"Pan-STARRS object (not found in {ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC}″)"
         option["disabled"] = True
@@ -1409,7 +1400,7 @@ async def get_summary(oid, dr, different_filter, different_field, radius_ids, ra
     elements = OrderedDict()
     for catalog, query in catalog_query_objects().items():
         try:
-            table = await asyncio.to_thread(query.find, ra, dec, radii[catalog])
+            table = await query.find(ra, dec, radii[catalog])
         except NotFound, CatalogUnavailable, KeyError:
             continue
         idx = np.argmin(table["separation"])
@@ -1476,7 +1467,7 @@ async def get_summary(oid, dr, different_filter, different_field, radius_ids, ra
     ml_classifications = []
     for catalog, query in catalog_query_objects().items():
         try:
-            table = await asyncio.to_thread(query.find, ra, dec, radii[catalog])
+            table = await query.find(ra, dec, radii[catalog])
         except NotFound, CatalogUnavailable, KeyError:
             continue
         if len(table) == 0:
@@ -1533,7 +1524,7 @@ async def get_summary(oid, dr, different_filter, different_field, radius_ids, ra
     except CatalogUnavailable:
         pass
     try:
-        table = await asyncio.to_thread(get_catalog_query("Gaia EDR3 Distances").find, ra, dec, 1)
+        table = await get_catalog_query("Gaia EDR3 Distances").find(ra, dec, 1)
         row = QTable(table[np.argmin(table["separation"])])
 
         distance = row["__distance"]
@@ -2051,7 +2042,7 @@ async def set_table(radius, oid, dr, catalog):
         return html.P("Radius should be positive")
     query = get_catalog_query(catalog)
     try:
-        table = await asyncio.to_thread(query.find, ra, dec, radius)
+        table = await query.find(ra, dec, radius)
     except NotFound:
         return html.P(
             f'No {catalog.replace("-", " ")} objects within {format_sep(radius, 0, 0)} from {ra:.5f}, {dec:.5f}'

@@ -3,10 +3,10 @@ from base64 import b64encode
 from io import BytesIO
 
 import astropy.io.ascii
-import requests
 
 from ztf_viewer.catalogs.conesearch._base import _BaseCatalogApiQuery
-from ztf_viewer.config import OGLE_III_API_URL
+from ztf_viewer.config import OGLE_III_API_URL, TIMEOUT_CONESEARCH_API, TIMEOUT_OGLE_LIGHT_CURVE
+from ztf_viewer.http import get_client
 from ztf_viewer.util import anchor_form
 
 
@@ -58,28 +58,24 @@ class OgleQuery(_BaseCatalogApiQuery):
         "pagelen": "50",
     }
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._light_curve_session = requests.Session()
-
-    def _download_light_curve(self, id):
+    async def _download_light_curve(self, id):
         basepath = f"{id[-2:]}/{id}"
         paths = [basepath + ".png", basepath + "_1.png"]
         light_curve_urls = [urllib.parse.urljoin(self._base_light_curve_url, path) for path in paths]
         for url in light_curve_urls:
-            response = self._light_curve_session.get(url, timeout=60)
+            response = await get_client().get(url, timeout=TIMEOUT_OGLE_LIGHT_CURVE)
             if response.status_code == 200:
                 data = b64encode(response.content).decode()
                 # JSX (used by dcc.Markdown's HTML renderer) needs attribute values quoted.
                 return f'<a href="{url}"><img src="data:image/png;base64,{data}" width="200px" /></a>'
         return ""
 
-    def _api_query_region(self, ra, dec, radius_arcsec):
+    async def _api_query_region(self, ra, dec, radius_arcsec):
         query = {"ra": ra, "dec": dec, "radius_arcsec": radius_arcsec, "format": "tsv"}
-        response = self._api_session.get(self._get_api_url(query), timeout=10)
+        response = await get_client().get(self._get_api_url(query), timeout=TIMEOUT_CONESEARCH_API)
         self._raise_if_not_ok(response)
         table = astropy.io.ascii.read(BytesIO(response.content), format="tab", guess=False)
-        table["light_curve"] = [self._download_light_curve(row[self.id_column]) for row in table]
+        table["light_curve"] = [await self._download_light_curve(row[self.id_column]) for row in table]
         return table
 
     def get_link(self, id, name, row=None):

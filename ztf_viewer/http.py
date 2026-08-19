@@ -9,9 +9,6 @@ The client-level timeout (``config.HTTP_DEFAULT_TIMEOUT``) is a backstop, not th
 upstreams disagree by two orders of magnitude on how long they need, so a caller is expected to
 pass its own ``timeout=`` per request (``config.py``'s ``TIMEOUT_*`` constants) and this default
 only catches the case where one forgets to.
-
-Nothing in the app calls :func:`get_client` yet — this module only builds the client and wires
-its shutdown, ready for callers to adopt incrementally.
 """
 
 import asyncio

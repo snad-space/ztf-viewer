@@ -1,10 +1,12 @@
 from io import BytesIO
+from json import JSONDecodeError
 
 import astropy.io.ascii
 from markupsafe import Markup, escape
-from requests.exceptions import JSONDecodeError
 
 from ztf_viewer.catalogs.conesearch._base import _BaseCatalogApiQuery
+from ztf_viewer.config import TIMEOUT_CONESEARCH_API
+from ztf_viewer.http import get_client
 from ztf_viewer.util import safe_link
 
 
@@ -29,8 +31,8 @@ class AstrocatsQuery(_BaseCatalogApiQuery):
     _base_api_url = f"{__root_api_url}/all"
     _declared_html_columns = frozenset({"references"})  # get_link() below returns plain text
 
-    def _get_sources(self, id):
-        response = self._api_session.get(f"{self.__root_api_url}/{id}/sources", timeout=10)
+    async def _get_sources(self, id):
+        response = await get_client().get(f"{self.__root_api_url}/{id}/sources", timeout=TIMEOUT_CONESEARCH_API)
         self._raise_if_not_ok(response)
         data = response.json()
         return data[id]["sources"]
@@ -47,9 +49,9 @@ class AstrocatsQuery(_BaseCatalogApiQuery):
             return ads_link if bibcode == name else escape(name) + " (" + ads_link + ")"
         return escape(name)
 
-    def _api_query_region(self, ra, dec, radius_arcsec):
+    async def _api_query_region(self, ra, dec, radius_arcsec):
         query = {"ra": ra, "dec": dec, "radius": radius_arcsec, "format": "csv", "item": 0}
-        response = self._api_session.get(self._get_api_url(query), timeout=10)
+        response = await get_client().get(self._get_api_url(query), timeout=TIMEOUT_CONESEARCH_API)
         self._raise_if_not_ok(response)
         # If nothing is found a single-line JSON response coming:
         # {"message": "No objects found within specified search region."}
@@ -59,9 +61,8 @@ class AstrocatsQuery(_BaseCatalogApiQuery):
         except JSONDecodeError:
             pass
         table = astropy.io.ascii.read(BytesIO(response.content), format="csv", guess=False)
-        table["references"] = [
-            Markup(", ").join(map(self._format_source, sources)) for sources in map(self._get_sources, table["event"])
-        ]
+        sources = [await self._get_sources(event) for event in table["event"]]
+        table["references"] = [Markup(", ").join(map(self._format_source, s)) for s in sources]
         return table
 
     def get_link(self, id, name, row=None):

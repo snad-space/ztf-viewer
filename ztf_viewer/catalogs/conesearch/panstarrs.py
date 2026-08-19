@@ -1,19 +1,20 @@
 import logging
 from itertools import count
 
+import httpx
 import numpy as np
-import requests
 from astropy.coordinates import EarthLocation, SkyCoord
 from astropy.table import MaskedColumn, Table
 from astropy.time import Time
-from requests import RequestException
 
 from ztf_viewer.catalogs.conesearch._base import (
     ValueWithUncertaintyColumn,
     _BaseCatalogQuery,
     _BaseLightCurveQuery,
 )
+from ztf_viewer.config import TIMEOUT_PANSTARRS
 from ztf_viewer.exceptions import CatalogUnavailable, NotFound
+from ztf_viewer.http import get_client
 from ztf_viewer.util import ABZPMAG_JY, LGE_25
 
 HALEAKALA = EarthLocation(lon=-156.169, lat=20.71552, height=3048.0)  # EarthLocation.of_site('Haleakala')
@@ -73,14 +74,14 @@ def _mast_json_to_table(json_obj):
     return data_table
 
 
-def _panstarrs_request(session, release, table, **params):
+async def _panstarrs_request(release, table, **params):
     """POST to the MAST PanSTARRS catalog API and return an astropy Table."""
     url = f"{_PANSTARRS_API}/{release}/{table}.json"
-    response = session.post(
+    response = await get_client().post(
         url,
         json=params,
         headers={"Content-Type": "application/json", "Accept": "application/json"},
-        timeout=600,
+        timeout=TIMEOUT_PANSTARRS,
     )
     response.raise_for_status()
     return _mast_json_to_table(response.json())
@@ -113,10 +114,6 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
         ValueWithUncertaintyColumn(value=f"{b}PSFMag", uncertainty=f"{b}PSFMagErr") for b in _bands
     ]
 
-    def __init__(self, query_name):
-        super().__init__(query_name)
-        self._session = requests.Session()
-
     def __apply_groups(self, df):
         """Averaging stacked objects
 
@@ -144,17 +141,15 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
 
         return row
 
-    def _query_region(self, coord, radius):
+    async def _query_region(self, coord, radius):
         # radius comes from the base class as a string like "18.0s" (arcseconds)
         if isinstance(radius, str) and radius.endswith("s"):
             radius_deg = float(radius[:-1]) / 3600.0
         else:
             radius_deg = float(radius.deg)
         try:
-            table = _panstarrs_request(
-                self._session, "dr2", "stack", ra=coord.ra.deg, dec=coord.dec.deg, radius=radius_deg
-            )
-        except RequestException as e:
+            table = await _panstarrs_request("dr2", "stack", ra=coord.ra.deg, dec=coord.dec.deg, radius=radius_deg)
+        except httpx.HTTPError as e:
             logging.warning(e)
             raise CatalogUnavailable(catalog=self)
         if len(table) == 0:
@@ -193,11 +188,11 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
             for row in table
         ]
 
-    def light_curve(self, id, row=None):
-        self._raise_if_unavailable()
+    async def light_curve(self, id, row=None):
+        await self._raise_if_unavailable_async()
         try:
-            table = _panstarrs_request(self._session, "dr2", "detection", objID=int(row["objID"]))
-        except RequestException as e:
+            table = await _panstarrs_request("dr2", "detection", objID=int(row["objID"]))
+        except httpx.HTTPError as e:
             logging.info(str(e))
             raise CatalogUnavailable(catalog=self)
         if len(table) == 0:

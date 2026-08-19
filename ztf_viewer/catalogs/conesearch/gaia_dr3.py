@@ -91,8 +91,8 @@ class GaiaDr3Query(_BaseVizierQuery, _BaseLightCurveQuery):
         super().__init__(query_name)
         self.gaia = GaiaClass()
 
-    def find_closest(self, ra, dec, radius_arcsec, has_light_curve: bool = False):
-        table = self.find(ra, dec, radius_arcsec)
+    async def find_closest(self, ra, dec, radius_arcsec, has_light_curve: bool = False):
+        table = await self.find(ra, dec, radius_arcsec)
         if has_light_curve:
             table = table[table["EpochPh"] == 1]
             if len(table) == 0:
