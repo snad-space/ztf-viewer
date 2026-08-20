@@ -17,25 +17,34 @@ JS9_URL = os.environ.get("JS9_URL", "https://www.js9.org/js9.html")
 DUSTMAPS_API_URL = os.environ.get("DUSTMAPS_API_URL", "https://dustmaps.snad.space")
 
 # Size of both thread pools the entrypoint installs: asyncio's default executor and anyio's
-# sync-route limiter. Caps how many blocking calls the single event loop can have in flight.
-# Sized against fan-out width (a page fans out to ~19 catalogs), not core count -- see the PR
-# description for the arithmetic.
+# sync-route limiter. Caps how many blocking calls the single event loop can have in flight, so
+# the process ceiling is twice this number. Sized against fan-out width rather than core count:
+# the per-upstream limits below sum to 15, and the pool also carries the CPU-bound offloads
+# (FITS parsing, figure rendering, CSV assembly) that have no upstream bucket.
 THREAD_POOL_SIZE = int(os.environ.get("THREAD_POOL_SIZE", "32"))
 
 # Per-upstream bounded thread offload for sync-only third-party clients that are not being
 # ported to async (astroquery, alerce, antares_client -- see ztf_viewer/offload.py). Each
-# upstream gets its own asyncio.Semaphore, sized well under THREAD_POOL_SIZE, so a slow or
-# hanging one cannot fill the shared pool above and starve catalogs that have nothing to do
-# with it.
+# upstream gets its own asyncio.Semaphore, so a slow or hanging one cannot fill the shared pool
+# above and starve catalogs that have nothing to do with it.
+#
+# These are politeness limits, not capacity limits: we are one IP address serving every user of
+# the site, and none of these are our services. Only CDS publishes numbers -- SIMBAD bans an IP
+# for a minute above 10 queries/s and for an hour above 400 in 10s -- so SIMBAD gets 1 and
+# everything else gets 2 until an operator has a measured reason to raise it. Note vizier,
+# simbad, mocserver and sesame are all CDS, so their budgets add up at the same origin.
+#
+# A semaphore bounds concurrency, not rate: N in flight against latency L is N/L queries per
+# second. SIMBAD at 1 stays inside 10/s for any response slower than 100ms.
 UPSTREAM_THREAD_LIMITS = {
-    "vizier": int(os.environ.get("UPSTREAM_THREADS_VIZIER", "10")),
-    "simbad": int(os.environ.get("UPSTREAM_THREADS_SIMBAD", "6")),
-    "mocserver": int(os.environ.get("UPSTREAM_THREADS_MOCSERVER", "4")),
-    "skybot": int(os.environ.get("UPSTREAM_THREADS_SKYBOT", "4")),
-    "gaia": int(os.environ.get("UPSTREAM_THREADS_GAIA", "4")),
-    "sesame": int(os.environ.get("UPSTREAM_THREADS_SESAME", "4")),
-    "alerce": int(os.environ.get("UPSTREAM_THREADS_ALERCE", "6")),
-    "antares": int(os.environ.get("UPSTREAM_THREADS_ANTARES", "6")),
+    "vizier": int(os.environ.get("UPSTREAM_THREADS_VIZIER", "2")),
+    "simbad": int(os.environ.get("UPSTREAM_THREADS_SIMBAD", "1")),
+    "mocserver": int(os.environ.get("UPSTREAM_THREADS_MOCSERVER", "2")),
+    "skybot": int(os.environ.get("UPSTREAM_THREADS_SKYBOT", "2")),
+    "gaia": int(os.environ.get("UPSTREAM_THREADS_GAIA", "2")),
+    "sesame": int(os.environ.get("UPSTREAM_THREADS_SESAME", "2")),
+    "alerce": int(os.environ.get("UPSTREAM_THREADS_ALERCE", "2")),
+    "antares": int(os.environ.get("UPSTREAM_THREADS_ANTARES", "2")),
 }
 
 # Shared httpx.AsyncClient tuning (ztf_viewer/http.py). Limits are per client, and one client is
