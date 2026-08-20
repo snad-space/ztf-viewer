@@ -34,8 +34,11 @@ THREAD_POOL_SIZE = int(os.environ.get("THREAD_POOL_SIZE", "32"))
 # everything else gets 2 until an operator has a measured reason to raise it. Note vizier,
 # simbad, mocserver and sesame are all CDS, so their budgets add up at the same origin.
 #
-# A semaphore bounds concurrency, not rate: N in flight against latency L is N/L queries per
-# second. SIMBAD at 1 stays inside 10/s for any response slower than 100ms.
+# Two things these numbers cannot do. A semaphore bounds concurrency, not rate: N in flight
+# against latency L is N/L queries per second. And it bounds one process, while CDS bans per IP
+# -- master and every pr<N> preview share a host, so the real figure is this times the number of
+# live containers being browsed. Raising any of these means reasoning about that total, not this
+# number alone.
 UPSTREAM_THREAD_LIMITS = {
     "vizier": int(os.environ.get("UPSTREAM_THREADS_VIZIER", "2")),
     "simbad": int(os.environ.get("UPSTREAM_THREADS_SIMBAD", "1")),
