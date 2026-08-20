@@ -10,7 +10,16 @@ broken semaphore makes them hang (and time out), not flake.
 import asyncio
 import threading
 
+import pytest
+
 from ztf_viewer import config, offload
+
+
+@pytest.fixture(autouse=True)
+def _clear_semaphores():
+    """Semaphores live for the process, so a test's configured size must not outlive it."""
+    yield
+    offload._semaphores.clear()
 
 
 async def test_bare_to_thread_when_upstream_is_none():
@@ -58,7 +67,7 @@ async def test_same_upstream_limit_is_enforced(monkeypatch):
     task = asyncio.create_task(offload.to_thread("test-solo", blocking))
     await asyncio.to_thread(started.wait, 5)
 
-    semaphore = offload._semaphore_registry("test-solo").get()
+    semaphore = offload._semaphore("test-solo")
     assert semaphore.locked()
 
     release.set()
@@ -69,7 +78,7 @@ async def test_same_upstream_limit_is_enforced(monkeypatch):
 async def test_semaphore_size_comes_from_config(monkeypatch):
     """The number of concurrent slots for an upstream is exactly its configured limit."""
     monkeypatch.setitem(config.UPSTREAM_THREAD_LIMITS, "test-sized", 2)
-    semaphore = offload._semaphore_registry("test-sized").get()
+    semaphore = offload._semaphore("test-sized")
 
     assert not semaphore.locked()
     await semaphore.acquire()
@@ -81,8 +90,8 @@ async def test_semaphore_size_comes_from_config(monkeypatch):
 
 
 def test_offload_works_across_two_successive_event_loops(monkeypatch):
-    """Simulates Flask's per-request loop: a second, fresh loop must not raise even though the
-    semaphore built for the first loop -- itself loop-affine -- is long gone."""
+    """Simulates Flask's per-request loop: one process-wide semaphore, reached from two
+    successive loops, neither of which it was created on."""
     monkeypatch.setitem(config.UPSTREAM_THREAD_LIMITS, "test-cross-loop", 2)
 
     async def body():
@@ -205,50 +214,72 @@ async def test_alerce_add_prob_class_columns_routes_through_the_alerce_semaphore
     assert seen["table"] == "a-table"
 
 
-def test_semaphore_is_only_touched_on_its_own_loop_thread():
-    """``asyncio.Semaphore`` is not thread-safe, so it must never leave the loop that built it.
+async def test_release_from_a_plain_thread_is_safe(monkeypatch):
+    """``asyncio.Semaphore.release()`` never checks its loop, so this silently pushed the counter
+    past its ceiling and the bound stopped holding."""
+    monkeypatch.setitem(config.UPSTREAM_THREAD_LIMITS, "test-thread-release", 2)
+    semaphore = offload._semaphore("test-thread-release")
+    await semaphore.acquire()
+    await semaphore.acquire()
+    assert semaphore.locked()
 
-    ``to_thread`` acquires and releases on the event loop thread and hands only ``func`` to the
-    worker, so each loop gets its own semaphore and no worker thread ever touches one. Guards
-    against a refactor that moves the ``async with`` inside the offloaded call.
-    """
-    config.UPSTREAM_THREAD_LIMITS["test-affinity"] = 2
-    touched_by = []
-    worker_threads = []
-    semaphore_ids = []
+    await asyncio.to_thread(semaphore.release)
+    assert not semaphore.locked()
 
-    class TracingSemaphore(asyncio.Semaphore):
-        async def acquire(self):
-            touched_by.append(threading.current_thread())
-            return await super().acquire()
+    await semaphore.acquire()
+    assert semaphore.locked(), "the ceiling must still be 2"
 
-        def release(self):
-            touched_by.append(threading.current_thread())
-            return super().release()
 
-    offload._registries["test-affinity"] = offload.LoopRegistry(lambda: TracingSemaphore(2))
+def test_one_semaphore_bounds_every_loop_in_the_process(monkeypatch):
+    """The bound is per process, not per loop: two loops on two threads share one limit of 1, so
+    their offloaded calls must not overlap."""
+    monkeypatch.setitem(config.UPSTREAM_THREAD_LIMITS, "test-process-wide", 1)
+
+    live = 0
+    peak = 0
+    counter_lock = threading.Lock()
+
+    def work():
+        nonlocal live, peak
+        with counter_lock:
+            live += 1
+            peak = max(peak, live)
+        try:
+            threading.Event().wait(0.05)
+        finally:
+            with counter_lock:
+                live -= 1
 
     def run_one_loop():
         async def body():
-            semaphore_ids.append(id(offload._semaphore_registry("test-affinity").get()))
-
-            def work():
-                worker_threads.append(threading.current_thread())
-
-            await asyncio.gather(*(offload.to_thread("test-affinity", work) for _ in range(4)))
+            await asyncio.gather(*(offload.to_thread("test-process-wide", work) for _ in range(3)))
 
         asyncio.run(body())
 
-    try:
-        threads = [threading.Thread(target=run_one_loop) for _ in range(3)]
-        for thread in threads:
-            thread.start()
-        for thread in threads:
-            thread.join()
+    threads = [threading.Thread(target=run_one_loop) for _ in range(3)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
 
-        assert len(set(semaphore_ids)) == 3, "loops must not share a semaphore"
-        assert set(touched_by).isdisjoint(worker_threads), "a worker thread touched the semaphore"
-        assert set(touched_by) == set(threads), "acquire/release must happen on the loop thread"
-    finally:
-        del offload._registries["test-affinity"]
-        del config.UPSTREAM_THREAD_LIMITS["test-affinity"]
+    assert peak == 1, f"limit of 1 was exceeded across loops: {peak} concurrent"
+
+
+async def test_cancelled_waiter_hands_its_permit_back(monkeypatch):
+    """A task cancelled while queued must not take a slot with it -- the classic way a hand-rolled
+    semaphore leaks its count down to zero and wedges the upstream for good."""
+    monkeypatch.setitem(config.UPSTREAM_THREAD_LIMITS, "test-cancel", 1)
+    semaphore = offload._semaphore("test-cancel")
+
+    await semaphore.acquire()
+    queued = [asyncio.create_task(semaphore.acquire()) for _ in range(3)]
+    await asyncio.sleep(0)
+
+    for task in queued:
+        task.cancel()
+    await asyncio.gather(*queued, return_exceptions=True)
+
+    semaphore.release()
+    assert not semaphore.locked(), "the permit must have come back"
+    await asyncio.wait_for(semaphore.acquire(), timeout=1)
+    assert semaphore.locked()

@@ -19,7 +19,7 @@ DUSTMAPS_API_URL = os.environ.get("DUSTMAPS_API_URL", "https://dustmaps.snad.spa
 # Size of both thread pools the entrypoint installs: asyncio's default executor and anyio's
 # sync-route limiter. Caps how many blocking calls the single event loop can have in flight, so
 # the process ceiling is twice this number. Sized against fan-out width rather than core count:
-# the per-upstream limits below sum to 15, and the pool also carries the CPU-bound offloads
+# the per-upstream limits below sum to 29, and the pool also carries the CPU-bound offloads
 # (FITS parsing, figure rendering, CSV assembly) that have no upstream bucket.
 THREAD_POOL_SIZE = int(os.environ.get("THREAD_POOL_SIZE", "32"))
 
@@ -31,23 +31,22 @@ THREAD_POOL_SIZE = int(os.environ.get("THREAD_POOL_SIZE", "32"))
 # These are politeness limits, not capacity limits: we are one IP address serving every user of
 # the site, and none of these are our services. Only CDS publishes numbers -- SIMBAD bans an IP
 # for a minute above 10 queries/s and for an hour above 400 in 10s -- so SIMBAD gets 1 and
-# everything else gets 2 until an operator has a measured reason to raise it. Note vizier,
+# everything else gets 4 until an operator has a measured reason to change it. Note vizier,
 # simbad, mocserver and sesame are all CDS, so their budgets add up at the same origin.
 #
 # Two things these numbers cannot do. A semaphore bounds concurrency, not rate: N in flight
 # against latency L is N/L queries per second. And it bounds one process, while CDS bans per IP
 # -- master and every pr<N> preview share a host, so the real figure is this times the number of
-# live containers being browsed. Raising any of these means reasoning about that total, not this
-# number alone.
+# live containers being browsed.
 UPSTREAM_THREAD_LIMITS = {
-    "vizier": int(os.environ.get("UPSTREAM_THREADS_VIZIER", "2")),
+    "vizier": int(os.environ.get("UPSTREAM_THREADS_VIZIER", "4")),
     "simbad": int(os.environ.get("UPSTREAM_THREADS_SIMBAD", "1")),
-    "mocserver": int(os.environ.get("UPSTREAM_THREADS_MOCSERVER", "2")),
-    "skybot": int(os.environ.get("UPSTREAM_THREADS_SKYBOT", "2")),
-    "gaia": int(os.environ.get("UPSTREAM_THREADS_GAIA", "2")),
-    "sesame": int(os.environ.get("UPSTREAM_THREADS_SESAME", "2")),
-    "alerce": int(os.environ.get("UPSTREAM_THREADS_ALERCE", "2")),
-    "antares": int(os.environ.get("UPSTREAM_THREADS_ANTARES", "2")),
+    "mocserver": int(os.environ.get("UPSTREAM_THREADS_MOCSERVER", "4")),
+    "skybot": int(os.environ.get("UPSTREAM_THREADS_SKYBOT", "4")),
+    "gaia": int(os.environ.get("UPSTREAM_THREADS_GAIA", "4")),
+    "sesame": int(os.environ.get("UPSTREAM_THREADS_SESAME", "4")),
+    "alerce": int(os.environ.get("UPSTREAM_THREADS_ALERCE", "4")),
+    "antares": int(os.environ.get("UPSTREAM_THREADS_ANTARES", "4")),
 }
 
 # Shared httpx.AsyncClient tuning (ztf_viewer/http.py). Limits are per client, and one client is
