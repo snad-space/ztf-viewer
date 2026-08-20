@@ -203,3 +203,52 @@ async def test_alerce_add_prob_class_columns_routes_through_the_alerce_semaphore
     await query.add_prob_class_columns("a-table")
     assert seen["upstream"] == "alerce"
     assert seen["table"] == "a-table"
+
+
+def test_semaphore_is_only_touched_on_its_own_loop_thread():
+    """``asyncio.Semaphore`` is not thread-safe, so it must never leave the loop that built it.
+
+    ``to_thread`` acquires and releases on the event loop thread and hands only ``func`` to the
+    worker, so each loop gets its own semaphore and no worker thread ever touches one. Guards
+    against a refactor that moves the ``async with`` inside the offloaded call.
+    """
+    config.UPSTREAM_THREAD_LIMITS["test-affinity"] = 2
+    touched_by = []
+    worker_threads = []
+    semaphore_ids = []
+
+    class TracingSemaphore(asyncio.Semaphore):
+        async def acquire(self):
+            touched_by.append(threading.current_thread())
+            return await super().acquire()
+
+        def release(self):
+            touched_by.append(threading.current_thread())
+            return super().release()
+
+    offload._registries["test-affinity"] = offload.LoopRegistry(lambda: TracingSemaphore(2))
+
+    def run_one_loop():
+        async def body():
+            semaphore_ids.append(id(offload._semaphore_registry("test-affinity").get()))
+
+            def work():
+                worker_threads.append(threading.current_thread())
+
+            await asyncio.gather(*(offload.to_thread("test-affinity", work) for _ in range(4)))
+
+        asyncio.run(body())
+
+    try:
+        threads = [threading.Thread(target=run_one_loop) for _ in range(3)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        assert len(set(semaphore_ids)) == 3, "loops must not share a semaphore"
+        assert set(touched_by).isdisjoint(worker_threads), "a worker thread touched the semaphore"
+        assert set(touched_by) == set(threads), "acquire/release must happen on the loop thread"
+    finally:
+        del offload._registries["test-affinity"]
+        del config.UPSTREAM_THREAD_LIMITS["test-affinity"]

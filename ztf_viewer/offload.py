@@ -8,8 +8,9 @@ upstream could fill that whole pool and stall catalogs that have nothing to do w
 upstream therefore gets its own `asyncio.Semaphore`, sized from `config.UPSTREAM_THREAD_LIMITS`,
 bounding how many of the shared pool's slots it can hold at once.
 
-The semaphore is loop-affine like every other `asyncio.Semaphore` in this app, so it is obtained
-through `LoopRegistry` rather than as a module-level singleton.
+`asyncio.Semaphore` is not thread-safe, so each loop gets its own through `LoopRegistry` rather
+than a module-level singleton, and the acquire/release stays on the event loop thread -- only
+`func` is handed to the worker.
 """
 
 import asyncio
