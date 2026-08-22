@@ -81,7 +81,7 @@ class FinkQuery(_BaseCatalogApiQuery):
         )
         return Table.from_pandas(df)
 
-    def add_prob_class_columns(self, table):
+    async def add_prob_class_columns(self, table):
         for column in self._prob_class_columns.values():
             table[column] = [{} for _ in range(len(table))]
         for row in table:
