@@ -105,7 +105,33 @@ include = '\.py$'
 line-length = 120
 target-version = "py314"
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint]
+# Rules newly enabled by default in ruff 0.16.x that we are not yet ready to enforce
+extend-ignore = [
+    "B008",    # function-call-in-default-argument
+    "BLE001",  # blind-except
+    "C400",    # unnecessary-generator-list
+    "C401",    # unnecessary-generator-set
+    "C408",    # unnecessary-collection-call
+    "DTZ001",  # call-datetime-without-tzinfo
+    "DTZ005",  # call-datetime-now-without-tzinfo
+    "EXE001",  # shebang-not-executable
+    "EXE002",  # shebang-missing-executable-file
+    "FURB162", # fromisoformat-replace-z
+    "LOG015",  # root-logger-call
+    "PLW1510", # subprocess-run-without-check
+    "PYI025",  # unaliased-collections-abc-set-import
+    "RUF012",  # mutable-class-default
+    "RUF024",  # mutable-fromkeys-value
+    "RUF059",  # unpacked-unused-variable
+    "SIM101",  # duplicate-isinstance-call
+    "SIM102",  # collapsible-if
+    "SIM117",  # multiple-with-statements
+    "TRY004",  # type-check-without-type-error
+    "UP046",   # non-pep695-generic-class
+]
+
+[tool.ruff.lint.per-file-ignores]
 # F401: imported but unused
 "ztf_viewer/catalogs/__init__.py" = ["F401"]
 "ztf_viewer/catalogs/extinction/__init__.py" = ["F401"]

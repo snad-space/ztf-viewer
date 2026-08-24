@@ -339,7 +339,7 @@ def _run_from_n_threads(touch):
     def worker(i):
         try:
             loops[i], outcomes[i] = asyncio.run(body())
-        except BaseException as e:  # noqa: BLE001 - collected, not swallowed
+        except BaseException as e:
             errors.append(e)
 
     threads = [threading.Thread(target=worker, args=(i,)) for i in range(N_THREADS)]

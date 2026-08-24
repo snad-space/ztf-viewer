@@ -692,7 +692,7 @@ def test_async_singleflight_table_registry_survives_concurrent_threads():
     def worker(i):
         try:
             loops[i], tables[i] = asyncio.run(body())
-        except BaseException as e:  # noqa: BLE001 - collected, not swallowed
+        except BaseException as e:
             errors.append(e)
 
     threads = [threading.Thread(target=worker, args=(i,)) for i in range(n)]
