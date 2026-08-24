@@ -2,15 +2,16 @@
 
 Status: in progress · foundations landed in full; prep landed in full;
 the async shell has landed in full (`aio-shim`, `aio-loop-registry`; `aio-pilots` dropped); **the
-flip has landed** (#658–#661, merged as one stack); the async-I/O stack is **three of five in**
-(`aio-httpx`, `aio-snad-apis`, `aio-conesearch` — #664, #665, #668); `aio-offload-threads` is
-**dropped**, leaving `aio-gather`. The WebSocket and process-pool stacks are unblocked and
-untouched.
+flip has landed** (#658–#661, merged as one stack); **the async-I/O stack is complete**
+(`aio-httpx`, `aio-snad-apis`, `aio-conesearch`, `aio-gather` — #664, #665, #668, #681;
+`aio-offload-threads` dropped). The WebSocket and process-pool stacks are unblocked and
+untouched — they are the frontier now.
 Baseline: `master` after `994874e`
 Now running: FastAPI backend under uvicorn, one worker, one loop; Python 3.14
 First-party HTTP and every JSON cone-search catalog now go through one shared async `httpx`
-client; the sync third parties (astroquery, alerce, antares) reach a **bare, unbounded**
-`asyncio.to_thread`, and now permanently — see the dropped entry below.
+client, fanned out concurrently via `asyncio.gather` rather than queried one at a time; the sync
+third parties (astroquery, alerce, antares) reach a **bare, unbounded** `asyncio.to_thread`, and
+now permanently — see the dropped entry below.
 
 Note on names: branches and PRs drop the `aio-` prefix the plan uses (`aio-py314` shipped as
 `python-3.14`, `aio-cache-core` as `cache-core`, and so on). The plan keeps the prefixed names
@@ -165,7 +166,8 @@ merged by its author, and "ready for review" is a reviewer's signal, not the aut
       worker threads, not on asyncio's default executor, so the default of 16 is up to 32
       blocking threads per process. `aio-offload-threads` was meant to own that number and was
       dropped, so **nothing sizes it**: it stays at its default of 16 until `aio-gather` makes
-      fan-out real, which is where the decision now falls.
+      fan-out real, which is where the decision now falls — and #681 left it at 16 too; see that
+      Progress entry.
 
 **Async I/O** — the payoff
 - [x] `aio-httpx` — shared async client, `asyncio.timeout` — #664 `httpx-client`. Landed
@@ -221,12 +223,47 @@ merged by its author, and "ready for review" is a reviewer's signal, not the aut
       **What it did find:** `AlerceQuery.add_prob_class_columns` queries Alerce once per row and
       ran inline on the event loop, outside the `_query_region` path that already had an offload.
       That fix is what #676 became.
-- [ ] `aio-gather` — concurrent fan-out; `aio-bench` becomes an assertion. Note #674 measured
-      sleep-stubs, so the cold-`get_summary`-on-a-busy-field number this section asks for is still
-      owed here. Now also the first PR to fan out ~19 catalogs with **no per-upstream bound**
-      underneath it, since `aio-offload-threads` was dropped — so it inherits two things that PR
-      was carrying: whether `THREAD_POOL_SIZE` still wants to be 16, and the upstream-hammering
-      risk in the table at the end of this plan.
+- [x] `aio-gather` — concurrent fan-out for `get_summary` and related I/O — #681 `gather`.
+      `get_summary`'s two per-catalog loops became one `asyncio.gather(...,
+      return_exceptions=True)`, computed once and reused for both passes, as specified;
+      `get_metadata`, `find_neighbours`, `get_plot_data`'s neighbour/external light curves, and
+      `lc_csv.get_csv`'s per-OID fetches got the same treatment.
+      **The cold-`get_summary`-on-real-upstreams number #674 left owed is now measured**: 18.27s
+      median (serial, 3 runs) vs 11.71s median (gather, 3 runs), **~1.56x**, OID
+      `633207400004730`/`dr24`, all ~19 catalogs, via new `plans/misc/get_summary_bench.py`.
+      Caveated hard in the PR: this sandbox cannot reach CDS at all — a plain, non-concurrent
+      `requests.get()` to Vizier fails at the socket level, so 7 of 19 catalogs fail fast via
+      `CatalogUnavailable` in both arms, and SIMBAD's ~10s timeout dominates most runs, paid
+      **once** (absorbed into the concurrent max) after, **serially** (stacked on everything else)
+      before — exactly the effect the PR exists to produce. The *shape* of the win is the
+      transferable result; the absolute numbers are almost certainly better on a host with full
+      CDS reachability.
+      **Deviation: `aio-bench` was *not* turned into an assertion**, despite this section's own
+      "`aio-bench` becomes an assertion." Decided against: `aio-bench` drives `asyncio.sleep()`
+      stubs and imports nothing from `ztf_viewer` (per its own Progress entry), so asserting it
+      would only prove `gather` beats a serial loop over sleeps — a language fact needing no test.
+      The tests that matter instead pin the real code: `test_get_summary_catalog_fanout_is_concurrent`
+      (wall-clock overlap), `test_get_summary_queries_each_catalog_once` (the consolidated gather
+      isn't re-run for the ML-classification pass), plus new `tests/pages/test_lc_csv.py` and
+      `tests/lc_data/test_plot_data.py`.
+      **Found and fixed mid-review: moving the radius lookup broke every page load.** `radii` is
+      keyed by the search-radius inputs the layout renders, which don't cover every registered
+      catalog; that `KeyError` used to be caught by the per-catalog `try` inside the loop. Pulling
+      `radii[catalog]` out into the `gather()` argument list — the natural way to write the
+      fan-out — evaluates it *before* the task's own exception handling runs, so the `KeyError`
+      escaped the swallow list and raised on every load instead. Fixed by moving the lookup back
+      inside the gathered coroutine, guarded by `test_get_summary_skips_catalog_with_no_radius_input`.
+      **Both questions `aio-offload-threads` handed down are answered, not resolved.**
+      `THREAD_POOL_SIZE` stays at its default of 16 — the PR found no load-bearing reason to change
+      it (the bottleneck observed is upstream latency/reachability, not pool contention) but did
+      not build the concurrent-multi-page-load test that would actually stress pool *width*, so
+      this is a reviewer call recorded here, not a measurement that closes the question. The
+      **upstream-hammering risk stays unmitigated**, exactly as the risk table already said: no
+      per-upstream bound was built — the plan already rejected the three candidates when dropping
+      `aio-offload-threads` — and the PR's own argument is that no in-process bound could have
+      covered it anyway, since master plus every `pr<N>` preview share one host IP, so the number
+      that matters is per-IP, not per-process. The exposure's *nature* is unchanged; only its
+      *timing* moved, from serial to concurrent hits per page load.
 
 **WebSocket**
 - [ ] `aio-ws` — enable transport (verify deployed proxy config first)
@@ -936,6 +973,10 @@ allowed to change the key scheme.
   bug, whereas non-strict lets a fix surface as XPASS. See the revised `aio-cache-sync` criterion.
 
 ### `aio-bench` — Concurrency benchmark harness
+*(Landed — #674, `plans/misc/fanout_bench.py`. **The assertion this section promises never got
+written.** `aio-gather` (#681) explicitly decided against converting this harness into a pytest
+assertion — see that Progress entry for why. The harness remains exactly what it always was: a
+standalone script that regresses only against itself.)*
 - A **harness** — not a test — that drives `get_summary` against **stub catalogs** with an
   injected per-upstream delay and reports total wall-clock. Unaffected by dropping the replay
   layer: what this measures is the fan-out *shape*, so a `sleep`-and-return stub is not merely
@@ -1093,8 +1134,9 @@ stack rather than one big rewrite. Spec is `aio-cache-spec`, written first and u
 - **`aio-cache-flight` — Single-flight.** Coalesce concurrent identical misses behind one shared future, on
   both decorators. Separate PR because it is the only part with genuinely subtle concurrency
   semantics (exception propagation to all waiters, cancellation of the leader, no cross-loop
-  future sharing). It also becomes load-bearing rather than a nicety the moment `aio-gather` lands: N
-  users on a popular object currently serialize into N identical upstream queries.
+  future sharing). It also became load-bearing rather than a nicety the moment `aio-gather`
+  landed (#681): N users on a popular object still serialize into N identical upstream queries
+  without it.
 - **Accept (whole stack):** no non-`xfail` test in `aio-cache-spec` regresses at any step, and the
   F12.1–F12.4 `xfail`s turn XPASS by the end of `aio-cache-sync`; new tests for cross-decorator
   key compatibility (`aio-cache-async`) and dedupe under concurrent misses (`aio-cache-flight`); `pytest-redis` fixtures
@@ -1375,6 +1417,11 @@ per-upstream bounded semaphore** so one slow service cannot eat the shared threa
   test that a stalled upstream does not block unrelated catalogs.
 
 ### `aio-gather` — Concurrent fan-out (the payoff)
+*(Landed — #681, branch `gather`. **Read the Progress entry before this section:** the fan-out
+itself landed as specified, but the accept criterion below did not — no assertion against
+`aio-bench` was written, and that was a deliberate call, not an oversight. The wall-clock number
+this section asks for was measured against real upstreams, with caveats about this build's own
+network reachability recorded alongside it.)*
 - `get_summary` (`ztf_viewer/pages/viewer.py:1379`): replace the serial
   `for catalog, query in catalog_query_objects()` loop with `asyncio.gather(...,
   return_exceptions=True)`, preserving the current per-catalog
@@ -1394,7 +1441,7 @@ per-upstream bounded semaphore** so one slow service cannot eat the shared threa
 
 Depends on the flip — the Flask backend has no WebSocket transport, so this is the one stack
 that could never have run early in any ordering. Independent of the async-I/O stack, but the UX win only really
-shows once `aio-gather` lands.
+shows now that `aio-gather` has landed (#681).
 
 ### `aio-ws` — Transport enablement
 - Proxy prerequisites are already handled: upgrades work natively and the timeout/config
@@ -1552,7 +1599,7 @@ dated. `await asyncio.to_thread(x)` needs no gloss.
 | The cache rewrite silently preserves one of today's defects (F12) | The five defects are recorded as named `xfail`s in `aio-cache-spec`; `aio-cache-sync`'s accept criterion is that F12.1–F12.4 turn XPASS, so preserving a bug fails the criterion rather than passing quietly |
 | `aio-shim` misses the 19 loop-registered `set_table` callbacks (F1a′) | The invariant asserts over all 57 registrations, not the 39 source sites, so a missed loop fails CI |
 | Static assets 404 after the flip (F2) | `aio-golden-http` asserts `/static/js9/js9.min.js` and `/static/img/logo.svg` return 200 — landed, #634 |
-| Concurrent fan-out hammers upstreams that previously saw serialized traffic | **Unmitigated — `aio-offload-threads` was dropped, and this was its job.** What is left is the `unavailable_catalogs` circuit breaker (which trips *after* an upstream is already unhappy) and `THREAD_POOL_SIZE` as a blunt global ceiling. The concrete exposure is CDS: SIMBAD bans an IP for a minute above 10 queries/s and for an hour above 400 in 10s, and VizieR, MOCServer and Sesame share that origin. Note we are one IP for every user, and master plus each `pr<N>` preview are separate containers on one host, so the figure that matters is per-IP, not per-process — no in-process bound could have covered it anyway. If this bites, rate limiting belongs outside the async layer |
+| Concurrent fan-out hammers upstreams that previously saw serialized traffic | **Live and unmitigated as of `aio-gather` (#681)** — `aio-offload-threads`, whose job this was, was dropped first. What is left is the `unavailable_catalogs` circuit breaker (which trips *after* an upstream is already unhappy) and `THREAD_POOL_SIZE` as a blunt global ceiling, left at its default of 16. The concrete exposure is CDS: SIMBAD bans an IP for a minute above 10 queries/s and for an hour above 400 in 10s, and VizieR, MOCServer and Sesame share that origin. Note we are one IP for every user, and master plus each `pr<N>` preview are separate containers on one host, so the figure that matters is per-IP, not per-process — no in-process bound could have covered it anyway, the same argument #681 made when leaving it unmitigated. Not yet exercised under real production traffic — prod stays on the Flask build until the whole plan lands. If this bites, rate limiting belongs outside the async layer |
 | Cache stampede amplified by concurrency | Single-flight in the cache sub-stack — this becomes load-bearing, not a nicety |
 | WebSocket dropped by a proxy (F7) | nginx-proxy handles upgrades natively; residual risk is timeouts and the the proxy design note config discrepancy — verify the deployed proxy config first, then roll out per-callback (`aio-ws`) with HTTP retained as fallback |
 | Static assets served with weaker caching after the flip (the `/static` design note) | `aio-golden-http` records today's cache headers for `/static/js9/js9.min.js`; set them explicitly on the mount |
