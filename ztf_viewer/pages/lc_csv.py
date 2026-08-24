@@ -19,29 +19,37 @@ from ztf_viewer.catalogs.conesearch import ANTARES_QUERY, GAIA_DR3, PANSTARRS_DR
 from ztf_viewer.web import csv_response, error_response, query_args
 
 
+async def _get_oid_df(oid, dr, min_mjd, max_mjd):
+    lc, meta, ref_result = await asyncio.gather(
+        find_ztf_oid.get_lc(oid, dr, min_mjd=min_mjd, max_mjd=max_mjd),
+        find_ztf_oid.get_meta(oid, dr),
+        ztf_ref.get(oid, dr),
+        return_exceptions=True,
+    )
+    if isinstance(lc, BaseException):
+        raise lc
+    if isinstance(meta, BaseException):
+        raise meta
+    if lc is None:
+        raise NotFound
+    oid_df = pd.DataFrame.from_records(lc)
+    oid_df["oid"] = oid
+    oid_df["filter"] = meta["filter"]
+
+    if isinstance(ref_result, BaseException):
+        if not isinstance(ref_result, (NotFound, CatalogUnavailable)):
+            raise ref_result
+        oid_df["ref"] = [None] * oid_df.shape[0]
+        oid_df["ref_err"] = [None] * oid_df.shape[0]
+    else:
+        oid_df["ref"] = ref_result["mag"] + ref_result["magzp"]
+        oid_df["ref_err"] = ref_result["sigmag"]
+
+    return oid_df
+
+
 async def get_csv(dr, oids, min_mjd=None, max_mjd=None):
-    dfs = []
-    for oid in oids:
-        lc = await find_ztf_oid.get_lc(oid, dr, min_mjd=min_mjd, max_mjd=max_mjd)
-        if lc is None:
-            raise NotFound
-        meta = await find_ztf_oid.get_meta(oid, dr)
-        oid_df = pd.DataFrame.from_records(lc)
-        oid_df["oid"] = oid
-        oid_df["filter"] = meta["filter"]
-
-        try:
-            ref = await ztf_ref.get(oid, dr)
-        except NotFound, CatalogUnavailable:
-            oid_df["ref"] = [None] * oid_df.shape[0]
-            oid_df["ref_err"] = [None] * oid_df.shape[0]
-        else:
-            ref_mag = ref["mag"] + ref["magzp"]
-            ref_err = ref["sigmag"]
-            oid_df["ref"] = ref_mag
-            oid_df["ref_err"] = ref_err
-
-        dfs.append(oid_df)
+    dfs = await asyncio.gather(*(_get_oid_df(oid, dr, min_mjd, max_mjd) for oid in oids))
     return await asyncio.to_thread(_dfs_to_csv, dfs)
 
 
