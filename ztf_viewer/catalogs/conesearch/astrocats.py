@@ -1,5 +1,6 @@
 from io import BytesIO
 from json import JSONDecodeError
+from typing import ClassVar
 
 import astropy.io.ascii
 from markupsafe import Markup, escape
@@ -17,7 +18,7 @@ class AstrocatsQuery(_BaseCatalogApiQuery):
     _table_ra = "ra"
     _ra_unit = "hour"
     _table_dec = "dec"
-    columns = {
+    columns: ClassVar[dict] = {
         "__link": "Event name",
         "separation": "Separation, arcsec",
         "claimedtype": "Claimed type",

@@ -26,7 +26,8 @@ never read each other's entries.
 
 import functools
 import pickle
-from collections.abc import Mapping, Set
+from collections.abc import Mapping
+from collections.abc import Set as AbstractSet
 from hashlib import blake2b
 from inspect import getattr_static
 from operator import itemgetter
@@ -107,7 +108,7 @@ def _normalize(obj):
     if isinstance(obj, Mapping):
         items = [(_dumps(_normalize(k)), _normalize(v)) for k, v in obj.items()]
         return (_MAPPING, cls.__module__, cls.__qualname__, sorted(items, key=itemgetter(0)))
-    if isinstance(obj, (Set, frozenset, set)):
+    if isinstance(obj, (AbstractSet, frozenset, set)):
         return (_SET, cls.__module__, cls.__qualname__, sorted(_dumps(_normalize(item)) for item in obj))
     if isinstance(obj, (list, tuple)):
         return (_SEQUENCE, cls.__module__, cls.__qualname__, [_normalize(item) for item in obj])
@@ -202,7 +203,7 @@ def self_class(func, wrapper, args) -> type | None:
     cls = type(args[0])
     try:
         found = getattr_static(cls, name, None)
-    except Exception:  # pragma: no cover - exotic metaclasses
+    except Exception:  # noqa: BLE001 - exotic metaclasses, pragma: no cover
         return None
     if found is wrapper or found is func:
         return cls

@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 from markupsafe import Markup
 
 from ztf_viewer.catalogs.conesearch._base import _BaseVizierQuery
@@ -7,7 +9,7 @@ class GcvsQuery(_BaseVizierQuery):
     id_column = "GCVS"
     type_column = "VarType"
     period_column = "Period"
-    columns = {
+    columns: ClassVar[dict] = {
         "__link": "Designation",
         "separation": "Separation, arcsec",
         "Period": "Period, days",
@@ -19,5 +21,5 @@ class GcvsQuery(_BaseVizierQuery):
         "SpType": "Spectral type",
     }
 
-    _vizier_columns = ["GCVS", "VarType", "magMax", "Period", "SpType", "VarTypeII", "VarName", "Simbad"]
+    _vizier_columns: ClassVar[list] = ["GCVS", "VarType", "magMax", "Period", "SpType", "VarTypeII", "VarName", "Simbad"]
     _vizier_catalog = "B/gcvs/gcvs_cat"

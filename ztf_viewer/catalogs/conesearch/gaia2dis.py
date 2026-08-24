@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 from astropy import units
 
 from ztf_viewer.catalogs.conesearch._base import _BaseVizierQuery
@@ -12,7 +14,7 @@ class Gaia2Dis(_BaseVizierQuery):
     """
 
     id_column = "Source"
-    columns = {
+    columns: ClassVar[dict] = {
         "__link": "Source ID",
         "separation": "Separation, arcsec",
         "rest": "Distance, pc",
@@ -20,7 +22,7 @@ class Gaia2Dis(_BaseVizierQuery):
         "B_rest": "Upper bound of conf. interval, pc",
     }
 
-    _vizier_columns = ["Source", "rest", "b_rest", "B_rest", "rlen", "ResFlag", "ModFlag"]
+    _vizier_columns: ClassVar[list] = ["Source", "rest", "b_rest", "B_rest", "rlen", "ResFlag", "ModFlag"]
     _vizier_catalog = "I/347/gaia2dis"
 
     def add_distance_column(self, table):

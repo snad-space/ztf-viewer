@@ -1,4 +1,6 @@
 import logging
+
+logger = logging.getLogger(__name__)
 from urllib.parse import urlencode, urljoin, urlsplit, urlunsplit
 
 from astropy.coordinates import SkyCoord
@@ -31,7 +33,7 @@ class FindZTFOID(_BaseFindZTF):
 
     @staticmethod
     def _query_dict(oid):
-        return dict(oid=oid)
+        return {"oid": oid}
 
     @cache()
     async def find(self, oid, dr):
@@ -39,7 +41,7 @@ class FindZTFOID(_BaseFindZTF):
         resp = await client.get(self._oid_api_url(dr), params=self._query_dict(oid), timeout=TIMEOUT_ZTF_DR)
         if resp.status_code != 200:
             message = f"{resp.url} returned {resp.status_code}: {resp.text}"
-            logging.info(message)
+            logger.info(message)
             raise NotFound(message)
         j = resp.json()
         if len(j) == 0:
@@ -94,7 +96,7 @@ class FindZTFCircle(_BaseFindZTF):
         client = get_client()
         resp = await client.get(
             self._circle_api_url(dr),
-            params=dict(ra=ra, dec=dec, radius_arcsec=radius_arcsec),
+            params={"ra": ra, "dec": dec, "radius_arcsec": radius_arcsec},
             timeout=TIMEOUT_ZTF_DR,
         )
         if resp.status_code != 200:

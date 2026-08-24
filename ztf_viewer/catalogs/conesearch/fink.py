@@ -1,4 +1,5 @@
 from io import BytesIO
+from typing import ClassVar
 from urllib.parse import urljoin
 
 import pandas as pd
@@ -15,7 +16,7 @@ class FinkQuery(_BaseCatalogApiQuery):
     _table_ra = "i:ra"
     _ra_unit = "deg"
     _table_dec = "i:dec"
-    columns = {
+    columns: ClassVar[dict] = {
         "__link": "Name",
         "separation": "Separation, arcsec",
         "d:classification": "Class",
@@ -26,19 +27,19 @@ class FinkQuery(_BaseCatalogApiQuery):
         "d:snn_snia_vs_nonia": "Prob of SN Ia vs CC SN",
     }
 
-    _classifiers = {
+    _classifiers: ClassVar[dict] = {
         "μLens prob": "d:mulens",
         "RF KN vs all": "d:rf_kn_vs_nonkn",
         # 'RF SN Ia vs all': 'd:rf_snia_vs_nonia',             <- disabled because we decided to not show it
         "SuperNNova SN vs all": "d:snn_sn_vs_all",
         # 'SuperNNova SN Ia vs CC SN': 'd:snn_snia_vs_nonia',  <- disabled because we decided to not show it
     }
-    _class_names = {
+    _class_names: ClassVar[dict] = {
         "μLens prob": "μLens",
         "RF KN vs all": "KN",
         "SuperNNova SN vs all": "SN",
     }
-    _prob_class_columns = {k: f"{v}_classifications" for k, v in _classifiers.items()}
+    _prob_class_columns: ClassVar[dict] = {k: f"{v}_classifications" for k, v in _classifiers.items()}
 
     _base_url = "https://api.ztf.fink-portal.org"
     _portal_url = "https://ztf.fink-portal.org"
@@ -47,7 +48,7 @@ class FinkQuery(_BaseCatalogApiQuery):
 
     async def _get_classifications(self, object_ids) -> pd.DataFrame:
         time_column = "i:jd"
-        columns = [time_column, self.id_column] + list(c for c in self.columns if c.startswith("d:"))
+        columns = [time_column, self.id_column] + [c for c in self.columns if c.startswith("d:")]
         json_dict = {
             "objectId": ",".join(object_ids),
             "columns": ",".join(columns),

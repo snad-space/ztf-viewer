@@ -1,5 +1,7 @@
 import asyncio
 import logging
+
+logger = logging.getLogger(__name__)
 from io import BytesIO
 from pathlib import Path
 
@@ -22,7 +24,7 @@ def _parse_fits(data: bytes, url: str, sourceid: int) -> dict:
         table = f[1].data
         where = np.where(table["sourceid"] == sourceid)[0]
         if where.size == 0:
-            logging.warning(f"Object with sourceid={sourceid} is not found in the reference catalog file {url}")
+            logger.warning(f"Object with sourceid={sourceid} is not found in the reference catalog file {url}")
             raise NotFound
         idx = where.item()
         record = dict(zip(table.names, table[idx]))

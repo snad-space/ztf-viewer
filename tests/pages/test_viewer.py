@@ -120,7 +120,7 @@ def _stub_table(*, objname="Stub Object", type_="SN Ia", distance=None, redshift
 
 
 def _radius_inputs(catalog_names, radius=3.0):
-    ids = [dict(type="search-radius", index=name) for name in catalog_names]
+    ids = [{"type": "search-radius", "index": name} for name in catalog_names]
     values = [radius] * len(ids)
     return ids, values
 

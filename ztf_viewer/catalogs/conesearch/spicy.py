@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 from markupsafe import Markup
 
 from ztf_viewer.catalogs.conesearch._base import _BaseVizierQuery
@@ -6,7 +8,7 @@ from ztf_viewer.catalogs.conesearch._base import _BaseVizierQuery
 class SpicyQuery(_BaseVizierQuery):
     id_column = "SPICY"
     type_column = "class"
-    columns = {
+    columns: ClassVar[dict] = {
         "__link": "Name",
         "separation": "Separation, arcsec",
         "class": Markup(
@@ -23,5 +25,5 @@ class SpicyQuery(_BaseVizierQuery):
         ),
         "ZTFrmag": "ZTF mean r magnitude",
     }
-    _vizier_columns = ["SPICY", "class", "Group", "ZTFrmag", "var"]
+    _vizier_columns: ClassVar[list] = ["SPICY", "class", "Group", "ZTFrmag", "var"]
     _vizier_catalog = "J/ApJS/254/33/table1"

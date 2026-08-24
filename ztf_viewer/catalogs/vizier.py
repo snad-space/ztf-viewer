@@ -1,4 +1,6 @@
 import logging
+
+logger = logging.getLogger(__name__)
 from collections import namedtuple
 
 import numpy as np
@@ -17,7 +19,7 @@ class VizierCatalogDetails:
         try:
             table = MOCServerClass.find_datasets(f"ID=*{catalog_id}*")
         except np.ma.MaskError as e:
-            logging.error(str(e))
+            logger.error(str(e))
             raise NotFound from e
         if len(table) == 0:
             raise NotFound
@@ -57,7 +59,7 @@ class FindVizier:
     def find(self, ra, dec, radius_arcsec):
         coord = SkyCoord(ra, dec, unit="deg", frame="icrs")
         radius = f"{radius_arcsec}s"
-        logging.info(f"Querying Vizier ra={ra}, dec={dec}, r={radius_arcsec}")
+        logger.info(f"Querying Vizier ra={ra}, dec={dec}, r={radius_arcsec}")
         table_list = self._query.query_region(coord, radius=radius)
         return table_list
 

@@ -1,5 +1,6 @@
 import logging
 
+logger = logging.getLogger(__name__)
 from astropy.coordinates import Angle, SkyCoord
 from astropy.time import Time
 from astroquery.imcce import Skybot
@@ -28,7 +29,7 @@ class SkybotQuery:
             Passed as a plain float so that the cache key is stable and
             serialisable regardless of the backend (memory or Redis).
         """
-        logging.info(f"Querying Skybot ra={ra}, dec={dec}, mjd={observatory_mjd}, r={radius_arcsec}")
+        logger.info(f"Querying Skybot ra={ra}, dec={dec}, mjd={observatory_mjd}, r={radius_arcsec}")
         coord = SkyCoord(ra, dec, unit="deg", frame="icrs")
         radius = Angle(radius_arcsec, "arcsec")
         if radius > self.query_radius:

@@ -1,6 +1,9 @@
 import asyncio
 import logging
 
+logger = logging.getLogger(__name__)
+from typing import ClassVar
+
 import antares_client.search
 import numpy as np
 from antares_client.models import Locus
@@ -22,7 +25,7 @@ class AntaresQuery(_BaseCatalogApiQuery, _BaseLightCurveQuery, _BaseNameResolver
     _table_ra = "ra"
     _ra_unit = "deg"
     _table_dec = "dec"
-    columns = {
+    columns: ClassVar[dict] = {
         "__link": "oid",
         "separation": "Separation, arcsec",
     }
@@ -39,7 +42,7 @@ class AntaresQuery(_BaseCatalogApiQuery, _BaseLightCurveQuery, _BaseNameResolver
                 antares_client.search.cone_search(coord, radius), key=lambda locus: locus.coordinates.separation(coord)
             )
         except RequestException as e:
-            logging.warning(str(e))
+            logger.warning(str(e))
             raise CatalogUnavailable(catalog=self)
         return loci
 
@@ -91,11 +94,11 @@ class AntaresQuery(_BaseCatalogApiQuery, _BaseLightCurveQuery, _BaseNameResolver
         loci = self.query_region_loci(coord.ra.deg, coord.dec.deg, radius)
         # It works better then Table(rows=...) for empty tables
         table = Table(
-            dict(
-                locus_id=[locus.locus_id for locus in loci],
-                ra=[locus.ra for locus in loci],
-                dec=[locus.dec for locus in loci],
-            )
+            {
+                "locus_id": [locus.locus_id for locus in loci],
+                "ra": [locus.ra for locus in loci],
+                "dec": [locus.dec for locus in loci],
+            }
         )
         # table = Table(rows=[(l.locus_id, l.ra, l.dec) for l in loci], names=('locus_id', 'ra', 'dec',))
         return table

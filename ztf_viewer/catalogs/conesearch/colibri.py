@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 import numpy as np
 from astropy.table import Table
 from astropy.time import Time
@@ -17,7 +19,7 @@ class ColibriQuery(_BaseCatalogApiQuery):
     _table_ra = "ra"
     _ra_unit = "deg"
     _table_dec = "dec"
-    columns = {
+    columns: ClassVar[dict] = {
         "__link": "Source name",
         "separation": "Separation, arcsec",
         "type": "Type",

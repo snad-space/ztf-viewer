@@ -339,7 +339,7 @@ def _run_from_n_threads(touch):
     def worker(i):
         try:
             loops[i], outcomes[i] = asyncio.run(body())
-        except BaseException as e:
+        except BaseException as e:  # noqa: BLE001 - collected from thread, not swallowed
             errors.append(e)
 
     threads = [threading.Thread(target=worker, args=(i,)) for i in range(N_THREADS)]
@@ -349,7 +349,7 @@ def _run_from_n_threads(touch):
         t.join(timeout=5)
 
     assert not errors, errors
-    assert len(set(id(loop) for loop in loops)) == N_THREADS, "each thread must run its own loop"
+    assert len({id(loop) for loop in loops}) == N_THREADS, "each thread must run its own loop"
     return loops, outcomes
 
 
@@ -362,7 +362,7 @@ def test_async_memory_backend_lock_registry_survives_concurrent_threads():
     async def touch():
         return backend._locks.get()
 
-    loops, locks = _run_from_n_threads(touch)
+    _loops, locks = _run_from_n_threads(touch)
 
     assert len({id(lock) for lock in locks}) == N_THREADS, "each loop gets its own lock, never a shared one"
     assert all(isinstance(lock, asyncio.Lock) for lock in locks)
@@ -377,7 +377,7 @@ def test_async_redis_backend_client_registry_survives_concurrent_threads():
     async def touch():
         return backend._clients.get()
 
-    loops, clients = _run_from_n_threads(touch)
+    _loops, clients = _run_from_n_threads(touch)
 
     assert len({id(client) for client in clients}) == N_THREADS, "each loop gets its own client, never a shared one"
     assert all(isinstance(client, redis.asyncio.Redis) for client in clients)

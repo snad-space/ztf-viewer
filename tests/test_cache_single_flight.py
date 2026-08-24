@@ -314,7 +314,7 @@ def test_singleflight_leader_exception_reaches_all_waiters():
         try:
             sf.run("key", compute)
             return None
-        except BaseException as e:
+        except BaseException as e:  # noqa: BLE001 - collected from thread, not swallowed
             return e
 
     with ThreadPoolExecutor(max_workers=n) as pool:
@@ -414,7 +414,7 @@ async def test_async_singleflight_leader_exception_reaches_all_waiters():
         try:
             await sf.run("key", compute)
             return None
-        except BaseException as e:
+        except BaseException as e:  # noqa: BLE001 - collected from thread, not swallowed
             return e
 
     tasks = [asyncio.create_task(worker()) for _ in range(n)]
@@ -692,7 +692,7 @@ def test_async_singleflight_table_registry_survives_concurrent_threads():
     def worker(i):
         try:
             loops[i], tables[i] = asyncio.run(body())
-        except BaseException as e:
+        except BaseException as e:  # noqa: BLE001 - collected from thread, not swallowed
             errors.append(e)
 
     threads = [threading.Thread(target=worker, args=(i,)) for i in range(n)]
@@ -702,6 +702,6 @@ def test_async_singleflight_table_registry_survives_concurrent_threads():
         t.join(timeout=5)
 
     assert not errors, errors
-    assert len(set(id(loop) for loop in loops)) == n, "each thread must run its own loop"
+    assert len({id(loop) for loop in loops}) == n, "each thread must run its own loop"
     assert len({id(table) for table in tables}) == n, "each loop gets its own table, never a shared one"
     assert all(isinstance(table, dict) for table in tables)

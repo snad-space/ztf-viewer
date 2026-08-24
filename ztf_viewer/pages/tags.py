@@ -93,7 +93,7 @@ async def show_tags(*_):
         html.Div(
             [
                 dcc.Input(
-                    id=dict(type="tag-priority-input", index=tag["name"]),
+                    id={"type": "tag-priority-input", "index": tag["name"]},
                     value=tag["priority"],
                     type="number",
                     step=1,
@@ -113,7 +113,7 @@ async def show_tags(*_):
         html.Div(
             [
                 dcc.Input(
-                    id=dict(type="new-tag-priority-input", index=0),
+                    id={"type": "new-tag-priority-input", "index": 0},
                     value=max((tag["priority"] for tag in await akb.get_tags()), default=-1) + 1,
                     type="number",
                     step=1,
@@ -124,7 +124,7 @@ async def show_tags(*_):
                 " ",
                 dcc.Input(
                     value="",
-                    id=dict(type="new-tag-name-input", index=0),
+                    id={"type": "new-tag-name-input", "index": 0},
                     type="text",
                     size=20,
                     placeholder="Name of new tag",
@@ -133,7 +133,7 @@ async def show_tags(*_):
                 " ",
                 dcc.Input(
                     value="",
-                    id=dict(type="new-tag-description-input", index=0),
+                    id={"type": "new-tag-description-input", "index": 0},
                     type="text",
                     size=80,
                     placeholder="Description of new tag",
@@ -157,11 +157,11 @@ def are_tags_priorities_unique(priorities):
     Output("tags-list-save-status", "children"),
     [Input("tags-list-save-button", "n_clicks")],
     [
-        State(dict(type="tag-priority-input", index=ALL), "id"),
-        State(dict(type="tag-priority-input", index=ALL), "value"),
-        State(dict(type="new-tag-priority-input", index=ALL), "value"),
-        State(dict(type="new-tag-name-input", index=ALL), "value"),
-        State(dict(type="new-tag-description-input", index=ALL), "value"),
+        State({"type": "tag-priority-input", "index": ALL}, "id"),
+        State({"type": "tag-priority-input", "index": ALL}, "value"),
+        State({"type": "new-tag-priority-input", "index": ALL}, "value"),
+        State({"type": "new-tag-name-input", "index": ALL}, "value"),
+        State({"type": "new-tag-description-input", "index": ALL}, "value"),
     ],
 )
 async def set_save_status(n_clicks, tags, priorities, new_priority, new_name, new_description):
@@ -173,11 +173,11 @@ async def set_save_status(n_clicks, tags, priorities, new_priority, new_name, ne
     new_priority = new_priority[0] if new_priority else None
     new_name = new_name[0] if new_name else ""
     new_description = new_description[0] if new_description else ""
-    tags = [dict(name=tag_id["index"], priority=priority) for tag_id, priority in zip(tags, priorities)]
+    tags = [{"name": tag_id["index"], "priority": priority} for tag_id, priority in zip(tags, priorities)]
     if new_name:
         if not is_tag_name_correct(new_name):
             return "Error: tag name should consist of letters, digits, underscores and hyphens only"
-        tags.append(dict(name=new_name, priority=new_priority, description=new_description))
+        tags.append({"name": new_name, "priority": new_priority, "description": new_description})
     if not are_tags_priorities_unique([tag["priority"] for tag in tags]):
         return "Error: tag priorities should be unique"
     await akb.post_tags(tags)

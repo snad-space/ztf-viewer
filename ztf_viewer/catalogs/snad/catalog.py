@@ -1,6 +1,6 @@
 import email.utils
 import importlib.resources
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from io import BytesIO
 
 import requests
@@ -20,7 +20,7 @@ class _SnadCatalog:
         with importlib.resources.open_binary(data, "snad_catalog.csv") as fh:
             self.table = self._create_table(fh)
 
-        self.updated_at = datetime(1900, 1, 1, 1, 1)
+        self.updated_at = datetime(1900, 1, 1, 1, 1, tzinfo=UTC)
 
     @staticmethod
     def _create_table(src):
@@ -33,11 +33,11 @@ class _SnadCatalog:
     def _last_modified(resp):
         s = resp.headers["last-modified"]
         parsed = email.utils.parsedate(s)
-        dt = datetime(*parsed[:7])
+        dt = datetime(*parsed[:7], tzinfo=UTC)
         return dt
 
     def _update(self):
-        now = datetime.now()
+        now = datetime.now(tz=UTC)
         if now - self.updated_at < self.check_interval:
             return
         try:

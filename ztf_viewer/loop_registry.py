@@ -39,12 +39,12 @@ import asyncio
 import threading
 import weakref
 from collections.abc import Callable
-from typing import Generic, TypeVar
+from typing import TypeVar
 
 _T = TypeVar("_T")
 
 
-class LoopRegistry(Generic[_T]):
+class LoopRegistry[T]:
     """One instance of a loop-affine resource per running event loop.
 
     ``factory`` is called with no arguments to build a fresh resource; it must not do anything

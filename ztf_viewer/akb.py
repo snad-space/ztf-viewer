@@ -1,4 +1,6 @@
 import logging
+
+logger = logging.getLogger(__name__)
 from urllib.parse import urljoin
 
 import dash
@@ -22,7 +24,7 @@ class AKB:
         if response.status_code == 200:
             return response.json()
         message = f"{response.url} returned {response.status_code}: {response.text}"
-        logging.info(message)
+        logger.info(message)
         if response.status_code == 401:
             return UnAuthorized(message)
         if response.status_code == 404:
@@ -62,7 +64,7 @@ class AKB:
         try:
             resp.raise_for_status()
         except httpx.HTTPError as e:
-            logging.info(f"Post into {resp.url} returned {resp.status_code}: {resp.text}")
+            logger.info(f"Post into {resp.url} returned {resp.status_code}: {resp.text}")
             raise RuntimeError from e
 
     async def get_tags(self, token=None):
@@ -76,7 +78,7 @@ class AKB:
     async def post_tag(self, name, priority=None, description=None, token=None):
         if priority is None:
             priority = max((tag["priority"] for tag in await self.get_tags()), default=-1) + 1
-        data = dict(name=name, priority=priority)
+        data = {"name": name, "priority": priority}
         if description is not None:
             data["description"] = description
         await self._put_or_post(self._tag_url(name), self._tags_api_url, data, token=token)
@@ -101,7 +103,7 @@ class AKB:
         raise RuntimeError("Unexpected error while HEAD request to AKB server")
 
     async def post_object(self, oid, tags, description, token=None):
-        data = dict(oid=oid, tags=tags, description=description)
+        data = {"oid": oid, "tags": tags, "description": description}
         await self._put_or_post(self._object_url(oid), self._objects_api_url, data, token=token)
 
     async def get_object_log(self, oid, token=None):
@@ -113,7 +115,7 @@ class AKB:
     @cache()
     async def whoami(self, token):
         if not isinstance(token, str):
-            raise ValueError(f"token must be a str, not {type(token)}")
+            raise TypeError(f"token must be a str, not {type(token)}")
         client = get_client()
         resp = await client.get(self._whoami_api_url, headers=self._token_header(token), timeout=TIMEOUT_AKB)
         if resp.status_code == 401:

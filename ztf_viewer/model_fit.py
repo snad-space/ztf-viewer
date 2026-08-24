@@ -1,4 +1,6 @@
 import logging
+
+logger = logging.getLogger(__name__)
 from typing import Literal
 
 import httpx
@@ -11,6 +13,8 @@ from ztf_viewer.config import MODEL_FIT_API_URL, TIMEOUT_MODEL_FIT
 from ztf_viewer.http import get_client
 from ztf_viewer.util import ABZPMAG_JY, LN10_04, immutabledefaultdict
 
+_DEFAULT_REF_MAGERR = immutabledefaultdict(float)
+
 
 async def post_request(url, data):
     try:
@@ -19,7 +23,7 @@ async def post_request(url, data):
         response.raise_for_status()
         return {"success": True, "body": response.json()}
     except httpx.HTTPError as e:
-        logging.warning(f"A model-fit-api error occurred: {e}")
+        logger.warning(f"A model-fit-api error occurred: {e}")
         return {"success": False, "body": "API is unavailable"}
 
 
@@ -30,7 +34,7 @@ async def get_request(url):
         response.raise_for_status()
         return {"success": True, "body": response.json()}
     except httpx.HTTPError as e:
-        logging.warning(f"A model-fit-api error occurred: {e}")
+        logger.warning(f"A model-fit-api error occurred: {e}")
         return {"success": False, "body": "API is unavailable"}
 
 
@@ -86,7 +90,7 @@ class ModelFit:
         min_mjd=None,
         max_mjd=None,
         ref_mag,
-        ref_magerr=immutabledefaultdict(float),
+        ref_magerr=_DEFAULT_REF_MAGERR,
     ):
         observations = []
         for oid in oids:

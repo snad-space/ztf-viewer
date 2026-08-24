@@ -75,7 +75,7 @@ async def test_async_timeout_raises_catalog_unavailable_with_catalog_kwarg(monke
     monkeypatch.setattr(unavailable_catalogs_module, "unavailable_catalogs", LocalTTLSet(maxsize=16, ttl=60))
     catalog = _BaseCatalogQuery("test-async-timeout-catalog")
 
-    @async_timeout(seconds=0.01, exception=CatalogUnavailable, exception_kwargs=dict(catalog=catalog))
+    @async_timeout(seconds=0.01, exception=CatalogUnavailable, exception_kwargs={"catalog": catalog})
     async def hangs_forever():
         await asyncio.sleep(10)
 
@@ -101,7 +101,7 @@ def test_per_api_timeouts_match_the_requests_audit() -> None:
 
 
 async def test_async_timeout_lets_fast_calls_through() -> None:
-    @async_timeout(seconds=5.0, exception=CatalogUnavailable, exception_kwargs=dict(catalog=None))
+    @async_timeout(seconds=5.0, exception=CatalogUnavailable, exception_kwargs={"catalog": None})
     async def resolves_immediately():
         return "ok"
 

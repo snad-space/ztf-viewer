@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 from ztf_viewer.catalogs.conesearch._base import _BaseCatalogApiQuery
 from ztf_viewer.config import ZTF_PERIODIC_API_URL
 
@@ -10,7 +12,7 @@ class ZtfPeriodicQuery(_BaseCatalogApiQuery):
     _table_ra = "RAdeg"
     _ra_unit = "deg"
     _table_dec = "DEdeg"
-    columns = {
+    columns: ClassVar[dict] = {
         "__link": "ZTF ID",
         "separation": "Separation, arcsec",
         "Type": "Type",

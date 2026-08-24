@@ -153,6 +153,7 @@ def test_no_runtime_warning_on_registration():
         env=env,
         cwd=_REPO_ROOT,
         timeout=60,
+        check=False,
     )
     assert result.returncode == 0, result.stderr
     assert "OK" in result.stdout

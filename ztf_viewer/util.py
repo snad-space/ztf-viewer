@@ -2,6 +2,8 @@ import asyncio
 import datetime
 import json
 import logging
+
+logger = logging.getLogger(__name__)
 import math
 import re
 from collections import defaultdict
@@ -20,7 +22,7 @@ from immutabledict import immutabledict
 from jinja2 import Template
 from markupsafe import Markup
 
-YEAR = datetime.datetime.now().year
+YEAR = datetime.datetime.now(tz=datetime.UTC).year
 
 
 PALOMAR = EarthLocation(lon=-116.863, lat=33.356, height=1706)  # EarthLocation.of_site('Palomar')
@@ -141,19 +143,18 @@ def to_str(s, *, float_decimal_digits=3):
         return s.decode()
     if isinstance(s, str):
         return s
-    if isinstance(s, np.integer) or isinstance(s, int):
+    if isinstance(s, (np.integer, int)):
         return str(s)
-    if isinstance(s, np.floating) or isinstance(s, float):
+    if isinstance(s, (np.floating, float)):
         if np.isnan(s):
             return ""
         return f"{s:.{float_decimal_digits}f}"
-    if isinstance(s, units.Quantity):
-        if s.unit.is_equivalent("cm"):
-            for unit in (units.pc, units.kpc, units.Mpc, units.Gpc):
-                if 1e-1 < (distance := s.to(unit)).value < 3e3:
-                    return f"{distance:.2f}"
-            logging.warning(f"Value {s} is too large or too small")
-            return str(s)
+    if isinstance(s, units.Quantity) and s.unit.is_equivalent("cm"):
+        for unit in (units.pc, units.kpc, units.Mpc, units.Gpc):
+            if 1e-1 < (distance := s.to(unit)).value < 3e3:
+                return f"{distance:.2f}"
+        logger.warning(f"Value {s} is too large or too small")
+        return str(s)
     if np.ma.is_masked(s):
         return ""
     if s is None:

@@ -11,7 +11,7 @@ they expose plain async methods with names chosen to read naturally with `await`
 import pickle
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Hashable, Iterator, MutableSet
-from typing import Generic, TypeVar
+from typing import TypeVar
 
 import redis.asyncio
 from cachetools import TTLCache
@@ -22,7 +22,7 @@ from ztf_viewer.loop_registry import LoopRegistry
 _T_Base = TypeVar("_T_Base")
 
 
-class _BaseTTLSet(ABC, MutableSet[_T_Base], Generic[_T_Base]):
+class _BaseTTLSet[T_Base](ABC, MutableSet[T_Base]):
     def __init__(self, ttl: int):
         super().__init__()
         self.ttl = ttl
@@ -46,7 +46,7 @@ class _BaseTTLSet(ABC, MutableSet[_T_Base], Generic[_T_Base]):
 _T_Local = TypeVar("_T_Local", bound=Hashable)
 
 
-class LocalTTLSet(_BaseTTLSet[_T_Local], Generic[_T_Local]):
+class LocalTTLSet[T_Local: Hashable](_BaseTTLSet[T_Local]):
     def __init__(self, maxsize: int, ttl: int):
         super().__init__(ttl)
         self.ttl_cache = TTLCache(maxsize=maxsize, ttl=ttl)
@@ -74,7 +74,7 @@ class LocalTTLSet(_BaseTTLSet[_T_Local], Generic[_T_Local]):
 _T_Redis = TypeVar("_T_Redis")
 
 
-class RedisTTLSet(_BaseTTLSet[_T_Redis], Generic[_T_Redis]):
+class RedisTTLSet[T_Redis](_BaseTTLSet[T_Redis]):
     def __init__(self, ttl: int, client: StrictRedis, prefix: str = "RedisTTLSet"):
         super().__init__(ttl)
 
@@ -131,7 +131,7 @@ class RedisTTLStringSet(RedisTTLSet[str]):
 _T_AsyncLocal = TypeVar("_T_AsyncLocal", bound=Hashable)
 
 
-class AsyncLocalTTLSet(Generic[_T_AsyncLocal]):
+class AsyncLocalTTLSet[T_AsyncLocal: Hashable]:
     """Async facade over :class:`LocalTTLSet`.
 
     `LocalTTLSet` is pure in-memory and never blocks, so there is nothing here to actually await
@@ -167,7 +167,7 @@ class AsyncLocalTTLSet(Generic[_T_AsyncLocal]):
 _T_AsyncRedis = TypeVar("_T_AsyncRedis")
 
 
-class AsyncRedisTTLSet(Generic[_T_AsyncRedis]):
+class AsyncRedisTTLSet[T_AsyncRedis]:
     """Async counterpart to :class:`RedisTTLSet`, on ``redis.asyncio``.
 
     A connection pool is bound to the loop that created it, so the client is built lazily per
