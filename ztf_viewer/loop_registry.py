@@ -39,9 +39,6 @@ import asyncio
 import threading
 import weakref
 from collections.abc import Callable
-from typing import TypeVar
-
-_T = TypeVar("_T")
 
 
 class LoopRegistry[T]:
@@ -51,12 +48,12 @@ class LoopRegistry[T]:
     that only makes sense on a particular loop until :meth:`get` actually calls it.
     """
 
-    def __init__(self, factory: Callable[[], _T]):
+    def __init__(self, factory: Callable[[], T]):
         self._factory = factory
-        self._entries: weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, _T] = weakref.WeakKeyDictionary()
+        self._entries: weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, T] = weakref.WeakKeyDictionary()
         self._registry_lock = threading.Lock()
 
-    def get(self) -> _T:
+    def get(self) -> T:
         loop = asyncio.get_running_loop()
         with self._registry_lock:
             resource = self._entries.get(loop)
