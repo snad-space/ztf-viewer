@@ -20,7 +20,7 @@ from ztf_viewer import config
 config.CACHE_TYPE = "memory"
 config.UNAVAILABLE_CATALOGS_CACHE_TYPE = "memory"
 
-from ztf_viewer.lc_data import plot_data as plot_data_module  # noqa: E402
+from ztf_viewer.lc_data import plot_data as plot_data_module
 
 DELAY = 0.2
 
@@ -55,6 +55,8 @@ async def test_get_plot_data_propagates_upstream_failure():
             raise ValueError("neighbour upstream boom")
         return [{"mjd": 58000.0, "mag": 18.0, "magerr": 0.05, "filter": "zg", "oid": oid}]
 
-    with patch.object(plot_data_module, "ztf_dr_lc", fake_ztf_dr_lc):
-        with pytest.raises(ValueError, match="neighbour upstream boom"):
-            await plot_data_module.get_plot_data.__wrapped__("1", "dr24", other_oids=frozenset(["2"]))
+    with (
+        patch.object(plot_data_module, "ztf_dr_lc", fake_ztf_dr_lc),
+        pytest.raises(ValueError, match="neighbour upstream boom"),
+    ):
+        await plot_data_module.get_plot_data.__wrapped__("1", "dr24", other_oids=frozenset(["2"]))

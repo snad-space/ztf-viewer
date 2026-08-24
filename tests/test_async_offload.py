@@ -23,7 +23,7 @@ from ztf_viewer import config
 config.CACHE_TYPE = "memory"
 config.UNAVAILABLE_CATALOGS_CACHE_TYPE = "memory"
 
-from ztf_viewer.pages import viewer  # noqa: E402
+from ztf_viewer.pages import viewer
 
 # function (or unbound method) -> a substring of the sync call it must route through a thread
 CALLBACKS_WITH_REMAINING_BLOCKING_CALLS = {

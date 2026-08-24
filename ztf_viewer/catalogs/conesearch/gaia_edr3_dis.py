@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 from astropy import units
 
 from ztf_viewer.catalogs.conesearch._base import (
@@ -13,17 +15,17 @@ class GaiaEdr3Dis(_BaseVizierQuery):
     """
 
     id_column = "Source"
-    columns = {
+    columns: ClassVar[dict] = {
         "__link": "Source ID",
         "separation": "Separation, arcsec",
         "_rgeo": "Geometric distance, pc",
         "_rpgeo": "Photogeometric distance, pc",
     }
 
-    _vizier_columns = ["Source", "rgeo", "b_rgeo", "B_rgeo", "rpgeo", "b_rpgeo", "B_rpgeo", "Flag"]
+    _vizier_columns: ClassVar[list] = ["Source", "rgeo", "b_rgeo", "B_rgeo", "rpgeo", "b_rpgeo", "B_rpgeo", "Flag"]
     _vizier_catalog = "I/352/gedr3dis"
 
-    _value_with_interval_columns = [
+    _value_with_interval_columns: ClassVar[list] = [
         ValueWithIntervalColumn(value="rgeo"),
         ValueWithIntervalColumn(value="rpgeo"),
     ]

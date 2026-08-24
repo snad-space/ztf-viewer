@@ -1,4 +1,5 @@
 import urllib.parse
+from typing import ClassVar
 
 from astropy import units
 from astroquery.simbad import Simbad
@@ -12,7 +13,7 @@ class SimbadQuery(_BaseCatalogQuery):
     _table_ra = "RA"
     _ra_unit = "hour"
     _table_dec = "DEC"
-    columns = {
+    columns: ClassVar[dict] = {
         "__link": "main_id",
         "separation": "Separation, arcsec",
         "otype": "Main type",

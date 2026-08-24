@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime
+from datetime import UTC, datetime
 from io import BytesIO
 
 import matplotlib
@@ -91,15 +91,15 @@ def parse_figure_args_helper(args, data=None):
     else:
         data = immutabledict()
 
-    return dict(
-        fmt=fmt,
-        other_oids=other_oids,
-        min_mjd=min_mjd,
-        max_mjd=max_mjd,
-        caption=caption,
-        additional_data=data,
-        title=title,
-    )
+    return {
+        "fmt": fmt,
+        "other_oids": other_oids,
+        "min_mjd": min_mjd,
+        "max_mjd": max_mjd,
+        "caption": caption,
+        "additional_data": data,
+        "title": title,
+    }
 
 
 def plot_folded_data(oid, data, period, repeat=None, fmt="png", caption=True, title=None):
@@ -137,9 +137,9 @@ def plot_folded_data(oid, data, period, repeat=None, fmt="png", caption=True, ti
         fig.text(
             0.50,
             0.005,
-            f"Generated with the SNAD ZTF viewer on {datetime.now().date()}",
+            f"Generated with the SNAD ZTF viewer on {datetime.now(tz=UTC).date()}",
             ha="center",
-            fontdict=dict(size=8, color="grey", usetex=usetex),
+            fontdict={"size": 8, "color": "grey", "usetex": usetex},
         )
     ax = fig.subplots()
     ax.invert_yaxis()
@@ -246,9 +246,9 @@ def plot_data(oid, data, fmt="png", caption=True, title=None):
         fig.text(
             0.50,
             0.005,
-            f"Generated with the SNAD ZTF viewer on {datetime.now().date()}",
+            f"Generated with the SNAD ZTF viewer on {datetime.now(tz=UTC).date()}",
             ha="center",
-            fontdict=dict(size=8, color="grey", usetex=usetex),
+            fontdict={"size": 8, "color": "grey", "usetex": usetex},
         )
     ax = fig.subplots()
     ax.invert_yaxis()

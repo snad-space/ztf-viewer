@@ -51,5 +51,5 @@ async def set_table_data(pathname):
         oid = item["oid"]
         item["oid_link"] = f"[{oid}](/view/{oid})"
         item["tags_str"] = ", ".join(item["tags"])
-        item["changed_at_datetime"] = datetime.fromisoformat(item["changed_at"].replace("Z", "+00:00"))
+        item["changed_at_datetime"] = datetime.fromisoformat(item["changed_at"])
     return objs

@@ -1,6 +1,7 @@
 import urllib.parse
 from base64 import b64encode
 from io import BytesIO
+from typing import ClassVar
 
 import astropy.io.ascii
 
@@ -17,7 +18,7 @@ class OgleQuery(_BaseCatalogApiQuery):
     _table_ra = "RA"
     _ra_unit = "hour"
     _table_dec = "Decl"
-    columns = {
+    columns: ClassVar[dict] = {
         "__link": "Designation",
         "separation": "Separation, arcsec",
         "light_curve": "Light curve",
@@ -33,7 +34,7 @@ class OgleQuery(_BaseCatalogApiQuery):
     _base_api_url = f"{OGLE_III_API_URL}/api/v1/circle"
     _base_light_curve_url = "https://ogledb.astrouw.edu.pl/~ogle/CVS/images/"
     _post_url = "https://ogledb.astrouw.edu.pl/~ogle/CVS/query.php?first=1&qtype=catalog"
-    _post_data = {
+    _post_data: ClassVar[dict] = {
         "db_target": "all",
         "sort": "id",
         "use_id": "on",

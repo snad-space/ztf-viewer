@@ -1,7 +1,9 @@
 import asyncio
 import logging
+
+logger = logging.getLogger(__name__)
 from itertools import chain
-from typing import Dict, Tuple
+from typing import ClassVar
 
 import packaging.version
 import pandas as pd
@@ -16,7 +18,7 @@ from ztf_viewer.exceptions import CatalogUnavailable, NotFound
 
 
 class AlerceQuery(_BaseCatalogApiQuery):
-    _classifiers = {"Stamp": "stamp_classifier", "Light curve": "lc_classifier"}
+    _classifiers: ClassVar[dict] = {"Stamp": "stamp_classifier", "Light curve": "lc_classifier"}
 
     id_column = "oid"
     _table_ra = "meanra"
@@ -31,7 +33,7 @@ class AlerceQuery(_BaseCatalogApiQuery):
             for classifier in _classifiers.values()
         )
     )
-    _prob_class_columns = {k: f"{v}_classifications" for k, v in _classifiers.items()}
+    _prob_class_columns: ClassVar[dict] = {k: f"{v}_classifications" for k, v in _classifiers.items()}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -67,7 +69,7 @@ class AlerceQuery(_BaseCatalogApiQuery):
         df = df.join(highest_versions, on=["classifier_name", "classifier_version"], how="inner")
         return df
 
-    def _get_best_classifications(self, alerce_id) -> Dict[str, Tuple[str, float]]:
+    def _get_best_classifications(self, alerce_id) -> dict[str, tuple[str, float]]:
         df = self._get_classifications(alerce_id)
         df = df[df["ranking"] == 1]
         classifications = {}
@@ -99,10 +101,10 @@ class AlerceQuery(_BaseCatalogApiQuery):
             try:
                 classifications = self._get_best_classifications(alerce_id)
             except RequestException as e:
-                logging.warning(f"Failed to get classifications for {alerce_id}: {e}")
+                logger.warning(f"Failed to get classifications for {alerce_id}: {e}")
                 continue
             except IndexError as e:
-                logging.warning(f"Failed to get classifications from some classifier for {alerce_id}: {e}")
+                logger.warning(f"Failed to get classifications from some classifier for {alerce_id}: {e}")
                 continue
             for classifier, (class_, prob) in classifications.items():
                 df.loc[df["oid"] == alerce_id, f"class_{classifier}"] = class_
@@ -122,7 +124,7 @@ class AlerceQuery(_BaseCatalogApiQuery):
             try:
                 df = self._get_classifications(alerce_id)
             except RequestException as e:
-                logging.warning(f"Failed to get classifications for {alerce_id}: {e}")
+                logger.warning(f"Failed to get classifications for {alerce_id}: {e}")
                 continue
             for pretty_name, classifier in self._classifiers.items():
                 column = self._prob_class_columns[pretty_name]

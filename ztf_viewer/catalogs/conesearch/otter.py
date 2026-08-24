@@ -1,4 +1,5 @@
 import math
+from typing import ClassVar
 
 import astropy.table
 import httpx
@@ -16,7 +17,7 @@ class OtterQuery(_BaseCatalogApiQuery):
     _table_ra = "ra"
     _ra_unit = "deg"
     _table_dec = "dec"
-    columns = {
+    columns: ClassVar[dict] = {
         "__link": "Name",
         "separation": "Separation, arcsec",
         "object_class": "Type",

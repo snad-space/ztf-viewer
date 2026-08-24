@@ -1,15 +1,19 @@
 import logging
 
+logger = logging.getLogger(__name__)
+from typing import Literal
+
 import httpx
 import numpy as np
 from pydantic import BaseModel
-from typing import Literal, List, Dict, Optional
 
 from ztf_viewer.cache import cache
 from ztf_viewer.catalogs.ztf_dr import find_ztf_oid
 from ztf_viewer.config import MODEL_FIT_API_URL, TIMEOUT_MODEL_FIT
 from ztf_viewer.http import get_client
 from ztf_viewer.util import ABZPMAG_JY, LN10_04, immutabledefaultdict
+
+_DEFAULT_REF_MAGERR = immutabledefaultdict(float)
 
 
 async def post_request(url, data):
@@ -19,7 +23,7 @@ async def post_request(url, data):
         response.raise_for_status()
         return {"success": True, "body": response.json()}
     except httpx.HTTPError as e:
-        logging.warning(f"A model-fit-api error occurred: {e}")
+        logger.warning(f"A model-fit-api error occurred: {e}")
         return {"success": False, "body": "API is unavailable"}
 
 
@@ -30,7 +34,7 @@ async def get_request(url):
         response.raise_for_status()
         return {"success": True, "body": response.json()}
     except httpx.HTTPError as e:
-        logging.warning(f"A model-fit-api error occurred: {e}")
+        logger.warning(f"A model-fit-api error occurred: {e}")
         return {"success": False, "body": "API is unavailable"}
 
 
@@ -44,29 +48,29 @@ class Observation(BaseModel):
 
 
 class Target(BaseModel):
-    light_curve: List[Observation]
+    light_curve: list[Observation]
     ebv: float
     name_model: str
-    redshift: List[float] = [0.05, 0.3]
+    redshift: list[float] = [0.05, 0.3]
 
 
 class ModelData(BaseModel):
-    parameters: Dict[str, float]
+    parameters: dict[str, float]
     name_model: str
     zp: float = ABZPMAG_JY
     zpsys: str = "ab"
-    band_list: List[str]
+    band_list: list[str]
     t_min: float
     t_max: float
     count: int = 2000
     brightness_type: str
-    band_ref: Dict[str, float]
+    band_ref: dict[str, float]
 
 
 class Response(BaseModel):
     success: bool
-    data: Optional[dict] = {}
-    message: Optional[str] = []
+    data: dict | None = {}
+    message: str | None = []
 
 
 class ModelFit:
@@ -86,7 +90,7 @@ class ModelFit:
         min_mjd=None,
         max_mjd=None,
         ref_mag,
-        ref_magerr=immutabledefaultdict(float),
+        ref_magerr=_DEFAULT_REF_MAGERR,
     ):
         observations = []
         for oid in oids:

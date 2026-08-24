@@ -22,6 +22,7 @@ import functools
 import inspect
 import logging
 
+logger = logging.getLogger(__name__)
 from ztf_viewer.cache.core import (
     UncacheableArgument,
     UncacheableValue,
@@ -55,7 +56,7 @@ def make_cache(backend):
                     key = cache_key_for_call(func, wrapper, args, kwargs)
                 except UncacheableArgument as e:
                     # A cache must never turn a legal call into an error, so bypass it.
-                    logging.debug(f"not caching {func.__qualname__}: {e}")
+                    logger.debug(f"not caching {func.__qualname__}: {e}")
                     return func(*args, **kwargs)
 
                 blob = backend.get(key)
@@ -67,7 +68,7 @@ def make_cache(backend):
                     try:
                         encoded = encode_value(value)
                     except UncacheableValue as e:
-                        logging.warning(f"not caching the result of {func.__qualname__}: {e}")
+                        logger.warning(f"not caching the result of {func.__qualname__}: {e}")
                         return value
                     backend.set(key, encoded)
                     return value
@@ -99,7 +100,7 @@ def make_async_cache(backend):
                 try:
                     key = cache_key_for_call(func, wrapper, args, kwargs)
                 except UncacheableArgument as e:
-                    logging.debug(f"not caching {func.__qualname__}: {e}")
+                    logger.debug(f"not caching {func.__qualname__}: {e}")
                     return await func(*args, **kwargs)
 
                 blob = await backend.get(key)
@@ -111,7 +112,7 @@ def make_async_cache(backend):
                     try:
                         encoded = encode_value(value)
                     except UncacheableValue as e:
-                        logging.warning(f"not caching the result of {func.__qualname__}: {e}")
+                        logger.warning(f"not caching the result of {func.__qualname__}: {e}")
                         return value
                     await backend.set(key, encoded)
                     return value

@@ -18,7 +18,7 @@ from ztf_viewer import config
 config.CACHE_TYPE = "memory"
 config.UNAVAILABLE_CATALOGS_CACHE_TYPE = "memory"
 
-from ztf_viewer.pages import tags  # noqa: E402
+from ztf_viewer.pages import tags
 
 # Callback registration may wrap the function; the body under test is the innermost one.
 set_save_status = inspect.unwrap(tags.set_save_status)
@@ -36,7 +36,7 @@ async def test_set_save_status_unpacks_pattern_matched_new_tag_state():
             new_name=["foo"],
             new_description=["bar"],
         )
-    mock_akb.post_tags.assert_called_once_with([dict(name="foo", priority=5, description="bar")])
+    mock_akb.post_tags.assert_called_once_with([{"name": "foo", "priority": 5, "description": "bar"}])
 
 
 async def test_set_save_status_tolerates_empty_new_tag_state():

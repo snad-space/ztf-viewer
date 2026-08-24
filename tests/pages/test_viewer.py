@@ -41,9 +41,9 @@ from ztf_viewer import config
 config.CACHE_TYPE = "memory"
 config.UNAVAILABLE_CATALOGS_CACHE_TYPE = "memory"
 
-from ztf_viewer.catalogs import unavailable_catalogs  # noqa: E402
-from ztf_viewer.exceptions import CatalogUnavailable, NotFound  # noqa: E402
-from ztf_viewer.pages import viewer  # noqa: E402
+from ztf_viewer.catalogs import unavailable_catalogs
+from ztf_viewer.exceptions import CatalogUnavailable, NotFound
+from ztf_viewer.pages import viewer
 
 # Callback registration leaves coroutine functions unwrapped, but unwrap anyway: it's a no-op if
 # there's nothing to unwrap, and the body under test is the innermost one either way.
@@ -120,7 +120,7 @@ def _stub_table(*, objname="Stub Object", type_="SN Ia", distance=None, redshift
 
 
 def _radius_inputs(catalog_names, radius=3.0):
-    ids = [dict(type="search-radius", index=name) for name in catalog_names]
+    ids = [{"type": "search-radius", "index": name} for name in catalog_names]
     values = [radius] * len(ids)
     return ids, values
 
@@ -212,9 +212,8 @@ def _catalog_in_unavailable_catalogs():
 async def test_get_summary_failing_catalog_matches_catalog_absent(make_failing_catalogs, summary_upstreams):
     """A catalog that fails must render identically to a catalog that was never queried at all,
     and must not disturb the catalogs that do succeed."""
-    with make_failing_catalogs() as catalogs:
-        with patch.object(viewer, "catalog_query_objects", lambda: catalogs):
-            failing = await _run_get_summary(list(catalogs), summary_upstreams)
+    with make_failing_catalogs() as catalogs, patch.object(viewer, "catalog_query_objects", lambda: catalogs):
+        failing = await _run_get_summary(list(catalogs), summary_upstreams)
 
     absent_catalogs = {"other": _other_succeeding_catalog()}
     with patch.object(viewer, "catalog_query_objects", lambda: absent_catalogs):
@@ -227,9 +226,8 @@ async def test_get_summary_propagates_exception_not_in_the_swallow_list(summary_
     """Only NotFound/CatalogUnavailable/KeyError are expected per-catalog failures; anything else
     is a bug in the catalog and must propagate rather than be silently swallowed."""
     stub = _StubCatalogQuery("stub", exc=RuntimeError("boom"))
-    with patch.object(viewer, "catalog_query_objects", lambda: {"stub": stub}):
-        with pytest.raises(RuntimeError):
-            await _run_get_summary(["stub"], summary_upstreams)
+    with patch.object(viewer, "catalog_query_objects", lambda: {"stub": stub}), pytest.raises(RuntimeError):
+        await _run_get_summary(["stub"], summary_upstreams)
 
 
 async def test_get_summary_skips_catalog_with_no_radius_input(summary_upstreams):

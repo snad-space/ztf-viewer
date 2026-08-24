@@ -13,14 +13,18 @@ from ztf_viewer.util import ABZPMAG_JY, FILTERS_ORDER, LN10_04, immutabledefault
 
 MJD_OFFSET = 58000
 
+_DEFAULT_REF_MAG = immutabledefaultdict(lambda: np.inf)
+_DEFAULT_REF_MAGERR = immutabledefaultdict(float)
+_EMPTY_IMMUTABLEDICT: immutabledict = immutabledict()
+
 
 def plot_data(
     lc,
     mark_size=1,
     min_mjd=None,
     max_mjd=None,
-    ref_mag=immutabledefaultdict(lambda: np.inf),
-    ref_magerr=immutabledefaultdict(float),
+    ref_mag=_DEFAULT_REF_MAG,
+    ref_magerr=_DEFAULT_REF_MAGERR,
 ):
     """Add photometry and time properties to observations, it mutates input"""
     if min_mjd is None:
@@ -87,10 +91,10 @@ async def get_plot_data(
     other_oids=frozenset(),
     min_mjd=None,
     max_mjd=None,
-    external_data=immutabledict(),
-    additional_data=immutabledict(),
-    ref_mag=immutabledefaultdict(lambda: np.inf),
-    ref_magerr=immutabledefaultdict(float),
+    external_data=_EMPTY_IMMUTABLEDICT,
+    additional_data=_EMPTY_IMMUTABLEDICT,
+    ref_mag=_DEFAULT_REF_MAG,
+    ref_magerr=_DEFAULT_REF_MAGERR,
 ):
     """Get plot data
 
@@ -162,10 +166,10 @@ async def get_folded_plot_data(
     other_oids=frozenset(),
     min_mjd=None,
     max_mjd=None,
-    external_data=immutabledict(),
-    additional_data=immutabledict(),
-    ref_mag=immutabledefaultdict(lambda: np.inf),
-    ref_magerr=immutabledefaultdict(float),
+    external_data=_EMPTY_IMMUTABLEDICT,
+    additional_data=_EMPTY_IMMUTABLEDICT,
+    ref_mag=_DEFAULT_REF_MAG,
+    ref_magerr=_DEFAULT_REF_MAGERR,
 ):
     lcs = await get_plot_data(
         cur_oid=cur_oid,

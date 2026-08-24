@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 from markupsafe import Markup
 
 from ztf_viewer.catalogs.conesearch._base import _BaseVizierQuery
@@ -7,7 +9,7 @@ class VsxQuery(_BaseVizierQuery):
     id_column = "OID"
     type_column = "Type"
     period_column = "Period"
-    columns = {
+    columns: ClassVar[dict] = {
         "__link": "Designation",
         "separation": "Separation, arcsec",
         "Name": "Name",

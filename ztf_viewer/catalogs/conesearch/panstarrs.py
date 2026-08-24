@@ -1,5 +1,8 @@
 import logging
+
+logger = logging.getLogger(__name__)
 from itertools import count
+from typing import ClassVar
 
 import httpx
 import numpy as np
@@ -93,7 +96,7 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
     _table_ra = "raMean"
     _ra_unit = "deg"
     _table_dec = "decMean"
-    columns = {
+    columns: ClassVar[dict] = {
         "__link": "Name",
         "objID": "ID",
         "separation": "Separation, arcsec",
@@ -107,10 +110,10 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
     _detection_url = "https://catalogs.mast.stsci.edu/panstarrs/detections.html"
 
     _bands = "grizy"
-    _band_ids = dict(zip(count(1), _bands))
+    _band_ids: ClassVar[dict] = dict(zip(count(1), _bands))
     _phot_types = ("Ap", "PSF")
 
-    _value_with_uncertainty_columns = [
+    _value_with_uncertainty_columns: ClassVar[list] = [
         ValueWithUncertaintyColumn(value=f"{b}PSFMag", uncertainty=f"{b}PSFMagErr") for b in _bands
     ]
 
@@ -150,7 +153,7 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
         try:
             table = await _panstarrs_request("dr2", "stack", ra=coord.ra.deg, dec=coord.dec.deg, radius=radius_deg)
         except httpx.HTTPError as e:
-            logging.warning(e)
+            logger.warning(e)
             raise CatalogUnavailable(catalog=self)
         if len(table) == 0:
             raise NotFound
@@ -193,7 +196,7 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
         try:
             table = await _panstarrs_request("dr2", "detection", objID=int(row["objID"]))
         except httpx.HTTPError as e:
-            logging.info(str(e))
+            logger.info(str(e))
             raise CatalogUnavailable(catalog=self)
         if len(table) == 0:
             raise NotFound

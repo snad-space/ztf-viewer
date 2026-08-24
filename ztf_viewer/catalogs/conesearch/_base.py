@@ -2,9 +2,11 @@ import asyncio
 import dataclasses
 import inspect
 import logging
+
+logger = logging.getLogger(__name__)
 import urllib.parse
 from functools import partial
-from typing import Dict, List, Optional
+from typing import ClassVar
 
 import httpx
 import pandas as pd
@@ -44,9 +46,9 @@ def _ensure_coroutine(func):
 @dataclasses.dataclass
 class ValueWithIntervalColumn:
     value: str
-    lower: Optional[str] = None
-    upper: Optional[str] = None
-    name: Optional[str] = None
+    lower: str | None = None
+    upper: str | None = None
+    name: str | None = None
     float_decimal_digits: int = 3
 
     def __post_init__(self):
@@ -68,8 +70,8 @@ class ValueWithIntervalColumn:
 @dataclasses.dataclass
 class ValueWithUncertaintyColumn:
     value: str
-    uncertainty: Optional[str] = None
-    name: Optional[str] = None
+    uncertainty: str | None = None
+    name: str | None = None
     float_decimal_digits: int = 3
 
     def __post_init__(self):
@@ -87,7 +89,7 @@ class ValueWithUncertaintyColumn:
 
 
 class _BaseCatalogQuery:
-    __objects = {}
+    __objects: ClassVar[dict] = {}
 
     id_column = None
     type_column = None
@@ -102,10 +104,10 @@ class _BaseCatalogQuery:
     columns = None
 
     # classifier pretty name -> column name
-    _prob_class_columns: Dict[str, str] = {}
+    _prob_class_columns: ClassVar[dict[str, str]] = {}
 
-    _value_with_interval_columns: List[ValueWithIntervalColumn] = []
-    _value_with_uncertainty_columns: List[ValueWithUncertaintyColumn] = []
+    _value_with_interval_columns: ClassVar[list[ValueWithIntervalColumn]] = []
+    _value_with_uncertainty_columns: ClassVar[list[ValueWithUncertaintyColumn]] = []
 
     # Column keys with pre-built HTML cell values (see html_from_astropy_table's html_columns).
     # Subclasses with extra HTML columns should extend this, e.g. `frozenset({"__link", "x"})`.
@@ -128,7 +130,7 @@ class _BaseCatalogQuery:
         self._timeout_decorator = async_timeout(
             seconds=10.0,
             exception=CatalogUnavailable,
-            exception_kwargs=dict(catalog=self),
+            exception_kwargs={"catalog": self},
         )
 
     @classmethod
@@ -181,12 +183,12 @@ class _BaseCatalogQuery:
         await self._raise_if_unavailable_async()
         coord = SkyCoord(ra, dec, unit="deg", frame="icrs")
         radius = f"{radius_arcsec}s"
-        logging.info(f"Querying ra={ra}, dec={dec}, r={radius_arcsec}")
+        logger.info(f"Querying ra={ra}, dec={dec}, r={radius_arcsec}")
         query_region = self._timeout_decorator(_ensure_coroutine(self._query_region))
         try:
             table = await query_region(coord, radius=radius)
         except (RequestException, httpx.HTTPError) as e:  # a good chance to catch network or service problems
-            logging.warning(str(e))
+            logger.warning(str(e))
             raise CatalogUnavailable(catalog=self)
         if table is None:
             raise NotFound
@@ -281,7 +283,7 @@ class _BaseLightCurveQuery:
 
     @staticmethod
     def _empty_light_curve():
-        return Table(dict.fromkeys(["oid", "mjd", "mag", "magerr", "filter"], []))
+        return Table({key: [] for key in ["oid", "mjd", "mag", "magerr", "filter"]})
 
     async def closest_light_curve(self, ra, dec, radius_arcsec, fail_on_empty=True, fail_on_unavailable=True):
         try:
@@ -323,7 +325,7 @@ class _BaseCatalogApiQuery(_BaseCatalogQuery):
 
     def _raise_if_not_ok(self, response):
         if response.status_code != 200:
-            logging.warning(response.text)
+            logger.warning(response.text)
             raise CatalogUnavailable(response.text, catalog=self)
 
     async def _api_query_region(self, ra, dec, radius_arcsec):
@@ -351,7 +353,7 @@ class _BaseVizierQuery(_BaseCatalogQuery):
     _table_ra = "_RAJ2000"
     _ra_unit = "deg"
     _table_dec = "_DEJ2000"
-    _vizier_columns = ["*"]
+    _vizier_columns: ClassVar[list] = ["*"]
 
     @property
     def _vizier_catalog(self) -> str:

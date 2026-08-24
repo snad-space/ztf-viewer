@@ -1,4 +1,5 @@
 import urllib.parse
+from typing import ClassVar
 
 from markupsafe import Markup
 
@@ -10,7 +11,7 @@ class SdssQuasarsQuery(_BaseVizierQuery):
     id_column = "SDSS"
     type_column = "Class"
     redshift_column = "z"
-    columns = {
+    columns: ClassVar[dict] = {
         "__link": "SDSS",
         "separation": "Separation, arcsec",
         "Class": Markup("""
@@ -26,7 +27,7 @@ class SdssQuasarsQuery(_BaseVizierQuery):
         "imag": "i mag",
     }
 
-    _class_map = {
+    _class_map: ClassVar[dict] = {
         0: "not inspected",
         1: "star",
         3: "quasar",
@@ -35,7 +36,19 @@ class SdssQuasarsQuery(_BaseVizierQuery):
         50: "possible blazar",
     }
 
-    _vizier_columns = ["SDSS", "Class", "z", "QSO", "r_z", "gmag", "rmag", "imag", "Plate", "MJD", "Fiber"]
+    _vizier_columns: ClassVar[list] = [
+        "SDSS",
+        "Class",
+        "z",
+        "QSO",
+        "r_z",
+        "gmag",
+        "rmag",
+        "imag",
+        "Plate",
+        "MJD",
+        "Fiber",
+    ]
     _vizier_catalog = "VII/289/superset"
 
     @cache()

@@ -40,22 +40,22 @@ from ztf_viewer.catalogs.ztf_ref import ztf_ref
 from ztf_viewer.config import JS9_URL, ZTF_FITS_PROXY_URL
 from ztf_viewer.date_with_frac import DateWithFrac, correct_date
 from ztf_viewer.exceptions import CatalogUnavailable, NotFound
-from ztf_viewer.model_fit import model_fit
 from ztf_viewer.lc_data.plot_data import MJD_OFFSET, get_folded_plot_data, get_plot_data
 from ztf_viewer.lc_features import light_curve_features
+from ztf_viewer.model_fit import model_fit
 from ztf_viewer.util import (
+    DEFAULT_MIN_MAX_MJD,
     FILTER_COLORS,
     INF,
     ZTF_FILTERS,
     available_drs,
     format_sep,
+    hmjd_to_earth,
     html_from_astropy_table,
     immutabledefaultdict,
     list_join,
     min_max_mjd_short,
     to_str,
-    hmjd_to_earth,
-    DEFAULT_MIN_MAX_MJD,
 )
 
 LIGHT_CURVE_TABLE_COLUMNS = ("mjd", "mag", "magerr", "clrcoeff")
@@ -121,7 +121,7 @@ def parse_pathname(pathname):
 
 def parse_search(search_query: str) -> dict[str, Any]:
     parsed = parse_qs(urlparse(search_query).query)
-    result = dict()
+    result = {}
     result["min_mjd"] = float(parsed.get("min_mjd", [-INF])[-1])
     result["max_mjd"] = float(parsed.get("max_mjd", [INF])[-1])
     return result
@@ -479,7 +479,7 @@ async def get_layout(pathname, search):
                     html.H2("GCVS"),
                     dcc.Input(
                         value="10",
-                        id=dict(type="search-radius", index="gcvs"),
+                        id={"type": "search-radius", "index": "gcvs"},
                         placeholder="Search radius, arcsec",
                         type="number",
                     ),
@@ -493,7 +493,7 @@ async def get_layout(pathname, search):
                     html.H2("VSX"),
                     dcc.Input(
                         value="10",
-                        id=dict(type="search-radius", index="vsx"),
+                        id={"type": "search-radius", "index": "vsx"},
                         placeholder="Search radius, arcsec",
                         type="number",
                     ),
@@ -507,7 +507,7 @@ async def get_layout(pathname, search):
                     html.H2("SPICY"),
                     dcc.Input(
                         value="1",
-                        id=dict(type="search-radius", index="spicy"),
+                        id={"type": "search-radius", "index": "spicy"},
                         placeholder="Search radius, arcsec",
                         type="number",
                     ),
@@ -521,7 +521,7 @@ async def get_layout(pathname, search):
                     html.H2("SDSS DR16 Quasars"),
                     dcc.Input(
                         value="10",
-                        id=dict(type="search-radius", index="sdss-dr16-quasars"),
+                        id={"type": "search-radius", "index": "sdss-dr16-quasars"},
                         placeholder="Search radius, arcsec",
                         type="number",
                     ),
@@ -534,7 +534,7 @@ async def get_layout(pathname, search):
                     html.H2("ATLAS"),
                     dcc.Input(
                         value="10",
-                        id=dict(type="search-radius", index="atlas"),
+                        id={"type": "search-radius", "index": "atlas"},
                         placeholder="Search radius, arcsec",
                         type="number",
                     ),
@@ -548,7 +548,7 @@ async def get_layout(pathname, search):
                     html.H2("ZTF Catalog of Periodic Variable Stars"),
                     dcc.Input(
                         value="1",
-                        id=dict(type="search-radius", index="ztf-periodic"),
+                        id={"type": "search-radius", "index": "ztf-periodic"},
                         placeholder="Search radius, arcsec",
                         type="number",
                         min="0.1",
@@ -565,7 +565,7 @@ async def get_layout(pathname, search):
                     html.H2("Pan-STARRS DR2 Stacked"),
                     dcc.Input(
                         value="5",
-                        id=dict(type="search-radius", index="pan-starrs-dr2-stacked"),
+                        id={"type": "search-radius", "index": "pan-starrs-dr2-stacked"},
                         placeholder="Search radius, arcsec",
                         type="number",
                         step="1",
@@ -580,7 +580,7 @@ async def get_layout(pathname, search):
                     html.H2("Transient Name Server"),
                     dcc.Input(
                         value="5",
-                        id=dict(type="search-radius", index="transient-name-server"),
+                        id={"type": "search-radius", "index": "transient-name-server"},
                         placeholder="Search radius, arcsec",
                         type="number",
                         step="1",
@@ -596,7 +596,7 @@ async def get_layout(pathname, search):
                     # Fake input for arcsec
                     dcc.Input(
                         value="3600",
-                        id=dict(type="search-radius", index="astro-colibri"),
+                        id={"type": "search-radius", "index": "astro-colibri"},
                         type="number",
                         step="1",
                         style={"display": "none"},
@@ -619,7 +619,7 @@ async def get_layout(pathname, search):
                     html.H2("Astrocats"),
                     dcc.Input(
                         value="5",
-                        id=dict(type="search-radius", index="astrocats"),
+                        id={"type": "search-radius", "index": "astrocats"},
                         placeholder="Search radius, arcsec",
                         type="number",
                         step="1",
@@ -634,7 +634,7 @@ async def get_layout(pathname, search):
                     html.H2("Otter"),
                     dcc.Input(
                         value="5",
-                        id=dict(type="search-radius", index="otter"),
+                        id={"type": "search-radius", "index": "otter"},
                         placeholder="Search radius, arcsec",
                         type="number",
                         step="1",
@@ -649,7 +649,7 @@ async def get_layout(pathname, search):
                     html.H2("OGLE-III"),
                     dcc.Input(
                         value="10",
-                        id=dict(type="search-radius", index="ogle"),
+                        id={"type": "search-radius", "index": "ogle"},
                         placeholder="Search radius, arcsec",
                         type="number",
                         min="0.1",
@@ -665,7 +665,7 @@ async def get_layout(pathname, search):
                     html.H2("Simbad"),
                     dcc.Input(
                         value="50",
-                        id=dict(type="search-radius", index="simbad"),
+                        id={"type": "search-radius", "index": "simbad"},
                         placeholder="Search radius, arcsec",
                         type="number",
                     ),
@@ -679,7 +679,7 @@ async def get_layout(pathname, search):
                     html.H2("Gaia EDR3 Distances"),
                     dcc.Input(
                         value="1",
-                        id=dict(type="search-radius", index="gaia-edr3-distances"),
+                        id={"type": "search-radius", "index": "gaia-edr3-distances"},
                         placeholder="Search radius, arcsec",
                         type="number",
                     ),
@@ -693,7 +693,7 @@ async def get_layout(pathname, search):
                     html.H2("Gaia DR3"),
                     dcc.Input(
                         value="1",
-                        id=dict(type="search-radius", index="gaia-dr3"),
+                        id={"type": "search-radius", "index": "gaia-dr3"},
                         placeholder="Search radius, arcsec",
                         type="number",
                     ),
@@ -707,7 +707,7 @@ async def get_layout(pathname, search):
                     html.H2("ALeRCE"),
                     dcc.Input(
                         value="1",
-                        id=dict(type="search-radius", index="alerce"),
+                        id={"type": "search-radius", "index": "alerce"},
                         placeholder="Search radius, arcsec",
                         type="number",
                     ),
@@ -721,7 +721,7 @@ async def get_layout(pathname, search):
                     html.H2("Fink"),
                     dcc.Input(
                         value="1",
-                        id=dict(type="search-radius", index="fink"),
+                        id={"type": "search-radius", "index": "fink"},
                         placeholder="Search radius, arcsec",
                         type="number",
                     ),
@@ -777,7 +777,7 @@ async def get_layout(pathname, search):
                                 id="features-api-version",
                                 placeholder="light-curve-feature version",
                                 options=[
-                                    dict(value=v, label=f"{v}{LIGHT_CURVE_VALUE_VERSION_ANNOTATION[v]}")
+                                    {"value": v, "label": f"{v}{LIGHT_CURVE_VALUE_VERSION_ANNOTATION[v]}"}
                                     for v in feature_versions
                                 ],
                                 value="latest",
@@ -883,10 +883,10 @@ def show_error_message(message_fit, message_curve, list_models, old_header):
         Input("different_field_neighbours", "children"),
         Input("min-mjd", "value"),
         Input("max-mjd", "value"),
-        Input(dict(type="ref-mag-input", index=ALL), "id"),
-        Input(dict(type="ref-mag-input", index=ALL), "value"),
-        Input(dict(type="ref-magerr-input", index=ALL), "id"),
-        Input(dict(type="ref-magerr-input", index=ALL), "value"),
+        Input({"type": "ref-mag-input", "index": ALL}, "id"),
+        Input({"type": "ref-mag-input", "index": ALL}, "value"),
+        Input({"type": "ref-magerr-input", "index": ALL}, "id"),
+        Input({"type": "ref-magerr-input", "index": ALL}, "value"),
         Input("models-fit-dd", "value"),
     ],
 )
@@ -1005,7 +1005,7 @@ async def set_akb_info(_, oid):
             [
                 html.Div(
                     dcc.Checklist(
-                        id=dict(type="akb-tags", index=f"{row}-{column}"),
+                        id={"type": "akb-tags", "index": f"{row}-{column}"},
                         options=[{"label": tag["name"], "value": tag["name"]}],
                         value=[tag["name"]] if tag["name"] in tags_enabled else [],
                         labelStyle={"display": "inline-block"},
@@ -1093,7 +1093,7 @@ callback(
     [Input("akb-submit", "n_clicks")],
     [
         State("oid", "children"),
-        State(dict(type="akb-tags", index=ALL), "value"),
+        State({"type": "akb-tags", "index": ALL}, "value"),
         State("akb-description", "value"),
     ],
 )
@@ -1356,13 +1356,13 @@ async def show_ref_mag_or_magerr(oid, dr, different_filter, different_field):
 
 
 @callback(
-    Output(dict(type="ref-mag-input", index=MATCH), "value"),
-    Output(dict(type="ref-magerr-input", index=MATCH), "value"),
+    Output({"type": "ref-mag-input", "index": MATCH}, "value"),
+    Output({"type": "ref-magerr-input", "index": MATCH}, "value"),
     Input("dr", "children"),
-    Input(dict(type="ref-mag-link", index=MATCH), "n_clicks"),
-    State(dict(type="ref-mag-link", index=MATCH), "id"),
-    State(dict(type="ref-mag-input", index=ALL), "id"),
-    State(dict(type="ref-mag-input", index=ALL), "value"),
+    Input({"type": "ref-mag-link", "index": MATCH}, "n_clicks"),
+    State({"type": "ref-mag-link", "index": MATCH}, "id"),
+    State({"type": "ref-mag-input", "index": ALL}, "id"),
+    State({"type": "ref-mag-input", "index": ALL}, "value"),
 )
 async def set_ref_mag_magerr(dr, _n_clicks, link_id, all_mag_ids, all_mag_values):
     objectid = link_id["index"]
@@ -1386,8 +1386,8 @@ async def set_ref_mag_magerr(dr, _n_clicks, link_id, all_mag_ids, all_mag_values
         Input("dr", "children"),
         Input("different_filter_neighbours", "children"),
         Input("different_field_neighbours", "children"),
-        Input(dict(type="search-radius", index=ALL), "id"),
-        Input(dict(type="search-radius", index=ALL), "value"),
+        Input({"type": "search-radius", "index": ALL}, "id"),
+        Input({"type": "search-radius", "index": ALL}, "value"),
     ],
 )
 async def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_values):
@@ -1627,10 +1627,10 @@ def neighbour_oids(different_filter, different_field) -> frozenset:
         Input("light-curve-type", "value"),
         Input("fold-period", "value"),
         Input("fold-zero-phase", "value"),
-        Input(dict(type="ref-mag-input", index=ALL), "id"),
-        Input(dict(type="ref-mag-input", index=ALL), "value"),
-        Input(dict(type="ref-magerr-input", index=ALL), "id"),
-        Input(dict(type="ref-magerr-input", index=ALL), "value"),
+        Input({"type": "ref-mag-input", "index": ALL}, "id"),
+        Input({"type": "ref-mag-input", "index": ALL}, "value"),
+        Input({"type": "ref-magerr-input", "index": ALL}, "id"),
+        Input({"type": "ref-magerr-input", "index": ALL}, "value"),
         Input("additional-light-curves", "value"),
         Input("webgl-is-available", "children"),
         Input("models-fit-dd", "value"),
@@ -1814,8 +1814,8 @@ async def set_figure(
                     )
                 )
     figure.update_traces(
-        marker=dict(line=dict(width=0.5, color="black")),
-        selector=dict(mode="markers"),
+        marker={"line": {"width": 0.5, "color": "black"}},
+        selector={"mode": "markers"},
     )
     fw = go.FigureWidget(figure)
     fw.layout.hovermode = "closest"
@@ -1924,7 +1924,7 @@ async def find_neighbours(radius, center_oid, dr, different):
         find_ztf_oid.get_coord(center_oid, dr),
         find_ztf_oid.get_meta(center_oid, dr),
     )
-    kwargs = dict(ra=ra, dec=dec, radius_arcsec=radius, dr=dr)
+    kwargs = {"ra": ra, "dec": dec, "radius_arcsec": radius, "dr": dr}
     fltr = meta["filter"]
     fieldid = meta["fieldid"]
     j = await find_ztf_circle.find(**kwargs)
@@ -2008,9 +2008,9 @@ async def load_fits_for_graph_clicked(data, dr):
     date = DateWithFrac.from_hmjd(mjd, coord=coord)
     await correct_date(date)
     fits_url = urljoin(ZTF_FITS_PROXY_URL, date.sciimg_path(fieldid=fieldid, rcid=rcid, filter=fltr))
-    cutout_query = urlencode(dict(size="449pix", gzip="false", center=f"{ra},{dec}"))
+    cutout_query = urlencode({"size": "449pix", "gzip": "false", "center": f"{ra},{dec}"})
     fits_cutout_url = f"{fits_url}?{cutout_query}"
-    js9_url = f'{JS9_URL}?{urlencode(dict(url=fits_url,zoom=10,ra=ra,dec=dec,scale="histeq",flip="y"))}'
+    js9_url = f'{JS9_URL}?{urlencode({"url": fits_url,"zoom": 10,"ra": ra,"dec": dec,"scale": "histeq","flip": "y"})}'
     prod_dir_url = urljoin(ZTF_FITS_PROXY_URL, date.products_path)
     return [
         html.Div(ra, id="fits-to-show-ra", style={"display": "none"}),
@@ -2047,7 +2047,7 @@ async def update_skybot_for_graph_clicked(data, dr):
 
 
 @callback(
-    Output(dict(type="search-radius", index="astro-colibri"), "value"),
+    Output({"type": "search-radius", "index": "astro-colibri"}, "value"),
     [Input("astro-colibri-search-radius-degrees", "value")],
 )
 def convert_astro_colibri_search_radius_to_arcsec(radius_deg):
@@ -2086,7 +2086,7 @@ def set_tables():
     for catalog in catalog_query_objects():
         callback(
             Output(f"{catalog}-table", "children"),
-            [Input(dict(type="search-radius", index=catalog), "value")],
+            [Input({"type": "search-radius", "index": catalog}, "value")],
             [
                 State("oid", "children"),
                 State("dr", "children"),

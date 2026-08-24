@@ -1,5 +1,3 @@
-from typing import List
-
 from ztf_viewer.cache import cache
 from ztf_viewer.catalogs.ztf_dr import find_ztf_oid
 from ztf_viewer.config import FEATURES_API_URL, TIMEOUT_FEATURES
@@ -14,7 +12,7 @@ class LightCurveFeatures:
         self._find_ztf_oid = find_ztf_oid
 
     @cache()
-    async def versions(self) -> List[str]:
+    async def versions(self) -> list[str]:
         url = f"{self._base_api_url}/versions"
         client = get_client()
         resp = await client.get(url, timeout=TIMEOUT_FEATURES)
@@ -28,8 +26,8 @@ class LightCurveFeatures:
     @cache()
     async def __call__(self, oid, dr, version, min_mjd=None, max_mjd=None):
         lc = await find_ztf_oid.get_lc(oid, dr, min_mjd=min_mjd, max_mjd=max_mjd)
-        light_curve = [dict(t=obs["mjd"], m=obs["mag"], err=obs["magerr"]) for obs in lc]
-        j = dict(light_curve=light_curve)
+        light_curve = [{"t": obs["mjd"], "m": obs["mag"], "err": obs["magerr"]} for obs in lc]
+        j = {"light_curve": light_curve}
         client = get_client()
         resp = await client.post(self.url(version), json=j, timeout=TIMEOUT_FEATURES)
         if resp.status_code != 200:

@@ -38,24 +38,22 @@ the purpose.
 import asyncio
 import threading
 import weakref
-from typing import Callable, Generic, Optional, TypeVar
-
-_T = TypeVar("_T")
+from collections.abc import Callable
 
 
-class LoopRegistry(Generic[_T]):
+class LoopRegistry[T]:
     """One instance of a loop-affine resource per running event loop.
 
     ``factory`` is called with no arguments to build a fresh resource; it must not do anything
     that only makes sense on a particular loop until :meth:`get` actually calls it.
     """
 
-    def __init__(self, factory: Callable[[], _T]):
+    def __init__(self, factory: Callable[[], T]):
         self._factory = factory
-        self._entries: "weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, _T]" = weakref.WeakKeyDictionary()
+        self._entries: weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, T] = weakref.WeakKeyDictionary()
         self._registry_lock = threading.Lock()
 
-    def get(self) -> _T:
+    def get(self) -> T:
         loop = asyncio.get_running_loop()
         with self._registry_lock:
             resource = self._entries.get(loop)
@@ -76,7 +74,7 @@ class LoopRegistry(Generic[_T]):
         for loop in [loop for loop in list(self._entries) if loop.is_closed()]:
             del self._entries[loop]
 
-    def discard(self, loop: Optional[asyncio.AbstractEventLoop] = None) -> None:
+    def discard(self, loop: asyncio.AbstractEventLoop | None = None) -> None:
         """Drop the entry for `loop` (the running loop by default), if any."""
         if loop is None:
             loop = asyncio.get_running_loop()

@@ -37,7 +37,7 @@ from pathlib import Path
 # repo root first so the code under test is actually the one being edited.
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from ztf_viewer import config  # noqa: E402
+from ztf_viewer import config
 
 # Force the in-memory cache backend before any `ztf_viewer` submodule imports it, the same way
 # tests/pages/test_viewer.py does -- a Redis-backed cache would carry a hit across "cold" runs.
@@ -71,7 +71,7 @@ async def _run(oid, dr, radius_arcsec, n_runs):
 
     get_summary = inspect.unwrap(viewer.get_summary)
     catalogs = list(catalog_query_objects())
-    radius_ids = [dict(type="search-radius", index=name) for name in catalogs]
+    radius_ids = [{"type": "search-radius", "index": name} for name in catalogs]
     radius_values = [radius_arcsec] * len(catalogs)
 
     print(f"oid={oid} dr={dr} catalogs={len(catalogs)} radius_arcsec={radius_arcsec} runs={n_runs}\n")

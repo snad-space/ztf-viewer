@@ -20,8 +20,8 @@ from ztf_viewer import config
 config.CACHE_TYPE = "memory"
 config.UNAVAILABLE_CATALOGS_CACHE_TYPE = "memory"
 
-from ztf_viewer.exceptions import CatalogUnavailable, NotFound  # noqa: E402
-from ztf_viewer.pages import lc_csv  # noqa: E402
+from ztf_viewer.exceptions import CatalogUnavailable, NotFound
+from ztf_viewer.pages import lc_csv
 
 OIDS = ["1", "2", "3", "4", "5"]
 DELAY = 0.2
@@ -87,9 +87,9 @@ async def test_get_csv_unexpected_ref_exception_is_not_swallowed():
         patch.object(lc_csv.find_ztf_oid, "get_lc", fake_get_lc),
         patch.object(lc_csv.find_ztf_oid, "get_meta", fake_get_meta),
         patch.object(lc_csv.ztf_ref, "get", fake_ref_get),
+        pytest.raises(ValueError, match="not one of the swallowed types"),
     ):
-        with pytest.raises(ValueError, match="not one of the swallowed types"):
-            await lc_csv.get_csv("dr24", ["1"])
+        await lc_csv.get_csv("dr24", ["1"])
 
 
 async def test_get_csv_raises_not_found_when_lc_is_missing():
@@ -106,6 +106,6 @@ async def test_get_csv_raises_not_found_when_lc_is_missing():
         patch.object(lc_csv.find_ztf_oid, "get_lc", fake_get_lc),
         patch.object(lc_csv.find_ztf_oid, "get_meta", fake_get_meta),
         patch.object(lc_csv.ztf_ref, "get", fake_ref_get),
+        pytest.raises(NotFound),
     ):
-        with pytest.raises(NotFound):
-            await lc_csv.get_csv("dr24", ["1"])
+        await lc_csv.get_csv("dr24", ["1"])

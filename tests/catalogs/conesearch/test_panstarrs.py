@@ -57,6 +57,7 @@ async def test_query_region():
     The base class passes radius as a string of arcseconds, e.g. "180.0s".
     """
     from astropy.coordinates import SkyCoord
+
     from ztf_viewer.catalogs.conesearch.panstarrs import PanstarrsDr2StackedQuery
 
     q = PanstarrsDr2StackedQuery("test")

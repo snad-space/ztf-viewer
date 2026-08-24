@@ -33,9 +33,10 @@ def _flask_import_sites(path):
         if isinstance(node, ast.Import):
             if any(alias.name == "flask" or alias.name.startswith("flask.") for alias in node.names):
                 sites.append(f"{_rel(path)}:{node.lineno} {ast.unparse(node)}")
-        elif isinstance(node, ast.ImportFrom):
-            if node.module == "flask" or (node.module is not None and node.module.startswith("flask.")):
-                sites.append(f"{_rel(path)}:{node.lineno} {ast.unparse(node)}")
+        elif isinstance(node, ast.ImportFrom) and (
+            node.module == "flask" or (node.module is not None and node.module.startswith("flask."))
+        ):
+            sites.append(f"{_rel(path)}:{node.lineno} {ast.unparse(node)}")
     return sites
 
 

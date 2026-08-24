@@ -1,5 +1,7 @@
 import asyncio
 import logging
+
+logger = logging.getLogger(__name__)
 from io import BytesIO
 from pathlib import Path
 
@@ -10,7 +12,7 @@ from astropy.io import fits
 from ztf_viewer.cache import cache
 from ztf_viewer.catalogs import find_ztf_oid
 from ztf_viewer.config import TIMEOUT_ZTF_FITS_PROXY, ZTF_FITS_PROXY_URL
-from ztf_viewer.exceptions import NotFound, CatalogUnavailable
+from ztf_viewer.exceptions import CatalogUnavailable, NotFound
 from ztf_viewer.http import get_client
 from ztf_viewer.util import ccdid_from_rcid, qid_from_rcid
 
@@ -22,7 +24,7 @@ def _parse_fits(data: bytes, url: str, sourceid: int) -> dict:
         table = f[1].data
         where = np.where(table["sourceid"] == sourceid)[0]
         if where.size == 0:
-            logging.warning(f"Object with sourceid={sourceid} is not found in the reference catalog file {url}")
+            logger.warning(f"Object with sourceid={sourceid} is not found in the reference catalog file {url}")
             raise NotFound
         idx = where.item()
         record = dict(zip(table.names, table[idx]))

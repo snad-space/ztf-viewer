@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 from ztf_viewer.catalogs.conesearch._base import (
     _BaseCatalogApiQuery,
     _BaseNameResolverQuery,
@@ -14,7 +16,7 @@ class TnsQuery(_BaseCatalogApiQuery, _BaseNameResolverQuery):
     _table_ra = "ra"
     _ra_unit = "deg"
     _table_dec = "declination"
-    columns = {
+    columns: ClassVar[dict] = {
         "__link": "Name",
         "separation": "Separation, arcsec",
         "discoverydate": "Discovery date",

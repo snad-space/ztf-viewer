@@ -1,5 +1,8 @@
 import logging
 
+logger = logging.getLogger(__name__)
+from typing import ClassVar
+
 import numpy as np
 from astropy.time import Time, TimeDelta
 from astroquery.gaia import GaiaClass
@@ -17,7 +20,7 @@ from ztf_viewer.util import LGE_25
 
 class GaiaDr3Query(_BaseVizierQuery, _BaseLightCurveQuery):
     id_column = "Source"
-    columns = {
+    columns: ClassVar[dict] = {
         "__link": "Source ID",
         "separation": "Sep, arcsec",
         "_A0": "A(λ=5477Å), mag",
@@ -33,9 +36,9 @@ class GaiaDr3Query(_BaseVizierQuery, _BaseLightCurveQuery):
     }
 
     _prob_class_column = "classifications"
-    _prob_class_columns = {"": _prob_class_column}
+    _prob_class_columns: ClassVar[dict] = {"": _prob_class_column}
 
-    _vizier_columns = [
+    _vizier_columns: ClassVar[list] = [
         id_column,
         "Teff",
         "b_Teff",
@@ -62,30 +65,30 @@ class GaiaDr3Query(_BaseVizierQuery, _BaseLightCurveQuery):
     ]
     _vizier_catalog = "I/355/gaiadr3"
 
-    _value_with_interval_columns = [
+    _value_with_interval_columns: ClassVar[list] = [
         ValueWithIntervalColumn(value="A0"),
         ValueWithIntervalColumn(value="Teff", float_decimal_digits=1),
         ValueWithIntervalColumn(value="logg"),
         ValueWithIntervalColumn(name="_[Fe/H]", value="[Fe/H]", lower="b_[Fe/H]", upper="B_[Fe/H]"),
     ]
-    _value_with_uncertainty_columns = [
+    _value_with_uncertainty_columns: ClassVar[list] = [
         ValueWithUncertaintyColumn(value="Plx"),
         ValueWithUncertaintyColumn(value="pmRA"),
         ValueWithUncertaintyColumn(value="pmDE"),
     ]
 
     # https://www.cosmos.esa.int/web/gaia/edr3-passbands
-    AB_ZP = {
+    AB_ZP: ClassVar[dict] = {
         "G": 25.8010446445,
         "BP": 25.3539555559,
         "RP": 25.1039837393,
     }
-    AB_ZP_ERR = {
+    AB_ZP_ERR: ClassVar[dict] = {
         "G": 0.0027590522,
         "BP": 0.0023065687,
         "RP": 0.0015800349,
     }
-    BANDS = ["G", "BP", "RP"]
+    BANDS: ClassVar[list] = ["G", "BP", "RP"]
 
     def __init__(self, query_name):
         super().__init__(query_name)
@@ -140,7 +143,7 @@ class GaiaDr3Query(_BaseVizierQuery, _BaseLightCurveQuery):
                 data_structure="INDIVIDUAL",
             )
         except RequestException as e:
-            logging.warning(str(e))
+            logger.warning(str(e))
             raise CatalogUnavailable(catalog=self)
 
         if len(result) == 0:
