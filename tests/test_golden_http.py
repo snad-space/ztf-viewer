@@ -87,9 +87,10 @@ def client(dash_app):
     """
     from fastapi.testclient import TestClient
 
-    from tests.conftest import reset_shared_thread_pool
+    from tests.conftest import reset_shared_process_pool, reset_shared_thread_pool
 
     reset_shared_thread_pool()
+    reset_shared_process_pool()
     with TestClient(dash_app.server) as test_client:
         yield test_client
 
