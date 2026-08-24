@@ -21,5 +21,14 @@ class GcvsQuery(_BaseVizierQuery):
         "SpType": "Spectral type",
     }
 
-    _vizier_columns: ClassVar[list] = ["GCVS", "VarType", "magMax", "Period", "SpType", "VarTypeII", "VarName", "Simbad"]
+    _vizier_columns: ClassVar[list] = [
+        "GCVS",
+        "VarType",
+        "magMax",
+        "Period",
+        "SpType",
+        "VarTypeII",
+        "VarName",
+        "Simbad",
+    ]
     _vizier_catalog = "B/gcvs/gcvs_cat"

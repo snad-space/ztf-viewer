@@ -36,7 +36,19 @@ class SdssQuasarsQuery(_BaseVizierQuery):
         50: "possible blazar",
     }
 
-    _vizier_columns: ClassVar[list] = ["SDSS", "Class", "z", "QSO", "r_z", "gmag", "rmag", "imag", "Plate", "MJD", "Fiber"]
+    _vizier_columns: ClassVar[list] = [
+        "SDSS",
+        "Class",
+        "z",
+        "QSO",
+        "r_z",
+        "gmag",
+        "rmag",
+        "imag",
+        "Plate",
+        "MJD",
+        "Fiber",
+    ]
     _vizier_catalog = "VII/289/superset"
 
     @cache()
