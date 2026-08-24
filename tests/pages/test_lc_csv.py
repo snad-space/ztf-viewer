@@ -12,8 +12,16 @@ from unittest.mock import patch
 
 import pytest
 
-from ztf_viewer.exceptions import CatalogUnavailable, NotFound
-from ztf_viewer.pages import lc_csv
+from ztf_viewer import config
+
+# `ztf_viewer.catalogs` builds `unavailable_catalogs` at import time, against Redis unless the
+# config says otherwise. Force the in-memory backend before that import happens at all --
+# `tests/conftest.py`'s per-test hook runs too late for a module-level import during collection.
+config.CACHE_TYPE = "memory"
+config.UNAVAILABLE_CATALOGS_CACHE_TYPE = "memory"
+
+from ztf_viewer.exceptions import CatalogUnavailable, NotFound  # noqa: E402
+from ztf_viewer.pages import lc_csv  # noqa: E402
 
 OIDS = ["1", "2", "3", "4", "5"]
 DELAY = 0.2

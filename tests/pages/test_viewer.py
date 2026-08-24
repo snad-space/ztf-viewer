@@ -232,6 +232,21 @@ async def test_get_summary_propagates_exception_not_in_the_swallow_list(summary_
             await _run_get_summary(["stub"], summary_upstreams)
 
 
+async def test_get_summary_skips_catalog_with_no_radius_input(summary_upstreams):
+    """Not every registered catalog has a search-radius input in the layout, so `radii` is missing
+    keys for those -- they must be skipped like any other per-catalog failure, not blow up the
+    whole summary. Guards against the radius lookup escaping the swallow list."""
+    catalogs = {"other": _other_succeeding_catalog(), "no-radius": _other_succeeding_catalog()}
+    with patch.object(viewer, "catalog_query_objects", lambda: catalogs):
+        with_missing = await _run_get_summary(["other"], summary_upstreams)
+
+    only_other = {"other": _other_succeeding_catalog()}
+    with patch.object(viewer, "catalog_query_objects", lambda: only_other):
+        without = await _run_get_summary(["other"], summary_upstreams)
+
+    assert _dump(with_missing) == _dump(without)
+
+
 async def test_get_summary_mixed_success_and_failures(summary_upstreams):
     catalogs = {
         "not-found": _StubCatalogQuery("Not Found Catalog", exc=NotFound()),

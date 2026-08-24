@@ -1397,9 +1397,14 @@ async def get_summary(oid, dr, different_filter, different_field, radius_ids, ra
     ra, dec = await find_ztf_oid.get_coord(oid, dr)
     coord = await find_ztf_oid.get_sky_coord(oid, dr)
 
+    async def find_in_catalog(catalog, query):
+        # radii is keyed by the radius inputs the layout renders, which don't cover every
+        # registered catalog -- the lookup has to fail inside the task so gather returns it.
+        return await query.find(ra, dec, radii[catalog])
+
     catalogs = catalog_query_objects()
     catalog_results = await asyncio.gather(
-        *(query.find(ra, dec, radii[catalog]) for catalog, query in catalogs.items()),
+        *(find_in_catalog(catalog, query) for catalog, query in catalogs.items()),
         return_exceptions=True,
     )
     catalog_tables = OrderedDict()
