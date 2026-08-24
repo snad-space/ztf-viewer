@@ -196,7 +196,7 @@ class _BaseCatalogQuery:
             table = table[0]
         if len(table) == 0:
             raise NotFound
-        self.add_additional_columns(table)
+        await self.add_additional_columns(table)
         table["separation"] = coord.separation(table["__coord"]).to("arcsec")
         table.sort("separation")
         return table
@@ -205,7 +205,7 @@ class _BaseCatalogQuery:
         table = await self.find(ra, dec, radius_arcsec)
         return table[0]
 
-    def add_additional_columns(self, table):
+    async def add_additional_columns(self, table):
         self.add_objname_column(table)
         self.add_coord_column(table)
         self.add_link_column(table)
@@ -214,7 +214,7 @@ class _BaseCatalogQuery:
         self.add_redshift_column(table)
         self.add_distance_column(table)
         self.add_event_mjd_column(table)
-        self.add_prob_class_columns(table)
+        await self.add_prob_class_columns(table)
         self.add_value_interval_columns(table)
         self.add_value_uncertaincy_columns(table)
 
@@ -263,7 +263,7 @@ class _BaseCatalogQuery:
         if self.event_mjd_column is not None:
             table["__event_mjd"] = table[self.event_mjd_column]
 
-    def add_prob_class_columns(self, table):
+    async def add_prob_class_columns(self, table):
         """Assign column values to {'class': probability, ...}"""
         if len(self._prob_class_columns) != 0:
             raise NotImplementedError

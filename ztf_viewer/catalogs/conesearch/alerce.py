@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from itertools import chain
 from typing import Dict, Tuple
@@ -109,7 +110,11 @@ class AlerceQuery(_BaseCatalogApiQuery):
         table = Table.from_pandas(df)
         return table
 
-    def add_prob_class_columns(self, table):
+    async def add_prob_class_columns(self, table):
+        # Queries Alerce once per row, so it cannot run inline on the event loop.
+        await asyncio.to_thread(self._add_prob_class_columns_sync, table)
+
+    def _add_prob_class_columns_sync(self, table):
         for column in self._prob_class_columns.values():
             table[column] = [{} for _ in range(len(table))]
         for row in table:

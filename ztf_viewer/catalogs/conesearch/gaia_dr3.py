@@ -156,7 +156,7 @@ class GaiaDr3Query(_BaseVizierQuery, _BaseLightCurveQuery):
             raise NotFound
         return self._table_to_light_curve(id, table)
 
-    def add_prob_class_columns(self, table):
+    async def add_prob_class_columns(self, table):
         table["classifications"] = [{} for _ in range(len(table))]
         for row in table:
             for pretty_name, column_name in [("Quasar", "PQSO"), ("galaxy", "PGal"), ("single star", "PSS")]:
