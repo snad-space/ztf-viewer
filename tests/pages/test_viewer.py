@@ -1,26 +1,28 @@
-"""Characterization snapshots for `ztf_viewer.pages.viewer` callbacks.
+"""Assertion-based tests for `ztf_viewer.pages.viewer` callbacks.
 
 Dash callbacks are ordinary functions: call them directly with hand-built inputs, stub the
-upstream calls they make, and pin the returned component tree by serializing it the way Dash
-itself would (`plotly.utils.PlotlyJSONEncoder`, which dispatches to a component's own
-`to_plotly_json()`). There is no replay layer here, so this covers only callbacks whose output is
-a pure-enough function of stubbed inputs -- not anything that would need a recorded upstream
-payload to be interesting.
+upstream calls they make, and assert on what comes back.
 
 The highest-value part is `get_summary`'s per-catalog failure handling: each catalog in its two
 loops is queried independently and a failure in one must not affect the others. A rewrite of that
 loop (e.g. into a concurrent fan-out) has to preserve exactly which exceptions are swallowed and
-which are not; these snapshots are how a future rewrite proves it still does.
+which are not. That claim is asserted two ways here:
+
+- For the failure paths themselves, by calling `get_summary` twice -- once with a catalog that
+  fails, once with that catalog simply absent -- and asserting the two outputs are identical.
+  A failing catalog must be indistinguishable from one that was never queried.
+- For the mixed success/failure case, by projecting the returned component tree down to its
+  visible text and meaningful `href`s and comparing that against an inline literal, so the
+  expectation is readable in the diff instead of living in a committed JSON file.
 
 Everything here runs against stub catalogs and stub upstream calls -- no network, no real catalog
 data. Anything Simbad-derived would have unstable column order (set iteration, per-process) and
 is out of scope for exactly that reason.
 """
 
+import contextlib
 import inspect
 import json
-import os
-from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -50,24 +52,28 @@ set_features_list = inspect.unwrap(viewer.set_features_list)
 set_lc_table = inspect.unwrap(viewer.set_lc_table)
 set_figure_link = viewer.set_figure_link  # a plain function, never wrapped
 
-_GOLDEN_DIR = Path(__file__).parent.parent / "golden" / "pages_viewer"
+
+def _dump(component) -> str:
+    """Serialize a Dash component the way Dash itself would, for comparing two live results."""
+    return json.dumps(component, cls=PlotlyJSONEncoder, sort_keys=True)
 
 
-def assert_matches_golden(name: str, component) -> None:
-    """Compare `component`'s Dash-JSON serialization against a committed snapshot.
+def _project(node):
+    """Reduce a Dash component tree to the text and hrefs it renders.
 
-    Set the ``UPDATE_CALLBACK_GOLDEN=1`` environment variable to (re)write the snapshot instead
-    of asserting against it.
+    Drops `style` and every other cosmetic prop, but keeps order, nesting, and -- for links --
+    both the visible text and the `href`, so which value came from which catalog stays visible
+    and assertable.
     """
-    payload = json.dumps(component, cls=PlotlyJSONEncoder, indent=2, sort_keys=True) + "\n"
-    path = _GOLDEN_DIR / f"{name}.json"
-    if os.environ.get("UPDATE_CALLBACK_GOLDEN"):
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(payload)
-        return
-    if not path.exists():
-        pytest.fail(f"No golden snapshot at {path}; run with UPDATE_CALLBACK_GOLDEN=1 to create it.")
-    assert payload == path.read_text(), f"{name!r} drifted from its committed snapshot at {path}"
+    if node is None or isinstance(node, str):
+        return node
+    if isinstance(node, (int, float)):
+        return str(node)
+    if isinstance(node, (list, tuple)):
+        return [_project(child) for child in node]
+    href = getattr(node, "href", None)
+    text = _project(getattr(node, "children", None))
+    return {"text": text, "href": href} if href is not None else text
 
 
 # ---------------------------------------------------------------------------------------------
@@ -171,35 +177,57 @@ def _run_get_summary(catalogs, summary_upstreams):
     )
 
 
-async def test_get_summary_catalog_raises_not_found(summary_upstreams):
-    with patch.object(viewer, "catalog_query_objects", lambda: {"stub": _StubCatalogQuery("stub", exc=NotFound())}):
-        div = await _run_get_summary(["stub"], summary_upstreams)
-    assert_matches_golden("get_summary_catalog_raises_not_found", div)
+def _other_succeeding_catalog():
+    """A catalog that always succeeds, used to prove failing catalogs don't disturb their peers."""
+    return _StubCatalogQuery("Other Catalog", table=_stub_table(objname="Other Object", type_="SN II"))
 
 
-async def test_get_summary_catalog_raises_catalog_unavailable(summary_upstreams):
-    stub = _StubCatalogQuery("stub", exc=CatalogUnavailable("stub: boom"))
-    with patch.object(viewer, "catalog_query_objects", lambda: {"stub": stub}):
-        div = await _run_get_summary(["stub"], summary_upstreams)
-    assert_matches_golden("get_summary_catalog_raises_catalog_unavailable", div)
+@contextlib.contextmanager
+def _failing_catalog(exc):
+    yield {"stub": _StubCatalogQuery("stub", exc=exc), "other": _other_succeeding_catalog()}
 
 
-async def test_get_summary_catalog_raises_key_error(summary_upstreams):
-    stub = _StubCatalogQuery("stub", exc=KeyError("missing-column"))
-    with patch.object(viewer, "catalog_query_objects", lambda: {"stub": stub}):
-        div = await _run_get_summary(["stub"], summary_upstreams)
-    assert_matches_golden("get_summary_catalog_raises_key_error", div)
-
-
-async def test_get_summary_catalog_in_unavailable_catalogs(summary_upstreams):
+@contextlib.contextmanager
+def _catalog_in_unavailable_catalogs():
     stub = _UnavailableCheckingCatalogQuery("stub-unavailable-catalog")
     unavailable_catalogs.add(stub.query_name)
     try:
-        with patch.object(viewer, "catalog_query_objects", lambda: {"stub": stub}):
-            div = await _run_get_summary(["stub"], summary_upstreams)
+        yield {"stub": stub, "other": _other_succeeding_catalog()}
     finally:
         unavailable_catalogs.remove(stub.query_name)
-    assert_matches_golden("get_summary_catalog_in_unavailable_catalogs", div)
+
+
+@pytest.mark.parametrize(
+    "make_failing_catalogs",
+    [
+        lambda: _failing_catalog(NotFound()),
+        lambda: _failing_catalog(CatalogUnavailable("stub: boom")),
+        lambda: _failing_catalog(KeyError("missing-column")),
+        _catalog_in_unavailable_catalogs,
+    ],
+    ids=["not_found", "catalog_unavailable", "key_error", "in_unavailable_catalogs"],
+)
+async def test_get_summary_failing_catalog_matches_catalog_absent(make_failing_catalogs, summary_upstreams):
+    """A catalog that fails must render identically to a catalog that was never queried at all,
+    and must not disturb the catalogs that do succeed."""
+    with make_failing_catalogs() as catalogs:
+        with patch.object(viewer, "catalog_query_objects", lambda: catalogs):
+            failing = await _run_get_summary(list(catalogs), summary_upstreams)
+
+    absent_catalogs = {"other": _other_succeeding_catalog()}
+    with patch.object(viewer, "catalog_query_objects", lambda: absent_catalogs):
+        absent = await _run_get_summary(list(absent_catalogs), summary_upstreams)
+
+    assert _dump(failing) == _dump(absent)
+
+
+async def test_get_summary_propagates_exception_not_in_the_swallow_list(summary_upstreams):
+    """Only NotFound/CatalogUnavailable/KeyError are expected per-catalog failures; anything else
+    is a bug in the catalog and must propagate rather than be silently swallowed."""
+    stub = _StubCatalogQuery("stub", exc=RuntimeError("boom"))
+    with patch.object(viewer, "catalog_query_objects", lambda: {"stub": stub}):
+        with pytest.raises(RuntimeError):
+            await _run_get_summary(["stub"], summary_upstreams)
 
 
 async def test_get_summary_mixed_success_and_failures(summary_upstreams):
@@ -214,7 +242,31 @@ async def test_get_summary_mixed_success_and_failures(summary_upstreams):
     }
     with patch.object(viewer, "catalog_query_objects", lambda: catalogs):
         div = await _run_get_summary(list(catalogs), summary_upstreams)
-    assert_matches_golden("get_summary_mixed_success_and_failures", div)
+
+    success_link = {"text": "Success Catalog", "href": "#success"}
+    antares_href = (
+        "https://antares.noirlab.edu/loci?query=%7B%22filters%22%3A+%5B%7B%22type%22%3A+%22sky_distance%22%2C+"
+        "%22field%22%3A+%7B%22distance%22%3A+%220.0008333333333333334+degree%22%2C+%22htm16%22%3A+%7B%22center%22"
+        "%3A+%2210.0+20.0%22%7D%7D%2C+%22text%22%3A+%22Cone+Search+for+ZTF+DR+633207400004730+3%5Cu2033%22%7D%5D%7D"
+    )
+    assert _project(div) == [
+        ["Name", ": ", ["Stub SN 2020xyz (4.940″ ", success_link, ")"]],
+        ["Type", ": ", ["SN Ia (4.940″ ", success_link, ")"]],
+        ["Distance", ": ", ["100.000 (z=0.020, 4.940″ ", success_link, ")"]],
+        ["Average mag (including neighbourhood)", ": ", "zg  18.00", ", ", "zr  17.40", ", ", "(zg–zr)  0.60"],
+        [
+            "Search in brokers",
+            ": ",
+            {"text": "ALeRCE", "href": "https://alerce.online/?ra=10.0&dec=20.0&radius=3&page=1"},
+            ", ",
+            {"text": "Antares", "href": antares_href},
+            ", ",
+            {"text": "Fink", "href": "https://ztf.fink-portal.org/?action=conesearch&ra=10.0&dec=20.0&radius=3"},
+            ", ",
+            {"text": "MARS", "href": "https://mars.lco.global/?cone=10.0%2C20.0%2C0.0008333333333333334"},
+        ],
+        ["Coordinates", ": ", "Eq 10.00000 +20.00000", ", ", "Gal 00h40m00s +20d00m00s"],
+    ]
 
 
 # ---------------------------------------------------------------------------------------------
@@ -228,7 +280,7 @@ async def test_get_layout_404_when_object_not_found():
 
     with patch.object(viewer.find_ztf_oid, "find", fake_find):
         div = await get_layout("/dr24/view/1", search="")
-    assert_matches_golden("get_layout_404_when_object_not_found", div)
+    assert _project(div) == ["404", "Object 1 is not found in ZTF DR24"]
 
 
 # ---------------------------------------------------------------------------------------------
@@ -261,7 +313,14 @@ async def test_get_metadata_without_reference_image():
         patch.object(viewer.ztf_ref, "get", fake_ztf_ref_get),
     ):
         div = await get_metadata(oid="633207400004730", dr="dr24")
-    assert_matches_golden("get_metadata_without_reference_image", div)
+    assert _project(div) == [
+        "**nobs**: 42",
+        "**ngoodobs**: 40",
+        "**filter**: zg",
+        "**coord_string**: 10.00000 +20.00000",
+        "**fieldid**: 796",
+        "**rcid**: 12",
+    ]
 
 
 async def test_get_metadata_with_reference_image():
@@ -280,7 +339,17 @@ async def test_get_metadata_with_reference_image():
         patch.object(viewer.ztf_ref, "get", fake_ztf_ref_get),
     ):
         div = await get_metadata(oid="633207400004730", dr="dr24")
-    assert_matches_golden("get_metadata_with_reference_image", div)
+    assert _project(div) == [
+        "**nobs**: 42",
+        "**ngoodobs**: 40",
+        "**filter**: zg",
+        "**coord_string**: 10.00000 +20.00000",
+        "**fieldid**: 796",
+        "**rcid**: 12",
+        "**ref_mag**: 44.825",
+        "**ref_magerr**: 0.050",
+        "**ref_flags**: 0",
+    ]
 
 
 # ---------------------------------------------------------------------------------------------
@@ -292,7 +361,7 @@ async def test_set_features_list_success():
     features = {"amplitude": 1.2345, "period_0_magn": 3.4567}
     with patch.object(viewer, "light_curve_features", AsyncMock(return_value=features)):
         div = await set_features_list(oid="633207400004730", dr="dr24", version="latest", min_mjd=None, max_mjd=None)
-    assert_matches_golden("set_features_list_success", div)
+    assert _project(div) == ["**amplitude**: 1.234", "**period_0_magn**: 3.457"]
 
 
 async def test_set_features_list_not_found():
