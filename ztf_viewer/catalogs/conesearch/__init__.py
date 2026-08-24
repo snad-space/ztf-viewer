@@ -2,7 +2,6 @@ from ._base import _BaseCatalogQuery
 from .alerce import AlerceQuery
 from .antares import AntaresQuery
 from .astrocats import AstrocatsQuery
-from .otter import OtterQuery
 from .atlas import AtlasQuery
 from .colibri import ColibriQuery
 from .fink import FinkQuery
@@ -11,6 +10,7 @@ from .gaia_dr3 import GaiaDr3Query
 from .gaia_edr3_dis import GaiaEdr3Dis
 from .gcvs import GcvsQuery
 from .ogle import OgleQuery
+from .otter import OtterQuery
 from .panstarrs import PanstarrsDr2StackedQuery
 from .sdss import SdssQuasarsQuery
 from .simbad import SimbadQuery

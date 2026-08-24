@@ -18,7 +18,7 @@ from ztf_viewer import config
 config.CACHE_TYPE = "memory"
 config.UNAVAILABLE_CATALOGS_CACHE_TYPE = "memory"
 
-from ztf_viewer.pages import tags  # noqa: E402
+from ztf_viewer.pages import tags
 
 # Callback registration may wrap the function; the body under test is the innermost one.
 set_save_status = inspect.unwrap(tags.set_save_status)

@@ -4,7 +4,6 @@ import inspect
 import logging
 import urllib.parse
 from functools import partial
-from typing import Dict, List, Optional
 
 import httpx
 import pandas as pd
@@ -44,9 +43,9 @@ def _ensure_coroutine(func):
 @dataclasses.dataclass
 class ValueWithIntervalColumn:
     value: str
-    lower: Optional[str] = None
-    upper: Optional[str] = None
-    name: Optional[str] = None
+    lower: str | None = None
+    upper: str | None = None
+    name: str | None = None
     float_decimal_digits: int = 3
 
     def __post_init__(self):
@@ -68,8 +67,8 @@ class ValueWithIntervalColumn:
 @dataclasses.dataclass
 class ValueWithUncertaintyColumn:
     value: str
-    uncertainty: Optional[str] = None
-    name: Optional[str] = None
+    uncertainty: str | None = None
+    name: str | None = None
     float_decimal_digits: int = 3
 
     def __post_init__(self):
@@ -102,10 +101,10 @@ class _BaseCatalogQuery:
     columns = None
 
     # classifier pretty name -> column name
-    _prob_class_columns: Dict[str, str] = {}
+    _prob_class_columns: dict[str, str] = {}
 
-    _value_with_interval_columns: List[ValueWithIntervalColumn] = []
-    _value_with_uncertainty_columns: List[ValueWithUncertaintyColumn] = []
+    _value_with_interval_columns: list[ValueWithIntervalColumn] = []
+    _value_with_uncertainty_columns: list[ValueWithUncertaintyColumn] = []
 
     # Column keys with pre-built HTML cell values (see html_from_astropy_table's html_columns).
     # Subclasses with extra HTML columns should extend this, e.g. `frozenset({"__link", "x"})`.

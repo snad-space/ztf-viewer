@@ -20,7 +20,7 @@ from ztf_viewer import config
 config.CACHE_TYPE = "memory"
 config.UNAVAILABLE_CATALOGS_CACHE_TYPE = "memory"
 
-from ztf_viewer.lc_data import plot_data as plot_data_module  # noqa: E402
+from ztf_viewer.lc_data import plot_data as plot_data_module
 
 DELAY = 0.2
 

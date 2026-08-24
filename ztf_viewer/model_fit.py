@@ -1,9 +1,9 @@
 import logging
+from typing import Literal
 
 import httpx
 import numpy as np
 from pydantic import BaseModel
-from typing import Literal, List, Dict, Optional
 
 from ztf_viewer.cache import cache
 from ztf_viewer.catalogs.ztf_dr import find_ztf_oid
@@ -44,29 +44,29 @@ class Observation(BaseModel):
 
 
 class Target(BaseModel):
-    light_curve: List[Observation]
+    light_curve: list[Observation]
     ebv: float
     name_model: str
-    redshift: List[float] = [0.05, 0.3]
+    redshift: list[float] = [0.05, 0.3]
 
 
 class ModelData(BaseModel):
-    parameters: Dict[str, float]
+    parameters: dict[str, float]
     name_model: str
     zp: float = ABZPMAG_JY
     zpsys: str = "ab"
-    band_list: List[str]
+    band_list: list[str]
     t_min: float
     t_max: float
     count: int = 2000
     brightness_type: str
-    band_ref: Dict[str, float]
+    band_ref: dict[str, float]
 
 
 class Response(BaseModel):
     success: bool
-    data: Optional[dict] = {}
-    message: Optional[str] = []
+    data: dict | None = {}
+    message: str | None = []
 
 
 class ModelFit:

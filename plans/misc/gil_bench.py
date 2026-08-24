@@ -24,8 +24,8 @@ from astropy.table import Table
 
 matplotlib.use("Agg")
 
-import matplotlib.backends.backend_pgf  # noqa: E402
-import matplotlib.figure  # noqa: E402
+import matplotlib.backends.backend_pgf
+import matplotlib.figure
 
 K = 4
 REPEATS = 5

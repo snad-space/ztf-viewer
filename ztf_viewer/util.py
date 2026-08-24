@@ -5,11 +5,11 @@ import logging
 import math
 import re
 from collections import defaultdict
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from functools import wraps
 from html import escape as html_escape
 from itertools import chain, count
-from typing import Callable
 
 import astropy.table
 import numpy as np
@@ -152,9 +152,8 @@ def to_str(s, *, float_decimal_digits=3):
             for unit in (units.pc, units.kpc, units.Mpc, units.Gpc):
                 if 1e-1 < (distance := s.to(unit)).value < 3e3:
                     return f"{distance:.2f}"
-            else:
-                logging.warning(f"Value {s} is too large or too small")
-                return str(s)
+            logging.warning(f"Value {s} is too large or too small")
+            return str(s)
     if np.ma.is_masked(s):
         return ""
     if s is None:

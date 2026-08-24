@@ -1,6 +1,6 @@
 import logging
 
-from astropy.coordinates import SkyCoord, Angle
+from astropy.coordinates import Angle, SkyCoord
 from astropy.time import Time
 from astroquery.imcce import Skybot
 

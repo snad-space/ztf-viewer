@@ -37,7 +37,7 @@ from pathlib import Path
 # repo root first so the code under test is actually the one being edited.
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from ztf_viewer import config  # noqa: E402
+from ztf_viewer import config
 
 # Force the in-memory cache backend before any `ztf_viewer` submodule imports it, the same way
 # tests/pages/test_viewer.py does -- a Redis-backed cache would carry a hit across "cold" runs.

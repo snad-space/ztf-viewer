@@ -1,4 +1,3 @@
-from typing import List
 
 from ztf_viewer.cache import cache
 from ztf_viewer.catalogs.ztf_dr import find_ztf_oid
@@ -14,7 +13,7 @@ class LightCurveFeatures:
         self._find_ztf_oid = find_ztf_oid
 
     @cache()
-    async def versions(self) -> List[str]:
+    async def versions(self) -> list[str]:
         url = f"{self._base_api_url}/versions"
         client = get_client()
         resp = await client.get(url, timeout=TIMEOUT_FEATURES)
