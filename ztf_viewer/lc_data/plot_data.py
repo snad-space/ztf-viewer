@@ -1,3 +1,4 @@
+import asyncio
 import math as m
 
 import numpy as np
@@ -113,29 +114,21 @@ async def get_plot_data(
         ...
     }
     """
-    lcs = {
-        cur_oid: plot_data(
-            await ztf_dr_lc(cur_oid, dr),
-            mark_size=3,
-            min_mjd=min_mjd,
-            max_mjd=max_mjd,
-            ref_mag=ref_mag,
-            ref_magerr=ref_magerr,
-        ),
-    }
-    for oid in sorted(other_oids, key=int):
-        lcs[oid] = plot_data(
+    other_oids_sorted = sorted(other_oids, key=int)
+    external_items = list(external_data.items())
+
+    async def _ztf_lc(oid, mark_size):
+        return plot_data(
             await ztf_dr_lc(oid, dr),
-            mark_size=1,
+            mark_size=mark_size,
             min_mjd=min_mjd,
             max_mjd=max_mjd,
             ref_mag=ref_mag,
             ref_magerr=ref_magerr,
         )
-    for id, lc in add_id_to_obs(additional_data).items():
-        lcs[id] = plot_data(lc, mark_size=3, min_mjd=min_mjd, max_mjd=max_mjd, ref_mag=ref_mag, ref_magerr=ref_magerr)
-    for source, kwargs in external_data.items():
-        lcs[source] = plot_data(
+
+    async def _external_lc(source, kwargs):
+        return plot_data(
             await EXTERNAL_LC_DATA[source](cur_oid, dr, **kwargs),
             mark_size=1,
             min_mjd=min_mjd,
@@ -143,6 +136,20 @@ async def get_plot_data(
             ref_mag=ref_mag,
             ref_magerr=ref_magerr,
         )
+
+    cur_lc, *rest = await asyncio.gather(
+        _ztf_lc(cur_oid, mark_size=3),
+        *(_ztf_lc(oid, mark_size=1) for oid in other_oids_sorted),
+        *(_external_lc(source, kwargs) for source, kwargs in external_items),
+    )
+    other_lcs = rest[: len(other_oids_sorted)]
+    external_lcs = rest[len(other_oids_sorted) :]
+
+    lcs = {cur_oid: cur_lc}
+    lcs.update(zip(other_oids_sorted, other_lcs))
+    for id, lc in add_id_to_obs(additional_data).items():
+        lcs[id] = plot_data(lc, mark_size=3, min_mjd=min_mjd, max_mjd=max_mjd, ref_mag=ref_mag, ref_magerr=ref_magerr)
+    lcs.update((source, lc) for (source, _), lc in zip(external_items, external_lcs))
     return lcs
 
 

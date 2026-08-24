@@ -1397,12 +1397,26 @@ async def get_summary(oid, dr, different_filter, different_field, radius_ids, ra
     ra, dec = await find_ztf_oid.get_coord(oid, dr)
     coord = await find_ztf_oid.get_sky_coord(oid, dr)
 
+    async def find_in_catalog(catalog, query):
+        # radii is keyed by the radius inputs the layout renders, which don't cover every
+        # registered catalog -- the lookup has to fail inside the task so gather returns it.
+        return await query.find(ra, dec, radii[catalog])
+
+    catalogs = catalog_query_objects()
+    catalog_results = await asyncio.gather(
+        *(find_in_catalog(catalog, query) for catalog, query in catalogs.items()),
+        return_exceptions=True,
+    )
+    catalog_tables = OrderedDict()
+    for (catalog, query), result in zip(catalogs.items(), catalog_results):
+        if isinstance(result, BaseException):
+            if isinstance(result, (NotFound, CatalogUnavailable, KeyError)):
+                continue
+            raise result
+        catalog_tables[catalog] = (query, result)
+
     elements = OrderedDict()
-    for catalog, query in catalog_query_objects().items():
-        try:
-            table = await query.find(ra, dec, radii[catalog])
-        except NotFound, CatalogUnavailable, KeyError:
-            continue
+    for catalog, (query, table) in catalog_tables.items():
         idx = np.argmin(table["separation"])
         row = table[idx]
         for table_field, display_name in SUMMARY_FIELDS.items():
@@ -1465,11 +1479,7 @@ async def get_summary(oid, dr, different_filter, different_field, radius_ids, ra
         pass
 
     ml_classifications = []
-    for catalog, query in catalog_query_objects().items():
-        try:
-            table = await query.find(ra, dec, radii[catalog])
-        except NotFound, CatalogUnavailable, KeyError:
-            continue
+    for catalog, (query, table) in catalog_tables.items():
         if len(table) == 0:
             continue
         idx = np.argmin(table["separation"])
@@ -1561,17 +1571,26 @@ async def get_summary(oid, dr, different_filter, different_field, radius_ids, ra
     [Input("oid", "children"), Input("dr", "children")],
 )
 async def get_metadata(oid, dr):
-    meta = (await find_ztf_oid.get_meta(oid, dr)).copy()
-    meta["coord_string"] = await find_ztf_oid.get_coord_string(oid, dr)
+    meta_result, coord_string, ref_result = await asyncio.gather(
+        find_ztf_oid.get_meta(oid, dr),
+        find_ztf_oid.get_coord_string(oid, dr),
+        ztf_ref.get(oid, dr),
+        return_exceptions=True,
+    )
+    if isinstance(meta_result, BaseException):
+        raise meta_result
+    if isinstance(coord_string, BaseException):
+        raise coord_string
+    meta = meta_result.copy()
+    meta["coord_string"] = coord_string
 
-    try:
-        ref = await ztf_ref.get(oid, dr)
-    except NotFound, CatalogUnavailable:
-        pass
+    if isinstance(ref_result, BaseException):
+        if not isinstance(ref_result, (NotFound, CatalogUnavailable)):
+            raise ref_result
     else:
-        meta["ref_mag"] = ref["mag"] + ref["magzp"]
-        meta["ref_magerr"] = ref["sigmag"]
-        meta["ref_flags"] = ref["flags"]
+        meta["ref_mag"] = ref_result["mag"] + ref_result["magzp"]
+        meta["ref_magerr"] = ref_result["sigmag"]
+        meta["ref_flags"] = ref_result["flags"]
 
     items = [f"**{k}**: {to_str(meta[k])}" for k in METADATA_FIELDS if k in meta]
     column_width = max(map(len, items)) - 2
@@ -1901,9 +1920,11 @@ async def find_neighbours(radius, center_oid, dr, different):
         return html.P("No radius is specified")
     if float(radius) <= 0:
         return html.P("Radius should be positive")
-    ra, dec = await find_ztf_oid.get_coord(center_oid, dr)
+    (ra, dec), meta = await asyncio.gather(
+        find_ztf_oid.get_coord(center_oid, dr),
+        find_ztf_oid.get_meta(center_oid, dr),
+    )
     kwargs = dict(ra=ra, dec=dec, radius_arcsec=radius, dr=dr)
-    meta = await find_ztf_oid.get_meta(center_oid, dr)
     fltr = meta["filter"]
     fieldid = meta["fieldid"]
     j = await find_ztf_circle.find(**kwargs)

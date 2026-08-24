@@ -20,9 +20,11 @@ data. Anything Simbad-derived would have unstable column order (set iteration, p
 is out of scope for exactly that reason.
 """
 
+import asyncio
 import contextlib
 import inspect
 import json
+import time
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -230,6 +232,21 @@ async def test_get_summary_propagates_exception_not_in_the_swallow_list(summary_
             await _run_get_summary(["stub"], summary_upstreams)
 
 
+async def test_get_summary_skips_catalog_with_no_radius_input(summary_upstreams):
+    """Not every registered catalog has a search-radius input in the layout, so `radii` is missing
+    keys for those -- they must be skipped like any other per-catalog failure, not blow up the
+    whole summary. Guards against the radius lookup escaping the swallow list."""
+    catalogs = {"other": _other_succeeding_catalog(), "no-radius": _other_succeeding_catalog()}
+    with patch.object(viewer, "catalog_query_objects", lambda: catalogs):
+        with_missing = await _run_get_summary(["other"], summary_upstreams)
+
+    only_other = {"other": _other_succeeding_catalog()}
+    with patch.object(viewer, "catalog_query_objects", lambda: only_other):
+        without = await _run_get_summary(["other"], summary_upstreams)
+
+    assert _dump(with_missing) == _dump(without)
+
+
 async def test_get_summary_mixed_success_and_failures(summary_upstreams):
     catalogs = {
         "not-found": _StubCatalogQuery("Not Found Catalog", exc=NotFound()),
@@ -267,6 +284,47 @@ async def test_get_summary_mixed_success_and_failures(summary_upstreams):
         ],
         ["Coordinates", ": ", "Eq 10.00000 +20.00000", ", ", "Gal 00h40m00s +20d00m00s"],
     ]
+
+
+# ---------------------------------------------------------------------------------------------
+# get_summary -- the catalog loop is now a concurrent gather, not a serial for-loop.
+# ---------------------------------------------------------------------------------------------
+
+
+class _SleepingCatalogQuery(_StubCatalogQuery):
+    """Records call count and sleeps, to prove the catalog loop overlaps in wall time."""
+
+    def __init__(self, name, *, delay=0.0, **kwargs):
+        super().__init__(name, **kwargs)
+        self._delay = delay
+        self.call_count = 0
+
+    async def find(self, ra, dec, radius_arcsec):
+        self.call_count += 1
+        await asyncio.sleep(self._delay)
+        return await super().find(ra, dec, radius_arcsec)
+
+
+async def test_get_summary_catalog_fanout_is_concurrent(summary_upstreams):
+    delay = 0.2
+    n_catalogs = 5
+    catalogs = {
+        f"stub-{i}": _SleepingCatalogQuery(f"Stub {i}", delay=delay, table=_stub_table()) for i in range(n_catalogs)
+    }
+    with patch.object(viewer, "catalog_query_objects", lambda: catalogs):
+        start = time.perf_counter()
+        await _run_get_summary(list(catalogs), summary_upstreams)
+        elapsed = time.perf_counter() - start
+    # Serial would take n_catalogs * delay; concurrent should stay close to one delay.
+    assert elapsed < n_catalogs * delay / 2
+
+
+async def test_get_summary_queries_each_catalog_once(summary_upstreams):
+    """The summary and ML-classification passes must reuse one gather, not query twice."""
+    stub = _SleepingCatalogQuery("Stub", table=_stub_table())
+    with patch.object(viewer, "catalog_query_objects", lambda: {"stub": stub}):
+        await _run_get_summary(["stub"], summary_upstreams)
+    assert stub.call_count == 1
 
 
 # ---------------------------------------------------------------------------------------------
