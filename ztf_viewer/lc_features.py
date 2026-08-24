@@ -1,4 +1,3 @@
-
 from ztf_viewer.cache import cache
 from ztf_viewer.catalogs.ztf_dr import find_ztf_oid
 from ztf_viewer.config import FEATURES_API_URL, TIMEOUT_FEATURES
