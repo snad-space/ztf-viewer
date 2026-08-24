@@ -1,0 +1,46 @@
+{
+  "namespace": "dash_html_components",
+  "props": {
+    "children": {
+      "namespace": "dash_html_components",
+      "props": {
+        "children": [
+          {
+            "namespace": "dash_html_components",
+            "props": {
+              "children": {
+                "namespace": "dash_core_components",
+                "props": {
+                  "children": "**amplitude**: 1.234"
+                },
+                "type": "Markdown"
+              }
+            },
+            "type": "Li"
+          },
+          {
+            "namespace": "dash_html_components",
+            "props": {
+              "children": {
+                "namespace": "dash_core_components",
+                "props": {
+                  "children": "**period_0_magn**: 3.457"
+                },
+                "type": "Markdown"
+              }
+            },
+            "type": "Li"
+          }
+        ],
+        "style": {
+          "list-style-type": "none"
+        }
+      },
+      "type": "Ul"
+    },
+    "style": {
+      "columns": "22ch"
+    }
+  },
+  "type": "Div"
+}
