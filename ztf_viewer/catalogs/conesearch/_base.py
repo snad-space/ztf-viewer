@@ -1,3 +1,4 @@
+import asyncio
 import dataclasses
 import inspect
 import logging
@@ -14,7 +15,6 @@ from astroquery.utils.commons import TableList
 from astroquery.vizier import Vizier
 from requests import RequestException
 
-from ztf_viewer import offload
 from ztf_viewer.cache import cache
 from ztf_viewer.catalogs import find_ztf_oid, unavailable_catalogs, unavailable_catalogs_async
 from ztf_viewer.config import TIMEOUT_CONESEARCH_API
@@ -25,21 +25,18 @@ from ztf_viewer.util import async_timeout, compose_plus_minus_expression, safe_l
 COSMO = FlatLambdaCDM(H0=70, Om0=0.3)
 
 
-def _ensure_coroutine(func, upstream: Optional[str] = None):
-    """Wrap a sync callable in a bounded thread offload; pass an already-async one through
-    unchanged.
+def _ensure_coroutine(func):
+    """Wrap a sync callable in ``asyncio.to_thread``; pass an already-async one through unchanged.
 
-    Lets ``find()`` (and friends) await a catalog's query method uniformly regardless of whether
-    its implementation is genuine async I/O or a still-sync third-party client. ``upstream``
-    names which semaphore (`ztf_viewer.offload`) bounds the offload for a still-sync callable;
-    ``None`` is a bare ``asyncio.to_thread`` for anything not sorted into a bucket. Mirrors
-    ``ztf_viewer.callbacks._to_coroutine_function``.
+    Lets ``find()`` await ``_query_region`` uniformly regardless of whether a given catalog's
+    implementation is genuine async I/O or a still-sync third-party client (astroquery, an
+    unconverted ``requests`` call). Mirrors ``ztf_viewer.callbacks._to_coroutine_function``.
     """
     if inspect.iscoroutinefunction(func):
         return func
 
     async def wrapper(*args, **kwargs):
-        return await offload.to_thread(upstream, func, *args, **kwargs)
+        return await asyncio.to_thread(func, *args, **kwargs)
 
     return wrapper
 
@@ -103,10 +100,6 @@ class _BaseCatalogQuery:
     _ra_unit = None
     _table_dec = None
     columns = None
-
-    # Which `ztf_viewer.offload` semaphore bounds `_query_region` when it is still sync.
-    # None means "not sorted into an upstream bucket" -- a bare `asyncio.to_thread`.
-    _query_region_upstream: Optional[str] = None
 
     # classifier pretty name -> column name
     _prob_class_columns: Dict[str, str] = {}
@@ -189,7 +182,7 @@ class _BaseCatalogQuery:
         coord = SkyCoord(ra, dec, unit="deg", frame="icrs")
         radius = f"{radius_arcsec}s"
         logging.info(f"Querying ra={ra}, dec={dec}, r={radius_arcsec}")
-        query_region = self._timeout_decorator(_ensure_coroutine(self._query_region, self._query_region_upstream))
+        query_region = self._timeout_decorator(_ensure_coroutine(self._query_region))
         try:
             table = await query_region(coord, radius=radius)
         except (RequestException, httpx.HTTPError) as e:  # a good chance to catch network or service problems
@@ -271,12 +264,7 @@ class _BaseCatalogQuery:
             table["__event_mjd"] = table[self.event_mjd_column]
 
     async def add_prob_class_columns(self, table):
-        """Assign column values to {'class': probability, ...}
-
-        Async because `AlerceQuery`'s override makes further network calls per row; every other
-        implementation is pure computation over an already-fetched table and just doesn't await
-        anything.
-        """
+        """Assign column values to {'class': probability, ...}"""
         if len(self._prob_class_columns) != 0:
             raise NotImplementedError
 
@@ -288,10 +276,6 @@ class _BaseCatalogQuery:
 
 
 class _BaseLightCurveQuery:
-    # Which `ztf_viewer.offload` semaphore bounds `light_curve`/`closest_light_curve` when
-    # still sync. None means "not sorted into an upstream bucket" -- a bare `asyncio.to_thread`.
-    _light_curve_upstream: Optional[str] = None
-
     def light_curve(self, id, row=None):
         raise NotImplementedError
 
@@ -302,7 +286,7 @@ class _BaseLightCurveQuery:
     async def closest_light_curve(self, ra, dec, radius_arcsec, fail_on_empty=True, fail_on_unavailable=True):
         try:
             row = await self.find_closest(ra, dec, radius_arcsec, has_light_curve=True)
-            light_curve = _ensure_coroutine(self.light_curve, self._light_curve_upstream)
+            light_curve = _ensure_coroutine(self.light_curve)
             return await light_curve(row[self.id_column], row=row)
         except NotFound:
             if fail_on_empty:
@@ -315,7 +299,7 @@ class _BaseLightCurveQuery:
 
     async def closest_light_curve_by_oid(self, oid, dr, radius_arcsec, fail_on_empty=True, fail_on_unavailable=True):
         ra, dec = await find_ztf_oid.get_coord(oid, dr)
-        closest_light_curve = _ensure_coroutine(self.closest_light_curve, self._light_curve_upstream)
+        closest_light_curve = _ensure_coroutine(self.closest_light_curve)
         return await closest_light_curve(
             ra, dec, radius_arcsec, fail_on_empty=fail_on_empty, fail_on_unavailable=fail_on_unavailable
         )
@@ -368,7 +352,6 @@ class _BaseVizierQuery(_BaseCatalogQuery):
     _ra_unit = "deg"
     _table_dec = "_DEJ2000"
     _vizier_columns = ["*"]
-    _query_region_upstream = "vizier"
 
     @property
     def _vizier_catalog(self) -> str:

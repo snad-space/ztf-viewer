@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 import antares_client.search
@@ -7,7 +8,6 @@ from astropy.coordinates import Angle, SkyCoord
 from astropy.table import Table
 from requests import RequestException
 
-from ztf_viewer import offload
 from ztf_viewer.cache import cache
 from ztf_viewer.catalogs.conesearch._base import (
     _BaseCatalogApiQuery,
@@ -18,9 +18,6 @@ from ztf_viewer.exceptions import CatalogUnavailable, NotFound
 
 
 class AntaresQuery(_BaseCatalogApiQuery, _BaseLightCurveQuery, _BaseNameResolverQuery):
-    _query_region_upstream = "antares"
-    _light_curve_upstream = "antares"
-
     id_column = "locus_id"
     _table_ra = "ra"
     _ra_unit = "deg"
@@ -115,5 +112,5 @@ class AntaresQuery(_BaseCatalogApiQuery, _BaseLightCurveQuery, _BaseNameResolver
 
     @cache()
     async def resolve_name(self, id) -> SkyCoord:
-        locus = await offload.to_thread("antares", self.get_record_by_id, id)
+        locus = await asyncio.to_thread(self.get_record_by_id, id)
         return locus.coordinates

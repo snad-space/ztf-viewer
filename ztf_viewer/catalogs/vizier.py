@@ -6,7 +6,6 @@ from astropy.coordinates import SkyCoord
 from astroquery.mocserver import MOCServerClass
 from astroquery.vizier import Vizier
 
-from ztf_viewer import offload
 from ztf_viewer.cache import cache
 from ztf_viewer.exceptions import NotFound
 
@@ -14,7 +13,7 @@ from ztf_viewer.exceptions import NotFound
 class VizierCatalogDetails:
     @staticmethod
     @cache()
-    def _query_cds_sync(catalog_id):
+    def _query_cds(catalog_id):
         try:
             table = MOCServerClass.find_datasets(f"ID=*{catalog_id}*")
         except np.ma.MaskError as e:
@@ -25,8 +24,8 @@ class VizierCatalogDetails:
         return table[0]
 
     @staticmethod
-    async def description(catalog_id):
-        result = await offload.to_thread("mocserver", VizierCatalogDetails._query_cds_sync, catalog_id)
+    def description(catalog_id):
+        result = VizierCatalogDetails._query_cds(catalog_id)
         if result is None:
             raise NotFound
         return result["obs_description"]
@@ -54,16 +53,13 @@ class FindVizier:
         self._query = Vizier(columns=[self._table_ra, self._table_dec, self._table_sep])
         self._query.ROW_LIMIT = self.row_limit
 
-    def _find_sync(self, ra, dec, radius_arcsec):
+    @cache()
+    def find(self, ra, dec, radius_arcsec):
         coord = SkyCoord(ra, dec, unit="deg", frame="icrs")
         radius = f"{radius_arcsec}s"
         logging.info(f"Querying Vizier ra={ra}, dec={dec}, r={radius_arcsec}")
         table_list = self._query.query_region(coord, radius=radius)
         return table_list
-
-    @cache()
-    async def find(self, ra, dec, radius_arcsec):
-        return await offload.to_thread("vizier", self._find_sync, ra, dec, radius_arcsec)
 
     @staticmethod
     def get_search_url(ra, dec, radius_arcsec):

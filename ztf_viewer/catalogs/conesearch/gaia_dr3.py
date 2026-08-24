@@ -16,10 +16,6 @@ from ztf_viewer.util import LGE_25
 
 
 class GaiaDr3Query(_BaseVizierQuery, _BaseLightCurveQuery):
-    # `_query_region` is Vizier (inherited from `_BaseVizierQuery`); `light_curve` below hits
-    # the separate Gaia archive, so it gets its own upstream bucket.
-    _light_curve_upstream = "gaia"
-
     id_column = "Source"
     columns = {
         "__link": "Source ID",

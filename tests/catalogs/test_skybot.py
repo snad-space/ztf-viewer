@@ -64,7 +64,7 @@ def _make_skybot_table_with_ceres(sep_arcsec=5.0):
 _OBS_MJD = 58923.0
 
 
-async def test_empty_result_raises_not_found():
+def test_empty_result_raises_not_found():
     """KeyError on empty SkyBot response should raise NotFound, not crash.
 
     Regression test for https://github.com/snad-space/ztf-viewer/issues/564:
@@ -78,10 +78,10 @@ async def test_empty_result_raises_not_found():
     query._query.cone_search.return_value = _make_empty_skybot_table()
 
     with pytest.raises(NotFound):
-        await query.find(ra=331.0, dec=-11.4, observatory_mjd=_OBS_MJD, radius_arcsec=60.0)
+        query.find(ra=331.0, dec=-11.4, observatory_mjd=_OBS_MJD, radius_arcsec=60.0)
 
 
-async def test_result_within_radius_returned():
+def test_result_within_radius_returned():
     """A non-empty result within the requested radius is returned correctly."""
     from ztf_viewer.catalogs.skybot import SkybotQuery
 
@@ -89,7 +89,7 @@ async def test_result_within_radius_returned():
     query._query = MagicMock()
     query._query.cone_search.return_value = _make_skybot_table_with_ceres(sep_arcsec=5.0)
 
-    result = await query.find(ra=331.0, dec=-11.4, observatory_mjd=_OBS_MJD, radius_arcsec=60.0)
+    result = query.find(ra=331.0, dec=-11.4, observatory_mjd=_OBS_MJD, radius_arcsec=60.0)
 
     assert len(result) == 1
     assert result[0]["__name"] == "Ceres"
@@ -98,7 +98,7 @@ async def test_result_within_radius_returned():
     assert isinstance(result[0]["__v_mag"], float)
 
 
-async def test_result_outside_radius_raises_not_found():
+def test_result_outside_radius_raises_not_found():
     """Objects beyond the requested radius + position-uncertainty margin are filtered out."""
     from ztf_viewer.catalogs.skybot import SkybotQuery
 
@@ -108,10 +108,10 @@ async def test_result_outside_radius_raises_not_found():
     query._query.cone_search.return_value = _make_skybot_table_with_ceres(sep_arcsec=90.0)
 
     with pytest.raises(NotFound):
-        await query.find(ra=331.0, dec=-11.4, observatory_mjd=_OBS_MJD, radius_arcsec=60.0)
+        query.find(ra=331.0, dec=-11.4, observatory_mjd=_OBS_MJD, radius_arcsec=60.0)
 
 
-async def test_radius_too_large_raises_value_error():
+def test_radius_too_large_raises_value_error():
     """Requests larger than query_radius should raise ValueError immediately."""
     from ztf_viewer.catalogs.skybot import SkybotQuery
 
@@ -119,7 +119,7 @@ async def test_radius_too_large_raises_value_error():
     query._query = MagicMock()
 
     with pytest.raises(ValueError, match="too large"):
-        await query.find(
+        query.find(
             ra=331.0,
             dec=-11.4,
             observatory_mjd=_OBS_MJD,
@@ -132,7 +132,7 @@ async def test_radius_too_large_raises_value_error():
 # ---------------------------------------------------------------------------
 
 
-async def test_ceres_integration():
+def test_ceres_integration():
     """Query SkyBot for Ceres at a known epoch and verify it is returned.
 
     Skipped when the SkyBot service is unavailable (network issues, downtime).
@@ -145,7 +145,7 @@ async def test_ceres_integration():
 
     query = SkybotQuery()
     try:
-        result = await query.find(ra=320.7912, dec=-21.5888, observatory_mjd=_OBS_MJD, radius_arcsec=120.0)
+        result = query.find(ra=320.7912, dec=-21.5888, observatory_mjd=_OBS_MJD, radius_arcsec=120.0)
     except NotFound as exc:
         pytest.skip(f"SkyBot service unavailable: {exc}")
 
