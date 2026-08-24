@@ -3,13 +3,14 @@
 Status: in progress · foundations landed except `aio-golden-callbacks`; prep landed in full;
 the async shell has landed in full (`aio-shim`, `aio-loop-registry`; `aio-pilots` dropped); **the
 flip has landed** (#658–#661, merged as one stack); the async-I/O stack is **three of five in**
-(`aio-httpx`, `aio-snad-apis`, `aio-conesearch` — #664, #665, #668), leaving `aio-offload-threads`
-and `aio-gather`. The WebSocket and process-pool stacks are unblocked and untouched.
+(`aio-httpx`, `aio-snad-apis`, `aio-conesearch` — #664, #665, #668); `aio-offload-threads` is
+**dropped**, leaving `aio-gather`. The WebSocket and process-pool stacks are unblocked and
+untouched.
 Baseline: `master` after `994874e`
 Now running: FastAPI backend under uvicorn, one worker, one loop; Python 3.14
 First-party HTTP and every JSON cone-search catalog now go through one shared async `httpx`
 client; the sync third parties (astroquery, alerce, antares) reach a **bare, unbounded**
-`asyncio.to_thread` until `aio-offload-threads` lands.
+`asyncio.to_thread`, and now permanently — see the dropped entry below.
 
 Note on names: branches and PRs drop the `aio-` prefix the plan uses (`aio-py314` shipped as
 `python-3.14`, `aio-cache-core` as `cache-core`, and so on). The plan keeps the prefixed names
@@ -173,14 +174,30 @@ merged by its author, and "ready for review" is a reviewer's signal, not the aut
       `/panstarrs/csv/{obj_id}` route went async too. This also retired the per-call
       `ThreadPoolExecutor(max_workers=1)` inside `util.timeout()` — spawned on *every* cone-search
       query, and the one pre-existing violation of the threading rule.
-- [ ] `aio-offload-threads` — astroquery / alerce / antares behind bounded semaphores.
-      **#665 and #668 both deferred to this PR**, so astroquery (`Vizier`, `MOCServerClass`,
-      `Skybot`), alerce, antares and the `csfd`/`bayestar` extinction lookups currently sit on a
-      *bare* `asyncio.to_thread` with no fairness between them at all. That is the standing risk
-      until this lands, and `aio-gather` sharpens it.
+- [x] ~~`aio-offload-threads`~~ — **dropped** (#676, kept for the defect it found). The section
+      below is superseded; what it specifies is not going to be built.
+      **No bound survives both requirements review set: provably deadlock-free, and free of
+      custom concurrency code a reviewer cannot verify.** `asyncio.Semaphore` is correct only by
+      convention — `release()` never checks its loop and `acquire()` only checks once it has to
+      wait, so it miscounts *silently* rather than raising, and staying correct depends on nobody
+      awaiting in the wrong place later. A subclass adding that check is exactly the custom code
+      that was declined. `anyio.CapacityLimiter` breaks its own bound across loops (measured: peak
+      3 against a limit of 1) and allows only one token per task, so a nested same-upstream
+      offload raises in production. `threading.Semaphore` is genuinely thread-safe but blocks a
+      pool thread while waiting — the starvation this item existed to prevent. Async limiters are
+      loop-scoped by design, so this is not a gap in the ecosystem to wait out.
+      **Consequence:** astroquery (`Vizier`, `MOCServerClass`, `Skybot`), alerce, antares and the
+      `csfd`/`bayestar` lookups stay on a bare `asyncio.to_thread` sharing one pool, with no
+      fairness between them. `aio-gather` sharpens that and now inherits it — if one slow upstream
+      starving the pool shows up in practice, the lever is `THREAD_POOL_SIZE`, or per-upstream
+      *rate* limiting at a layer that is not an async primitive, not this item.
+      **What it did find:** `AlerceQuery.add_prob_class_columns` queries Alerce once per row and
+      ran inline on the event loop, outside the `_query_region` path that already had an offload.
+      That fix is what #676 became.
 - [ ] `aio-gather` — concurrent fan-out; `aio-bench` becomes an assertion. Note #674 measured
       sleep-stubs, so the cold-`get_summary`-on-a-busy-field number this section asks for is still
-      owed here.
+      owed here. Now also the first PR to fan out ~19 catalogs with **no per-upstream bound**
+      underneath it, since `aio-offload-threads` was dropped.
 
 **WebSocket**
 - [ ] `aio-ws` — enable transport (verify deployed proxy config first)
@@ -1302,7 +1319,10 @@ Convert to `async def` — the `@cache()` line stays as it is:
   catalog, and a manual check that the "catalog temporarily unavailable" path still trips
   (`unavailable_catalogs`, now via `aio-ttlset`'s async set).
 
-### `aio-offload-threads` — Sync-only third parties stay sync, offloaded according to F9
+### ~~`aio-offload-threads`~~ — Sync-only third parties stay sync, offloaded according to F9
+
+**Dropped — see the Progress entry. Kept below as the record of what was specified; the
+per-upstream semaphores and the pool resizing were not built.**
 Do **not** try to port these to async. **Network-bound → `asyncio.to_thread`, with a
 per-upstream bounded semaphore** so one slow service cannot eat the shared thread pool:
 - `astroquery`: `Vizier` (`catalogs/vizier.py`, `conesearch/_base.py:328`), `Simbad`,
