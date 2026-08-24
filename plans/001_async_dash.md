@@ -138,7 +138,9 @@ merged by its author, and "ready for review" is a reviewer's signal, not the aut
       real thread offload here, as specified. **The two pools are sized independently at
       `THREAD_POOL_SIZE` each, not jointly**: anyio's limiter runs sync route handlers on its own
       worker threads, not on asyncio's default executor, so the default of 16 is up to 32
-      blocking threads per process — the number `aio-offload-threads` has to size against.
+      blocking threads per process. `aio-offload-threads` was meant to own that number and was
+      dropped, so **nothing sizes it**: it stays at its default of 16 until `aio-gather` makes
+      fan-out real, which is where the decision now falls.
 
 **Async I/O** — the payoff
 - [x] `aio-httpx` — shared async client, `asyncio.timeout` — #664 `httpx-client`. Landed
@@ -197,7 +199,9 @@ merged by its author, and "ready for review" is a reviewer's signal, not the aut
 - [ ] `aio-gather` — concurrent fan-out; `aio-bench` becomes an assertion. Note #674 measured
       sleep-stubs, so the cold-`get_summary`-on-a-busy-field number this section asks for is still
       owed here. Now also the first PR to fan out ~19 catalogs with **no per-upstream bound**
-      underneath it, since `aio-offload-threads` was dropped.
+      underneath it, since `aio-offload-threads` was dropped — so it inherits two things that PR
+      was carrying: whether `THREAD_POOL_SIZE` still wants to be 16, and the upstream-hammering
+      risk in the table at the end of this plan.
 
 **WebSocket**
 - [ ] `aio-ws` — enable transport (verify deployed proxy config first)
@@ -256,8 +260,8 @@ callbacks, and a WebSocket callback transport with `set_props` streaming. That u
 
 - No UI redesign, no new pages, no change to the public URL surface.
 - Not rewriting third-party sync clients (`astroquery`, `alerce`, `antares-client`) — they keep
-  their sync APIs. *How* each is offloaded differs by what it actually does; see F9 and
-  `aio-offload-threads`.
+  their sync APIs. *How* each is offloaded differs by what it actually does; see F9. (Bounding
+  those offloads per upstream was `aio-offload-threads`, now dropped — they share one pool.)
 - Not adopting Dash background callbacks / Celery. Our long tasks are I/O, not batch jobs.
 
 ## Findings that shape the plan
@@ -565,8 +569,7 @@ master
                                              ├─ aio-httpx    ── async I/O chain ──
                                              │  └─ aio-snad-apis
                                              │     └─ aio-conesearch
-                                             │        └─ aio-offload-threads
-                                             │           └─ aio-gather
+                                             │        └─ aio-gather   (aio-offload-threads dropped)
                                              ├─ aio-procpool ── process-pool chain ──
                                              │  └─ aio-figures
                                              │     └─ aio-profile
@@ -1497,8 +1500,8 @@ dated. `await asyncio.to_thread(x)` needs no gloss.
   named was never built — see the flip's Progress entry.)*
 - **Retire `ztf_viewer/callbacks.py`.** The shim is transitional, not permanent. By this point the
   I/O-bound callbacks are natively `async def` (the shim passes those through untouched) and the
-  sync-only third parties are offloaded explicitly with their own semaphores (`aio-offload-threads`),
-  so what the shim still wraps is mostly trivial presentation callbacks — for which a thread hop
+  sync-only third parties are offloaded explicitly with a bare `asyncio.to_thread` (the bounded
+  version was dropped), so what the shim still wraps is mostly trivial presentation callbacks — for which a thread hop
   and a context copy cost more than running inline on the loop. Unwrap those, keep native `async
   def` for the rest, and either drop the callbacks-are-coroutines guard or replace it with the
   narrower rule that actually matters: no callback performs blocking I/O.
@@ -1518,7 +1521,7 @@ dated. `await asyncio.to_thread(x)` needs no gloss.
 | The cache rewrite silently preserves one of today's defects (F12) | The five defects are recorded as named `xfail`s in `aio-cache-spec`; `aio-cache-sync`'s accept criterion is that F12.1–F12.4 turn XPASS, so preserving a bug fails the criterion rather than passing quietly |
 | `aio-shim` misses the 19 loop-registered `set_table` callbacks (F1a′) | The invariant asserts over all 57 registrations, not the 39 source sites, so a missed loop fails CI |
 | Static assets 404 after the flip (F2) | `aio-golden-http` asserts `/static/js9/js9.min.js` and `/static/img/logo.svg` return 200 — landed, #634 |
-| Concurrent fan-out hammers upstreams that previously saw serialized traffic | Per-upstream `asyncio.Semaphore` (`aio-offload-threads`) plus the existing `unavailable_catalogs` circuit breaker; keep an eye on Vizier/Simbad rate limits |
+| Concurrent fan-out hammers upstreams that previously saw serialized traffic | **Unmitigated — `aio-offload-threads` was dropped, and this was its job.** What is left is the `unavailable_catalogs` circuit breaker (which trips *after* an upstream is already unhappy) and `THREAD_POOL_SIZE` as a blunt global ceiling. The concrete exposure is CDS: SIMBAD bans an IP for a minute above 10 queries/s and for an hour above 400 in 10s, and VizieR, MOCServer and Sesame share that origin. Note we are one IP for every user, and master plus each `pr<N>` preview are separate containers on one host, so the figure that matters is per-IP, not per-process — no in-process bound could have covered it anyway. If this bites, rate limiting belongs outside the async layer |
 | Cache stampede amplified by concurrency | Single-flight in the cache sub-stack — this becomes load-bearing, not a nicety |
 | WebSocket dropped by a proxy (F7) | nginx-proxy handles upgrades natively; residual risk is timeouts and the the proxy design note config discrepancy — verify the deployed proxy config first, then roll out per-callback (`aio-ws`) with HTTP retained as fallback |
 | Static assets served with weaker caching after the flip (the `/static` design note) | `aio-golden-http` records today's cache headers for `/static/js9/js9.min.js`; set them explicitly on the mount |
@@ -1542,8 +1545,10 @@ Tick these off as they are answered.
    Do not build the pool for `aio-profile`'s sake alone.
 3. **Do we keep an HTTP fallback permanently** (`aio-ws` per-callback) or commit fully to WebSocket
    transport? Depends on what the deployment proxies tolerate.
-4. **Is the `dr7` / legacy-URL behaviour** in `app_select_by_url` (`ztf_viewer/__main__.py:328`)
-   worth preserving verbatim through the route port, or can it be dropped now?
+4. **Is the `dr7` / legacy-URL behaviour** in `app_select_by_url` worth preserving verbatim
+   through the route port, or can it be dropped now? **Half answered:** the port kept it verbatim
+   (`ztf_viewer/__main__.py:358`), so nothing was lost while this went undecided. Whether to drop
+   it is still open, and is a product call rather than a porting one.
 5. **`websocket_max_workers` sizing** matters only if any sync callback survives; if `aio-shim`'s
    invariant holds it should be irrelevant — worth asserting.
 6. ~~**Does the foundations stack block the start, or run alongside?**~~ **Answered: it runs
