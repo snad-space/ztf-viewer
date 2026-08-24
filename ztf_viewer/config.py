@@ -20,6 +20,11 @@ DUSTMAPS_API_URL = os.environ.get("DUSTMAPS_API_URL", "https://dustmaps.snad.spa
 # sync-route limiter. Caps how many blocking calls the single event loop can have in flight.
 THREAD_POOL_SIZE = int(os.environ.get("THREAD_POOL_SIZE", "16"))
 
+# Size of the CPU-bound process pool (ztf_viewer/procpool.py). Default is the CPU count seen by
+# this process (cgroup-aware via os.process_cpu_count, added 3.13), not divided by worker count:
+# the entrypoint runs a single uvicorn worker, so cpu_count is already the per-worker budget.
+PROCESS_POOL_SIZE = int(os.environ.get("PROCESS_POOL_SIZE", str(os.process_cpu_count() or 1)))
+
 # Shared httpx.AsyncClient tuning (ztf_viewer/http.py). Limits are per client, and one client is
 # built per event loop, so these bound a single worker's outbound connections.
 HTTP_MAX_CONNECTIONS = int(os.environ.get("HTTP_MAX_CONNECTIONS", "100"))
