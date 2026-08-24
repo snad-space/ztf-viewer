@@ -1545,8 +1545,10 @@ Tick these off as they are answered.
    Do not build the pool for `aio-profile`'s sake alone.
 3. **Do we keep an HTTP fallback permanently** (`aio-ws` per-callback) or commit fully to WebSocket
    transport? Depends on what the deployment proxies tolerate.
-4. **Is the `dr7` / legacy-URL behaviour** in `app_select_by_url` (`ztf_viewer/__main__.py:328`)
-   worth preserving verbatim through the route port, or can it be dropped now?
+4. **Is the `dr7` / legacy-URL behaviour** in `app_select_by_url` worth preserving verbatim
+   through the route port, or can it be dropped now? **Half answered:** the port kept it verbatim
+   (`ztf_viewer/__main__.py:358`), so nothing was lost while this went undecided. Whether to drop
+   it is still open, and is a product call rather than a porting one.
 5. **`websocket_max_workers` sizing** matters only if any sync callback survives; if `aio-shim`'s
    invariant holds it should be irrelevant — worth asserting.
 6. ~~**Does the foundations stack block the start, or run alongside?**~~ **Answered: it runs
