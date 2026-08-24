@@ -1,6 +1,6 @@
 # 001 — Porting the ZTF Viewer to async (Dash 4 FastAPI backend)
 
-Status: in progress · foundations landed except `aio-golden-callbacks`; prep landed in full;
+Status: in progress · foundations landed in full; prep landed in full;
 the async shell has landed in full (`aio-shim`, `aio-loop-registry`; `aio-pilots` dropped); **the
 flip has landed** (#658–#661, merged as one stack); the async-I/O stack is **three of five in**
 (`aio-httpx`, `aio-snad-apis`, `aio-conesearch` — #664, #665, #668); `aio-offload-threads` is
@@ -39,7 +39,32 @@ merged by its author, and "ready for review" is a reviewer's signal, not the aut
       because Simbad is down. See the revised foundations section.
 - [x] `aio-golden-http` — **re-scoped:** goldens over *our* outputs only, no upstream replay;
       partial coverage is fine — #634 `golden-http`
-- [ ] `aio-golden-callbacks` — **re-scoped** the same way; likely a thin subset
+- [x] `aio-golden-callbacks` — **re-scoped** the same way, and then **the snapshot mechanism the
+      section below specifies was tried and reversed** — #679 `golden-callbacks`.
+      Serialized component trees were written first, as specified; review rejected them as
+      unmaintainable and the evidence was decisive: the four failure-path snapshots came out
+      **byte-identical to each other** (same md5), i.e. 432 lines of JSON encoding the single fact
+      that a failing catalog contributes nothing, while pinning `style` dicts and URL-encoded
+      broker `href`s no test cared about. An `UPDATE_CALLBACK_GOLDEN=1` re-record flag made
+      re-recording the path of least resistance, which is how a characterization test stops being
+      one. **Nothing is committed to disk now.** Failure paths are asserted *relationally* — call
+      `get_summary` twice, once with the catalog failing and once with it absent, and assert the
+      two are identical, so a failing catalog must be indistinguishable from one never queried and
+      later cosmetic changes move both sides equally. Everything else asserts a *projection* of the
+      tree (visible text plus `href`s, cosmetic props dropped) against an inline literal, so the
+      expectation is readable in the diff.
+      **What it found, and `aio-gather` depends on it: the two-loop structure masks a blanket
+      `except`.** Widening *only* the first per-catalog loop's clause to `except Exception:` passed
+      every test, because the second loop (`ml_classifications`) still had the narrow clause and
+      re-raised. Only widening both — which is exactly what a consolidated `gather` rewrite
+      produces — failed. The relational tests therefore do **not** police over-broad swallowing;
+      `test_get_summary_propagates_exception_not_in_the_swallow_list` does, and it is the
+      load-bearing test for `aio-gather`'s `return_exceptions=True`.
+      Two smaller corrections: the section's worry that `get_summary` needed a replay layer was
+      overstated — catalog stubs plus five small upstream stubs covered the whole failure matrix —
+      and the projection **drops component type**, so a `Div`→`Span` swap with identical text and
+      `href` now passes where a snapshot would have caught it. Deliberate trade. `set_table` over a
+      real catalog is still not covered.
 - [x] `aio-cache-spec` — cache contract tests (keys, TTL, pickle round-trip) — **found five defects in
       today's cache, see F12** — #627 `cache-contract-tests`
 - [x] `aio-bench` — fan-out latency harness, records a baseline — #674 `fanout-bench`.
@@ -549,7 +574,7 @@ master
 └─ aio-py314                  upgrade the interpreter first of all
    └─ robust-upstream-tests   transport failures on upstream tests → skip (replaced aio-fixtures)
       ├─ aio-golden-http    ⇢ route goldens (our outputs only)
-      ├─ aio-golden-callbacks⇢ callback snapshots (pure/failure paths only)
+      ├─ aio-golden-callbacks⇢ callback characterization (pure/failure paths only)
       ├─ aio-cache-spec     ⇢ cache contract tests
       ├─ aio-bench          ⇢ fan-out benchmark harness
       ├─ aio-invariants     ⇢ migration guards
@@ -848,6 +873,12 @@ Characterize the routes whose behaviour is ours: index, `/login`, `/tags`, `/ano
 - **Accept:** green on Flask; must stay green through `aio-fastapi-app`–`aio-uvicorn` with no edits.
 
 ### `aio-golden-callbacks` — Callback characterization *(re-scoped, and much thinner)*
+*(Landed — #679, `tests/pages/test_viewer.py`. **Read the Progress entry before this section:**
+the snapshot-and-commit mechanism described below was built, rejected in review as
+unmaintainable, and replaced by relational assertions plus an inline projection, with no files
+committed to disk. The choice of *what* to characterize — failure paths first, presentation-side
+callbacks after, no upstream replay — survived intact and is what the rest of this section is
+still good for.)*
 Dash callbacks are ordinary functions, so they can be called directly and their returned
 component tree snapshotted with `plotly.utils.PlotlyJSONEncoder`. Without a replay layer this
 can no longer be the full regression net the plan originally leaned on for the async-I/O stack,
@@ -1517,7 +1548,7 @@ dated. `await asyncio.to_thread(x)` needs no gloss.
 | Sync callback silently blocks the loop after the flip (F1) | `aio-shim`'s shim makes every callback a coroutine; a test asserts the invariant over `app.callback_map`, so a newly added sync callback fails CI rather than production |
 | A callback added between `aio-shim` and `aio-uvicorn` bypasses the shim | The invariant test above catches it; also make `ztf_viewer/callbacks.py` the only sanctioned import and lint for direct `app.callback` use |
 | Cache decorator applied to a coroutine (F3) | No longer reachable: `cache()` dispatches on `inspect.iscoroutinefunction` instead of requiring the caller to pick a decorator. Covered by tests |
-| Golden snapshots recorded through a colliding memory cache, baking a wrong value in as the spec (F12.1) | Record `aio-golden-callbacks` snapshots with caching disabled, or after `aio-cache-sync` fixes the shared keyspace — not merely with the cache cleared between tests |
+| Golden snapshots recorded through a colliding memory cache, baking a wrong value in as the spec (F12.1) | **Moot — #679 records no snapshots at all.** Nothing is committed to disk, so there is no recording step for a colliding keyspace to poison; the stubbed calls it asserts over are not `@cache()`-decorated either. The hazard would return the moment anyone reintroduces a recorded fixture |
 | The cache rewrite silently preserves one of today's defects (F12) | The five defects are recorded as named `xfail`s in `aio-cache-spec`; `aio-cache-sync`'s accept criterion is that F12.1–F12.4 turn XPASS, so preserving a bug fails the criterion rather than passing quietly |
 | `aio-shim` misses the 19 loop-registered `set_table` callbacks (F1a′) | The invariant asserts over all 57 registrations, not the 39 source sites, so a missed loop fails CI |
 | Static assets 404 after the flip (F2) | `aio-golden-http` asserts `/static/js9/js9.min.js` and `/static/img/logo.svg` return 200 — landed, #634 |
@@ -1553,8 +1584,9 @@ Tick these off as they are answered.
    invariant holds it should be irrelevant — worth asserting.
 6. ~~**Does the foundations stack block the start, or run alongside?**~~ **Answered: it runs
    alongside.** The replay layer that was the long pole is gone, so nothing in foundations blocks
-   anything else. `aio-golden-http` landed alongside the prep stack (#634); `aio-golden-callbacks`
-   and `aio-bench` are independent and can still land at any point.
+   anything else. `aio-golden-http` landed alongside the prep stack (#634), and `aio-golden-callbacks`
+   (#679) and `aio-bench` (#674) landed independently much later, as predicted — foundations is
+   now complete.
 7. ~~**Python 3.14 upgrade — does the dependency set cooperate?**~~ **Answered: yes** — #625
    merged, production is on 3.14.
 8. ~~**Should the cache key on `self`?**~~ **Answered in `aio-cache-core` (#628): key on the
