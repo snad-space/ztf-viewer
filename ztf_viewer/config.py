@@ -58,10 +58,5 @@ TIMEOUT_MODEL_FIT = httpx.Timeout(120.0)  # model_fit.py: the heaviest per-reque
 TIMEOUT_AKB = httpx.Timeout(10.0)  # akb.py: small CRUD-shaped JSON requests
 TIMEOUT_ZTF_FITS_PROXY = httpx.Timeout(60.0)  # catalogs/ztf_ref.py, date_with_frac.py: both hit ZTF_FITS_PROXY_URL
 
-# Extra origins the WS handler accepts outright; same-origin connections are already allowed
-# without this (dash/backends/_fastapi.py's same-Host fallback). Comma-separated.
-WEBSOCKET_ALLOWED_ORIGINS = [o for o in os.environ.get("WEBSOCKET_ALLOWED_ORIGINS", "").split(",") if o]
-# Closes a connection that has sent nothing (not even a heartbeat) for this long, in ms.
-WEBSOCKET_INACTIVITY_TIMEOUT_MS = int(os.environ.get("WEBSOCKET_INACTIVITY_TIMEOUT_MS", "300000"))
 # Must stay well under the deployed proxy's live 60s read-timeout default, in ms.
 WEBSOCKET_HEARTBEAT_INTERVAL_MS = int(os.environ.get("WEBSOCKET_HEARTBEAT_INTERVAL_MS", "20000"))
