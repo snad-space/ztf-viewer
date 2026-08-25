@@ -15,7 +15,9 @@ from ztf_viewer.app import app
 from ztf_viewer.catalogs import find_ztf_oid
 from ztf_viewer.catalogs.conesearch import ANTARES_QUERY, GAIA_DR3, PANSTARRS_DR2_QUERY
 from ztf_viewer.catalogs.ztf_ref import ztf_ref
+from ztf_viewer.csv_render import dfs_to_csv
 from ztf_viewer.exceptions import CatalogUnavailable, NotFound
+from ztf_viewer.procpool import run_in_process
 from ztf_viewer.web import csv_response, error_response, query_args
 
 
@@ -50,17 +52,7 @@ async def _get_oid_df(oid, dr, min_mjd, max_mjd):
 
 async def get_csv(dr, oids, min_mjd=None, max_mjd=None):
     dfs = await asyncio.gather(*(_get_oid_df(oid, dr, min_mjd, max_mjd) for oid in oids))
-    return await asyncio.to_thread(_dfs_to_csv, dfs)
-
-
-def _dfs_to_csv(dfs):
-    df = pd.concat(dfs, axis="index")
-    df.sort_values(by="mjd", inplace=True)
-    df = df[["oid", "filter", "mjd", "mag", "magerr", "clrcoeff", "ref", "ref_err"]]
-
-    string_io = StringIO()
-    df.to_csv(string_io, index=False)
-    return string_io.getvalue()
+    return await run_in_process(dfs_to_csv, dfs)
 
 
 def _lc_to_csv_response(lc, filename):
