@@ -9,8 +9,9 @@ keying it by loop would spawn a fresh set of child processes every time a new lo
 which is exactly what a per-request loop model would do on every single request. One pool for the
 life of the process is what a process pool means.
 
-The pool is built at import time, not lazily: constructing ``ProcessPoolExecutor`` does not
-itself spawn workers (they start on first submit), so there is no import-time cost to defer.
+The executor is built on first use, not at import. A pool worker re-imports the module holding
+the function it was handed, and if that module reaches this one, an import-time executor would
+have every child build its own.
 """
 
 import asyncio
@@ -23,41 +24,48 @@ from ztf_viewer.config import PROCESS_POOL_SIZE
 
 
 class _ProcessPool:
-    """Owns one ``ProcessPoolExecutor`` and rebuilds it if a child crash breaks it.
+    """Owns one ``ProcessPoolExecutor``, rebuilding it when a child crash breaks it.
 
-    A crash in the child (killed, segfaults, OOM-killed -- plausible for matplotlib/LaTeX
-    rendering) raises ``BrokenProcessPool`` to the caller that hit it, and permanently poisons
-    that executor: every future submitted to it afterwards fails the same way. Left alone, one
-    crash would fail every later request that reaches this pool, so a break replaces the
-    executor instead.
+    ``BrokenProcessPool`` poisons an executor permanently, so the break is raised to the caller
+    that hit it and the executor is replaced rather than left to fail every later call.
     """
 
     def __init__(self, max_workers: int) -> None:
         self._max_workers = max_workers
-        self._executor = ProcessPoolExecutor(max_workers=max_workers)
+        self._executor: ProcessPoolExecutor | None = None
         self._lock = threading.Lock()
 
+    def _get(self) -> ProcessPoolExecutor:
+        with self._lock:
+            if self._executor is None:
+                self._executor = ProcessPoolExecutor(max_workers=self._max_workers)
+            return self._executor
+
     async def run[T](self, fn: Callable[..., T], *args, **kwargs) -> T:
-        executor = self._executor
+        executor = self._get()
         future = executor.submit(fn, *args, **kwargs)
         try:
             return await asyncio.wrap_future(future)
         except BrokenProcessPool:
-            self._replace(executor)
+            self._discard(executor)
             raise
 
-    def _replace(self, broken: ProcessPoolExecutor) -> None:
-        """Dispose of `broken` and build its replacement, unless another caller already did."""
+    def _discard(self, broken: ProcessPoolExecutor) -> None:
+        """Shut `broken` down and clear it, unless another caller replaced it first."""
         with self._lock:
             if self._executor is not broken:
                 return
-            broken.shutdown(wait=True, cancel_futures=True)
-            self._executor = ProcessPoolExecutor(max_workers=self._max_workers)
+            self._executor = None
+        # Outside the lock: shutdown waits on the broken executor's threads, and callers
+        # asking for the replacement should not queue behind that.
+        broken.shutdown(wait=True, cancel_futures=True)
 
     def shutdown(self) -> None:
-        """Idempotent: ``Executor.shutdown`` tolerates repeat calls on its own."""
+        """Idempotent, and a no-op if the pool was never used."""
         with self._lock:
-            self._executor.shutdown(wait=True, cancel_futures=True)
+            executor = self._executor
+        if executor is not None:
+            executor.shutdown(wait=True, cancel_futures=True)
 
 
 _pool = _ProcessPool(PROCESS_POOL_SIZE)
@@ -66,17 +74,12 @@ _pool = _ProcessPool(PROCESS_POOL_SIZE)
 async def run_in_process[T](fn: Callable[..., T], *args, **kwargs) -> T:
     """Await ``fn(*args, **kwargs)`` run in the process pool.
 
-    ``fn`` must be a module-level function with no captured state: the spawn start method
-    (macOS default; the container forks, but code must not rely on that) re-imports the
-    target module in the child, so closures, lambdas and bound methods cannot cross the
-    pickling boundary a process pool requires.
+    ``fn`` must be picklable and importable by name in the child: a module-level function, not a
+    closure, lambda or bound method.
     """
     return await _pool.run(fn, *args, **kwargs)
 
 
 def shutdown_pool() -> None:
-    """Shut down the process pool. Idempotent.
-
-    Meant for a Starlette ``"shutdown"`` handler, alongside ``aclose_client``.
-    """
+    """Shut down the process pool. Idempotent."""
     _pool.shutdown()

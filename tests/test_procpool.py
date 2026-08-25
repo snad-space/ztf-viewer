@@ -35,14 +35,19 @@ async def test_exception_in_child_propagates_to_the_awaiter() -> None:
         await procpool.run_in_process(workers.raise_value_error)
 
 
-def test_constructing_a_pool_does_not_spawn_children() -> None:
-    """Justifies building the module-level pool at import time rather than lazily."""
+def test_constructing_a_pool_builds_nothing() -> None:
     before = _child_pids()
     pool = _ProcessPool(max_workers=2)
     try:
+        assert pool._executor is None
         assert _child_pids() == before
     finally:
         pool.shutdown()
+
+
+async def test_a_child_importing_procpool_does_not_build_its_own_pool() -> None:
+    """`_procpool_workers` imports this module, so every worker re-imports it under spawn."""
+    assert await procpool.run_in_process(workers.procpool_executor_is_built) is False
 
 
 async def test_crash_surfaces_as_broken_process_pool_and_the_pool_recovers() -> None:
