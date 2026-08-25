@@ -4,6 +4,8 @@ import dash
 from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 
+from ztf_viewer.config import WEBSOCKET_HEARTBEAT_INTERVAL_MS
+
 _STATIC_DIR = pathlib.Path(__file__).parent / "static"
 
 
@@ -36,6 +38,8 @@ app = dash.Dash(
     external_scripts=js9_js,
     health_endpoint="health",
     backend="fastapi",
+    # Transport enabled; callbacks opt in individually via `websocket=True`.
+    websocket_heartbeat_interval=WEBSOCKET_HEARTBEAT_INTERVAL_MS,
 )
 app.config.suppress_callback_exceptions = True
 
