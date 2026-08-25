@@ -14,7 +14,7 @@ import plotly.graph_objects as go
 from astropy.coordinates import SkyCoord
 from astropy.table import QTable
 from astropy.units import Quantity
-from dash import ALL, MATCH, Input, Output, State, dcc, html
+from dash import ALL, MATCH, Input, Output, State, ctx, dcc, html, set_props
 from dash.dash_table import DataTable
 from dash.exceptions import PreventUpdate
 from immutabledict import immutabledict
@@ -2097,10 +2097,59 @@ def set_tables():
                 State("oid", "children"),
                 State("dr", "children"),
             ],
+            # The initial fan-out over every catalog is handled by `stream_tables` below;
+            # this callback only has to react to this one catalog's radius changing later.
+            prevent_initial_call=True,
         )(partial(set_table, catalog=catalog))
 
 
 set_tables()
+
+
+async def _find_table_for_stream(catalog, radius, oid, dr):
+    """Isolate one catalog's query so a failure can never stop its siblings from streaming."""
+    try:
+        result = await set_table(radius, oid, dr, catalog)
+    except Exception:  # noqa: BLE001 - isolates one catalog's failure from its siblings
+        # Contributes nothing -- indistinguishable from a catalog that was never queried.
+        result = None
+    return catalog, result
+
+
+@callback(
+    Input("oid", "children"),
+    Input("dr", "children"),
+    State({"type": "search-radius", "index": ALL}, "id"),
+    State({"type": "search-radius", "index": ALL}, "value"),
+    # No Output: results are pushed with `set_props` as each catalog's query completes, so fast
+    # catalogs paint without waiting on slow ones.
+    websocket=True,
+)
+async def stream_tables(oid, dr, radius_ids, radius_values):
+    """Fan out to every catalog once per object page load, streaming each table as it completes.
+
+    Triggered only by `oid`/`dr`, not by the per-catalog radius inputs -- a single radius change
+    still re-runs only that one catalog's `set_table` callback above. Consolidating this into one
+    callback keyed on every radius input would re-query all ~20 catalogs on every radius edit;
+    keeping the per-catalog callbacks for that path avoids the amplification entirely.
+    """
+    ws = ctx.websocket
+    radii = {id_["index"]: value for id_, value in zip(radius_ids, radius_values)}
+    catalogs = catalog_query_objects()
+    tasks = [
+        asyncio.ensure_future(_find_table_for_stream(catalog, radii.get(catalog), oid, dr)) for catalog in catalogs
+    ]
+    try:
+        async for finished in asyncio.as_completed(tasks):
+            if ws is not None and ws.is_shutdown:
+                raise PreventUpdate
+            catalog, result = await finished
+            if result is not None:
+                set_props(f"{catalog}-table", {"children": result})
+    finally:
+        for task in tasks:
+            if not task.done():
+                task.cancel()
 
 
 @callback(

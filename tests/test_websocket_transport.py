@@ -5,8 +5,8 @@ proxy's live 60s read-timeout default. HTTP-transport callbacks still work.
 
 import pytest
 from dash import Input, Output, html
+from fastapi import WebSocketDisconnect
 from fastapi.testclient import TestClient
-from starlette.websockets import WebSocketDisconnect
 
 from tests.conftest import reset_shared_process_pool, reset_shared_thread_pool
 from ztf_viewer import config
@@ -62,7 +62,9 @@ def test_at_least_one_callback_opted_into_websocket_transport():
     import ztf_viewer.__main__ as main_module
 
     opted_in = [callback_id for callback_id, entry in main_module.app.callback_map.items() if entry.get("websocket")]
-    assert opted_in == ["skybot.children"]
+    # skybot.children (single Output) plus stream_tables (no Output, hashed id below).
+    assert "skybot.children" in opted_in
+    assert len(opted_in) == 2
 
 
 def test_http_fallback_still_works_for_a_non_websocket_callback():

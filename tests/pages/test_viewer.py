@@ -25,10 +25,13 @@ import contextlib
 import inspect
 import json
 import time
+import types
+from typing import ClassVar
 from unittest.mock import AsyncMock, patch
 
 import pytest
 from astropy.table import Table
+from dash._callback_context import context_value
 from dash.exceptions import PreventUpdate
 from plotly.utils import PlotlyJSONEncoder
 
@@ -52,6 +55,8 @@ get_metadata = inspect.unwrap(viewer.get_metadata)
 get_layout = inspect.unwrap(viewer.get_layout)
 set_features_list = inspect.unwrap(viewer.set_features_list)
 set_lc_table = inspect.unwrap(viewer.set_lc_table)
+stream_tables = inspect.unwrap(viewer.stream_tables)
+set_table = viewer.set_table  # a plain async helper, never wrapped by the callback shim
 set_figure_link = viewer.set_figure_link  # a plain function, never wrapped
 
 
@@ -85,6 +90,10 @@ def _project(node):
 
 class _StubCatalogQuery:
     """A `_BaseCatalogQuery`-shaped stand-in whose `find()` does exactly what a test wants."""
+
+    # Only read by `set_table`'s HTML rendering path (`get_summary` reads table rows directly).
+    columns: ClassVar[dict] = {"separation": "Separation, arcsec", "__objname": "Name", "__type": "Type"}
+    html_columns: ClassVar[frozenset] = frozenset()
 
     def __init__(self, name, *, table=None, exc=None):
         self.query_name = name
@@ -476,3 +485,173 @@ def test_set_figure_link_prevents_update_when_range_is_backwards():
 def test_set_figure_link_raises_for_unknown_type():
     with pytest.raises(ValueError, match="lc_type"):
         set_figure_link("633207400004730", "dr24", "Title", None, None, None, None, "bogus", None, None, "png")
+
+
+# ---------------------------------------------------------------------------------------------
+# stream_tables -- progressive per-catalog table streaming over the WS transport.
+#
+# The central design hazard: consolidating the ~20 per-catalog `set_table` callbacks into one
+# streaming callback keyed on every search-radius input would re-query all catalogs on a single
+# radius edit. `stream_tables` is instead triggered only by oid/dr (once per object page load);
+# a radius change still runs only that one catalog's own `set_table` callback, registered with
+# `prevent_initial_call=True` above so it does not duplicate the initial fan-out.
+# ---------------------------------------------------------------------------------------------
+
+
+class _FakeWebsocket:
+    """Stands in for `ctx.websocket`. `is_shutdown` flips True after `shutdown_after` pushes."""
+
+    def __init__(self, shutdown_after=None):
+        self.pushes = 0
+        self._shutdown_after = shutdown_after
+
+    @property
+    def is_shutdown(self):
+        return self._shutdown_after is not None and self.pushes >= self._shutdown_after
+
+
+async def _run_stream_tables(catalogs, ws=None, oid="633207400004730", dr="dr24"):
+    ids, values = _radius_inputs(list(catalogs))
+    token = context_value.set(types.SimpleNamespace(dash_websocket=ws))
+    try:
+        with (
+            patch.object(viewer, "catalog_query_objects", lambda: catalogs),
+            patch.object(viewer, "get_catalog_query", lambda name: catalogs[name]),
+        ):
+            return await stream_tables(oid=oid, dr=dr, radius_ids=ids, radius_values=values)
+    finally:
+        context_value.reset(token)
+
+
+def test_stream_tables_triggered_only_by_oid_and_dr():
+    """Pins the trigger-granularity decision at the registration level: if this callback ever
+    grows an Input on the search-radius pattern, this fails before the amplification ships."""
+    streaming_entries = [e for e in viewer.app.callback_map.values() if e.get("websocket") and e.get("no_output")]
+    assert len(streaming_entries) == 1
+    assert [str(inp) for inp in streaming_entries[0]["raw_inputs"]] == ["oid.children", "dr.children"]
+
+
+async def test_single_radius_change_queries_only_that_catalog(monkeypatch):
+    """End-to-end guard for the same hazard: dispatching a real radius change for one catalog's
+    `set_table` callback over HTTP must not touch any other catalog's `find`."""
+    from dash import html
+    from fastapi.testclient import TestClient
+
+    from tests.conftest import reset_shared_process_pool, reset_shared_thread_pool
+
+    calls = {}
+
+    class _CountingCatalogQuery:
+        query_name = "Stub"
+        columns: ClassVar[dict] = {"separation": "Separation"}
+        html_columns: ClassVar[frozenset] = frozenset()
+
+        def __init__(self, name):
+            self._name = name
+
+        async def find(self, ra, dec, radius):
+            calls[self._name] = calls.get(self._name, 0) + 1
+            table = Table()
+            table["separation"] = [1.0]
+            return table
+
+    async def fake_get_coord(oid, dr):
+        return 10.0, 20.0
+
+    monkeypatch.setattr(viewer.find_ztf_oid, "get_coord", fake_get_coord)
+    monkeypatch.setattr(viewer, "get_catalog_query", _CountingCatalogQuery)
+
+    original_layout = viewer.app._layout, viewer.app._layout_is_function
+    original_error_mode = viewer.app.backend.error_handling_mode
+    viewer.app.layout = html.Div("x")
+    reset_shared_thread_pool()
+    reset_shared_process_pool()
+    try:
+        with TestClient(viewer.app.server) as client:
+            response = client.post(
+                "/_dash-update-component",
+                json={
+                    "output": "gcvs-table.children",
+                    "outputs": {"id": "gcvs-table", "property": "children"},
+                    "inputs": [{"id": {"type": "search-radius", "index": "gcvs"}, "property": "value", "value": 5}],
+                    "state": [
+                        {"id": "oid", "property": "children", "value": "633207400004730"},
+                        {"id": "dr", "property": "children", "value": "dr24"},
+                    ],
+                    "changedPropIds": ['{"index":"gcvs","type":"search-radius"}.value'],
+                },
+            )
+    finally:
+        viewer.app._layout, viewer.app._layout_is_function = original_layout
+        viewer.app.backend.error_handling_mode = original_error_mode
+
+    assert response.status_code == 200
+    assert calls == {"gcvs": 1}
+
+
+async def test_stream_tables_pushes_fast_catalog_before_slow_one_finishes():
+    """Streaming actually streams: a slow catalog must not delay a fast one's table."""
+    pushed = []
+
+    def fake_set_props(component_id, props):
+        pushed.append((component_id, time.perf_counter()))
+
+    catalogs = {
+        "fast": _SleepingCatalogQuery("Fast", delay=0.0, table=_stub_table()),
+        "slow": _SleepingCatalogQuery("Slow", delay=0.3, table=_stub_table()),
+    }
+    with patch.object(viewer, "set_props", fake_set_props):
+        await _run_stream_tables(catalogs)
+
+    assert [component_id for component_id, _ in pushed] == ["fast-table", "slow-table"]
+    # The fast push must land well before the slow catalog's own delay has elapsed.
+    assert pushed[1][1] - pushed[0][1] > 0.1
+
+
+async def test_stream_tables_failing_catalog_contributes_nothing():
+    """A catalog whose query raises must not be pushed at all -- indistinguishable from a
+    catalog that was never queried -- and must not stop its sibling from streaming."""
+    pushed = {}
+
+    def fake_set_props(component_id, props):
+        pushed[component_id] = props
+
+    catalogs = {
+        "broken": _StubCatalogQuery("Broken", exc=RuntimeError("boom")),
+        "ok": _other_succeeding_catalog(),
+    }
+    with patch.object(viewer, "set_props", fake_set_props):
+        await _run_stream_tables(catalogs)
+
+    assert "broken-table" not in pushed
+    assert "ok-table" in pushed
+
+
+async def test_stream_tables_stops_on_disconnect():
+    """Closing the tab mid-load must stop querying catalogs that have not started yet."""
+    pushed = []
+    ws = _FakeWebsocket(shutdown_after=1)
+
+    def fake_set_props(component_id, props):
+        pushed.append(component_id)
+        ws.pushes += 1
+
+    catalogs = {
+        "first": _SleepingCatalogQuery("First", delay=0.0, table=_stub_table()),
+        "second": _SleepingCatalogQuery("Second", delay=0.2, table=_stub_table()),
+    }
+    with patch.object(viewer, "set_props", fake_set_props), pytest.raises(PreventUpdate):
+        await _run_stream_tables(catalogs, ws=ws)
+
+    # Only the catalog that had already completed before the shutdown check got pushed.
+    assert pushed == ["first-table"]
+
+
+async def test_set_table_still_works_over_the_unconverted_http_path():
+    """The per-catalog `set_table` callback itself (the HTTP fallback path) is unchanged."""
+    with (
+        patch.object(viewer.find_ztf_oid, "get_coord", AsyncMock(return_value=(10.0, 20.0))),
+        patch.object(viewer, "get_catalog_query", lambda name: _other_succeeding_catalog()),
+    ):
+        div = await set_table(radius=3.0, oid="633207400004730", dr="dr24", catalog="other")
+    assert "Other Object" in _dump(div)
