@@ -5,8 +5,8 @@ proxy's live 60s read-timeout default. HTTP-transport callbacks still work.
 
 import pytest
 from dash import Input, Output, html
+from fastapi import WebSocketDisconnect
 from fastapi.testclient import TestClient
-from starlette.websockets import WebSocketDisconnect
 
 from tests.conftest import reset_shared_process_pool, reset_shared_thread_pool
 from ztf_viewer import config
