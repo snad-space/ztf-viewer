@@ -6,9 +6,13 @@ flip has landed** (#658–#661, merged as one stack); **the async-I/O stack is c
 (`aio-httpx`, `aio-snad-apis`, `aio-conesearch`, `aio-gather` — #664, #665, #668, #681;
 `aio-offload-threads` dropped). **The process-pool stack is complete**
 (`aio-procpool`, `aio-figures`, `aio-profile` — #685, #686, #689/#690). **Transport enablement has
-landed** (`aio-ws` — #693). What remains is `aio-stream` and `aio-cleanup`. The out-of-band
-proxy-config verification the WebSocket stack depends on has now been partly answered by reading
-the ops repo directly (see the Progress list and the design note below) — it is the frontier now.
+landed** (`aio-ws` — #693), and browsers really do use it — verified live in Firefox and Safari
+(see the Progress list). **`aio-stream`'s first slice was tried and rejected** (per-catalog tables,
+#696, closed without merging — it collapsed independent failure domains into one); only the
+`get_summary` slice is still planned. What remains is that `get_summary` slice and `aio-cleanup`.
+The out-of-band proxy-config verification the WebSocket stack depends on has now been partly
+answered by reading the ops repo directly, plus a live protocol-level test against the dev/preview
+host (see the Progress list and the design note below) — it is the frontier now.
 Baseline: `master` after `994874e`
 Now running: FastAPI backend under uvicorn, one worker, one loop; Python 3.14
 First-party HTTP and every JSON cone-search catalog now go through one shared async `httpx`
@@ -308,7 +312,89 @@ merged by its author, and "ready for review" is a reviewer's signal, not the aut
       disallowed Origin was rejected at handshake with a 403. **"Reconnect after a proxy restart
       works" was never verified** — it requires the live deployment, which this task did not touch.
       The item was merged with that criterion still open; see `## Open questions`.
-- [ ] `aio-stream` — progressive rendering via `set_props`
+      **Whether browsers actually use the WS transport at all is now answered: yes.** Earlier
+      instrumentation (Resource Timing) suggested browsers silently used HTTP instead — that was a
+      **misattribution**, not a real finding: the `_dash-update-component` fetch observed on a
+      graph click belonged to `fits-to-show.children`, a sibling callback sharing the same
+      `graph.clickData` `Input`, not to skybot; Resource Timing cannot see SharedWorker-initiated
+      traffic, so the instrumentation was blind to the actual WS dispatch. Patching
+      `MessagePort.prototype.postMessage` (prototype lookup happens at call time, so it intercepts
+      the renderer's already-open port) shows one click producing exactly two dispatches:
+      `skybot.children` as a `callback_request` through the SharedWorker port, and
+      `fits-to-show.children` as an HTTP fetch — zero HTTP requests for skybot. Verified in Firefox
+      153. This also corrects an earlier concern: **Safari supports `SharedWorker`**
+      (`typeof SharedWorker === "function"`, and one constructs with a working port) — verified in
+      Safari 27, alongside Firefox 153. Any note suggesting Safari would silently fall back is wrong.
+      **There is no HTTP fallback if a WebSocket connection fails at runtime, but there is a
+      capability fallback that keeps the exposure narrow — both confirmed by reading the installed
+      `dash-renderer` bundle and `dash-ws-worker.js` directly.** Dispatch computes `useWebSocket =
+      !background && (isWebSocketEnabled(config) || cb.callback.websocket &&
+      isWebSocketAvailable(config))`, and `isWebSocketAvailable` requires `typeof SharedWorker !==
+      'undefined'` — a browser without `SharedWorker` takes the HTTP path cleanly at dispatch time,
+      no failed connection, no delay. But a browser that *has* `SharedWorker` and commits to WS
+      gets no second chance if the connection then can't be established (a network blocking the
+      Upgrade, a proxy dropping it): the worker queues the request and retries the *connection*
+      only — `maxRetries: 10`, 1s initial backoff, 30s cap, with jitter — then emits an `ERROR` to
+      the renderer; it never re-dispatches the queued request over HTTP. It also runs its own
+      heartbeat (~10s ack timeout), closing with code 4000 and reconnecting on anything but a clean
+      close (1000) or an inactivity close (4001). **Consequence: an opted-in callback does not
+      degrade to HTTP when its WebSocket connection fails at runtime — it hangs, retries for a
+      couple of minutes, then errors. The exposed population is modern (`SharedWorker`-capable)
+      browsers on networks that specifically block WebSocket upgrades — real, but narrow, not a
+      general breakage risk.** This is why a WebSocket opt-in should be justified by actually using
+      streaming, not adopted by default — but it is not an argument against opting in where
+      streaming buys something real; the planned `get_summary` slice is exactly that trade.
+      **Current state:** work in progress (not yet its own PR) removes `websocket=True` from
+      `update_skybot_for_graph_clicked`, leaving the transport enabled but with no opted-in
+      callback until genuine streaming lands.
+      **This partially informs, but does not close, the outstanding "reconnect after a proxy
+      restart" criterion**: the worker's reconnect logic demonstrably exists (see above), but it
+      has still not been exercised against a live proxy restart. That criterion stays open.
+- [x] Thread-pool sizing bumped ahead of `aio-stream` — `THREAD_POOL_SIZE` default raised 16 → 64
+      (#697 `raise-pool-sizes`), pinned by a test that both pools actually track the config value
+      (#695 `pool-width-bench`). Because `_size_thread_pools` sizes **both** asyncio's default
+      executor and anyio's sync-route limiter from that one value, this is up to 128 blocking
+      threads per process, not 64 — and roughly four times the simultaneous upstream requests a
+      single IP could produce before. `PROCESS_POOL_SIZE` was deliberately left at 2.
+      **Decided by the project owner, not measured**: #697 records no production measurement, only
+      a consequence check of what the number actually allows — record it as a judgement call.
+      Watch for upstream rate-limiting presenting as catalogs looking flaky, not as anything
+      obviously pool-related — CDS services are the most exposure-prone (cross-cutting risks
+      table).
+      **#695 originally also carried a queueing benchmark, written and then dropped before
+      review**: its blocking work was `time.sleep`, so its numbers were derivable from its own
+      parameters and identical on any machine — measuring nothing about the deployment, the same
+      objection the plan already raises against `fanout_bench.py`. Recorded here so nobody rebuilds
+      it. **Open question 11 (pool width) is therefore still open** — the only honest route to
+      answering it is instrumenting the running deployment, not a synthetic benchmark.
+- [ ] `aio-stream` — progressive rendering via `set_props`. **First slice tried and rejected:**
+      #696 `stream-catalog-tables` ("Stream per-catalog tables over the WS transport") was opened,
+      deployed to a preview, found broken there, and **closed without merging.** It converted the
+      ~20 per-catalog `set_table` callbacks so initial fan-out went through one no-`Output`
+      `set_props` streaming callback, adding `prevent_initial_call=True` to the per-catalog
+      callbacks. **On the live preview only 3 of 19 tables rendered.** Root cause: the fan-out
+      iterates 19 catalogs (`catalog_query_objects()`), but only 17 have a table div in the layout
+      — `antares` and `gaia-dr2-distances` have none — and a failure in the shared loop hit the
+      `finally` block, which cancelled every still-pending task, killing the rest.
+      `prevent_initial_call=True` had removed the fallback that would otherwise have made this a
+      slow page rather than a blank one. **This is the same defect class already recorded under
+      `aio-gather`** above, where a per-catalog `radii` lookup hoisted out of per-task exception
+      handling turned a contained `KeyError` into a page-wide failure — the plan predicted this
+      shape of bug once already.
+      **The rule that came out of it, and governs the remaining slices: stream where it does not
+      consolidate independent failure domains; do not where it does.** Per-catalog tables collapse
+      ~20 independent callbacks into 1 — a bad trade, and the weakest case for streaming anyway,
+      since each table already paints independently as its own callback returns. `get_summary` and
+      the light-curve figure are each already a single callback with a single output, so streaming
+      them changes nothing about the failure domain. **Only the `get_summary` slice is now planned
+      to proceed.**
+      **The existing tests passed while 16 of 19 tables were blank in production.** The automated
+      suite asserted things like "a fast catalog paints before a slow one finishes" and "a failing
+      catalog contributes nothing," but nothing asserted that *all* expected tables populate — a
+      partial-render check cannot distinguish "streaming in progress" from "streaming died." What
+      was needed, and is still needed for the `get_summary` slice, is a completeness assertion.
+      **Salvaged from #696:** the `WebSocketDisconnect` import fix (`starlette` → `fastapi`) landed
+      separately as #698.
 
 **Process pool**
 - [x] `aio-procpool` — pool lifecycle, spawn-safe — #685 `procpool`. Landed **inert**, like
@@ -430,6 +516,15 @@ merged by its author, and "ready for review" is a reviewer's signal, not the aut
       exists at config-generation time, so dropping the snippet in later also requires a config
       regeneration/reload before it takes effect. Fixing this is still the ops-repo work this item
       asks for; it has been diagnosed, not fixed.
+      **Live-tested against the dev/preview deployment (`master.ztf.snad.space`), not production —
+      a distinction worth keeping precise, since that host resolves to a different machine than
+      production and this does NOT clear the production proxy diagnosed above.** A raw HTTP/1.1
+      upgrade request to `/_dash-ws-callback` returned `101 Switching Protocols`; a cross-origin
+      handshake was rejected with 403; a real callback round-tripped over a WS frame; and an idle
+      connection survived past 70 seconds before closing with code 1012 (service restart), **not**
+      a timeout. So the 60s `proxy_read_timeout` concern this item raises is not borne out by this
+      one observation on this one host — but the ops-side fix has still not been made anywhere, and
+      this item stays `[~]`, not checked off.
 - [ ] Per-vhost timeouts for the viewer
 - [~] Fix the no-op `client_max_body_size` patch — **confirmed as a no-op at the strongest level,
       not yet fixed.** The effective running configuration contains no `client_max_body_size`
@@ -1628,7 +1723,12 @@ shows now that `aio-gather` has landed (#681).
 of the five constructor arguments below turned out to be no-ops and were dropped, only
 `websocket_heartbeat_interval` is configured, and the origin claim two bullets down was wrong —
 corrected in place below. "Reconnect after a proxy restart works" in the accept criteria was not
-verified and is still open.)*
+verified and is still open. Also read the Progress entry for the later finding that browsers really
+do use the WS transport — an earlier Resource Timing-based concern that they silently fell back to
+HTTP was a misattribution — and for the corrected fallback story: no HTTP fallback if a WS
+connection fails at *runtime*, but a capability check keeps that narrow to browsers that have
+`SharedWorker` and are on a network that specifically blocks WebSocket upgrades. Safari supports
+`SharedWorker` (verified Safari 27); any note below suggesting otherwise is wrong.)*
 - Proxy prerequisites: upgrade support is confirmed, not just handled — nginx-proxy's built-in
   template emits the `$http_upgrade`/`$proxy_connection` map and the `Upgrade`/`Connection`
   headers unconditionally, on the stock image, verified directly against the deployed proxy
@@ -1660,23 +1760,45 @@ verified and is still open.)*
   `websocket_callbacks=False` **(met)**.
 
 ### `aio-stream` — Progressive rendering
+*(First slice tried and rejected — #696 `stream-catalog-tables`, closed without merging. Read the
+Progress entry before this section for the full story: converting the per-catalog tables collapsed
+~20 independent failure domains into one, and a shared-loop failure that hit the `finally` block
+took down every not-yet-completed table with it — only 3 of 19 rendered on the live preview. **The
+rule that came out of it and now governs this section: stream where it does not consolidate
+independent failure domains; do not where it does.** That rules the per-catalog tables item below
+out entirely — it is superseded, kept here only as a record of what was tried — and leaves
+`get_summary` and the light-curve figure as the two candidates worth pursuing, since each is
+already a single callback with a single output and streaming changes nothing about its failure
+domain.)*
+
 Depends on `aio-ws` (landed, #693) for the transport; the opted-in callback there
-(`update_skybot_for_graph_clicked`) is single-shot, so nothing here can be checked against a real
-streaming callback yet — this stack is where `dash/backends/ws.py:44`'s `is_shutdown` requirement
-below gets its first real exercise.
+(`update_skybot_for_graph_clicked`) is single-shot, so nothing here could be checked against a real
+streaming callback until #696 — which is where `dash/backends/ws.py:44`'s `is_shutdown`
+requirement below got its first real exercise, and where a completeness assertion (not just a
+partial-render check) turned out to be the test that actually matters: #696's own tests passed
+while 16 of 19 tables were blank on the live preview.
 
 Now the actual UX change. Convert the slow, fan-out callbacks to no-output `set_props`
 streaming so results paint as they arrive instead of in one blocking batch:
-- the per-catalog tables (`set_tables`, `ztf_viewer/pages/viewer.py:2046`) — today ~20
+- ~~the per-catalog tables (`set_tables`, `ztf_viewer/pages/viewer.py:2046`) — today ~20
   independent callbacks each waiting on one upstream; with `set_props` they can be one
-  streaming callback that pushes each table as its `gather` task completes;
-- `get_summary` — push rows incrementally, so the page is useful before Vizier answers;
+  streaming callback that pushes each table as its `gather` task completes~~ — **superseded: tried
+  as #696 and rejected.** Collapsing ~20 independent per-catalog callbacks into one streaming
+  callback is the weakest case for streaming anyway (each table already paints independently as
+  its own callback returns) and the worst case for the failure-domain rule above. Not proceeding.
+- `get_summary` — push rows incrementally, so the page is useful before Vizier answers. **The only
+  slice now planned to proceed.**
 - the light-curve figure — paint ZTF DR photometry immediately, then push external
   (antares/gaia/panstarrs) traces as they land.
 - Per `dash/backends/ws.py:44`, any persistent/streaming callback **must** be `async def` and
-  **must** check `ctx.websocket.is_shutdown` in its loop, or it leaks work after disconnect.
+  **must** check `ctx.websocket.is_shutdown` in its loop, or it leaks work after disconnect. #696
+  built exactly this (`_find_table_for_stream` catching per-catalog exceptions, a `finally` that
+  cancels in-flight tasks) — the design held up; it was the *scope* (per-catalog tables) that was
+  wrong, not the streaming mechanics.
 - **Accept:** with an artificially delayed catalog, the rest of the page renders without
-  waiting; closing the tab mid-load stops server-side work (assert via logs).
+  waiting; closing the tab mid-load stops server-side work (assert via logs); **and, learned from
+  #696: a completeness assertion that every expected element actually populates** — a
+  partial-render check alone cannot distinguish "streaming in progress" from "streaming died."
 
 ---
 
@@ -1832,9 +1954,10 @@ dated. `await asyncio.to_thread(x)` needs no gloss.
 | The cache rewrite silently preserves one of today's defects (F12) | The five defects are recorded as named `xfail`s in `aio-cache-spec`; `aio-cache-sync`'s accept criterion is that F12.1–F12.4 turn XPASS, so preserving a bug fails the criterion rather than passing quietly |
 | `aio-shim` misses the 19 loop-registered `set_table` callbacks (F1a′) | The invariant asserts over all 57 registrations, not the 39 source sites, so a missed loop fails CI |
 | Static assets 404 after the flip (F2) | `aio-golden-http` asserts `/static/js9/js9.min.js` and `/static/img/logo.svg` return 200 — landed, #634 |
-| Concurrent fan-out hammers upstreams that previously saw serialized traffic | **Live and unmitigated as of `aio-gather` (#681)** — `aio-offload-threads`, whose job this was, was dropped first. What is left is the `unavailable_catalogs` circuit breaker (which trips *after* an upstream is already unhappy) and `THREAD_POOL_SIZE` as a blunt global ceiling, left at its default of 16. The concrete exposure is CDS: SIMBAD bans an IP for a minute above 10 queries/s and for an hour above 400 in 10s, and VizieR, MOCServer and Sesame share that origin. Note we are one IP for every user, and master plus each `pr<N>` preview are separate containers on one host, so the figure that matters is per-IP, not per-process — no in-process bound could have covered it anyway, the same argument #681 made when leaving it unmitigated. Not yet exercised under real production traffic — prod stays on the Flask build until the whole plan lands. If this bites, rate limiting belongs outside the async layer |
+| Concurrent fan-out hammers upstreams that previously saw serialized traffic | **Live and unmitigated as of `aio-gather` (#681)**, and the exposure grew with #697 — `aio-offload-threads`, whose job this was, was dropped first. What is left is the `unavailable_catalogs` circuit breaker (which trips *after* an upstream is already unhappy) and `THREAD_POOL_SIZE` as a blunt global ceiling, raised from 16 to 64 by #697 (a judgement call, not a measurement) — up to 128 blocking threads per process once anyio's separate limiter is counted, roughly 4x the simultaneous upstream requests one IP could produce before. The concrete exposure is CDS: SIMBAD bans an IP for a minute above 10 queries/s and for an hour above 400 in 10s, and VizieR, MOCServer and Sesame share that origin. Note we are one IP for every user, and master plus each `pr<N>` preview are separate containers on one host, so the figure that matters is per-IP, not per-process — no in-process bound could have covered it anyway, the same argument #681 made when leaving it unmitigated. Not yet exercised under real production traffic — prod stays on the Flask build until the whole plan lands. If this bites, rate limiting belongs outside the async layer; watch for it presenting as catalogs looking flaky rather than as anything obviously pool-related |
 | Cache stampede amplified by concurrency | Single-flight in the cache sub-stack — this becomes load-bearing, not a nicety |
-| WebSocket dropped by a proxy (F7) | nginx-proxy handles upgrades natively; residual risk is timeouts and the the proxy design note config discrepancy — `aio-ws` (#693) pins the heartbeat under the live 60s ceiling and rolled out per-callback with HTTP retained as fallback. **Reconnect-after-proxy-restart, the design section's own accept criterion for this risk, was never verified against the live deployment** — see `## Open questions` |
+| WebSocket dropped by a proxy (F7) | nginx-proxy handles upgrades natively; residual risk is timeouts and the the proxy design note config discrepancy — `aio-ws` (#693) pins the heartbeat under the live 60s ceiling and rolled out per-callback with HTTP retained as fallback. **Reconnect-after-proxy-restart, the design section's own accept criterion for this risk, was never verified against the live deployment** — see `## Open questions`. Live-tested against the dev/preview host only (a different machine than production): a raw upgrade returned 101, an idle connection survived past 70s before closing 1012 (service restart, not a timeout) — encouraging, but not a substitute for testing the production proxy |
+| An opted-in WebSocket callback has no HTTP fallback if its connection fails at *runtime* | A capability check (`isWebSocketAvailable`, requires `typeof SharedWorker !== 'undefined'`) keeps this narrow: browsers without `SharedWorker` never attempt WS and dispatch over HTTP cleanly. But a `SharedWorker`-capable browser that commits to WS and then can't establish the connection (a network blocking the Upgrade) retries the connection for ~2 minutes (`maxRetries: 10`, 1s–30s backoff) and then errors — it never falls back to HTTP. Mitigation is scope, not code: only opt a callback in when streaming buys something real (`get_summary`), not by default |
 | Static assets served with weaker caching after the flip (the `/static` design note) | `aio-golden-http` records today's cache headers for `/static/js9/js9.min.js`; set them explicitly on the mount |
 | Process pool memory blowup | `aio-procpool` sizing; compare container RSS before/after |
 | CSV assembly (`aio-profile`/#690) queues behind figure renders on the shared 2-worker pool | Not yet mitigated — measured directly, a CSV render can sit ~1s behind two concurrent PDF renders; `PROCESS_POOL_SIZE` left at its default of 2 for lack of production traffic data to size it against, see `## Open questions` |
@@ -1863,6 +1986,16 @@ Tick these off as they are answered.
    transport? Depends on what the deployment proxies tolerate. **Still open after `aio-ws`
    (#693):** the PR opted in exactly one callback and left HTTP as the working path for
    everything else, deliberately, so this question carries forward unchanged into `aio-stream`.
+   **Sharper now, both ways.** A capability check (`isWebSocketAvailable`) means a browser without
+   `SharedWorker` always dispatches over HTTP regardless of this decision — that population never
+   sees WS either way. But a `SharedWorker`-capable browser that opts into WS and then can't
+   establish the connection gets no HTTP fallback at runtime, only a multi-minute retry-then-error
+   (see the WebSocket Progress entry and the cross-cutting risks table). So "keep the HTTP fallback
+   permanently" cannot mean "as a runtime safety net for a failed WS connection" — that safety net
+   does not exist and cannot be added without upstream Dash changes. The question that remains is
+   narrower: which callbacks are worth the narrow no-runtime-fallback exposure in exchange for
+   streaming, which is exactly the test #696's failure applied — and failed — to the per-catalog
+   tables, and which `get_summary` is expected to pass.
 4. **Is the `dr7` / legacy-URL behaviour** in `app_select_by_url` worth preserving verbatim
    through the route port, or can it be dropped now? **Half answered:** the port kept it verbatim
    (`ztf_viewer/__main__.py:358`), so nothing was lost while this went undecided. Whether to drop
@@ -1904,12 +2037,21 @@ Tick these off as they are answered.
     #693 verified two of its three accept criteria live (dispatch over `ws://`, HTTP fallback);
     this one requires the actual deployment and was out of scope for the sandbox it was built in.
     Carries forward as an outstanding check, not a completed item — see the Progress entry and the
-    cross-cutting risks table.
-11. **`THREAD_POOL_SIZE`'s default of 16** (left unchanged by `aio-gather`, #681, on a reviewer
-    call rather than a measurement — see that Progress entry) **gets sharper now that `aio-stream`
-    is next.** `aio-ws` (#693) opted in exactly one callback, and it is single-shot — no new load
-    landed on the default executor by this PR. But `aio-stream` converts the multi-catalog fan-out
-    callbacks to streaming, which means substantially more concurrent work in flight per page load
-    than the HTTP path ever put there, against a pool width nothing has measured. Whether 16 holds
-    up is a question `aio-stream` should answer with a number, not inherit unmeasured a second
-    time.
+    cross-cutting risks table. **Partially informed but still not closed**: the worker's reconnect
+    logic demonstrably exists (exponential backoff, `maxRetries: 10`, jitter, verified by reading
+    `dash-ws-worker.js` directly) and a dev/preview-host connection has been observed surviving 70+
+    idle seconds before a *service restart* closed it with code 1012 — but that is not the same
+    event as a *proxy* restart, and the test was against the dev/preview host, not production.
+    Still requires a live proxy-restart test against the production deployment.
+11. **`THREAD_POOL_SIZE`'s default** (raised 16 → 64 by #697 as a judgement call, pinned by #695 —
+    not a measurement, see the Progress entry) **gets sharper now that `aio-stream` is next.**
+    `aio-ws` (#693) opted in exactly one callback, and it is single-shot — no new load landed on
+    the default executor by that PR. `aio-stream`'s first slice (#696) would have been the first
+    thing to actually stress pool width, but it was rejected on a correctness defect (the
+    per-catalog collapse) before pool width came into play at all — so this question is still
+    exactly as open as before, just against a default of 64 instead of 16. **#695's own attempt to
+    measure it (a `time.sleep`-driven queueing benchmark) was written and dropped before review**:
+    its numbers were derivable from its own parameters and identical on any machine, measuring
+    nothing about the deployment. The only route to a real answer is instrumenting the running
+    deployment; the `get_summary` slice of `aio-stream` is where that pressure will actually show
+    up, and it should answer this with a number, not inherit it unmeasured a third time.
