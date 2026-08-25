@@ -4,8 +4,10 @@ Status: in progress · foundations landed in full; prep landed in full;
 the async shell has landed in full (`aio-shim`, `aio-loop-registry`; `aio-pilots` dropped); **the
 flip has landed** (#658–#661, merged as one stack); **the async-I/O stack is complete**
 (`aio-httpx`, `aio-snad-apis`, `aio-conesearch`, `aio-gather` — #664, #665, #668, #681;
-`aio-offload-threads` dropped). The WebSocket and process-pool stacks are unblocked and
-untouched — they are the frontier now.
+`aio-offload-threads` dropped). **The process-pool stack is two of three in**
+(`aio-procpool`, `aio-figures` — #685, #686); `aio-profile` is what remains of it. The WebSocket
+stack is still unblocked and untouched, including the out-of-band proxy-config verification it
+depends on — it is the frontier now.
 Baseline: `master` after `994874e`
 Now running: FastAPI backend under uvicorn, one worker, one loop; Python 3.14
 First-party HTTP and every JSON cone-search catalog now go through one shared async `httpx`
@@ -270,8 +272,55 @@ merged by its author, and "ready for review" is a reviewer's signal, not the aut
 - [ ] `aio-stream` — progressive rendering via `set_props`
 
 **Process pool**
-- [ ] `aio-procpool` — pool lifecycle, spawn-safe
-- [ ] `aio-figures` — matplotlib rendering off-loop, PNG *and* PDF
+- [x] `aio-procpool` — pool lifecycle, spawn-safe — #685 `procpool`. Landed **inert**, like
+      `aio-httpx`: nothing calls `run_in_process` until `aio-figures`.
+      **Not built through `aio-loop-registry`, contrary to this section — and the plan is wrong
+      on that point.** A `ProcessPoolExecutor` isn't loop-affine: it touches nothing on
+      `asyncio.get_running_loop()` until a future gets wrapped, so nothing needs the registry's
+      protection, and keying it by loop would be actively wrong — a fresh registry entry means a
+      fresh set of OS child processes on every new loop, the opposite of what a worker pool is
+      for (the same reason `ztf_viewer/__main__.py`'s `_thread_pool` is already one per process,
+      not one per loop). `procpool.py` is a plain process-wide singleton behind a
+      `threading.Lock` instead. The section's "works under both loop models" framing is also
+      moot: Flask was already gone by the time this landed. **Sizing shipped as a flat default
+      of 2, not `~cpu_count // workers`** — changed on review, not measured against the plan's
+      formula; still env-overridable via `PROCESS_POOL_SIZE`.
+      **Built lazily, not at import** — found in review, not anticipated by this section: an
+      import-time executor re-runs inside the pool's own children, because spawn re-imports the
+      module holding the submitted function. Measured, not assumed: a worker whose module
+      imports `procpool` reports `_pool._executor` as `True` under eager construction, `False`
+      under lazy. Not a fork bomb (building a `ProcessPoolExecutor` doesn't spawn workers) but
+      every child carried a dead executor for nothing, and one `run_in_process` call from such a
+      module would have spawned a second generation; `tests/test_procpool.py` pins it against
+      regressing.
+      **Fork-mode (the Linux container) was not independently verified**, only spawn (macOS) —
+      short of the section's "verify locally under spawn and in the Linux container under fork."
+      The rest of the accept criteria hold: a killed child raises `BrokenProcessPool` to its own
+      awaiter (not a hang) and poisons the executor; `_discard` replaces it — shutdown of the
+      broken one now happens outside the lock, so callers asking for the replacement don't queue
+      behind it — and the next call gets a working pool, verified with a real `os._exit(1)` child.
+- [x] `aio-figures` — matplotlib rendering off-loop, PNG *and* PDF — #686 `figures-procpool`.
+      Landed as specified: both formats move into the pool behind one `save_fig` dispatch, and
+      the routes reach it via `run_in_process` — `pool.submit()` + `asyncio.wrap_future`, not
+      literally `loop.run_in_executor(pool, ...)` as this section wrote, because
+      `run_in_executor` doesn't take kwargs and the real call site does; decided in `aio-procpool`.
+      **One structural piece this section didn't anticipate**: `plot_data`, `plot_folded_data`
+      and `save_fig` moved out of `pages/figure.py` into a new `ztf_viewer/figure_render.py`.
+      Reason: under spawn, a worker re-imports the *module* holding the function it was handed,
+      and `pages/figure.py` imports `ztf_viewer.app`, which builds the whole Dash app as an
+      import side effect — re-running that in every spawned worker was not something to rely on
+      being safe. Verified by inspecting `sys.modules` inside a real spawned child: only
+      `ztf_viewer`, `figure_render` and `util` load, never `app` or `dash`.
+      **The accept criterion's flood measurement is in**, via new `plans/misc/figure_pool_bench.py`
+      (4 concurrent renders against a heartbeat coroutine standing in for another page load on the
+      same loop): PNG's worst stall drops 38.9ms → 9.6ms (~4x), PDF's drops 30.3ms → 0.6ms
+      (~50x), flood wall time roughly unchanged either way — the pool doesn't speed up rendering,
+      it moves the GIL contention off the loop. This confirms the section's own mid-review
+      correction above: PNG is the format that actually needed the pool, and it shows the larger
+      relative win despite being the cheaper render. Pickling was measured too, not just asserted
+      cheap: a real 832-observation light curve is 183KB, 1.6ms to dump, 0.7ms to load. No pool
+      `initializer=` for pre-warming — cold start is ~525ms once per worker process, judged not
+      worth it against "several seconds," which is what would have justified one.
 - [ ] `aio-profile` — measure the rest; pool only what earns it
 
 **Cleanup**
@@ -1479,6 +1528,11 @@ either way — so it can be pulled earlier if convenient. Do it **after** measur
 memory.
 
 ### `aio-procpool` — Pool infrastructure
+*(Landed — #685, branch `procpool`. **Read the Progress entry before this section:** the bullet
+below routing pool lifecycle through `aio-loop-registry` was rejected in review as the wrong call
+— a `ProcessPoolExecutor` isn't loop-affine, so keying it by loop would spawn a fresh set of child
+processes per loop rather than reuse one process-wide pool — and sizing shipped as a flat default
+of 2, not `cpu_count // workers`.)*
 - A `ProcessPoolExecutor`, one per worker process, sized ~`cpu_count // workers`, created and
   torn down through `aio-loop-registry`'s registry so it works under both loop models.
 - macOS/spawn safety: worker functions must be importable module-level functions with no
@@ -1488,6 +1542,10 @@ memory.
   as a 500 rather than a hang.
 
 ### `aio-figures` — Figure rendering — **both PDF and PNG**
+*(Landed — #686, branch `figures-procpool`. Built as specified, including the flood measurements
+the accept criterion below asks for; see the Progress entry for the one thing this section didn't
+anticipate — the renderers moving into a new `ztf_viewer/figure_render.py` so a spawned worker
+doesn't re-import `ztf_viewer.app` and build the whole Dash app.)*
 - `ztf_viewer/pages/figure.py` `plot_data` / `plot_folded_data` / `save_fig` move into the
   pool for *every* format, not just PDF.
 - The two paths differ in cost but not in kind. PDF is worse — `usetex=True`
