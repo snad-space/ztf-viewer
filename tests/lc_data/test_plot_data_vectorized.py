@@ -10,6 +10,7 @@ has two implementations to choose between.
 import math
 
 import numpy as np
+from astropy.time import Time
 
 from ztf_viewer.lc_data.plot_data import MJD_OFFSET, plot_data
 from ztf_viewer.util import ABZPMAG_JY, FILTERS_ORDER, LN10_04, immutabledefaultdict
@@ -24,8 +25,6 @@ def _plot_data_loop_reference(lc, mark_size=1, min_mjd=None, max_mjd=None, ref_m
         min_mjd = -np.inf
     if max_mjd is None:
         max_mjd = np.inf
-
-    from astropy.time import Time
 
     data = []
     for obs in lc:
