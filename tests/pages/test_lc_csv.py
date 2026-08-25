@@ -42,10 +42,16 @@ async def test_get_csv_per_oid_fanout_is_concurrent():
     async def fake_ref_get(oid, dr):
         raise NotFound
 
+    # This assertion is about the I/O fan-out, not the CSV-render pool round trip that follows
+    # it -- stub that out so a cold process-pool spawn on a slow runner can't blow the budget.
+    async def fake_run_in_process(fn, *args, **kwargs):
+        return fn(*args, **kwargs)
+
     with (
         patch.object(lc_csv.find_ztf_oid, "get_lc", fake_get_lc),
         patch.object(lc_csv.find_ztf_oid, "get_meta", fake_get_meta),
         patch.object(lc_csv.ztf_ref, "get", fake_ref_get),
+        patch.object(lc_csv, "run_in_process", fake_run_in_process),
     ):
         start = time.perf_counter()
         await lc_csv.get_csv("dr24", OIDS)
