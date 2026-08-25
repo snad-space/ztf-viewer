@@ -8,7 +8,6 @@ from ztf_viewer.config import (
     WEBSOCKET_ALLOWED_ORIGINS,
     WEBSOCKET_HEARTBEAT_INTERVAL_MS,
     WEBSOCKET_INACTIVITY_TIMEOUT_MS,
-    WEBSOCKET_MAX_WORKERS,
 )
 
 _STATIC_DIR = pathlib.Path(__file__).parent / "static"
@@ -45,7 +44,6 @@ app = dash.Dash(
     backend="fastapi",
     # Transport enabled; callbacks opt in individually via `websocket=True`.
     websocket_allowed_origins=WEBSOCKET_ALLOWED_ORIGINS,
-    websocket_max_workers=WEBSOCKET_MAX_WORKERS,
     websocket_inactivity_timeout=WEBSOCKET_INACTIVITY_TIMEOUT_MS,
     websocket_heartbeat_interval=WEBSOCKET_HEARTBEAT_INTERVAL_MS,
 )

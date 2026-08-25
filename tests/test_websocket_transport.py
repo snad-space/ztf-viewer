@@ -1,25 +1,46 @@
-"""The WS callback transport is enabled with an explicit origin allowlist and a heartbeat pinned
-under the deployed proxy's live 60s read-timeout default; HTTP-transport callbacks still work.
+"""The WS callback transport is enabled: same-origin connections work via dash's own same-Host
+fallback, cross-origin ones are still rejected, and the heartbeat is pinned under the deployed
+proxy's live 60s read-timeout default. HTTP-transport callbacks still work.
 """
 
+import pytest
 from dash import Input, Output, html
 from fastapi.testclient import TestClient
+from starlette.websockets import WebSocketDisconnect
 
 from tests.conftest import reset_shared_process_pool, reset_shared_thread_pool
 from ztf_viewer import config
 from ztf_viewer.app import app
-from ztf_viewer.config import WEBSOCKET_ALLOWED_ORIGINS, WEBSOCKET_HEARTBEAT_INTERVAL_MS
+from ztf_viewer.config import WEBSOCKET_HEARTBEAT_INTERVAL_MS
 
 # nginx's compiled default; the deployed proxy has no proxy_read_timeout override live anywhere,
 # so this is the real ceiling a heartbeat must stay under.
 LIVE_PROXY_READ_TIMEOUT_MS = 60_000
 
 
-def test_websocket_transport_is_enabled_with_explicit_origins():
-    """The handler rejects every cross-origin connection without an explicit allowlist."""
-    assert app._websocket_allowed_origins == WEBSOCKET_ALLOWED_ORIGINS
-    assert len(WEBSOCKET_ALLOWED_ORIGINS) > 0
-    assert all(isinstance(origin, str) and origin for origin in WEBSOCKET_ALLOWED_ORIGINS)
+def test_websocket_origin_check_allows_same_origin_and_rejects_cross_origin():
+    """The security-relevant behavior: dash's same-Host fallback (not the allowlist, which
+    defaults empty) is what accepts ordinary same-origin connections; a genuine cross-origin
+    one must still be rejected at the handshake."""
+    original_allowed_origins = app._websocket_allowed_origins
+    original_layout = app._layout, app._layout_is_function
+    app._websocket_allowed_origins = []
+    app.layout = html.Div("x")
+    reset_shared_thread_pool()
+    reset_shared_process_pool()
+    try:
+        with TestClient(app.server) as client:
+            with client.websocket_connect("/_dash-ws-callback", headers={"Origin": "http://testserver"}):
+                pass  # same-origin: connects without being on the allowlist
+
+            with (
+                pytest.raises(WebSocketDisconnect),
+                client.websocket_connect("/_dash-ws-callback", headers={"Origin": "https://evil.example.com"}),
+            ):
+                pass  # cross-origin, not on the allowlist: rejected
+    finally:
+        app._websocket_allowed_origins = original_allowed_origins
+        app._layout, app._layout_is_function = original_layout
 
 
 def test_heartbeat_interval_is_bounded_below_the_live_proxy_ceiling():
