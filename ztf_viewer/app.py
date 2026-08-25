@@ -43,9 +43,7 @@ app = dash.Dash(
     external_scripts=js9_js,
     health_endpoint="health",
     backend="fastapi",
-    # Transport enabled, but callbacks opt in individually (`websocket=True`) rather than via
-    # `websocket_callbacks=True`, so the HTTP path stays a working fallback while we gain
-    # confidence.
+    # Transport enabled; callbacks opt in individually via `websocket=True`.
     websocket_allowed_origins=WEBSOCKET_ALLOWED_ORIGINS,
     websocket_max_workers=WEBSOCKET_MAX_WORKERS,
     websocket_inactivity_timeout=WEBSOCKET_INACTIVITY_TIMEOUT_MS,

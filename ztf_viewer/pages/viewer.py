@@ -2028,8 +2028,7 @@ async def load_fits_for_graph_clicked(data, dr):
     Output("skybot", "children"),
     [Input("graph", "clickData")],
     [State("dr", "children")],
-    # First callback opted into the WS transport: no cookies, no chained outputs, so a WS-path
-    # regression stays contained while the HTTP fallback covers everything else.
+    # First callback opted into the WS transport: no cookies, no chained outputs.
     websocket=True,
 )
 async def update_skybot_for_graph_clicked(data, dr):
