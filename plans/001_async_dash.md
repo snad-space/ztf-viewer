@@ -4,10 +4,11 @@ Status: in progress · foundations landed in full; prep landed in full;
 the async shell has landed in full (`aio-shim`, `aio-loop-registry`; `aio-pilots` dropped); **the
 flip has landed** (#658–#661, merged as one stack); **the async-I/O stack is complete**
 (`aio-httpx`, `aio-snad-apis`, `aio-conesearch`, `aio-gather` — #664, #665, #668, #681;
-`aio-offload-threads` dropped). **The process-pool stack is two of three in**
-(`aio-procpool`, `aio-figures` — #685, #686); `aio-profile` is what remains of it. The WebSocket
-stack is still unblocked and untouched, including the out-of-band proxy-config verification it
-depends on — it is the frontier now.
+`aio-offload-threads` dropped). **The process-pool stack is complete**
+(`aio-procpool`, `aio-figures`, `aio-profile` — #685, #686, #689/#690). What remains is the
+WebSocket stack and `aio-cleanup`. The out-of-band proxy-config verification the WebSocket stack
+depends on has now been partly answered by reading the ops repo directly (see the Progress list
+and the design note below) — it is the frontier now.
 Baseline: `master` after `994874e`
 Now running: FastAPI backend under uvicorn, one worker, one loop; Python 3.14
 First-party HTTP and every JSON cone-search catalog now go through one shared async `httpx`
@@ -321,15 +322,84 @@ merged by its author, and "ready for review" is a reviewer's signal, not the aut
       cheap: a real 832-observation light curve is 183KB, 1.6ms to dump, 0.7ms to load. No pool
       `initializer=` for pre-warming — cold start is ~525ms once per worker process, judged not
       worth it against "several seconds," which is what would have justified one.
-- [ ] `aio-profile` — measure the rest; pool only what earns it
+- [x] `aio-profile` — measure the rest; pool only what earns it — #689 `profile-candidates`
+      (measurement harness and numbers, no behaviour change), #690
+      `vectorize-plot-data-pool-csv` (the two changes the numbers earned).
+      **Correction to the design section's framing, found while measuring:** the section's "each
+      may be cheaper to leave on a thread" presupposes all four candidates already run on a
+      thread. `grep -rn to_thread ztf_viewer/` shows that's true for sites 2 and 3 but **not** for
+      sites 1 and 4 — `plot_data`'s loop and `set_figure`'s plotly construction ran fully inline,
+      with no offload at all. For those two the question was never thread-vs-process, it was
+      "should this be offloaded at all."
+      **Per site — only one of four actually moved to the pool.**
+      **1. `plot_data`'s per-observation loop — vectorized, not pooled.** `cProfile` found ~50% of
+      its time went to building one `astropy.time.Time` per observation just for `.strftime`; one
+      batched call replaces all of them, ~10.4–10.7x faster inline (50.9ms→4.8ms at 1,500 obs,
+      674.5ms→64.8ms at 20,000 obs), byte-identical output, pinned by
+      `tests/lc_data/test_plot_data_vectorized.py` (six deliberate mutations, each caught by the
+      test that names that behaviour — an earlier revision's duplicate-implementation oracle was
+      dropped in review as no evidence). Pooling the *original*, unvectorized loop did help under a
+      6-way 20k-obs concurrent flood (2530ms/67ms gap vs 4157ms/359ms unpooled), but that pooled
+      number is still ~40x worse than vectorizing inline — pooling would have solved a problem
+      vectorizing removed outright.
+      **2. `lc_csv`'s pandas assembly — promoted to `run_in_process`.** Single-call cost is a wash,
+      but under concurrent load the pool cuts wall time ~45% and the worst-case event-loop stall
+      **~90–200x**, matching `gil_bench.py`'s standing finding that pandas concat/sort holds the
+      GIL for real stretches. The pure function moved to a new module, `ztf_viewer/csv_render.py`,
+      for the same reason `figure_render.py` exists (`aio-figures`): a spawned worker re-imports
+      whatever module holds the submitted function, and `lc_csv.py` itself pulls in the
+      astroquery-backed catalog clients. A CI-only timing flake this exposed (a cold pool spawn
+      landing inside an unrelated fan-out test's 0.5s budget) was fixed by stubbing that one test's
+      pool hop, not by loosening the budget — `3f984ac`.
+      **3. `ztf_ref`'s FITS parse — left on a thread; F8 confirmed, sharpened not reversed.**
+      Measured against a real proxy payload (38,261 rows / 2.2MB, downloaded during development,
+      not `gil_bench.py`'s synthetic 2M-row control) it parses in under 2ms; pickling 2.2MB into a
+      child costs more than the parse saves. `gil_bench.py`'s "57ms, negligible" reading of this
+      site was ~50x larger than a real reference catalog and so **understated** how cheap the real
+      parse is — the conclusion doesn't change, the margin is wider than the table implied.
+      **4. `set_figure`'s plotly construction — left inline; blocked outright, not just costed.**
+      Its actual return type, `go.FigureWidget`, **cannot be pickled at all** — verified directly,
+      plotly's dynamically-built subclass fails pickle's own identity check even within one
+      process — so `run_in_process` on it would not perform badly, it would crash. Even the
+      picklable proxy (`go.Figure`, not what the function returns) loses 1.6–2.3x on a single call,
+      with an inconsistent concurrency benefit.
+      **Two costs the steady-state numbers understate, found while landing #690, not #689:** a
+      `ProcessPoolExecutor` cold start is **~560ms once per worker** (in the same ballpark as
+      `aio-figures`'s own measured ~525ms), amortized and not worth an `initializer=` pre-warm,
+      same reasoning as `aio-figures`. More consequentially, `PROCESS_POOL_SIZE`'s flat default of
+      2 (`aio-procpool`) is now shared between CSV assembly and figure rendering — measured
+      directly, a CSV render queued behind two concurrent PDF renders took 974ms wall time against
+      14ms of its own CPU work. This is a genuine queueing risk for the CSV requester, not a
+      regression in what promoting site 2 fixed (the event loop still stays free for *other*
+      requests); left open rather than resized without production traffic data to justify a
+      number — carried into `## Open questions`.
 
 **Cleanup**
 - [ ] `aio-cleanup` — drop `requests` and the sync `timeout()`; update docs
 
 **Out-of-band** — deployment side, not PRs in this repo
-- [ ] Verify which proxy config is live on the deployment host
+- [~] Verify which proxy config is live on the deployment host — **diagnosed in full, not yet
+      fixed.** The running proxy uses the stock `nginxproxy/nginx-proxy` image; the derived image
+      in the ops repo, the only place that would have written the intended timeout snippet, is
+      not built or used. The `vhost.d` directory on the deployed proxy is confirmed completely
+      empty — no timeout snippet, no per-host file. The effective running configuration contains
+      no `proxy_read_timeout`, `proxy_send_timeout`, or `proxy_connect_timeout` directive
+      anywhere, so nginx's compiled defaults are live: 60s each. One thing this narrows: the ACME
+      `.well-known/acme-challenge` block is already emitted by the stock template into every
+      vhost on its own, so the derived image's `default` snippet was redundant — only the
+      *timeout* snippet is actually missing. A separate trap worth carrying into the fix: the
+      upstream template only emits the `include` line for a vhost's snippet file when that file
+      exists at config-generation time, so dropping the snippet in later also requires a config
+      regeneration/reload before it takes effect. Fixing this is still the ops-repo work this item
+      asks for; it has been diagnosed, not fixed.
 - [ ] Per-vhost timeouts for the viewer
-- [ ] Fix the no-op `client_max_body_size` patch
+- [~] Fix the no-op `client_max_body_size` patch — **confirmed as a no-op at the strongest level,
+      not yet fixed.** The effective running configuration contains no `client_max_body_size`
+      directive anywhere, and `conf.d` holds only the generated `default.conf` — the file the
+      patch was supposed to create does not exist on the box at all, matching the ops repo's
+      broken shell redirect (`conf:` is docker-compose volume syntax, meaningless inside a shell
+      redirect). The setting has never taken effect. Fixing it is still the ops-repo work this
+      item asks for.
 
 ---
 
@@ -821,14 +891,22 @@ separate private ops repository. WebSocket support itself needs no change there 
 things do want attention, none of them blocked by this plan — they can be done now,
 independently, and they live outside this repository.
 
-1. **Confirm which proxy config is actually live.** The vhost proxy's tuning snippets
-   (`/etc/nginx/vhost.d/default`, `/etc/nginx/vhost.d/default_location`) can be baked into a
-   derived image *or* persist on a named volume, and those two can silently disagree — a
-   volume may still hold snippets written by an older image that is no longer built. **Verify
-   on the deployment host rather than reading the compose file:**
-   `docker exec <proxy-container> cat /etc/nginx/vhost.d/default_location`.
-   Then make it deliberate: either build the derived image, or manage the `vhost.d` snippets
-   as explicitly mounted files.
+1. **Confirm which proxy config is actually live. Diagnosed in full, not yet fixed — see the
+   Progress list, `[~]`.** The running proxy uses the stock `nginxproxy/nginx-proxy` image; the
+   derived `nginx-proxy/Dockerfile` in the ops repo, the only place that would have written
+   `/etc/nginx/vhost.d/default_location` and `/etc/nginx/vhost.d/default`, is not built or used.
+   The `vhost.d` directory on the deployed proxy is confirmed completely empty. The effective
+   running configuration contains no `proxy_read_timeout`, `proxy_send_timeout`, or
+   `proxy_connect_timeout` directive anywhere, so nginx's compiled 60s defaults are what's live,
+   not the ops repo's intended 1h. This item's original stale-volume-from-an-older-image
+   hypothesis was wrong in a more basic way: the derived image was never wired into compose at
+   all. One thing this narrows: the ACME `.well-known/acme-challenge` block is already emitted by
+   the stock template into every vhost on its own, so the derived image's `default` snippet was
+   redundant — only the *timeout* snippet is actually missing. A trap worth carrying into the
+   fix: the upstream template only emits the `include` line for a vhost's snippet file when that
+   file exists at config-generation time, so dropping the snippet in later also requires a config
+   regeneration/reload before it takes effect. The fix itself — build the derived image, or
+   manage the `vhost.d` snippets as explicitly mounted files — is still outstanding.
 2. **Timeouts matter more after this migration.** nginx's default `proxy_read_timeout` is 60 s
    and the upstream nginx-proxy template sets none. Dash's WebSocket heartbeat defaults to
    30 s, so an idle connection survives on heartbeats alone — but only while heartbeats stay
@@ -837,10 +915,25 @@ independently, and they live outside this repository.
    are actually applied. Prefer a **per-vhost** `vhost.d/<hostname>_location` file, so the
    viewer's timeouts don't ride on a global default shared with every other service behind the
    same proxy.
-3. **Re-check the `client_max_body_size` patch.** The ops repo applies it through a helper
-   container whose shell redirection targets a path that is not the mounted volume, so the
-   setting has likely never taken effect. Unrelated to this migration, but adjacent enough to
-   fix while in there.
+   **Item 1's finding sharpens this: the 60s default is what's actually live, not the intended
+   1h, and that changes `aio-ws`'s prerequisites — see that section.** WebSocket UPGRADE itself
+   is unaffected: nginx-proxy's built-in template emits the `$http_upgrade`/`$proxy_connection`
+   map and the `Upgrade`/`Connection` headers unconditionally, on the stock image, no derived
+   build required. F7 still holds. But the live 60s ceiling is the real constraint in two ways:
+   Dash's 30s WS heartbeat default survives it with only a 2x margin, not the comfortable margin
+   a 1h timeout would give — `aio-ws` must pin the heartbeat conservatively against the *live*
+   config, and setting `websocket_heartbeat_interval` above 60s would silently break idle
+   connections. And the same 60s ceiling caps slow HTTP-fallback callbacks: post-`aio-gather`
+   cold `get_summary` measured ~11.7s median (`get_summary_bench.py`), but SIMBAD alone is ~10s
+   of that and a `usetex` PDF render stacks on top for callbacks that render one — today's margin
+   is real but not comfortable.
+3. **Re-check the `client_max_body_size` patch. Confirmed as a no-op at the strongest level, not
+   yet fixed — see the Progress list, `[~]`.** The effective running configuration contains no
+   `client_max_body_size` directive anywhere, and `conf.d` holds only the generated
+   `default.conf` — the file the ops repo's `patch-config` service was supposed to create does
+   not exist on the box at all. Matches the ops repo's broken shell redirect (`conf:` is
+   docker-compose volume syntax, meaningless inside a shell redirect). Unrelated to this
+   migration, but adjacent enough to fix while in there; not yet fixed.
 
 Also worth a look while nearby: the ops compose file still declares the obsolete
 `version: '2'` key, and the dead `location /` block in this repo's `proxy/default.conf` (F7)
@@ -1493,9 +1586,17 @@ that could never have run early in any ordering. Independent of the async-I/O st
 shows now that `aio-gather` has landed (#681).
 
 ### `aio-ws` — Transport enablement
-- Proxy prerequisites are already handled: upgrades work natively and the timeout/config
-  cleanup is the proxy design note, done ahead of the stacks. Confirm the proxy design note item 1 was actually verified on the
-  box before enabling this.
+- Proxy prerequisites: upgrade support is confirmed, not just handled — nginx-proxy's built-in
+  template emits the `$http_upgrade`/`$proxy_connection` map and the `Upgrade`/`Connection`
+  headers unconditionally, on the stock image, verified directly against the deployed proxy
+  (design note item 1). F7 holds. **What is confirmed and changes what "done" means here:** the
+  deployed proxy runs the stock image, not the derived one, and its `vhost.d` directory is
+  confirmed empty — the intended 1h timeouts do not exist on the box, and the live
+  `proxy_read_timeout` is nginx's compiled 60s default. Dash's 30s WS heartbeat survives that
+  with only a 2x margin — pin `websocket_heartbeat_interval` conservatively under the *live* 60s
+  ceiling, not the design note's originally-intended 1h. The ops-side fix (design note item 1)
+  is diagnosed but not yet applied; re-confirm the timeout is actually fixed on the box before
+  relying on a longer one.
 - `dash.Dash(..., websocket_callbacks=True, websocket_allowed_origins=[...],
   websocket_max_workers=..., websocket_inactivity_timeout=..., websocket_heartbeat_interval=...)`.
   Origins must be set explicitly — the handler rejects on Origin mismatch
@@ -1575,6 +1676,12 @@ doesn't re-import `ztf_viewer.app` and build the whole Dash app.)*
   PNG flood and a concurrent PDF flood must each stop degrading unrelated page loads.
 
 ### `aio-profile` — Candidates to evaluate, not to assume
+*(Landed — #689 `profile-candidates` measured, #690 `vectorize-plot-data-pool-csv` applied the
+two changes the numbers earned. See the Progress entry for the per-site verdicts and numbers.
+**"Each may be cheaper to leave on a thread" below presupposes all four are already on a thread —
+wrong for two of them:** `plot_data`'s loop and `set_figure`'s plotly construction ran fully
+inline, no offload at all, until #689 found that by grepping for `to_thread`. For those two the
+real question was whether to offload at all, not thread-vs-process.)*
 Measure before moving; each may be cheaper to leave on a thread:
 - `ztf_viewer/lc_data/plot_data.py:18` `plot_data` per-observation loop (pure Python over
   every epoch; likely worth vectorizing with numpy *instead of* pooling),
@@ -1608,13 +1715,23 @@ enabled), with two controls to bracket the range:
 pandas and Agg sit at the GIL-bound control, not near the parallel one. The per-observation loop is
 *slower* on threads than serially — thread overhead on top of no parallelism at all. The FITS parse
 does release partially, but 57 ms for 2M rows is negligible against a real reference catalog.
+**Superseded by #689: the 2M-row control overstates this site's real cost, in the cheap direction.**
+A real reference-catalog payload downloaded during development is 38,261 rows / 2.2MB — ~50x
+smaller than this table's control — and parses in under 2ms, not 57ms scaled down. The verdict
+(leave on thread) doesn't change; the margin for it is wider than this table implies.
 
-**So the destination for this work is a process, and the `to_thread` calls `aio-snad-apis` had to
-introduce are keeping the loop responsive, nothing more.** The one real exception is the LaTeX/PDF
-path, which parallelizes because it waits on a child process — see the correction under
-`aio-figures`. `lc_data/plot_data.py:18` still heads the list, and vectorizing it with numpy may
-still beat pooling it, but that is now a claim about *that* loop rather than about C extensions in
-general.
+**Superseded by #689/#690's per-site measurements — only one of four actually moved to a
+process.** This paragraph's "the destination for this work is a process" reads, in hindsight, as
+an overclaim from the gil_bench table alone, without having measured the pool round trip
+(pickling, child-process cost) against each site. Once that round trip was measured: `lc_csv`'s
+pandas assembly (site 2) promoted to `run_in_process` as this paragraph predicted. The other
+three did not — `plot_data`'s loop (site 1) was vectorized instead of pooled (~10x faster inline,
+and pooling the *original* loop was still ~40x worse than the vectorized inline version); the
+FITS parse (site 3) stayed on a thread, sharpened above; and `set_figure`'s plotly construction
+(site 4) stayed inline because its `go.FigureWidget` return type cannot be pickled at all, a hard
+block the gil_bench table had no way to surface — it only measures CPU time, not picklability.
+The one real exception this paragraph named, the LaTeX/PDF path, still holds — see the correction
+under `aio-figures`. See the Progress entry for the full numbers and reasoning per site.
 
 **Rule that came out of reviewing `aio-snad-apis`: none of this reasoning belongs in a code
 comment.** A comment that labels work "CPU-bound" next to an `asyncio.to_thread` call states a
@@ -1662,6 +1779,7 @@ dated. `await asyncio.to_thread(x)` needs no gloss.
 | WebSocket dropped by a proxy (F7) | nginx-proxy handles upgrades natively; residual risk is timeouts and the the proxy design note config discrepancy — verify the deployed proxy config first, then roll out per-callback (`aio-ws`) with HTTP retained as fallback |
 | Static assets served with weaker caching after the flip (the `/static` design note) | `aio-golden-http` records today's cache headers for `/static/js9/js9.min.js`; set them explicitly on the mount |
 | Process pool memory blowup | `aio-procpool` sizing; compare container RSS before/after |
+| CSV assembly (`aio-profile`/#690) queues behind figure renders on the shared 2-worker pool | Not yet mitigated — measured directly, a CSV render can sit ~1s behind two concurrent PDF renders; `PROCESS_POOL_SIZE` left at its default of 2 for lack of production traffic data to size it against, see `## Open questions` |
 | Redis client split-brain (sync `StrictRedis` in `ttl_set.py`, async elsewhere) | `aio-ttlset` lands the async set before anything async touches it; one connection pool per worker |
 | Loop-affine client reused across Flask's per-request loops (F1c) | `aio-loop-registry`'s per-loop registry, with a test that runs two successive `asyncio.run` calls |
 | `aio-starlette-web` is assumed to be a one-file swap, but the ambient `request` re-export has no Starlette equivalent (F13) | The four call sites are named in `aio-routes`, inside the same atomic sub-stack; `aio-golden-http` fails if any of those routes changes shape |
@@ -1677,8 +1795,12 @@ Tick these off as they are answered.
 1. ~~**Worker count under uvicorn.**~~ **Answered: `--workers 1`** (see `aio-uvicorn`). Still
    worth a load test to confirm one loop does not saturate a core under real fan-out; the
    cleanup stack's script is where that lives.
-2. **How much of the process-pool stack is real?** `aio-figures` is clearly justified; `aio-profile` is speculative until profiled.
-   Do not build the pool for `aio-profile`'s sake alone.
+2. ~~**How much of the process-pool stack is real?**~~ **Answered by `aio-profile` (#689/#690):
+   less than assumed.** `aio-figures` was justified as expected. Of the other four candidates,
+   only one — `lc_csv`'s pandas assembly — earned promotion to the pool; the FITS parse stays on
+   a thread, `set_figure`'s plotly construction stays inline (blocked outright, its return type
+   isn't picklable), and `plot_data`'s loop was vectorized rather than pooled. The pool was not
+   built for `aio-profile`'s sake alone, as this question originally cautioned against.
 3. **Do we keep an HTTP fallback permanently** (`aio-ws` per-callback) or commit fully to WebSocket
    transport? Depends on what the deployment proxies tolerate.
 4. **Is the `dr7` / legacy-URL behaviour** in `app_select_by_url` worth preserving verbatim
@@ -1707,3 +1829,11 @@ Tick these off as they are answered.
    `self`-detection must be descriptor-based rather than `__qualname__`-based. F12.4 was also
    decided here: unhashable arguments are keyed **on content**; only a genuinely un-encodable
    argument raises, and the decorator turns that into an uncached call rather than an error.
+9. **Is `PROCESS_POOL_SIZE`'s flat default of 2 (`aio-procpool`) still right now that two
+   workloads share it?** Open, not answered. `aio-figures` routed PNG/PDF rendering through it;
+   `aio-profile` (#690) added CSV assembly. Measured directly: a CSV render can queue ~1s behind
+   two concurrent PDF renders on the default 2-worker pool, against ~14ms of its own CPU work.
+   The PR that found this made a case that 2 is too small but left it unchanged for lack of
+   production traffic data (request-rate ratio of CSV downloads to figure renders, real
+   concurrent-user counts) to pick a number with. Bumping it isn't free — more child-process
+   memory per worker.
