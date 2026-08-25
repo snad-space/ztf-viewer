@@ -18,7 +18,7 @@ DUSTMAPS_API_URL = os.environ.get("DUSTMAPS_API_URL", "https://dustmaps.snad.spa
 
 # Size of both thread pools the entrypoint installs: asyncio's default executor and anyio's
 # sync-route limiter. Caps how many blocking calls the single event loop can have in flight.
-THREAD_POOL_SIZE = int(os.environ.get("THREAD_POOL_SIZE", "16"))
+THREAD_POOL_SIZE = int(os.environ.get("THREAD_POOL_SIZE", "64"))
 
 # Size of the CPU-bound process pool (ztf_viewer/procpool.py).
 PROCESS_POOL_SIZE = int(os.environ.get("PROCESS_POOL_SIZE", "2"))
