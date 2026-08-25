@@ -61,12 +61,13 @@ import plotly.express as px
 import plotly.graph_objects as go
 from astropy.io import fits
 from astropy.table import Table
+from astropy.time import Time
 
 from ztf_viewer.catalogs.ztf_ref import _parse_fits
 from ztf_viewer.lc_data.plot_data import MJD_OFFSET, plot_data
 from ztf_viewer.pages.lc_csv import _dfs_to_csv
 from ztf_viewer.procpool import run_in_process, shutdown_pool
-from ztf_viewer.util import ABZPMAG_JY, FILTERS_ORDER, LN10_04
+from ztf_viewer.util import ABZPMAG_JY, FILTERS_ORDER, LN10_04, immutabledefaultdict
 
 LATENCY_REPEATS = 5
 
@@ -84,10 +85,6 @@ N_OBS_BUSY = 20_000
 # PR 2 change and a correctness test pins it against the loop's output.
 # ---------------------------------------------------------------------------------------------
 def plot_data_vectorized(lc, mark_size=1, min_mjd=None, max_mjd=None, ref_mag=None, ref_magerr=None):
-    from astropy.time import Time
-
-    from ztf_viewer.util import immutabledefaultdict
-
     if ref_mag is None:
         ref_mag = immutabledefaultdict(lambda: np.inf)
     if ref_magerr is None:
