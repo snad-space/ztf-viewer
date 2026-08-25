@@ -1,12 +1,11 @@
-"""The event loop's default executor and anyio's sync-route limiter are actually sized from
-`THREAD_POOL_SIZE`.
+"""`_size_thread_pools` sizes BOTH the loop's default executor and anyio's sync-route limiter
+from `THREAD_POOL_SIZE`, not just one of them.
 
-`ztf_viewer/__main__.py`'s `_size_thread_pools` startup hook is the one place the plan's
-threading rule says pool sizes get decided (`plans/001_async_dash.md`, "Shape of the work"). This
-pins that it really does what it claims -- both `asyncio.to_thread` and anyio's sync-route
-threads reach a pool sized from config, not a stdlib default -- rather than asserting anything
-about what that size *should be*, which is the open question `plans/misc/pool_width_bench.py`
-explores instead.
+They are two independent pools reached by two different code paths -- `asyncio.to_thread` hits
+the executor, Starlette's sync route handlers hit the limiter -- so sizing only one is an easy
+way for them to silently drift apart, one left at a stdlib default while config says otherwise.
+This does not assert anything about what the size should be, only that both pools actually track
+the one configured value.
 """
 
 import asyncio
