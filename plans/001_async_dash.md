@@ -5,10 +5,10 @@ the async shell has landed in full (`aio-shim`, `aio-loop-registry`; `aio-pilots
 flip has landed** (#658–#661, merged as one stack); **the async-I/O stack is complete**
 (`aio-httpx`, `aio-snad-apis`, `aio-conesearch`, `aio-gather` — #664, #665, #668, #681;
 `aio-offload-threads` dropped). **The process-pool stack is complete**
-(`aio-procpool`, `aio-figures`, `aio-profile` — #685, #686, #689/#690). What remains is the
-WebSocket stack and `aio-cleanup`. The out-of-band proxy-config verification the WebSocket stack
-depends on has now been partly answered by reading the ops repo directly (see the Progress list
-and the design note below) — it is the frontier now.
+(`aio-procpool`, `aio-figures`, `aio-profile` — #685, #686, #689/#690). **Transport enablement has
+landed** (`aio-ws` — #693). What remains is `aio-stream` and `aio-cleanup`. The out-of-band
+proxy-config verification the WebSocket stack depends on has now been partly answered by reading
+the ops repo directly (see the Progress list and the design note below) — it is the frontier now.
 Baseline: `master` after `994874e`
 Now running: FastAPI backend under uvicorn, one worker, one loop; Python 3.14
 First-party HTTP and every JSON cone-search catalog now go through one shared async `httpx`
@@ -269,7 +269,45 @@ merged by its author, and "ready for review" is a reviewer's signal, not the aut
       *timing* moved, from serial to concurrent hits per page load.
 
 **WebSocket**
-- [ ] `aio-ws` — enable transport (verify deployed proxy config first)
+- [x] `aio-ws` — enable transport (verify deployed proxy config first) — #693 `websocket-transport`.
+      **The design section named five `dash.Dash(...)` constructor arguments; four turned out to
+      be no-ops.** `websocket_max_workers` was dropped as unreachable: Dash's WS handler
+      (`dash/backends/base_server.py`'s `get_callback_executor`) routes only *sync* callbacks to
+      that pool, and this app has none — `ztf_viewer/callbacks.py` wraps every registration into a
+      coroutine, an invariant `tests/test_callbacks_shim.py` pins, and a grep confirmed nothing
+      bypasses it by calling `app.callback` directly. `websocket_allowed_origins` and
+      `websocket_inactivity_timeout` were dropped because their computed values were identical to
+      Dash's own defaults (`None or []`, and `300000`, respectively) — passing them changed
+      nothing. `websocket_callbacks` was deliberately left at its default `False`, so opt-in stays
+      per-callback rather than global. **Exactly one value is configured:
+      `websocket_heartbeat_interval`.**
+      **The heartbeat is the one real decision: 20000ms against Dash's default of 30000ms.**
+      Reason is the live 60s proxy read-timeout ceiling this plan diagnosed (see the out-of-band
+      entry below): at a 30s heartbeat a single dropped or delayed beat can already exceed the
+      window and drop an idle connection, while 20s leaves room to lose one and still land inside
+      it. `tests/test_websocket_transport.py::test_heartbeat_interval_is_bounded_below_the_live_proxy_ceiling`
+      fails if the interval is ever raised past half the live ceiling — the failure mode it guards
+      is silent in production.
+      **The design section's origin prose was wrong, not just incomplete, and is corrected below.**
+      It said "origins must be set explicitly — the handler rejects on Origin mismatch." Dash's
+      `validate_origin` actually accepts a connection if the Origin is on the allowlist **or** if
+      the Origin's netloc equals the request's `Host` header. Same-origin connections — production,
+      the master build, per-PR preview hosts, and local dev alike — are therefore already allowed
+      with an empty allowlist, which is why none is configured. Per-PR preview hosts could not have
+      been enumerated in an allowlist anyway, since matching is exact string equality with no
+      wildcard support. The property is pinned end-to-end by
+      `test_websocket_origin_check_allows_same_origin_and_rejects_cross_origin`, which drives a
+      real handshake with the allowlist forced empty and asserts same-origin connects while
+      cross-origin is rejected.
+      **One callback opted in**: `update_skybot_for_graph_clicked`
+      (`ztf_viewer/pages/viewer.py`), chosen for having no cookies and no chained outputs. Every
+      other callback still dispatches over HTTP, covered by a fallback test.
+      **One of the design section's three accept criteria was not met, and stays outstanding.**
+      "Callbacks dispatch over `ws://` in devtools" and "HTTP fallback still functions" were both
+      verified live against a locally running app: a callback round-tripped over `ws://`, and a
+      disallowed Origin was rejected at handshake with a 403. **"Reconnect after a proxy restart
+      works" was never verified** — it requires the live deployment, which this task did not touch.
+      The item was merged with that criterion still open; see `## Open questions`.
 - [ ] `aio-stream` — progressive rendering via `set_props`
 
 **Process pool**
@@ -1586,6 +1624,11 @@ that could never have run early in any ordering. Independent of the async-I/O st
 shows now that `aio-gather` has landed (#681).
 
 ### `aio-ws` — Transport enablement
+*(Landed — #693, branch `websocket-transport`. Read the Progress entry before this section: four
+of the five constructor arguments below turned out to be no-ops and were dropped, only
+`websocket_heartbeat_interval` is configured, and the origin claim two bullets down was wrong —
+corrected in place below. "Reconnect after a proxy restart works" in the accept criteria was not
+verified and is still open.)*
 - Proxy prerequisites: upgrade support is confirmed, not just handled — nginx-proxy's built-in
   template emits the `$http_upgrade`/`$proxy_connection` map and the `Upgrade`/`Connection`
   headers unconditionally, on the stock image, verified directly against the deployed proxy
@@ -1599,14 +1642,29 @@ shows now that `aio-gather` has landed (#681).
   relying on a longer one.
 - `dash.Dash(..., websocket_callbacks=True, websocket_allowed_origins=[...],
   websocket_max_workers=..., websocket_inactivity_timeout=..., websocket_heartbeat_interval=...)`.
-  Origins must be set explicitly — the handler rejects on Origin mismatch
-  (`dash/backends/_fastapi.py:710`).
+  **Corrected — this section's origin claim was wrong, not merely incomplete:** it is not true
+  that "origins must be set explicitly — the handler rejects on Origin mismatch." Dash's
+  `validate_origin` accepts a connection if the Origin is on the allowlist **or** if the Origin's
+  netloc equals the request's `Host` header, so ordinary same-origin connections — production, the
+  master build, per-PR preview hosts, local dev — are already allowed with an empty allowlist.
+  #693 configures no allowlist at all and only `websocket_heartbeat_interval`; the other three
+  arguments here (`websocket_max_workers`, `websocket_inactivity_timeout`,
+  `websocket_allowed_origins`) turned out to be no-ops — see the Progress entry for why each one
+  specifically doesn't move anything.
 - Consider enabling per-callback (`websocket=True`) first rather than globally, so the HTTP
-  path stays as a fallback while we gain confidence.
-- **Accept:** callbacks dispatch over `ws://` in devtools; reconnect after a proxy restart
-  works; HTTP fallback still functions with `websocket_callbacks=False`.
+  path stays as a fallback while we gain confidence. **Landed this way**: only
+  `update_skybot_for_graph_clicked` opts in; `websocket_callbacks` stays at its default `False`.
+- **Accept:** callbacks dispatch over `ws://` in devtools **(met, verified live outside devtools
+  via a raw WS client)**; reconnect after a proxy restart works **(not verified — requires the
+  live deployment; outstanding, see `## Open questions`)**; HTTP fallback still functions with
+  `websocket_callbacks=False` **(met)**.
 
 ### `aio-stream` — Progressive rendering
+Depends on `aio-ws` (landed, #693) for the transport; the opted-in callback there
+(`update_skybot_for_graph_clicked`) is single-shot, so nothing here can be checked against a real
+streaming callback yet — this stack is where `dash/backends/ws.py:44`'s `is_shutdown` requirement
+below gets its first real exercise.
+
 Now the actual UX change. Convert the slow, fan-out callbacks to no-output `set_props`
 streaming so results paint as they arrive instead of in one blocking batch:
 - the per-catalog tables (`set_tables`, `ztf_viewer/pages/viewer.py:2046`) — today ~20
@@ -1776,7 +1834,7 @@ dated. `await asyncio.to_thread(x)` needs no gloss.
 | Static assets 404 after the flip (F2) | `aio-golden-http` asserts `/static/js9/js9.min.js` and `/static/img/logo.svg` return 200 — landed, #634 |
 | Concurrent fan-out hammers upstreams that previously saw serialized traffic | **Live and unmitigated as of `aio-gather` (#681)** — `aio-offload-threads`, whose job this was, was dropped first. What is left is the `unavailable_catalogs` circuit breaker (which trips *after* an upstream is already unhappy) and `THREAD_POOL_SIZE` as a blunt global ceiling, left at its default of 16. The concrete exposure is CDS: SIMBAD bans an IP for a minute above 10 queries/s and for an hour above 400 in 10s, and VizieR, MOCServer and Sesame share that origin. Note we are one IP for every user, and master plus each `pr<N>` preview are separate containers on one host, so the figure that matters is per-IP, not per-process — no in-process bound could have covered it anyway, the same argument #681 made when leaving it unmitigated. Not yet exercised under real production traffic — prod stays on the Flask build until the whole plan lands. If this bites, rate limiting belongs outside the async layer |
 | Cache stampede amplified by concurrency | Single-flight in the cache sub-stack — this becomes load-bearing, not a nicety |
-| WebSocket dropped by a proxy (F7) | nginx-proxy handles upgrades natively; residual risk is timeouts and the the proxy design note config discrepancy — verify the deployed proxy config first, then roll out per-callback (`aio-ws`) with HTTP retained as fallback |
+| WebSocket dropped by a proxy (F7) | nginx-proxy handles upgrades natively; residual risk is timeouts and the the proxy design note config discrepancy — `aio-ws` (#693) pins the heartbeat under the live 60s ceiling and rolled out per-callback with HTTP retained as fallback. **Reconnect-after-proxy-restart, the design section's own accept criterion for this risk, was never verified against the live deployment** — see `## Open questions` |
 | Static assets served with weaker caching after the flip (the `/static` design note) | `aio-golden-http` records today's cache headers for `/static/js9/js9.min.js`; set them explicitly on the mount |
 | Process pool memory blowup | `aio-procpool` sizing; compare container RSS before/after |
 | CSV assembly (`aio-profile`/#690) queues behind figure renders on the shared 2-worker pool | Not yet mitigated — measured directly, a CSV render can sit ~1s behind two concurrent PDF renders; `PROCESS_POOL_SIZE` left at its default of 2 for lack of production traffic data to size it against, see `## Open questions` |
@@ -1802,13 +1860,18 @@ Tick these off as they are answered.
    isn't picklable), and `plot_data`'s loop was vectorized rather than pooled. The pool was not
    built for `aio-profile`'s sake alone, as this question originally cautioned against.
 3. **Do we keep an HTTP fallback permanently** (`aio-ws` per-callback) or commit fully to WebSocket
-   transport? Depends on what the deployment proxies tolerate.
+   transport? Depends on what the deployment proxies tolerate. **Still open after `aio-ws`
+   (#693):** the PR opted in exactly one callback and left HTTP as the working path for
+   everything else, deliberately, so this question carries forward unchanged into `aio-stream`.
 4. **Is the `dr7` / legacy-URL behaviour** in `app_select_by_url` worth preserving verbatim
    through the route port, or can it be dropped now? **Half answered:** the port kept it verbatim
    (`ztf_viewer/__main__.py:358`), so nothing was lost while this went undecided. Whether to drop
    it is still open, and is a product call rather than a porting one.
-5. **`websocket_max_workers` sizing** matters only if any sync callback survives; if `aio-shim`'s
-   invariant holds it should be irrelevant — worth asserting.
+5. ~~**`websocket_max_workers` sizing** matters only if any sync callback survives; if `aio-shim`'s
+   invariant holds it should be irrelevant — worth asserting.~~ **Answered by `aio-ws` (#693):
+   irrelevant, as this question predicted.** The invariant holds — a grep confirmed nothing
+   bypasses the shim — so the argument was dropped from the constructor call entirely rather than
+   passed and left unreachable.
 6. ~~**Does the foundations stack block the start, or run alongside?**~~ **Answered: it runs
    alongside.** The replay layer that was the long pole is gone, so nothing in foundations blocks
    anything else. `aio-golden-http` landed alongside the prep stack (#634), and `aio-golden-callbacks`
@@ -1837,3 +1900,16 @@ Tick these off as they are answered.
    production traffic data (request-rate ratio of CSV downloads to figure renders, real
    concurrent-user counts) to pick a number with. Bumping it isn't free — more child-process
    memory per worker.
+10. **Reconnect after a proxy restart** (`aio-ws`'s own accept criterion) — **not answered.**
+    #693 verified two of its three accept criteria live (dispatch over `ws://`, HTTP fallback);
+    this one requires the actual deployment and was out of scope for the sandbox it was built in.
+    Carries forward as an outstanding check, not a completed item — see the Progress entry and the
+    cross-cutting risks table.
+11. **`THREAD_POOL_SIZE`'s default of 16** (left unchanged by `aio-gather`, #681, on a reviewer
+    call rather than a measurement — see that Progress entry) **gets sharper now that `aio-stream`
+    is next.** `aio-ws` (#693) opted in exactly one callback, and it is single-shot — no new load
+    landed on the default executor by this PR. But `aio-stream` converts the multi-catalog fan-out
+    callbacks to streaming, which means substantially more concurrent work in flight per page load
+    than the HTTP path ever put there, against a pool width nothing has measured. Whether 16 holds
+    up is a question `aio-stream` should answer with a number, not inherit unmeasured a second
+    time.
