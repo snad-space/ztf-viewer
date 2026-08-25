@@ -20,6 +20,9 @@ DUSTMAPS_API_URL = os.environ.get("DUSTMAPS_API_URL", "https://dustmaps.snad.spa
 # sync-route limiter. Caps how many blocking calls the single event loop can have in flight.
 THREAD_POOL_SIZE = int(os.environ.get("THREAD_POOL_SIZE", "16"))
 
+# Size of the CPU-bound process pool (ztf_viewer/procpool.py).
+PROCESS_POOL_SIZE = int(os.environ.get("PROCESS_POOL_SIZE", "2"))
+
 # Shared httpx.AsyncClient tuning (ztf_viewer/http.py). Limits are per client, and one client is
 # built per event loop, so these bound a single worker's outbound connections.
 HTTP_MAX_CONNECTIONS = int(os.environ.get("HTTP_MAX_CONNECTIONS", "100"))

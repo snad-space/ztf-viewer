@@ -31,6 +31,7 @@ from ztf_viewer.pages.login import get_layout as get_login_layout
 from ztf_viewer.pages.search import get_layout as get_search_layout
 from ztf_viewer.pages.tags import get_layout as get_tags_layout
 from ztf_viewer.pages.viewer import get_layout as get_viewer_layout
+from ztf_viewer.procpool import shutdown_pool
 from ztf_viewer.util import DEFAULT_DR, YEAR, available_drs, list_join
 from ztf_viewer.version import version_string, version_url
 
@@ -57,6 +58,7 @@ async def _size_thread_pools() -> None:
 # (the Dockerfile entrypoint) or runs it via `uvicorn.run` below (dev).
 app.server.router.add_event_handler("startup", _size_thread_pools)
 app.server.router.add_event_handler("shutdown", aclose_client)
+app.server.router.add_event_handler("shutdown", shutdown_pool)
 
 
 app.title = "SNAD ZTF viewer"

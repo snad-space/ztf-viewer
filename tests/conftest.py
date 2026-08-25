@@ -128,6 +128,27 @@ def reset_shared_thread_pool():
     )
 
 
+def reset_shared_process_pool():
+    """Give ``ztf_viewer.procpool``'s module-level process pool a fresh instance.
+
+    Same reasoning as :func:`reset_shared_thread_pool`: the pool is a singleton built once for
+    the life of the process, and this suite's several ``TestClient``s each drive their own
+    lifespan, so the first one to shut down would otherwise leave it dead for every
+    ``TestClient`` built afterwards.
+
+    Call this before constructing a ``TestClient`` around ``ztf_viewer.app.app``, never from
+    application code.
+    """
+    import sys
+
+    if "ztf_viewer.procpool" not in sys.modules:
+        return
+
+    import ztf_viewer.procpool as procpool_module
+
+    procpool_module._pool = procpool_module._ProcessPool(procpool_module.PROCESS_POOL_SIZE)
+
+
 def pytest_addoption(parser):
     parser.addoption(
         "--no-net-skip",
