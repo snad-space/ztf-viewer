@@ -57,3 +57,26 @@ TIMEOUT_FEATURES = httpx.Timeout(60.0)  # lc_features.py: feature extraction ove
 TIMEOUT_MODEL_FIT = httpx.Timeout(120.0)  # model_fit.py: the heaviest per-request compute of the first-party APIs
 TIMEOUT_AKB = httpx.Timeout(10.0)  # akb.py: small CRUD-shaped JSON requests
 TIMEOUT_ZTF_FITS_PROXY = httpx.Timeout(60.0)  # catalogs/ztf_ref.py, date_with_frac.py: both hit ZTF_FITS_PROXY_URL
+
+# `dash.Dash(..., websocket_...=...)` tuning (ztf_viewer/app.py). Origins the WS handler accepts
+# without falling back to its same-Host check: production, the master build, and local dev.
+# Comma-separated so a deployment can add a value without a code change.
+WEBSOCKET_ALLOWED_ORIGINS = [
+    origin
+    for origin in os.environ.get(
+        "WEBSOCKET_ALLOWED_ORIGINS",
+        "https://ztf.snad.space,https://master.ztf.snad.space,http://localhost:8050,http://127.0.0.1:8050",
+    ).split(",")
+    if origin
+]
+# Sync-callback thread pool for the WS handler, separate from THREAD_POOL_SIZE's executor.
+WEBSOCKET_MAX_WORKERS = int(os.environ.get("WEBSOCKET_MAX_WORKERS", "4"))
+# Closes a connection that has sent nothing (not even a heartbeat) for this long, in ms.
+WEBSOCKET_INACTIVITY_TIMEOUT_MS = int(os.environ.get("WEBSOCKET_INACTIVITY_TIMEOUT_MS", "300000"))
+# The deployed reverse proxy has no proxy_read_timeout configured anywhere, so nginx's compiled
+# 60s default is what's actually live (not the 1h the ops repo intends but never applies). An
+# idle WS connection survives only on heartbeats landing under that ceiling, so this must stay
+# well below 60000ms with real margin -- raising it toward 60000 would silently break idle
+# connections in production. If the proxy timeout is ever fixed, a low value here is still
+# correct, just more conservative than it needs to be.
+WEBSOCKET_HEARTBEAT_INTERVAL_MS = int(os.environ.get("WEBSOCKET_HEARTBEAT_INTERVAL_MS", "20000"))

@@ -2024,7 +2024,14 @@ async def load_fits_for_graph_clicked(data, dr):
     ]
 
 
-@callback(Output("skybot", "children"), [Input("graph", "clickData")], [State("dr", "children")])
+@callback(
+    Output("skybot", "children"),
+    [Input("graph", "clickData")],
+    [State("dr", "children")],
+    # First callback opted into the WS transport: no cookies, no chained outputs, so a WS-path
+    # regression stays contained while the HTTP fallback covers everything else.
+    websocket=True,
+)
 async def update_skybot_for_graph_clicked(data, dr):
     if data is None:
         raise PreventUpdate
