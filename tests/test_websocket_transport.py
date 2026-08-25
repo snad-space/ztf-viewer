@@ -1,6 +1,7 @@
 """The WS callback transport is enabled: same-origin connections work via dash's own same-Host
 fallback, cross-origin ones are still rejected, and the heartbeat is pinned under the deployed
-proxy's live 60s read-timeout default. HTTP-transport callbacks still work.
+proxy's live 60s read-timeout default. No callback currently opts in, and HTTP-transport
+callbacks still work.
 """
 
 import pytest
@@ -52,8 +53,11 @@ def test_heartbeat_interval_is_bounded_below_the_live_proxy_ceiling():
     assert WEBSOCKET_HEARTBEAT_INTERVAL_MS <= LIVE_PROXY_READ_TIMEOUT_MS / 2
 
 
-def test_at_least_one_callback_opted_into_websocket_transport():
-    """Proves the transport is actually reachable, not just configured and unused."""
+def test_no_callback_opts_into_websocket_transport_without_using_streaming():
+    """A `websocket=True` opt-in must be justified by actually using streaming (set_props,
+    progressive delivery); plain request/response callbacks gain nothing from it while losing
+    the HTTP fallback. If this fails, either justify the new opt-in with real streaming and
+    update this test, or drop `websocket=True` from the callback."""
     config.CACHE_TYPE = "memory"
     config.UNAVAILABLE_CATALOGS_CACHE_TYPE = "memory"
 
@@ -62,7 +66,7 @@ def test_at_least_one_callback_opted_into_websocket_transport():
     import ztf_viewer.__main__ as main_module
 
     opted_in = [callback_id for callback_id, entry in main_module.app.callback_map.items() if entry.get("websocket")]
-    assert opted_in == ["skybot.children"]
+    assert opted_in == []
 
 
 def test_http_fallback_still_works_for_a_non_websocket_callback():
