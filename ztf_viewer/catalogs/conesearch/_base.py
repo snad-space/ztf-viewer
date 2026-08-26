@@ -32,7 +32,7 @@ def _ensure_coroutine(func):
 
     Lets ``find()`` await ``_query_region`` uniformly regardless of whether a given catalog's
     implementation is genuine async I/O or a still-sync third-party client (astroquery, an
-    unconverted ``requests`` call). Mirrors ``ztf_viewer.callbacks._to_coroutine_function``.
+    unconverted ``requests`` call).
     """
     if inspect.iscoroutinefunction(func):
         return func

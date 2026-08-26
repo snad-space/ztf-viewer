@@ -17,7 +17,6 @@ from dash.exceptions import PreventUpdate
 
 from ztf_viewer.akb import akb
 from ztf_viewer.app import app
-from ztf_viewer.callbacks import callback
 from ztf_viewer.catalogs.conesearch import ANTARES_QUERY, TNS_QUERY
 from ztf_viewer.catalogs.snad import SnadCatalogSource
 from ztf_viewer.config import THREAD_POOL_SIZE
@@ -210,7 +209,7 @@ app.clientside_callback(
 )
 
 
-@callback(
+@app.callback(
     Output("data-release", "children"),
     [Input("url", "pathname")],
 )
@@ -236,7 +235,7 @@ def dr_switch(current_dr, current_url, switch_dr):
     return html.A(switch_dr.upper(), href=switch_url, style={"text-decoration-style": "dashed"})
 
 
-@callback(
+@app.callback(
     Output("dr-title", "children"),
     [Input("data-release", "children")],
 )
@@ -244,7 +243,7 @@ def set_dr_title(dr):
     return dr.upper()
 
 
-@callback(
+@app.callback(
     Output("username", "children"),
     [Input("url", "pathname")],
 )
@@ -255,13 +254,15 @@ async def set_username(_url):
         return html.A("login", href="/login")
 
 
-def oid_from_input(s: str):
+async def oid_from_input(s: str):
     s = s.strip()
     if s.isnumeric() and 15 <= len(s) <= 16:
         return s
     if s.isnumeric() or s.upper().startswith("SNAD"):
         try:
-            return str(SnadCatalogSource(s).ztf_oid)
+            # `SnadCatalogSource` may refresh the SNAD catalog over `requests`; offload to a thread.
+            source = await asyncio.to_thread(SnadCatalogSource, s)
+            return str(source.ztf_oid)
         except KeyError:
             pass
     return s
@@ -304,7 +305,7 @@ async def sky_coord_from_str(s):
     raise ValueError(f'Cannot parse given coordinates or a name: "{s}"')
 
 
-@callback(
+@app.callback(
     Output("url", "pathname"),
     [
         Input("button-oid", "n_clicks"),
@@ -321,7 +322,7 @@ async def sky_coord_from_str(s):
         State("data-release", "children"),
     ],
 )
-def go_to_url(
+async def go_to_url(
     n_clicks_oid,
     n_submit_oid,
     n_clicks_search,
@@ -334,7 +335,7 @@ def go_to_url(
     dr,
 ):
     if (n_submit_oid != 0 or n_clicks_oid != 0) and oid is not None:
-        oid = oid_from_input(oid)
+        oid = await oid_from_input(oid)
         return f"/{dr}/view/{oid}"
     if n_clicks_search != 0 or n_submit_coord_or_name != 0 or n_submit_radius != 0:
         coord_or_name = urllib.parse.quote(coord_or_name)
@@ -342,7 +343,7 @@ def go_to_url(
     return current_pathname
 
 
-@callback(
+@app.callback(
     [
         Output("page-content", "children"),
         Output("input-coord-or-name", "value"),
