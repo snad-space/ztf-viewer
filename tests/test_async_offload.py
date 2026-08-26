@@ -1,12 +1,11 @@
 """Guards that a callback converted to ``async def`` this cycle doesn't leave a blocking call
 directly in its body.
 
-Once a callback is a coroutine function, the registration shim (``ztf_viewer/callbacks.py``)
-returns it unchanged rather than wrapping it in a thread offload — that's the whole point of the
-shim, but it means anything still synchronous inside the body now runs inline on the event loop.
-Every callback below still reaches a client that stayed synchronous on purpose (an unconverted
-conesearch ``find``, an astroquery client, or a still-sync extinction lookup); this test pins
-that each such call is routed through ``asyncio.to_thread`` rather than called bare.
+A coroutine callback is registered as-is and runs inline on the event loop, so anything
+synchronous inside its body blocks the loop unless routed through a thread. Every callback below
+still reaches a client that stayed synchronous on purpose (an unconverted conesearch ``find``, an
+astroquery client, or a still-sync extinction lookup); this test pins that each such call is
+routed through ``asyncio.to_thread`` rather than called bare.
 
 A fully general static check (walk every ``async def`` in the app and flag any call that isn't
 either awaited or wrapped) is impractical here — it would need to know which callables are safe
