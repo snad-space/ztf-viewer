@@ -1945,15 +1945,24 @@ dated. `await asyncio.to_thread(x)` needs no gloss.
     those into plain awaits. `bayestar` is invoked as a callable at `:1540`, so
     `_BaseExtinctionQuery.__call__` also needs to become a coroutine — its only two subclasses,
     `BayestarQuery` and `CsfdQuery`, are both in-repo.
-  - *SNAD is portable too, but the blocker is design, not I/O.* `SnadCatalogSource.__init__`
+  - *The SNAD catalog module (`ztf_viewer/catalogs/snad/catalog.py`) is portable too, and
+    its surface is small.* `SnadCatalogSource.__init__`
     (`ztf_viewer/catalogs/snad/catalog.py:72`) does the catalog refresh in a constructor, which
-    cannot `await` — an async port needs a factory (`await SnadCatalogSource.create(name)`),
-    touching both call sites in `ztf_viewer/__main__.py`. `_update` mutates shared `self.table`
-    / `self.updated_at` with no lock; that is effectively serialized under threads but needs
-    single-flight under async so concurrent requests don't all trigger a re-download (the
-    single-flight machinery already exists — see `tests/test_cache_single_flight.py`). And
-    `_create_table` (astropy `ascii.read` + `SkyCoord`) plus `match_to_catalog_sky` are CPU work
-    that wants a thread regardless of how the HTTP call is done.
+    cannot `await`, so an async port needs a factory (`await SnadCatalogSource.create(name)`).
+    That is the only structural change and it is contained: `SnadCatalogSource` has exactly two
+    consumers (`ztf_viewer/__main__.py:264`, `:275`) and `search_region` exactly one
+    (`ztf_viewer/pages/viewer.py:830`), all three already `async def`, with no consumers outside
+    `catalogs/snad/`. `_update` mutates shared `self.table` / `self.updated_at` with no lock, so
+    it needs single-flight under async to stop concurrent requests all triggering a re-download
+    (the machinery already exists — see `tests/test_cache_single_flight.py`).
+    The CPU in this path does **not** justify keeping a thread hop alongside the async call. The
+    catalog is 144 rows / 16 KB; measured steady-state costs are `table.copy()` 0.41 ms,
+    `_create_table` 1.36 ms, `match_to_catalog_sky` 0.42 ms. A first `match_to_catalog_sky`
+    measures ~116 ms, but that is astropy one-time warmup — calls 2-4 were 0.42/0.34/0.33 ms.
+    The real defect in this path is that `requests.get` at `:44` has **no timeout at all**:
+    offloading it to a thread moves where it blocks, not how long, and a hung upstream then pins
+    a pool slot with nothing to reclaim it. An `httpx` port inherits a mandatory timeout from the
+    shared client, which is the stronger reason to do it.
   - *What actually keeps `requests` in `pyproject.toml` is neither of the above — it's the
     catch-imports for sync third parties.* `ztf_viewer/catalogs/conesearch/_base.py:18`,
     `conesearch/antares.py:12`, `conesearch/gaia_dr3.py:9`, `conesearch/alerce.py:13`, and
