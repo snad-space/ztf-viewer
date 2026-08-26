@@ -13,15 +13,19 @@ to call inline (pure computation) versus which are blocking I/O, and that distin
 recoverable from the AST alone. So this only covers the specific call sites this change touches.
 """
 
+import asyncio
 import inspect
+import threading
 
 import pytest
 
 from ztf_viewer import config
+from ztf_viewer.exceptions import NotFound
 
 config.CACHE_TYPE = "memory"
 config.UNAVAILABLE_CATALOGS_CACHE_TYPE = "memory"
 
+import ztf_viewer.__main__ as main_module
 from ztf_viewer.pages import viewer
 
 # function (or unbound method) -> a substring of the sync call it must route through a thread
@@ -46,3 +50,72 @@ def test_remaining_blocking_call_goes_through_to_thread(func, blocking_call):
     source = inspect.getsource(inspect.unwrap(func))
     assert blocking_call in source, f"expected {func.__qualname__} to still call {blocking_call}"
     assert "asyncio.to_thread" in source, f"{func.__qualname__} calls {blocking_call} without asyncio.to_thread"
+
+
+def test_sky_coord_from_str_snad_lookup_runs_off_the_loop(monkeypatch):
+    """`sky_coord_from_str` must not call `SnadCatalogSource` (which may hit `requests`) inline."""
+    main_thread_id = threading.get_ident()
+    seen_thread_id = None
+
+    class StubSource:
+        def __init__(self, name):
+            nonlocal seen_thread_id
+            seen_thread_id = threading.get_ident()
+            self.coord = f"coord-for-{name}"
+
+    monkeypatch.setattr(main_module, "SnadCatalogSource", StubSource)
+
+    result = asyncio.run(main_module.sky_coord_from_str("SNAD123"))
+
+    assert result == "coord-for-SNAD123"
+    assert seen_thread_id is not None
+    assert seen_thread_id != main_thread_id
+
+
+def test_sky_coord_from_str_reraises_key_error_as_value_error(monkeypatch):
+    class StubSource:
+        def __init__(self, name):
+            raise KeyError(name)
+
+    monkeypatch.setattr(main_module, "SnadCatalogSource", StubSource)
+
+    with pytest.raises(ValueError):
+        asyncio.run(main_module.sky_coord_from_str("SNAD123"))
+
+
+def test_set_title_snad_lookup_runs_off_the_loop(monkeypatch):
+    """`set_title` must not call `snad_catalog.search_region` (which may hit `requests`) inline."""
+    main_thread_id = threading.get_ident()
+    seen_thread_id = None
+
+    async def stub_get_coord(oid, dr):
+        return 10.0, 20.0
+
+    def stub_search_region(ra, dec, radius_arcsec):
+        nonlocal seen_thread_id
+        seen_thread_id = threading.get_ident()
+        return "SNAD1"
+
+    monkeypatch.setattr(viewer.find_ztf_oid, "get_coord", stub_get_coord)
+    monkeypatch.setattr(viewer.snad_catalog, "search_region", stub_search_region)
+
+    result = asyncio.run(viewer.set_title("oid", "dr"))
+
+    assert result == "SNAD1 — oid"
+    assert seen_thread_id is not None
+    assert seen_thread_id != main_thread_id
+
+
+def test_set_title_propagates_not_found(monkeypatch):
+    async def stub_get_coord(oid, dr):
+        return 10.0, 20.0
+
+    def stub_search_region(ra, dec, radius_arcsec):
+        raise NotFound
+
+    monkeypatch.setattr(viewer.find_ztf_oid, "get_coord", stub_get_coord)
+    monkeypatch.setattr(viewer.snad_catalog, "search_region", stub_search_region)
+
+    result = asyncio.run(viewer.set_title("oid", "dr"))
+
+    assert result == "oid"

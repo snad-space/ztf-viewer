@@ -272,7 +272,9 @@ async def sky_coord_from_str(s):
     s = s.strip()
     if s.upper().startswith("SNAD"):
         try:
-            return SnadCatalogSource(s).coord
+            # `SnadCatalogSource` may refresh the SNAD catalog over `requests`; offload to a thread.
+            source = await asyncio.to_thread(SnadCatalogSource, s)
+            return source.coord
         except KeyError:
             raise ValueError(f"ID {s} isn't found in the SNAD catalog")
 

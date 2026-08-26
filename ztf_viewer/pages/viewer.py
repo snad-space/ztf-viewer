@@ -827,7 +827,8 @@ async def get_layout(pathname, search):
 async def set_title(oid, dr):
     ra, dec = await find_ztf_oid.get_coord(oid, dr)
     try:
-        snad_name = snad_catalog.search_region(ra, dec, radius_arcsec=3)
+        # `search_region` may refresh the SNAD catalog over `requests`; offload to a thread.
+        snad_name = await asyncio.to_thread(snad_catalog.search_region, ra, dec, radius_arcsec=3)
         snad_name = f"{snad_name} — "
     except NotFound:
         snad_name = ""
