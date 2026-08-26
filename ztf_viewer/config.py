@@ -38,7 +38,7 @@ HTTP_DEFAULT_TIMEOUT = httpx.Timeout(30.0)
 
 # Per-API request budgets. Each of the first five mirrors what that call site's `requests` call
 # already uses today (`git grep timeout= ztf_viewer`), so the async conversions that follow start
-# from current behaviour rather than a guess. The last four have no timeout at all today --
+# from current behaviour rather than a guess. The last five have no timeout at all today --
 # `requests` then waits forever -- so each value below was chosen deliberately rather than
 # inherited from a shared default. Named for the API they serve, not the number, so the value can
 # move without a rename. Plain constants, not env vars: these encode a per-upstream behaviour
@@ -57,6 +57,7 @@ TIMEOUT_FEATURES = httpx.Timeout(60.0)  # lc_features.py: feature extraction ove
 TIMEOUT_MODEL_FIT = httpx.Timeout(120.0)  # model_fit.py: the heaviest per-request compute of the first-party APIs
 TIMEOUT_AKB = httpx.Timeout(10.0)  # akb.py: small CRUD-shaped JSON requests
 TIMEOUT_ZTF_FITS_PROXY = httpx.Timeout(60.0)  # catalogs/ztf_ref.py, date_with_frac.py: both hit ZTF_FITS_PROXY_URL
+TIMEOUT_SNAD = httpx.Timeout(10.0)  # catalogs/snad/catalog.py: a 16 KB CSV off snad.space
 
 # Must stay well under the deployed proxy's live 60s read-timeout default, in ms.
 WEBSOCKET_HEARTBEAT_INTERVAL_MS = int(os.environ.get("WEBSOCKET_HEARTBEAT_INTERVAL_MS", "20000"))

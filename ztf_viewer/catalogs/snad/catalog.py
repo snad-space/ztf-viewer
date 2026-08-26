@@ -3,12 +3,15 @@ import importlib.resources
 from datetime import UTC, datetime, timedelta
 from io import BytesIO
 
-import requests
+import httpx
 from astropy.coordinates import Angle, SkyCoord
 from astropy.io import ascii
 
+from ztf_viewer import config
+from ztf_viewer.cache.single_flight import AsyncSingleFlight
 from ztf_viewer.catalogs.snad import data
 from ztf_viewer.exceptions import NotFound
+from ztf_viewer.http import get_client
 
 
 class _SnadCatalog:
@@ -21,6 +24,9 @@ class _SnadCatalog:
             self.table = self._create_table(fh)
 
         self.updated_at = datetime(1900, 1, 1, 1, 1, tzinfo=UTC)
+        # Coalesces concurrent refreshes into one download; AsyncSingleFlight is already
+        # per-loop internally, so this instance is safe to share across loops.
+        self._single_flight = AsyncSingleFlight()
 
     @staticmethod
     def _create_table(src):
@@ -36,28 +42,31 @@ class _SnadCatalog:
         dt = datetime(*parsed[:7], tzinfo=UTC)
         return dt
 
-    def _update(self):
+    async def _update(self):
         now = datetime.now(tz=UTC)
         if now - self.updated_at < self.check_interval:
             return
-        try:
-            with requests.get(self.url, stream=True) as resp:
-                if resp.status_code != 200:
-                    return
-                if self.updated_at > self._last_modified(resp):
-                    return
-                self.updated_at = now
-                bio = BytesIO(resp.content)
-        except requests.exceptions.ConnectionError:
-            return
-        self.table = self._create_table(bio)
+        await self._single_flight.run("update", lambda: self._fetch(now))
 
-    def __call__(self):
-        self._update()
+    async def _fetch(self, now):
+        client = get_client()
+        try:
+            resp = await client.get(self.url, timeout=config.TIMEOUT_SNAD)
+        except httpx.HTTPError:
+            return
+        if resp.status_code != 200:
+            return
+        if self.updated_at > self._last_modified(resp):
+            return
+        self.updated_at = now
+        self.table = self._create_table(BytesIO(resp.content))
+
+    async def __call__(self):
+        await self._update()
         return self.table.copy()
 
-    def search_region(self, ra, dec, radius_arcsec):
-        self._update()
+    async def search_region(self, ra, dec, radius_arcsec):
+        await self._update()
         coord = SkyCoord(ra=ra, dec=dec, unit="deg")
         radius = Angle(radius_arcsec, unit="arcsec")
         idx, sep, _ = coord.match_to_catalog_sky(self.table["coord"])
@@ -70,12 +79,17 @@ snad_catalog = _SnadCatalog()
 
 
 class SnadCatalogSource:
-    def __init__(self, name):
+    def __init__(self, row):
+        self.row = row
+
+    @classmethod
+    async def create(cls, name):
         if isinstance(name, int) or not name.upper().startswith("SNAD"):
             name = f"SNAD{name}"
         name = name.upper()
-        catalog = snad_catalog()
-        self.row = catalog.loc[name]
+        catalog = await snad_catalog()
+        row = catalog.loc[name]
+        return cls(row)
 
     @property
     def coord(self):
