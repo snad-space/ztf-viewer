@@ -7,7 +7,7 @@ No network access: the refresh goes through a fake ``httpx.AsyncClient`` built o
 
 import asyncio
 import email.utils
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import httpx
 
@@ -130,3 +130,71 @@ async def test_search_region_awaits_update_and_returns_match():
     name = await catalog.search_region(ra, dec, radius_arcsec=3)
 
     assert name == row["Name"]
+
+
+async def test_failed_refresh_backs_off_then_retries_after_the_interval(monkeypatch):
+    """A non-200/HTTPError attempt must not be retried on every call, only after backoff."""
+    calls = 0
+
+    async def handler(request):
+        nonlocal calls
+        calls += 1
+        return httpx.Response(500)
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    monkeypatch.setattr("ztf_viewer.catalogs.snad.catalog.get_client", lambda: client)
+
+    catalog = _SnadCatalog(interval_seconds=600, failure_retry_seconds=30)
+    catalog.updated_at = datetime(1900, 1, 1, tzinfo=UTC)
+    stale_table = catalog.table
+
+    await catalog._update()
+    assert calls == 1
+    assert catalog._failed_at is not None
+    # the fallback table must still be served after a failed refresh
+    assert catalog.table is stale_table
+
+    # a sequential call still within the retry backoff must not re-attempt the fetch
+    await catalog._update()
+    assert calls == 1
+    assert catalog.table is stale_table
+
+    # once the retry interval has elapsed, the next call must re-attempt
+    catalog._failed_at = datetime.now(tz=UTC) - catalog.failure_retry_interval - timedelta(seconds=1)
+    await catalog._update()
+    assert calls == 2
+    assert catalog.table is stale_table
+
+    await client.aclose()
+
+
+async def test_already_current_response_is_not_treated_as_a_failure(monkeypatch):
+    """Server confirming our copy is current is a success, not something to back off from."""
+    calls = 0
+
+    async def handler(request):
+        nonlocal calls
+        calls += 1
+        # last-modified far in the past: older than our (recent) updated_at below
+        return _csv_response(datetime.now(tz=UTC) - timedelta(days=1))
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    monkeypatch.setattr("ztf_viewer.catalogs.snad.catalog.get_client", lambda: client)
+
+    catalog = _SnadCatalog(interval_seconds=600, failure_retry_seconds=30)
+    # due for a check, but newer than the server's last-modified above
+    catalog.updated_at = datetime.now(tz=UTC) - catalog.check_interval - timedelta(seconds=1)
+    stale_table = catalog.table
+
+    await catalog._update()
+
+    assert calls == 1
+    assert catalog._failed_at is None, "an already-current response is not a failure"
+    assert catalog.table is stale_table, "nothing new to download, table is unchanged"
+
+    # updated_at was bumped to now, so an immediate follow-up call is within check_interval
+    # and skips the fetch entirely, not merely within the (shorter) failure backoff
+    await catalog._update()
+    assert calls == 1
+
+    await client.aclose()
