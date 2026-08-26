@@ -14,7 +14,7 @@ import plotly.graph_objects as go
 from astropy.coordinates import SkyCoord
 from astropy.table import QTable
 from astropy.units import Quantity
-from dash import ALL, MATCH, Input, Output, State, dcc, html
+from dash import ALL, MATCH, Input, Output, State, ctx, dcc, html, set_props
 from dash.dash_table import DataTable
 from dash.exceptions import PreventUpdate
 from immutabledict import immutabledict
@@ -1378,44 +1378,31 @@ async def set_ref_mag_magerr(dr, _n_clicks, link_id, all_mag_ids, all_mag_values
     )
 
 
-@app.callback(
-    Output("summary", "children"),
-    [
-        Input("oid", "children"),
-        Input("dr", "children"),
-        Input("different_filter_neighbours", "children"),
-        Input("different_field_neighbours", "children"),
-        Input({"type": "search-radius", "index": ALL}, "id"),
-        Input({"type": "search-radius", "index": ALL}, "value"),
-    ],
-)
-async def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_values):
-    if None in radius_values:
-        raise PreventUpdate
-    radii = {id["index"]: float(value) for id, value in zip(radius_ids, radius_values)}
-    ra, dec = await find_ztf_oid.get_coord(oid, dr)
-    coord = await find_ztf_oid.get_sky_coord(oid, dr)
+async def _find_catalog_for_summary(catalog, query, ra, dec, radii):
+    """Isolate one catalog's query so an expected failure here can never reach its siblings.
 
-    async def find_in_catalog(catalog, query):
-        # radii is keyed by the radius inputs the layout renders, which don't cover every
-        # registered catalog -- the lookup has to fail inside the task so gather returns it.
-        return await query.find(ra, dec, radii[catalog])
+    radii is keyed by the radius inputs the layout renders, which don't cover every registered
+    catalog -- the lookup has to fail inside this per-task coroutine so it stays contained.
+    """
+    try:
+        table = await query.find(ra, dec, radii[catalog])
+    except NotFound, CatalogUnavailable, KeyError:
+        return catalog, None
+    return catalog, table
 
-    catalogs = catalog_query_objects()
-    catalog_results = await asyncio.gather(
-        *(find_in_catalog(catalog, query) for catalog, query in catalogs.items()),
-        return_exceptions=True,
-    )
-    catalog_tables = OrderedDict()
-    for (catalog, query), result in zip(catalogs.items(), catalog_results):
-        if isinstance(result, BaseException):
-            if isinstance(result, (NotFound, CatalogUnavailable, KeyError)):
-                continue
-            raise result
-        catalog_tables[catalog] = (query, result)
 
+def _summary_catalog_elements(catalogs, catalog_tables):
+    """Render the Name/Type/Distance/... rows for whichever catalogs have resolved so far.
+
+    Always walks `catalogs` in registration order, and only includes a catalog once its table is
+    in `catalog_tables` -- so a partial render during streaming and the final render use the same
+    row order, and rows never jump around as later catalogs arrive.
+    """
     elements = OrderedDict()
-    for catalog, (query, table) in catalog_tables.items():
+    for catalog, query in catalogs.items():
+        table = catalog_tables.get(catalog)
+        if table is None:
+            continue
         idx = np.argmin(table["separation"])
         row = table[idx]
         for table_field, display_name in SUMMARY_FIELDS.items():
@@ -1454,6 +1441,61 @@ async def get_summary(oid, dr, different_filter, different_field, radius_ids, ra
                     style={"display": "inline"},
                 )
             )
+    return elements
+
+
+def _summary_list_div(elements):
+    return html.Div(
+        html.Ul(
+            [html.Li([html.B(k), ": "] + list_join(", ", v)) for k, v in elements.items()],
+            style={"list-style-type": "none"},
+        ),
+    )
+
+
+@app.callback(
+    Input("oid", "children"),
+    Input("dr", "children"),
+    Input("different_filter_neighbours", "children"),
+    Input("different_field_neighbours", "children"),
+    Input({"type": "search-radius", "index": ALL}, "id"),
+    Input({"type": "search-radius", "index": ALL}, "value"),
+    # No Output: results are pushed with `set_props` as each catalog resolves, so the page is
+    # useful before the slowest catalog answers. A single Output already meant this callback had
+    # one failure domain before streaming; pushing progressively doesn't change that. Falls back
+    # to one batched HTTP response (the final push below) for clients without the WS transport.
+    websocket=True,
+)
+async def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_values):
+    if None in radius_values:
+        raise PreventUpdate
+    ws = ctx.websocket
+    radii = {id["index"]: float(value) for id, value in zip(radius_ids, radius_values)}
+    ra, dec = await find_ztf_oid.get_coord(oid, dr)
+    coord = await find_ztf_oid.get_sky_coord(oid, dr)
+
+    catalogs = catalog_query_objects()
+    catalog_tables = {}
+    tasks = [
+        asyncio.ensure_future(_find_catalog_for_summary(catalog, query, ra, dec, radii))
+        for catalog, query in catalogs.items()
+    ]
+    try:
+        async for finished in asyncio.as_completed(tasks):
+            if ws is not None and ws.is_shutdown:
+                raise PreventUpdate
+            catalog, table = await finished
+            if table is not None:
+                catalog_tables[catalog] = table
+                set_props(
+                    "summary", {"children": _summary_list_div(_summary_catalog_elements(catalogs, catalog_tables))}
+                )
+    finally:
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+
+    elements = _summary_catalog_elements(catalogs, catalog_tables)
     try:
         features = await light_curve_features(oid, dr, version="latest")
         period = features.get("period_0_magn", features.get("period_0"))
@@ -1478,8 +1520,9 @@ async def get_summary(oid, dr, different_filter, different_field, radius_ids, ra
         pass
 
     ml_classifications = []
-    for catalog, (query, table) in catalog_tables.items():
-        if len(table) == 0:
+    for catalog, query in catalogs.items():
+        table = catalog_tables.get(catalog)
+        if table is None or len(table) == 0:
             continue
         idx = np.argmin(table["separation"])
         row = table[idx]
@@ -1556,13 +1599,7 @@ async def get_summary(oid, dr, different_filter, different_field, radius_ids, ra
         f'Gal {await find_ztf_oid.get_coord_string(oid, dr, frame="galactic")}',
     ]
 
-    div = html.Div(
-        html.Ul(
-            [html.Li([html.B(k), ": "] + list_join(", ", v)) for k, v in elements.items()],
-            style={"list-style-type": "none"},
-        ),
-    )
-    return div
+    set_props("summary", {"children": _summary_list_div(elements)})
 
 
 @app.callback(
