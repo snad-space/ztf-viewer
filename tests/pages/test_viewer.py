@@ -25,13 +25,18 @@ import contextlib
 import inspect
 import json
 import time
+import types
 from unittest.mock import AsyncMock, patch
 
 import pytest
 from astropy.table import Table
+from dash import html
+from dash._callback_context import context_value
 from dash.exceptions import PreventUpdate
+from fastapi.testclient import TestClient
 from plotly.utils import PlotlyJSONEncoder
 
+from tests.conftest import reset_shared_process_pool, reset_shared_thread_pool
 from ztf_viewer import config
 
 # `ztf_viewer.pages.viewer` pulls in `ztf_viewer.catalogs`, whose `unavailable_catalogs` connects
@@ -166,17 +171,51 @@ def summary_upstreams(monkeypatch):
     monkeypatch.setattr(viewer, "get_catalog_query", lambda name: _NotFoundGaiaEdr3())
 
 
-def _run_get_summary(catalogs, summary_upstreams):
+class _FakeWebsocket:
+    """Stands in for `ctx.websocket`. `is_shutdown` flips True after `shutdown_after` pushes."""
+
+    def __init__(self, shutdown_after=None):
+        self.pushes = 0
+        self._shutdown_after = shutdown_after
+
+    @property
+    def is_shutdown(self):
+        return self._shutdown_after is not None and self.pushes >= self._shutdown_after
+
+
+async def _run_get_summary(catalogs, summary_upstreams, ws=None):
+    """Run `get_summary` and capture every `set_props("summary", ...)` push it makes.
+
+    `get_summary` has no Output any more -- it streams via `set_props` -- so this drives it like
+    the real callback dispatcher does: a fake `dash_websocket` in the callback context (None
+    mimics an HTTP-dispatched, non-WS client; a `_FakeWebsocket` mimics a real WS connection).
+    Returns the pushed `children` divs in call order; the last one is the final, complete render,
+    so a test that only cares about the finished page should compare against `pushed[-1]`.
+    """
     del summary_upstreams  # only needed for its monkeypatching side effect
     ids, values = _radius_inputs(catalogs)
-    return get_summary(
-        oid="633207400004730",
-        dr="dr24",
-        different_filter=None,
-        different_field=None,
-        radius_ids=ids,
-        radius_values=values,
-    )
+    pushed = []
+
+    def fake_set_props(component_id, props):
+        assert component_id == "summary"
+        pushed.append(props["children"])
+        if ws is not None:
+            ws.pushes += 1
+
+    token = context_value.set(types.SimpleNamespace(dash_websocket=ws))
+    try:
+        with patch.object(viewer, "set_props", fake_set_props):
+            await get_summary(
+                oid="633207400004730",
+                dr="dr24",
+                different_filter=None,
+                different_field=None,
+                radius_ids=ids,
+                radius_values=values,
+            )
+    finally:
+        context_value.reset(token)
+    return pushed
 
 
 def _other_succeeding_catalog():
@@ -213,11 +252,11 @@ async def test_get_summary_failing_catalog_matches_catalog_absent(make_failing_c
     """A catalog that fails must render identically to a catalog that was never queried at all,
     and must not disturb the catalogs that do succeed."""
     with make_failing_catalogs() as catalogs, patch.object(viewer, "catalog_query_objects", lambda: catalogs):
-        failing = await _run_get_summary(list(catalogs), summary_upstreams)
+        failing = (await _run_get_summary(list(catalogs), summary_upstreams))[-1]
 
     absent_catalogs = {"other": _other_succeeding_catalog()}
     with patch.object(viewer, "catalog_query_objects", lambda: absent_catalogs):
-        absent = await _run_get_summary(list(absent_catalogs), summary_upstreams)
+        absent = (await _run_get_summary(list(absent_catalogs), summary_upstreams))[-1]
 
     assert _dump(failing) == _dump(absent)
 
@@ -236,11 +275,11 @@ async def test_get_summary_skips_catalog_with_no_radius_input(summary_upstreams)
     whole summary. Guards against the radius lookup escaping the swallow list."""
     catalogs = {"other": _other_succeeding_catalog(), "no-radius": _other_succeeding_catalog()}
     with patch.object(viewer, "catalog_query_objects", lambda: catalogs):
-        with_missing = await _run_get_summary(["other"], summary_upstreams)
+        with_missing = (await _run_get_summary(["other"], summary_upstreams))[-1]
 
     only_other = {"other": _other_succeeding_catalog()}
     with patch.object(viewer, "catalog_query_objects", lambda: only_other):
-        without = await _run_get_summary(["other"], summary_upstreams)
+        without = (await _run_get_summary(["other"], summary_upstreams))[-1]
 
     assert _dump(with_missing) == _dump(without)
 
@@ -256,7 +295,7 @@ async def test_get_summary_mixed_success_and_failures(summary_upstreams):
         ),
     }
     with patch.object(viewer, "catalog_query_objects", lambda: catalogs):
-        div = await _run_get_summary(list(catalogs), summary_upstreams)
+        div = (await _run_get_summary(list(catalogs), summary_upstreams))[-1]
 
     success_link = {"text": "Success Catalog", "href": "#success"}
     antares_href = (
@@ -323,6 +362,163 @@ async def test_get_summary_queries_each_catalog_once(summary_upstreams):
     with patch.object(viewer, "catalog_query_objects", lambda: {"stub": stub}):
         await _run_get_summary(["stub"], summary_upstreams)
     assert stub.call_count == 1
+
+
+# ---------------------------------------------------------------------------------------------
+# get_summary -- progressive rendering over the WS transport (`set_props`, no Output).
+#
+# `get_summary` is a single callback with a single logical output (the "summary" div), so
+# streaming it doesn't consolidate any failure domains the way the rejected per-catalog-table
+# streaming did (see the module docstring in the plan's aio-stream Progress entry). The tests
+# below cover the three accept criteria: a delayed catalog doesn't hold up the rest of the page,
+# a disconnect stops in-flight work, and -- the lesson from that rejected attempt -- every catalog
+# that succeeds still shows up in the final, complete push.
+# ---------------------------------------------------------------------------------------------
+
+
+async def test_get_summary_streams_fast_catalog_before_slow_one_finishes(summary_upstreams):
+    """Streaming actually streams: a slow catalog must not delay a fast one's row from appearing."""
+    push_times = []
+
+    def fake_set_props(component_id, props):
+        assert component_id == "summary"
+        push_times.append(time.perf_counter())
+
+    catalogs = {
+        "fast": _SleepingCatalogQuery("Fast", delay=0.0, table=_stub_table(objname="Fast Object")),
+        "slow": _SleepingCatalogQuery("Slow", delay=0.3, table=_stub_table(objname="Slow Object")),
+    }
+    ids, values = _radius_inputs(list(catalogs))
+    token = context_value.set(types.SimpleNamespace(dash_websocket=None))
+    try:
+        with (
+            patch.object(viewer, "catalog_query_objects", lambda: catalogs),
+            patch.object(viewer, "set_props", fake_set_props),
+        ):
+            start = time.perf_counter()
+            await get_summary(
+                oid="633207400004730",
+                dr="dr24",
+                different_filter=None,
+                different_field=None,
+                radius_ids=ids,
+                radius_values=values,
+            )
+    finally:
+        context_value.reset(token)
+
+    # First push (the fast catalog's row) lands well before the slow catalog's own delay elapses.
+    assert push_times[0] - start < 0.1
+    # And a later push (the final, complete render) does have to wait for it.
+    assert push_times[-1] - start > 0.1
+
+
+async def test_get_summary_final_push_is_complete(summary_upstreams):
+    """The lesson from the rejected per-catalog-table attempt: a partial-render check alone can't
+    tell 'still streaming' from 'streaming died'. Every catalog that succeeds must show up in the
+    final, complete push -- not just in whichever partial push happened to catch it."""
+    catalogs = {
+        f"stub-{i}": _SleepingCatalogQuery(f"Stub {i}", delay=0.01 * (4 - i), table=_stub_table()) for i in range(5)
+    }
+    with patch.object(viewer, "catalog_query_objects", lambda: catalogs):
+        pushed = await _run_get_summary(list(catalogs), summary_upstreams)
+
+    # One push per successful catalog as it streams in, plus one final complete push.
+    assert len(pushed) == len(catalogs) + 1
+    final_dump = _dump(pushed[-1])
+    for catalog in catalogs:
+        assert f'"href": "#{catalog}"' in final_dump
+
+
+async def test_get_summary_stops_work_on_disconnect(summary_upstreams):
+    """Closing the tab mid-load must stop querying catalogs that haven't completed yet."""
+    pushed = []
+    ws = _FakeWebsocket(shutdown_after=1)
+
+    def fake_set_props(component_id, props):
+        pushed.append(props["children"])
+        ws.pushes += 1
+
+    catalogs = {
+        "a": _SleepingCatalogQuery("A", delay=0.0, table=_stub_table()),
+        "b": _SleepingCatalogQuery("B", delay=0.05, table=_stub_table()),
+        # Still sleeping when the disconnect is noticed after "b" -- must get cancelled, not run
+        # its full delay out in the background.
+        "c": _SleepingCatalogQuery("C", delay=5.0, table=_stub_table()),
+    }
+    ids, values = _radius_inputs(list(catalogs))
+    token = context_value.set(types.SimpleNamespace(dash_websocket=ws))
+    try:
+        with (
+            patch.object(viewer, "catalog_query_objects", lambda: catalogs),
+            patch.object(viewer, "set_props", fake_set_props),
+        ):
+            start = time.perf_counter()
+            with pytest.raises(PreventUpdate):
+                await get_summary(
+                    oid="633207400004730",
+                    dr="dr24",
+                    different_filter=None,
+                    different_field=None,
+                    radius_ids=ids,
+                    radius_values=values,
+                )
+            elapsed = time.perf_counter() - start
+    finally:
+        context_value.reset(token)
+
+    # Only "a", already complete at the shutdown check, was ever pushed.
+    assert len(pushed) == 1
+    # Would be >= 5s if "c"'s still-pending task weren't cancelled on disconnect.
+    assert elapsed < 1.0
+
+
+async def test_get_summary_works_over_http_without_a_websocket(summary_upstreams):
+    """The WS opt-in is per-callback, not per-client: a browser without `SharedWorker` support
+    never opens the WS transport and dispatches over plain HTTP instead. `set_props` calls made
+    outside a WS context batch into the callback's response (`sideUpdate`) rather than streaming,
+    so this must still complete and deliver the full summary in one response."""
+    catalog = _StubCatalogQuery("Other Catalog", table=_stub_table(objname="Other Object", type_="SN II"))
+    entry = next(e for e in viewer.app.callback_map.values() if e.get("websocket") and e.get("no_output"))
+    callback_id = next(k for k, v in viewer.app.callback_map.items() if v is entry)
+
+    original_layout = viewer.app._layout, viewer.app._layout_is_function
+    original_error_mode = viewer.app.backend.error_handling_mode
+    viewer.app.layout = html.Div("x")
+    reset_shared_thread_pool()
+    reset_shared_process_pool()
+    try:
+        with (
+            patch.object(viewer, "catalog_query_objects", lambda: {"other": catalog}),
+            TestClient(viewer.app.server) as client,
+        ):
+            response = client.post(
+                "/_dash-update-component",
+                json={
+                    "output": callback_id,
+                    "outputs": [],
+                    "inputs": [
+                        {"id": "oid", "property": "children", "value": "633207400004730"},
+                        {"id": "dr", "property": "children", "value": "dr24"},
+                        {"id": "different_filter_neighbours", "property": "children", "value": None},
+                        {"id": "different_field_neighbours", "property": "children", "value": None},
+                        {
+                            "id": [{"index": "other", "type": "search-radius"}],
+                            "property": "id",
+                            "value": [{"index": "other", "type": "search-radius"}],
+                        },
+                        {"id": [{"index": "other", "type": "search-radius"}], "property": "value", "value": [3.0]},
+                    ],
+                    "state": [],
+                    "changedPropIds": ["oid.children"],
+                },
+            )
+    finally:
+        viewer.app._layout, viewer.app._layout_is_function = original_layout
+        viewer.app.backend.error_handling_mode = original_error_mode
+
+    assert response.status_code == 200
+    assert "Other Object" in json.dumps(response.json()["sideUpdate"])
 
 
 # ---------------------------------------------------------------------------------------------

@@ -53,11 +53,13 @@ def test_heartbeat_interval_is_bounded_below_the_live_proxy_ceiling():
     assert WEBSOCKET_HEARTBEAT_INTERVAL_MS <= LIVE_PROXY_READ_TIMEOUT_MS / 2
 
 
-def test_no_callback_opts_into_websocket_transport_without_using_streaming():
+def test_only_get_summary_opts_into_websocket_transport():
     """A `websocket=True` opt-in must be justified by actually using streaming (set_props,
     progressive delivery); plain request/response callbacks gain nothing from it while losing
-    the HTTP fallback. If this fails, either justify the new opt-in with real streaming and
-    update this test, or drop `websocket=True` from the callback."""
+    the HTTP fallback. `get_summary` is the callback the plan sanctions -- it has no Output and
+    streams progressively via `set_props` (see `tests/pages/test_viewer.py`). If this fails,
+    either justify a new opt-in with real streaming and update this test, or drop
+    `websocket=True` from whatever callback grew it."""
     config.CACHE_TYPE = "memory"
     config.UNAVAILABLE_CATALOGS_CACHE_TYPE = "memory"
 
@@ -65,8 +67,18 @@ def test_no_callback_opts_into_websocket_transport_without_using_streaming():
     # CACHE_TYPE at import time, and this may be the first import of __main__ in the session.
     import ztf_viewer.__main__ as main_module
 
-    opted_in = [callback_id for callback_id, entry in main_module.app.callback_map.items() if entry.get("websocket")]
-    assert opted_in == []
+    opted_in = [entry for entry in main_module.app.callback_map.values() if entry.get("websocket")]
+    assert len(opted_in) == 1
+    entry = opted_in[0]
+    assert entry.get("no_output")
+    assert [str(inp) for inp in entry["raw_inputs"]] == [
+        "oid.children",
+        "dr.children",
+        "different_filter_neighbours.children",
+        "different_field_neighbours.children",
+        '{"index":["ALL"],"type":"search-radius"}.id',
+        '{"index":["ALL"],"type":"search-radius"}.value',
+    ]
 
 
 def test_http_fallback_still_works_for_a_non_websocket_callback():
