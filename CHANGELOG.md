@@ -6,6 +6,10 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
+### Changed
+
+- Switched the web server backend from Flask to FastAPI/Starlette, served by uvicorn, with Dash callbacks running as native coroutines
+
 ## [2026.8.0] 2026 August 14
 
 ### Added
