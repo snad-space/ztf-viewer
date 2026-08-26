@@ -499,7 +499,9 @@ merged by its author, and "ready for review" is a reviewer's signal, not the aut
       number — carried into `## Open questions`.
 
 **Cleanup**
-- [ ] `aio-cleanup` — drop `requests` and the sync `timeout()`; update docs
+- [~] `aio-cleanup` — sync `timeout()` removed (#701), `callbacks.py` retired (#702), docs
+      updated (this pass); `requests` stays a direct dependency regardless of porting — see the
+      `aio-cleanup` section below
 
 **Out-of-band** — deployment side, not PRs in this repo
 - [~] Verify which proxy config is live on the deployment host — **diagnosed in full, not yet
@@ -1925,21 +1927,61 @@ dated. `await asyncio.to_thread(x)` needs no gloss.
 ## Stack: Cleanup
 
 ### `aio-cleanup` — Remove the sync path
-- Drop the `requests` direct dependency once the async-I/O stack is complete (it stays transitive via
-  astroquery/alerce/antares).
-- Remove the sync `timeout()` helper (`ztf_viewer/util.py:292`) and the sync `cache()`
-  variant once nothing uses them.
-- Remove any remaining `flask[async]` extra. *(The `DASH_BACKEND` escape hatch this item also
-  named was never built — see the flip's Progress entry.)*
-- **Retire `ztf_viewer/callbacks.py`.** The shim is transitional, not permanent. By this point the
-  I/O-bound callbacks are natively `async def` (the shim passes those through untouched) and the
-  sync-only third parties are offloaded explicitly with a bare `asyncio.to_thread` (the bounded
-  version was dropped), so what the shim still wraps is mostly trivial presentation callbacks — for which a thread hop
-  and a context copy cost more than running inline on the loop. Unwrap those, keep native `async
-  def` for the rest, and either drop the callbacks-are-coroutines guard or replace it with the
-  narrower rule that actually matters: no callback performs blocking I/O.
-- Update `README.md`, `AGENTS.md` (run command, dev stack), `CHANGELOG.md`.
-- Add a small load-test script (`plans/misc/`) so the concurrency claims stay verifiable.
+- **`requests` does not come off the direct-dependency list — not because it's blocked, but
+  because it's still called directly, and part of that call surface can't be ported at all.**
+  Two first-party call sites use `requests` for real HTTP, not just exception imports:
+  `_BaseApiExtinctionQuery` builds `self._api_session = requests.Session()`
+  (`ztf_viewer/catalogs/extinction/_base.py:32`) and catches `requests.RequestException`
+  (`:39`); `_SnadCatalog._update` does `requests.get(self.url, stream=True)`
+  (`ztf_viewer/catalogs/snad/catalog.py:44`) and catches `requests.exceptions.ConnectionError`
+  (`:51`). Both are portable, at different costs:
+  - *Extinction is cheap to port.* `_BaseApiExtinctionQuery.query` is one `session.get(url,
+    params=..., timeout=10)` → `.json()["ebv"]` against SNAD's own dustmaps API — a direct fit for
+    `ztf_viewer/http.py`'s `get_client()`. `config.TIMEOUT_EXTINCTION = httpx.Timeout(10.0)`
+    already exists (`ztf_viewer/config.py:54`, commented `# extinction/_base.py`) and today is
+    referenced only by `tests/test_http.py:95` — provisioned for exactly this port and unused
+    since. All three call sites already run on the loop and wrap the call in
+    `asyncio.to_thread` (`ztf_viewer/pages/viewer.py:918`, `:1531`, `:1540`), so porting turns
+    those into plain awaits. `bayestar` is invoked as a callable at `:1540`, so
+    `_BaseExtinctionQuery.__call__` also needs to become a coroutine — its only two subclasses,
+    `BayestarQuery` and `CsfdQuery`, are both in-repo.
+  - *SNAD is portable too, but the blocker is design, not I/O.* `SnadCatalogSource.__init__`
+    (`ztf_viewer/catalogs/snad/catalog.py:72`) does the catalog refresh in a constructor, which
+    cannot `await` — an async port needs a factory (`await SnadCatalogSource.create(name)`),
+    touching both call sites in `ztf_viewer/__main__.py`. `_update` mutates shared `self.table`
+    / `self.updated_at` with no lock; that is effectively serialized under threads but needs
+    single-flight under async so concurrent requests don't all trigger a re-download (the
+    single-flight machinery already exists — see `tests/test_cache_single_flight.py`). And
+    `_create_table` (astropy `ascii.read` + `SkyCoord`) plus `match_to_catalog_sky` are CPU work
+    that wants a thread regardless of how the HTTP call is done.
+  - *What actually keeps `requests` in `pyproject.toml` is neither of the above — it's the
+    catch-imports for sync third parties.* `ztf_viewer/catalogs/conesearch/_base.py:18`,
+    `conesearch/antares.py:12`, `conesearch/gaia_dr3.py:9`, `conesearch/alerce.py:13`, and
+    `ztf_viewer/pages/viewer.py:21` import from `requests` solely to catch what astroquery,
+    alerce, and antares raise. Those clients are sync third parties this plan's own baseline
+    (F9) puts out of scope for the async port. As long as they're in the stack, `requests` stays
+    a direct dependency no matter how much first-party code is ported off it.
+  - Porting extinction and SNAD is not currently scheduled as its own sub-item here; this plan
+    only records that both are portable and neither is what's actually blocking `requests`'
+    removal.
+- [x] **Removed the sync `timeout()` helper** (`ztf_viewer/util.py`) — #701. *(This item's other
+  half, "remove the sync `cache()` variant," is moot: `aio-cache-async` already made the single
+  `cache()` dispatch on `inspect.iscoroutinefunction`, so there is no separate sync variant left
+  to remove — and the dispatching decorator itself must stay, since sync third-party call sites
+  still need it.)*
+- [x] **No `flask[async]` extra remains** — `pyproject.toml` has no `flask` reference at all.
+  *(The `DASH_BACKEND` escape hatch this item also named was never built — see the flip's
+  Progress entry.)*
+- [x] **Retired `ztf_viewer/callbacks.py`** — #702. The shim was transitional, not permanent: by
+  that point the I/O-bound callbacks were natively `async def` (the shim passed those through
+  untouched) and the sync-only third parties were offloaded explicitly with a bare
+  `asyncio.to_thread`, so what the shim still wrapped was mostly trivial presentation callbacks —
+  for which a thread hop and a context copy cost more than running inline on the loop.
+- [x] Update `README.md`, `AGENTS.md` (run command, dev stack), `CHANGELOG.md` — this doc pass,
+  now that #701/#702 unblocked it.
+- [ ] Add a small load-test script (`plans/misc/`) so the concurrency claims stay verifiable.
+  *(`plans/misc/fanout_bench.py`, from `aio-bench`, already exists and may already cover this —
+  not verified against this item's original intent as part of this doc pass.)*
 
 ---
 
