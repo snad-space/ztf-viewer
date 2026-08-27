@@ -17,13 +17,15 @@ from ztf_viewer.http import get_client
 class _SnadCatalog:
     url = "https://snad.space/catalog/snad_catalog.csv"
 
-    def __init__(self, interval_seconds=600):
+    def __init__(self, interval_seconds=600, failure_retry_seconds=60):
         self.check_interval = timedelta(seconds=interval_seconds)
+        self.failure_retry_interval = timedelta(seconds=failure_retry_seconds)
 
         with importlib.resources.open_binary(data, "snad_catalog.csv") as fh:
             self.table = self._create_table(fh)
 
         self.updated_at = datetime(1900, 1, 1, 1, 1, tzinfo=UTC)
+        self._failed_at = None
         # Coalesces concurrent refreshes into one download; AsyncSingleFlight is already
         # per-loop internally, so this instance is safe to share across loops.
         self._single_flight = AsyncSingleFlight()
@@ -46,6 +48,8 @@ class _SnadCatalog:
         now = datetime.now(tz=UTC)
         if now - self.updated_at < self.check_interval:
             return
+        if self._failed_at is not None and now - self._failed_at < self.failure_retry_interval:
+            return
         await self._single_flight.run("update", lambda: self._fetch(now))
 
     async def _fetch(self, now):
@@ -53,10 +57,15 @@ class _SnadCatalog:
         try:
             resp = await client.get(self.url, timeout=config.TIMEOUT_SNAD)
         except httpx.HTTPError:
+            self._failed_at = now
             return
         if resp.status_code != 200:
+            self._failed_at = now
             return
+        self._failed_at = None
         if self.updated_at > self._last_modified(resp):
+            # Already current: not a failure, just nothing new to fetch.
+            self.updated_at = now
             return
         self.updated_at = now
         self.table = self._create_table(BytesIO(resp.content))
