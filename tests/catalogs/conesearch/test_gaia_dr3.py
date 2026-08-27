@@ -9,11 +9,13 @@ import pytest
 from astropy.table import Table
 from numpy import ma
 
-from ztf_viewer.catalogs.conesearch.gaia_dr3 import GaiaDr3Query
-
 
 @pytest.mark.asyncio
 async def test_add_prob_class_columns_skips_masked_probability():
+    # Deferred: a module-level import would run during collection, before conftest forces the
+    # memory-backed unavailable_catalogs singleton, and eagerly connect to Redis instead.
+    from ztf_viewer.catalogs.conesearch.gaia_dr3 import GaiaDr3Query
+
     table = Table(
         {
             "PQSO": ma.array([0.706, 0.0], mask=[False, True]),
