@@ -1988,9 +1988,14 @@ dated. `await asyncio.to_thread(x)` needs no gloss.
   for which a thread hop and a context copy cost more than running inline on the loop.
 - [x] Update `README.md`, `AGENTS.md` (run command, dev stack), `CHANGELOG.md` — this doc pass,
   now that #701/#702 unblocked it.
-- [ ] Add a small load-test script (`plans/misc/`) so the concurrency claims stay verifiable.
-  *(`plans/misc/fanout_bench.py`, from `aio-bench`, already exists and may already cover this —
-  not verified against this item's original intent as part of this doc pass.)*
+- [x] Add a small load-test script (`plans/misc/`) so the concurrency claims stay verifiable.
+  *(`fanout_bench.py` does not cover this: it drives a loop shape over sleeping stub catalogs
+  in-process, never touching uvicorn, the ASGI app, or the process/thread pools — it cannot
+  check a claim about the deployed shape of the app. Added `plans/misc/load_test.py`, which
+  points `httpx` at a running instance's `--base-url` and drives real concurrent HTTP traffic:
+  the viewer page's catalog fan-out (via the `get_summary` callback's HTTP fallback), figure
+  renders (PNG and PDF), the CSV download, and a flood scenario that checks whether an unrelated
+  request degrades while the shared 2-worker process pool is busy with concurrent PDF renders.)*
 
 ---
 
