@@ -98,6 +98,7 @@ def test_per_api_timeouts_match_the_requests_audit() -> None:
     assert config.TIMEOUT_MODEL_FIT == httpx.Timeout(120.0)
     assert config.TIMEOUT_AKB == httpx.Timeout(10.0)
     assert config.TIMEOUT_ZTF_FITS_PROXY == httpx.Timeout(60.0)
+    assert config.TIMEOUT_SNAD == httpx.Timeout(10.0)
 
 
 async def test_async_timeout_lets_fast_calls_through() -> None:

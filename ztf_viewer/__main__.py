@@ -260,8 +260,7 @@ async def oid_from_input(s: str):
         return s
     if s.isnumeric() or s.upper().startswith("SNAD"):
         try:
-            # `SnadCatalogSource` may refresh the SNAD catalog over `requests`; offload to a thread.
-            source = await asyncio.to_thread(SnadCatalogSource, s)
+            source = await SnadCatalogSource.create(s)
             return str(source.ztf_oid)
         except KeyError:
             pass
@@ -272,7 +271,8 @@ async def sky_coord_from_str(s):
     s = s.strip()
     if s.upper().startswith("SNAD"):
         try:
-            return SnadCatalogSource(s).coord
+            source = await SnadCatalogSource.create(s)
+            return source.coord
         except KeyError:
             raise ValueError(f"ID {s} isn't found in the SNAD catalog")
 

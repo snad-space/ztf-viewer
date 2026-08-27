@@ -827,7 +827,7 @@ async def get_layout(pathname, search):
 async def set_title(oid, dr):
     ra, dec = await find_ztf_oid.get_coord(oid, dr)
     try:
-        snad_name = snad_catalog.search_region(ra, dec, radius_arcsec=3)
+        snad_name = await snad_catalog.search_region(ra, dec, radius_arcsec=3)
         snad_name = f"{snad_name} — "
     except NotFound:
         snad_name = ""
