@@ -25,9 +25,17 @@ class SimbadQuery(_BaseCatalogQuery):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._query = Simbad()
-        self._query.add_votable_fields("mesdistance", "R", "V", "otype", "otypes")
-        self._query_region = self._query.query_region
+        self._query = None
+
+    def _query_region(self, coord, radius=None):
+        # add_votable_fields validates the field names against SIMBAD's TAP schema over the
+        # network, so build the client on first query instead of at import. find() reaches this
+        # through _ensure_coroutine, so the build runs in a worker thread, not on the loop.
+        if self._query is None:
+            query = Simbad()
+            query.add_votable_fields("mesdistance", "R", "V", "otype", "otypes")
+            self._query = query
+        return self._query.query_region(coord, radius=radius)
 
     def get_url(self, id, row=None):
         qid = urllib.parse.quote(id)
