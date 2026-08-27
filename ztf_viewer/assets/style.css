@@ -127,6 +127,28 @@ select:focus {
   display: none;
 }
 
+/* The wrapper keeps its own rounded corners and `overflow: hidden` even with
+   its box stripped above, which clips the corners off the input's own border,
+   and its `vertical-align: middle` no longer lines the field up with the
+   button next to it (the "Go" buttons in the header). */
+.dash-input-container.dash-input {
+  overflow: visible;
+  border-radius: 0;
+  vertical-align: baseline;
+  margin-right: 0.35em;
+}
+
+/* Dash 4 squares off number inputs and hides the native spinner in favour of
+   its own stepper buttons, hidden just above. Restore the rounded corners the
+   text fields have and the browser's own arrows. */
+.dash-input-element[type="number"] {
+  border-radius: 4px;
+  -moz-appearance: number-input;
+}
+.dash-input-element[type="number"]::-webkit-inner-spin-button {
+  appearance: auto;
+}
+
 /* Dash 4's redesigned form controls (radio dots, checkboxes, the slider
    handle, dropdown focus rings) all key off this custom property for their
    "selected/interactive" color. Left at Dash's own default it's a plain

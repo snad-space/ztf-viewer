@@ -1007,10 +1007,11 @@ async def set_akb_info(_, oid):
                         id={"type": "akb-tags", "index": f"{row}-{column}"},
                         options=[{"label": tag["name"], "value": tag["name"]}],
                         value=[tag["name"]] if tag["name"] in tags_enabled else [],
-                        labelStyle={"display": "inline-block"},
                     ),
                     title=tag["description"],
-                    style={"display": "inline-block"},
+                    # Without the margin the next tag's checkbox sits flush against this
+                    # tag's name and reads as belonging to it.
+                    style={"display": "inline-block", "margin-right": "1em"},
                 )
                 for column, tag in enumerate(tags)
             ],
