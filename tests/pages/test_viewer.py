@@ -159,7 +159,7 @@ def summary_upstreams(monkeypatch):
 
     monkeypatch.setattr(viewer, "get_plot_data", fake_get_plot_data)
 
-    def fake_ebv(coord):
+    async def fake_ebv(coord):
         raise CatalogUnavailable("stub: csfd unavailable")
 
     monkeypatch.setattr(viewer.csfd, "ebv", fake_ebv)

@@ -915,7 +915,7 @@ async def fit_lc(
     other_oids = neighbour_oids(different_filter, different_field)
     coord = await find_ztf_oid.get_sky_coord(cur_oid, dr)
     try:
-        ebv = await asyncio.to_thread(csfd.ebv, coord)
+        ebv = await csfd.ebv(coord)
     except CatalogUnavailable:
         ebv = None
     items = []
@@ -1571,7 +1571,7 @@ async def get_summary(oid, dr, different_filter, different_field, radius_ids, ra
         elements["Average mag (including neighbourhood)"].append(f'(zg–zr) {mean_mag["zg"] - mean_mag["zr"]: .2f}')
 
     try:
-        ebv = await asyncio.to_thread(csfd.ebv, coord)
+        ebv = await csfd.ebv(coord)
         elements["Extinction"] = [f"CSFD E(B-V) = {ebv:.2f}"]
     except CatalogUnavailable:
         pass
@@ -1580,7 +1580,7 @@ async def get_summary(oid, dr, different_filter, different_field, radius_ids, ra
         row = QTable(table[np.argmin(table["separation"])])
 
         distance = row["__distance"]
-        af = await asyncio.to_thread(bayestar, SkyCoord(coord, distance=distance))
+        af = await bayestar(SkyCoord(coord, distance=distance))
         elements["Extinction"].append(
             f'Bayestar & Gaia EDR distance Ag = {af["zg"]:.2f} Ar = {af["zr"]:.2f} Ai = {af["zi"]:.2f}'
         )

@@ -3,9 +3,9 @@ directly in its body.
 
 A coroutine callback is registered as-is and runs inline on the event loop, so anything
 synchronous inside its body blocks the loop unless routed through a thread. Every callback below
-still reaches a client that stayed synchronous on purpose (an unconverted conesearch ``find``, an
-astroquery client, or a still-sync extinction lookup); this test pins that each such call is
-routed through ``asyncio.to_thread`` rather than called bare.
+still reaches a client that stayed synchronous on purpose (an unconverted conesearch ``find`` or
+an astroquery client); this test pins that each such call is routed through ``asyncio.to_thread``
+rather than called bare.
 
 A fully general static check (walk every ``async def`` in the app and flag any call that isn't
 either awaited or wrapped) is impractical here — it would need to know which callables are safe
@@ -33,7 +33,6 @@ from ztf_viewer.pages import viewer
 
 # function (or unbound method) -> a substring of the sync call it must route through a thread
 CALLBACKS_WITH_REMAINING_BLOCKING_CALLS = {
-    viewer.fit_lc: "csfd.ebv",
     viewer.update_skybot_for_graph_clicked: "SKYBOT_QUERY.find",
     viewer.set_vizier_list: "find_vizier.find",
 }
@@ -239,3 +238,58 @@ def test_set_title_propagates_not_found(monkeypatch):
     result = asyncio.run(viewer.set_title("oid", "dr"))
 
     assert result == "oid"
+
+
+# --------------------------------------------------------------------------------------------
+# Extinction (ztf_viewer/catalogs/extinction/): now a genuine async port, not a thread hop. As
+# above, pin the inverse of what this file used to pin: the lookup runs on the event loop's own
+# thread, and no `asyncio.to_thread` appears at the touched call sites.
+# --------------------------------------------------------------------------------------------
+
+
+def test_fit_lc_extinction_lookup_runs_on_the_loop_without_to_thread(monkeypatch):
+    loop_thread_id = threading.get_ident()
+    seen_thread_id = None
+
+    async def stub_get_sky_coord(oid, dr):
+        return object()
+
+    async def stub_ebv(coord):
+        nonlocal seen_thread_id
+        seen_thread_id = threading.get_ident()
+        return 0.1
+
+    monkeypatch.setattr(viewer.find_ztf_oid, "get_sky_coord", stub_get_sky_coord)
+    monkeypatch.setattr(viewer.csfd, "ebv", stub_ebv)
+
+    result = asyncio.run(
+        viewer.fit_lc(
+            cur_oid="123",
+            dr="dr24",
+            different_filter=None,
+            different_field=None,
+            min_mjd=None,
+            max_mjd=None,
+            ref_mag_ids=[],
+            ref_mag_values=[],
+            ref_magerr_ids=[],
+            ref_magerr_values=[],
+            name_model=None,
+        )
+    )
+
+    assert seen_thread_id == loop_thread_id
+    assert result[1] == {}
+
+    source = inspect.getsource(inspect.unwrap(viewer.fit_lc))
+    assert "asyncio.to_thread" not in source
+
+
+def test_get_summary_extinction_lookups_have_no_to_thread():
+    """`get_summary` is exercised end-to-end in `tests/pages/test_viewer.py`; this pins the
+    narrower claim that its two extinction lookups (csfd.ebv, bayestar) are plain awaits.
+    """
+    source = inspect.getsource(inspect.unwrap(viewer.get_summary))
+    assert "await csfd.ebv(coord)" in source
+    assert "await bayestar(" in source
+    assert "asyncio.to_thread" not in source
