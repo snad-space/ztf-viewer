@@ -14,8 +14,9 @@ import pytest
 from astropy.coordinates import Angle
 from astropy.table import MaskedColumn, QTable
 from astropy.time import Time
+from requests import ConnectionError as RequestsConnectionError
 
-from ztf_viewer.exceptions import NotFound
+from ztf_viewer.exceptions import CatalogUnavailable, NotFound
 
 
 def _make_empty_skybot_table():
@@ -109,6 +110,28 @@ def test_result_outside_radius_raises_not_found():
 
     with pytest.raises(NotFound):
         query.find(ra=331.0, dec=-11.4, observatory_mjd=_OBS_MJD, radius_arcsec=60.0)
+
+
+def test_network_error_raises_catalog_unavailable():
+    """A network/HTTP failure from astroquery should raise CatalogUnavailable, not crash.
+
+    Regression test for https://github.com/snad-space/ztf-viewer/issues/379:
+    ``cone_search`` (built on ``requests``) can raise ``requests.RequestException``
+    subclasses on connection or HTTP errors, e.g. when the SkyBot service is down.
+    Previously only ``(RuntimeError, ValueError)`` were caught, so a real service
+    error propagated uncaught instead of being reported as "catalog unavailable" —
+    indistinguishable from, and worse than, the "no object found" case.
+    """
+    from ztf_viewer.catalogs.skybot import SkybotQuery
+
+    query = SkybotQuery.__new__(SkybotQuery)
+    query._query = MagicMock()
+    query._query.cone_search.side_effect = RequestsConnectionError("connection refused")
+
+    # Distinct args from the other tests: `find` is memoized by (ra, dec, mjd, radius),
+    # and a cache hit from another test would make this test pass regardless of the fix.
+    with pytest.raises(CatalogUnavailable):
+        query.find(ra=12.3, dec=45.6, observatory_mjd=_OBS_MJD, radius_arcsec=60.0)
 
 
 def test_radius_too_large_raises_value_error():

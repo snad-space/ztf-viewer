@@ -2081,6 +2081,8 @@ async def update_skybot_for_graph_clicked(data, dr):
         )
     except NotFound:
         return html.Div("No minor planets found in 15″")
+    except CatalogUnavailable:
+        return html.Div("Skybot is unavailable now")
 
     return [html.B("Minor planets: ")] + list_join(
         ", ", (f"{row['__name']} ({row['__separation']}, mV={row['__v_mag']:.1f})" for row in table)

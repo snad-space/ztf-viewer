@@ -4,9 +4,10 @@ logger = logging.getLogger(__name__)
 from astropy.coordinates import Angle, SkyCoord
 from astropy.time import Time
 from astroquery.imcce import Skybot
+from requests import RequestException
 
 from ztf_viewer.cache import cache
-from ztf_viewer.exceptions import NotFound
+from ztf_viewer.exceptions import CatalogUnavailable, NotFound
 from ztf_viewer.util import PALOMAR_OBS_CODE
 
 
@@ -46,6 +47,10 @@ class SkybotQuery:
                 find_asteroids=True,
                 find_comets=True,
             )
+        except RequestException as e:
+            # Network/HTTP failure: the service is down, not that there's no object here.
+            logger.warning(e)
+            raise CatalogUnavailable(f"Skybot request failed: {e}")
         except RuntimeError, ValueError:
             # RuntimeError: general Skybot failure
             # ValueError("No table found"): Skybot returned an error VOTable (e.g. invalid epoch)
