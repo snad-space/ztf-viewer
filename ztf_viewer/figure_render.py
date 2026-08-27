@@ -171,9 +171,6 @@ def plot_data(oid, data, fmt="png", caption=True, title=None):
     ax.set_title(title, usetex=usetex)
     ax.set_xlabel("MJD", usetex=usetex)
     ax.set_ylabel("magnitude", usetex=usetex)
-    # Without this, matplotlib's default offset notation (e.g. "+5.867e4") collides with the
-    # "MJD" label when the plotted time range is small. See
-    # https://github.com/snad-space/ztf-viewer/issues/173
     ax.ticklabel_format(axis="x", style="plain", useOffset=False)
     ax.xaxis.set_minor_locator(AutoMinorLocator(2))
     ax.yaxis.set_minor_locator(AutoMinorLocator(2))
