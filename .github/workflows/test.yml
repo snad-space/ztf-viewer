@@ -19,17 +19,9 @@ jobs:
         push: false
         cache-from: type=gha,scope=base
         cache-to: type=gha,mode=max,scope=base
-    - name: Copy test Dockerfile
-      run: cp .ci/Dockerfile_test Dockerfile_test
     - name: Build test docker image
-      uses: docker/build-push-action@v6
-      with:
-        context: .
-        file: Dockerfile_test
-        tags: ztf-viewer-test
-        load: true
-        push: false
-        cache-from: type=gha,scope=test
-        cache-to: type=gha,mode=max,scope=test
+      run: |
+        cp .ci/Dockerfile_test Dockerfile_test
+        docker build --tag ztf-viewer-test --file Dockerfile_test .
     - name: Run tests
       run: docker run -t ztf-viewer-test
