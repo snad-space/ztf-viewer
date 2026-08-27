@@ -149,6 +149,14 @@ select:focus {
   appearance: auto;
 }
 
+/* Dash 4 puts 8px between a checkbox/radio and its own label - the same gap it
+   puts between adjacent options, so a row of them reads as evenly spaced and
+   no label looks attached to its own control. Tighten the inner gap so the
+   grouping is unambiguous and the rows stay compact. */
+.dash-options-list-option-checkbox {
+  margin-right: 0.25em;
+}
+
 /* Dash 4's redesigned form controls (radio dots, checkboxes, the slider
    handle, dropdown focus rings) all key off this custom property for their
    "selected/interactive" color. Left at Dash's own default it's a plain

@@ -1011,7 +1011,7 @@ async def set_akb_info(_, oid):
                     title=tag["description"],
                     # Without the margin the next tag's checkbox sits flush against this
                     # tag's name and reads as belonging to it.
-                    style={"display": "inline-block", "margin-right": "0.5em"},
+                    style={"display": "inline-block", "margin-right": "0.75em"},
                 )
                 for column, tag in enumerate(tags)
             ],
