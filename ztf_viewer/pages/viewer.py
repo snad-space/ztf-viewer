@@ -1011,7 +1011,7 @@ async def set_akb_info(_, oid):
                     title=tag["description"],
                     # Without the margin the next tag's checkbox sits flush against this
                     # tag's name and reads as belonging to it.
-                    style={"display": "inline-block", "margin-right": "1em"},
+                    style={"display": "inline-block", "margin-right": "0.5em"},
                 )
                 for column, tag in enumerate(tags)
             ],
@@ -1327,7 +1327,7 @@ async def show_ref_mag_or_magerr(oid, dr, different_filter, different_field):
                             type="number",
                             maxLength=6,
                             step=0.01,
-                            style={"width": "6em", "display": "inline-block"},
+                            style={"width": "6em"},
                         ),
                         html.Div(
                             "  err ",
@@ -1341,7 +1341,7 @@ async def show_ref_mag_or_magerr(oid, dr, different_filter, different_field):
                             maxLength=5,
                             min=0,
                             step=0.01,
-                            style={"width": "5em", "display": "inline-block"},
+                            style={"width": "5em"},
                         ),
                     ],
                 )
