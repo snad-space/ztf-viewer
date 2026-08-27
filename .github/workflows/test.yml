@@ -1,18 +1,24 @@
 name: "Test"
-
 on:
   push:
   pull_request:
-
 jobs:
   test:
     runs-on: ubuntu-latest
-
     steps:
     - name: Checkout repository
       uses: actions/checkout@v7
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
     - name: Build base docker image
-      run: docker build --tag ztf-viewer .
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        tags: ztf-viewer
+        load: true
+        push: false
+        cache-from: type=gha,scope=base
+        cache-to: type=gha,mode=max,scope=base
     - name: Build test docker image
       run: |
         cp .ci/Dockerfile_test Dockerfile_test
