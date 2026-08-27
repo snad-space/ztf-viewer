@@ -1,6 +1,6 @@
 # 001 — Porting the ZTF Viewer to async (Dash 4 FastAPI backend)
 
-Status: in progress · foundations landed in full; prep landed in full;
+Status: in progress, and close to done · foundations landed in full; prep landed in full;
 the async shell has landed in full (`aio-shim`, `aio-loop-registry`; `aio-pilots` dropped); **the
 flip has landed** (#658–#661, merged as one stack); **the async-I/O stack is complete**
 (`aio-httpx`, `aio-snad-apis`, `aio-conesearch`, `aio-gather` — #664, #665, #668, #681;
@@ -8,8 +8,19 @@ flip has landed** (#658–#661, merged as one stack); **the async-I/O stack is c
 (`aio-procpool`, `aio-figures`, `aio-profile` — #685, #686, #689/#690). **Transport enablement has
 landed** (`aio-ws` — #693), and browsers really do use it — verified live in Firefox and Safari
 (see the Progress list). **`aio-stream`'s first slice was tried and rejected** (per-catalog tables,
-#696, closed without merging — it collapsed independent failure domains into one); only the
-`get_summary` slice is still planned. What remains is that `get_summary` slice and `aio-cleanup`.
+#696, closed without merging — it collapsed independent failure domains into one); **its second
+slice, `get_summary`, has now landed** (#706): it streams progressively over `set_props`, and it
+passed the completeness test the per-catalog attempt failed, exactly as the failure-domain rule
+predicted. The light-curve figure remains a candidate the section names but never schedules — see
+the `aio-stream` section. **`aio-cleanup` is mostly done.** The SNAD catalog port (#707), a retry
+backoff for it (#708), and a header-parsing bugfix that fell out of the port (#709) have all
+landed; the extinction-catalog port (#711) and a real end-to-end load-test script (#712) are open,
+stacked directly beneath this PR. `requests` still does not come off the direct-dependency list —
+what keeps it there now is exclusively the catch-imports for sync third parties (astroquery,
+alerce, antares), not extinction or SNAD, both of which are now ported. What remains after
+`aio-cleanup` settles is the three deployment-dependent open questions (`PROCESS_POOL_SIZE` sizing,
+proxy-restart reconnect, `THREAD_POOL_SIZE` sizing) and the light-curve figure streaming slice,
+which was never scheduled.
 The out-of-band proxy-config verification the WebSocket stack depends on has now been partly
 answered by reading the ops repo directly, plus a live protocol-level test against the dev/preview
 host (see the Progress list and the design note below) — it is the frontier now.
@@ -367,7 +378,8 @@ merged by its author, and "ready for review" is a reviewer's signal, not the aut
       objection the plan already raises against `fanout_bench.py`. Recorded here so nobody rebuilds
       it. **Open question 11 (pool width) is therefore still open** — the only honest route to
       answering it is instrumenting the running deployment, not a synthetic benchmark.
-- [ ] `aio-stream` — progressive rendering via `set_props`. **First slice tried and rejected:**
+- [x] `aio-stream` — progressive rendering via `set_props`, **the `get_summary` slice** — #706
+      `stream-get-summary`. **First slice tried and rejected:**
       #696 `stream-catalog-tables` ("Stream per-catalog tables over the WS transport") was opened,
       deployed to a preview, found broken there, and **closed without merging.** It converted the
       ~20 per-catalog `set_table` callbacks so initial fan-out went through one no-`Output`
@@ -381,18 +393,41 @@ merged by its author, and "ready for review" is a reviewer's signal, not the aut
       `aio-gather`** above, where a per-catalog `radii` lookup hoisted out of per-task exception
       handling turned a contained `KeyError` into a page-wide failure — the plan predicted this
       shape of bug once already.
-      **The rule that came out of it, and governs the remaining slices: stream where it does not
-      consolidate independent failure domains; do not where it does.** Per-catalog tables collapse
-      ~20 independent callbacks into 1 — a bad trade, and the weakest case for streaming anyway,
-      since each table already paints independently as its own callback returns. `get_summary` and
-      the light-curve figure are each already a single callback with a single output, so streaming
-      them changes nothing about the failure domain. **Only the `get_summary` slice is now planned
-      to proceed.**
-      **The existing tests passed while 16 of 19 tables were blank in production.** The automated
-      suite asserted things like "a fast catalog paints before a slow one finishes" and "a failing
-      catalog contributes nothing," but nothing asserted that *all* expected tables populate — a
-      partial-render check cannot distinguish "streaming in progress" from "streaming died." What
-      was needed, and is still needed for the `get_summary` slice, is a completeness assertion.
+      **The rule that came out of it: stream where it does not consolidate independent failure
+      domains; do not where it does.** Per-catalog tables collapse ~20 independent callbacks into
+      1 — a bad trade, and the weakest case for streaming anyway, since each table already paints
+      independently as its own callback returns. `get_summary` was already a single callback with
+      a single logical output before this change, so streaming it does not consolidate any
+      failure domain — it is exactly the slice the rule predicted would be safe, and **it was: the
+      completeness test the per-catalog attempt failed (`test_get_summary_final_push_is_complete`)
+      passes here.** The light-curve figure remains a candidate — see below — but was out of
+      scope for #706 and is not scheduled.
+      **What #706 built:** `get_summary` is now `websocket=True`, no `Output`. It fans out to
+      every catalog via `asyncio.as_completed` (unchanged concurrency from the prior
+      `asyncio.gather`) and pushes a `set_props("summary", ...)` update as each catalog resolves,
+      then one final push once period/ML-classification/extinction/coordinates are computed.
+      Per-catalog isolation moved into the per-task coroutine itself (`_find_catalog_for_summary`)
+      rather than a shared `try`/`except` around the loop — `NotFound`/`CatalogUnavailable`/
+      `KeyError` are swallowed there and never reach the streaming loop, so one catalog's failure
+      cannot touch the loop's `finally` the way it did in #696. `ctx.websocket.is_shutdown` is
+      checked once per loop iteration, and the `finally` block cancels whatever catalog tasks are
+      still pending — the same mechanics #696 built, now exercised for real. Both partial and
+      final renders walk catalogs in registration order filtered to whichever have resolved, so
+      rows never reorder as later catalogs stream in.
+      **The existing tests passed while 16 of 19 tables were blank in production** was the lesson
+      from #696 — a partial-render check cannot distinguish "streaming in progress" from
+      "streaming died." #706 adds the completeness assertion #696 was missing
+      (`test_get_summary_final_push_is_complete`, asserting every catalog that resolves shows up
+      in the final push by `href`), plus a wall-clock disconnect test
+      (`test_get_summary_stops_work_on_disconnect`, asserting a still-sleeping task is actually
+      cancelled, not just that the shutdown check ran) and an HTTP-fallback test
+      (`test_get_summary_works_over_http_without_a_websocket`, a real `TestClient` POST dispatch
+      with no WS context, asserting `set_props` batches into `sideUpdate` as before).
+      **Not verified live**: the accept criteria "an artificially delayed catalog doesn't hold up
+      the rest of the page" and "closing the tab mid-load stops server-side work (via logs)" are
+      only verified at the unit level here — this sandbox cannot reach CDS, so the ~7 of 19
+      catalogs that depend on it, and any browser-observable streaming behaviour, were not
+      exercised against a real page load.
       **Salvaged from #696:** the `WebSocketDisconnect` import fix (`starlette` → `fastapi`) landed
       separately as #698.
 
@@ -502,6 +537,53 @@ merged by its author, and "ready for review" is a reviewer's signal, not the aut
 - [~] `aio-cleanup` — sync `timeout()` removed (#701), `callbacks.py` retired (#702), docs
       updated (this pass); `requests` stays a direct dependency regardless of porting — see the
       `aio-cleanup` section below
+- [x] SNAD catalog (`ztf_viewer/catalogs/snad/catalog.py`) ported off `requests` to the shared
+      `httpx` client — #707 `snad-catalog-httpx`. Replaces #703 (`asyncio.to_thread`, closed
+      deliberately): that PR moved *where* the call blocked, not *how long* — the old
+      `requests.get(self.url, stream=True)` had no timeout at all, so a hung `snad.space` would
+      pin a thread-pool slot indefinitely rather than fail. #707 gives it
+      `config.TIMEOUT_SNAD = httpx.Timeout(10.0)`, matching the existing budget for other small,
+      first-party-hosted JSON/CSV requests. The constructor-can't-`await` problem is solved with an
+      async factory (`await SnadCatalogSource.create(name)`); concurrent stale lookups are
+      single-flighted through the existing `AsyncSingleFlight` rather than a new lock, since a bare
+      `asyncio.Lock` would bind to whichever loop first awaits it. Measurement in #703's closing
+      comment (144 rows / 16 KB; steady-state `table.copy()` 0.41ms, `_create_table` 1.36ms,
+      `match_to_catalog_sky` 0.42ms; the ~116ms first call is one-time astropy warmup, not per-call
+      cost) confirmed the CPU here doesn't justify a thread hop either way — this port is a pure
+      async-I/O change, no offload added or removed.
+- [x] Back off retries after a failed SNAD catalog refresh — #708 `snad-refresh-backoff`. Found
+      after #707 landed: `AsyncSingleFlight` only coalesces *concurrent* callers onto one fetch, so
+      while `snad.space` is down every *sequential* caller still pays the full
+      `TIMEOUT_SNAD` (10s) on every request. Adds a separate `failure_retry_interval` (60s
+      default) tracked from a new `_failed_at`, distinct from the normal `check_interval` (600s) —
+      a real outage and "how often to poll a healthy upstream" are different tradeoffs. Also fixed
+      a second, unrelated bug the same code path had: a "confirmed current" response (200,
+      `last-modified` not newer than what's cached) never bumped `updated_at`, so once
+      `check_interval` elapsed every subsequent call refetched again immediately forever. The
+      packaged-CSV fallback keeps serving throughout either failure mode — unchanged, verified
+      still true.
+- [x] Stop reporting a missing `last-modified` header as an unknown SNAD ID — #709
+      `snad-last-modified-keyerror`. Pre-existing, not introduced by #707: `_last_modified` did
+      `resp.headers["last-modified"]` unguarded, and a `KeyError` from that propagated all the way
+      to `sky_coord_from_str`'s `except KeyError: raise ValueError(f"ID {s} isn't found...")` —
+      the same `except KeyError` shape that was meant to catch a genuine unknown-name lookup,
+      indistinguishable from an HTTP header problem. Fixed at both ends: `_last_modified` now
+      returns `None` for a missing header (treated as "assume newer, refetch") instead of raising,
+      and the call sites now catch the specific `ztf_viewer.exceptions.NotFound` translated from
+      the `catalog.loc[name]` `KeyError`, not a bare `KeyError` that could mask anything else.
+- [ ] *(in flight — #711, `extinction-httpx`, this branch's immediate base, not yet merged)*
+      Extinction catalogs (`ztf_viewer/catalogs/extinction/`) ported off `requests` to the shared
+      `httpx` client, the sibling port to #707. `_BaseApiExtinctionQuery.query` now awaits
+      `get_client().get(...)` under the already-provisioned `config.TIMEOUT_EXTINCTION`; the three
+      call sites in `pages/viewer.py` (`fit_lc`, `get_summary` x2) drop their `asyncio.to_thread`
+      hop, since this is a plain JSON GET against SNAD's own dustmaps API and the shared client is
+      already non-blocking. **While testing this PR, its author confirmed a pre-existing defect
+      worth recording, not fixing here: see the note under `## Cross-cutting risks`.**
+- [ ] *(in flight — #712, `cleanup-load-test`, based on `master`, the lowest of the three PRs
+      stacked beneath this doc pass: `master` → #712 → #711 → this branch)*
+      Already reflected in the "Add a small load-test script" bullet above and the design section
+      below — `plans/misc/load_test.py` drives real HTTP traffic against a running instance,
+      checked from outside the process, unlike `fanout_bench.py`'s in-process loop-shape model.
 
 **Out-of-band** — deployment side, not PRs in this repo
 - [~] Verify which proxy config is live on the deployment host — **diagnosed in full, not yet
@@ -1762,16 +1844,18 @@ connection fails at *runtime*, but a capability check keeps that narrow to brows
   `websocket_callbacks=False` **(met)**.
 
 ### `aio-stream` — Progressive rendering
-*(First slice tried and rejected — #696 `stream-catalog-tables`, closed without merging. Read the
-Progress entry before this section for the full story: converting the per-catalog tables collapsed
-~20 independent failure domains into one, and a shared-loop failure that hit the `finally` block
-took down every not-yet-completed table with it — only 3 of 19 rendered on the live preview. **The
-rule that came out of it and now governs this section: stream where it does not consolidate
-independent failure domains; do not where it does.** That rules the per-catalog tables item below
-out entirely — it is superseded, kept here only as a record of what was tried — and leaves
-`get_summary` and the light-curve figure as the two candidates worth pursuing, since each is
-already a single callback with a single output and streaming changes nothing about its failure
-domain.)*
+*(First slice tried and rejected — #696 `stream-catalog-tables`, closed without merging; second
+slice landed — #706 `stream-get-summary`. Read the Progress entries before this section for the
+full story: converting the per-catalog tables collapsed ~20 independent failure domains into one,
+and a shared-loop failure that hit the `finally` block took down every not-yet-completed table
+with it — only 3 of 19 rendered on the live preview. **The rule that came out of it: stream where
+it does not consolidate independent failure domains; do not where it does.** That ruled the
+per-catalog tables item below out entirely — superseded, kept here only as a record of what was
+tried — and left `get_summary` and the light-curve figure as the two candidates worth pursuing,
+since each is already a single callback with a single output and streaming changes nothing about
+its failure domain. **`get_summary` has since landed and passed the test the per-catalog attempt
+failed** — see below. The light-curve figure is still just a candidate; it was out of scope for
+#706 and remains unscheduled.)*
 
 Depends on `aio-ws` (landed, #693) for the transport; the opted-in callback there
 (`update_skybot_for_graph_clicked`) is single-shot, so nothing here could be checked against a real
@@ -1788,19 +1872,34 @@ streaming so results paint as they arrive instead of in one blocking batch:
   as #696 and rejected.** Collapsing ~20 independent per-catalog callbacks into one streaming
   callback is the weakest case for streaming anyway (each table already paints independently as
   its own callback returns) and the worst case for the failure-domain rule above. Not proceeding.
-- `get_summary` — push rows incrementally, so the page is useful before Vizier answers. **The only
-  slice now planned to proceed.**
+- ~~`get_summary` — push rows incrementally, so the page is useful before Vizier answers~~ —
+  **landed as #706.** `get_summary` became `websocket=True`, no `Output`; it pushes a
+  `set_props("summary", ...)` update as each catalog's `asyncio.as_completed` task resolves, then
+  one final push once period/ML-classification/extinction/coordinates are computed. This was
+  exactly the failure-domain rule's positive case, and it held: `get_summary` was already a single
+  callback with a single logical output before this change, so nothing about its failure domain
+  changed, and `test_get_summary_final_push_is_complete` — the completeness check #696's own tests
+  lacked — passes. See the Progress entry for what #706 built and what it did and did not verify
+  (live browser/CDS behaviour was not exercised, only the unit-level equivalents).
 - the light-curve figure — paint ZTF DR photometry immediately, then push external
-  (antares/gaia/panstarrs) traces as they land.
+  (antares/gaia/panstarrs) traces as they land. **Still just a candidate — out of scope for #706,
+  not scheduled as its own item.**
 - Per `dash/backends/ws.py:44`, any persistent/streaming callback **must** be `async def` and
   **must** check `ctx.websocket.is_shutdown` in its loop, or it leaks work after disconnect. #696
   built exactly this (`_find_table_for_stream` catching per-catalog exceptions, a `finally` that
   cancels in-flight tasks) — the design held up; it was the *scope* (per-catalog tables) that was
-  wrong, not the streaming mechanics.
+  wrong, not the streaming mechanics. #706 carried the same mechanics over to
+  `_find_catalog_for_summary`, this time with per-catalog exception handling living inside the
+  per-task coroutine from the start rather than around a shared loop.
 - **Accept:** with an artificially delayed catalog, the rest of the page renders without
   waiting; closing the tab mid-load stops server-side work (assert via logs); **and, learned from
   #696: a completeness assertion that every expected element actually populates** — a
   partial-render check alone cannot distinguish "streaming in progress" from "streaming died."
+  **#706 verifies all three at the unit level** (a fast catalog's push precedes a slow one's delay
+  elapsing; a disconnect cancels a still-sleeping task, asserted by wall-clock; every catalog that
+  resolves shows up in the final push). **None of the three was verified against a live page load
+  or via real server logs** — this sandbox cannot reach CDS, so a browser-observable "does it
+  actually stream" signal and a live disconnect were both out of reach here.
 
 ---
 
@@ -1927,52 +2026,37 @@ dated. `await asyncio.to_thread(x)` needs no gloss.
 ## Stack: Cleanup
 
 ### `aio-cleanup` — Remove the sync path
-- **`requests` does not come off the direct-dependency list — not because it's blocked, but
-  because it's still called directly, and part of that call surface can't be ported at all.**
-  Two first-party call sites use `requests` for real HTTP, not just exception imports:
-  `_BaseApiExtinctionQuery` builds `self._api_session = requests.Session()`
-  (`ztf_viewer/catalogs/extinction/_base.py:32`) and catches `requests.RequestException`
-  (`:39`); `_SnadCatalog._update` does `requests.get(self.url, stream=True)`
-  (`ztf_viewer/catalogs/snad/catalog.py:44`) and catches `requests.exceptions.ConnectionError`
-  (`:51`). Both are portable, at different costs:
-  - *Extinction is cheap to port.* `_BaseApiExtinctionQuery.query` is one `session.get(url,
-    params=..., timeout=10)` → `.json()["ebv"]` against SNAD's own dustmaps API — a direct fit for
-    `ztf_viewer/http.py`'s `get_client()`. `config.TIMEOUT_EXTINCTION = httpx.Timeout(10.0)`
-    already exists (`ztf_viewer/config.py:54`, commented `# extinction/_base.py`) and today is
-    referenced only by `tests/test_http.py:95` — provisioned for exactly this port and unused
-    since. All three call sites already run on the loop and wrap the call in
-    `asyncio.to_thread` (`ztf_viewer/pages/viewer.py:918`, `:1531`, `:1540`), so porting turns
-    those into plain awaits. `bayestar` is invoked as a callable at `:1540`, so
-    `_BaseExtinctionQuery.__call__` also needs to become a coroutine — its only two subclasses,
-    `BayestarQuery` and `CsfdQuery`, are both in-repo.
-  - *The SNAD catalog module (`ztf_viewer/catalogs/snad/catalog.py`) is portable too, and
-    its surface is small.* `SnadCatalogSource.__init__`
-    (`ztf_viewer/catalogs/snad/catalog.py:72`) does the catalog refresh in a constructor, which
-    cannot `await`, so an async port needs a factory (`await SnadCatalogSource.create(name)`).
-    That is the only structural change and it is contained: `SnadCatalogSource` has exactly two
-    consumers (`ztf_viewer/__main__.py:264`, `:275`) and `search_region` exactly one
-    (`ztf_viewer/pages/viewer.py:830`), all three already `async def`, with no consumers outside
-    `catalogs/snad/`. `_update` mutates shared `self.table` / `self.updated_at` with no lock, so
-    it needs single-flight under async to stop concurrent requests all triggering a re-download
-    (the machinery already exists — see `tests/test_cache_single_flight.py`).
-    The CPU in this path does **not** justify keeping a thread hop alongside the async call. The
-    catalog is 144 rows / 16 KB; measured steady-state costs are `table.copy()` 0.41 ms,
-    `_create_table` 1.36 ms, `match_to_catalog_sky` 0.42 ms. A first `match_to_catalog_sky`
-    measures ~116 ms, but that is astropy one-time warmup — calls 2-4 were 0.42/0.34/0.33 ms.
-    The real defect in this path is that `requests.get` at `:44` has **no timeout at all**:
-    offloading it to a thread moves where it blocks, not how long, and a hung upstream then pins
-    a pool slot with nothing to reclaim it. An `httpx` port inherits a mandatory timeout from the
-    shared client, which is the stronger reason to do it.
-  - *What actually keeps `requests` in `pyproject.toml` is neither of the above — it's the
-    catch-imports for sync third parties.* `ztf_viewer/catalogs/conesearch/_base.py:18`,
-    `conesearch/antares.py:12`, `conesearch/gaia_dr3.py:9`, `conesearch/alerce.py:13`, and
-    `ztf_viewer/pages/viewer.py:21` import from `requests` solely to catch what astroquery,
-    alerce, and antares raise. Those clients are sync third parties this plan's own baseline
-    (F9) puts out of scope for the async port. As long as they're in the stack, `requests` stays
-    a direct dependency no matter how much first-party code is ported off it.
-  - Porting extinction and SNAD is not currently scheduled as its own sub-item here; this plan
-    only records that both are portable and neither is what's actually blocking `requests`'
-    removal.
+- **`requests` still does not come off the direct-dependency list — but not for the reason this
+  section originally gave.** It used to name two first-party call sites — extinction
+  (`_BaseApiExtinctionQuery`) and the SNAD catalog (`_SnadCatalog._update`) — as portable but not
+  scheduled. **Both are now done:**
+  - *Extinction* — ported by #711 (`extinction-httpx`, open, stacked directly beneath this PR at
+    the time of this doc pass). `_BaseApiExtinctionQuery.query` now awaits `get_client().get(...)`
+    under `config.TIMEOUT_EXTINCTION = httpx.Timeout(10.0)` (provisioned for exactly this since
+    before the port); `_BaseExtinctionQuery.__call__`, `BayestarQuery.ebv`, and `CsfdQuery.ebv` are
+    now coroutines; the three `pages/viewer.py` call sites (`fit_lc`, `get_summary` x2) dropped
+    their `asyncio.to_thread` hop, since this is a plain JSON GET against SNAD's own dustmaps API
+    and the shared client is already non-blocking.
+  - *The SNAD catalog* — ported by #707 (`snad-catalog-httpx`), with a retry-backoff follow-up
+    (#708) and a header-parsing bugfix (#709). See the Progress entries for what each did; in
+    short, `SnadCatalogSource.__init__`'s can't-`await` constructor became an async factory
+    (`await SnadCatalogSource.create(name)`), `_update` is single-flighted through the existing
+    `AsyncSingleFlight`, and the port picked up `config.TIMEOUT_SNAD = httpx.Timeout(10.0)` where
+    the old `requests.get` had no timeout at all — the CPU in this path (144 rows / 16 KB) never
+    justified a thread hop either way; the timeout, not the CPU, was the actual argument for
+    porting.
+  - **What actually keeps `requests` in `pyproject.toml`, verified by grep against the current
+    tree, is exclusively the catch-imports for sync third parties:**
+    `ztf_viewer/catalogs/conesearch/_base.py:18` (`from requests import RequestException`),
+    `conesearch/antares.py:12` (`from requests import RequestException`),
+    `conesearch/gaia_dr3.py:9` (`from requests.exceptions import RequestException`),
+    `conesearch/alerce.py:13` (`from requests import RequestException`), and
+    `ztf_viewer/pages/viewer.py:21` (`from requests import ConnectionError`) — all five import from
+    `requests` solely to catch what astroquery, alerce, and antares raise. Those clients are sync
+    third parties this plan's own baseline (F9) puts out of scope for the async port. As long as
+    they're in the stack, `requests` stays a direct dependency no matter how much first-party code
+    is ported off it — porting extinction and SNAD moved the needle on the async-I/O story, not on
+    this one.
 - [x] **Removed the sync `timeout()` helper** (`ztf_viewer/util.py`) — #701. *(This item's other
   half, "remove the sync `cache()` variant," is moot: `aio-cache-async` already made the single
   `cache()` dispatch on `inspect.iscoroutinefunction`, so there is no separate sync variant left
@@ -2011,6 +2095,7 @@ dated. `await asyncio.to_thread(x)` needs no gloss.
 | `aio-shim` misses the 19 loop-registered `set_table` callbacks (F1a′) | The invariant asserts over all 57 registrations, not the 39 source sites, so a missed loop fails CI |
 | Static assets 404 after the flip (F2) | `aio-golden-http` asserts `/static/js9/js9.min.js` and `/static/img/logo.svg` return 200 — landed, #634 |
 | Concurrent fan-out hammers upstreams that previously saw serialized traffic | **Live and unmitigated as of `aio-gather` (#681)**, and the exposure grew with #697 — `aio-offload-threads`, whose job this was, was dropped first. What is left is the `unavailable_catalogs` circuit breaker (which trips *after* an upstream is already unhappy) and `THREAD_POOL_SIZE` as a blunt global ceiling, raised from 16 to 64 by #697 (a judgement call, not a measurement) — up to 128 blocking threads per process once anyio's separate limiter is counted, roughly 4x the simultaneous upstream requests one IP could produce before. The concrete exposure is CDS: SIMBAD bans an IP for a minute above 10 queries/s and for an hour above 400 in 10s, and VizieR, MOCServer and Sesame share that origin. Note we are one IP for every user, and master plus each `pr<N>` preview are separate containers on one host, so the figure that matters is per-IP, not per-process — no in-process bound could have covered it anyway, the same argument #681 made when leaving it unmitigated. Not yet exercised under real production traffic — prod stays on the Flask build until the whole plan lands. If this bites, rate limiting belongs outside the async layer; watch for it presenting as catalogs looking flaky rather than as anything obviously pool-related |
+| `ztf_viewer.exceptions.CatalogUnavailable` cannot be constructed without network access to CDS, and the whole test suite fails at *collection* when CDS is unreachable | **Pre-existing, unfixed, not introduced by any PR in this pass** — confirmed on `master` while reviewing #711. `CatalogUnavailable.__init__` lazily imports `ztf_viewer.catalogs.conesearch` to avoid a circular import, which constructs `SimbadQuery`, which hits SIMBAD's TAP capabilities endpoint at *class-construction* time — so instantiating this exception at all requires reaching CDS, and a test process that hits it before anything else has already triggered that import (as a single-test run does) fails there instead of running the test. This is why this doc pass, #706, #711, and #712 could not get a full green suite in a sandbox without CDS access, and is recorded here as an observation, not something this plan schedules a fix for |
 | Cache stampede amplified by concurrency | Single-flight in the cache sub-stack — this becomes load-bearing, not a nicety |
 | WebSocket dropped by a proxy (F7) | nginx-proxy handles upgrades natively; residual risk is timeouts and the the proxy design note config discrepancy — `aio-ws` (#693) pins the heartbeat under the live 60s ceiling and rolled out per-callback with HTTP retained as fallback. **Reconnect-after-proxy-restart, the design section's own accept criterion for this risk, was never verified against the live deployment** — see `## Open questions`. Live-tested against the dev/preview host only (a different machine than production): a raw upgrade returned 101, an idle connection survived past 70s before closing 1012 (service restart, not a timeout) — encouraging, but not a substitute for testing the production proxy |
 | An opted-in WebSocket callback has no HTTP fallback if its connection fails at *runtime* | A capability check (`isWebSocketAvailable`, requires `typeof SharedWorker !== 'undefined'`) keeps this narrow: browsers without `SharedWorker` never attempt WS and dispatch over HTTP cleanly. But a `SharedWorker`-capable browser that commits to WS and then can't establish the connection (a network blocking the Upgrade) retries the connection for ~2 minutes (`maxRetries: 10`, 1s–30s backoff) and then errors — it never falls back to HTTP. Mitigation is scope, not code: only opt a callback in when streaming buys something real (`get_summary`), not by default |
@@ -2051,7 +2136,9 @@ Tick these off as they are answered.
    does not exist and cannot be added without upstream Dash changes. The question that remains is
    narrower: which callbacks are worth the narrow no-runtime-fallback exposure in exchange for
    streaming, which is exactly the test #696's failure applied — and failed — to the per-catalog
-   tables, and which `get_summary` is expected to pass.
+   tables, and which #706 has since applied — and passed — to `get_summary`. **Still open in
+   general** (the light-curve figure is the next candidate the plan names but has not scheduled),
+   but answered for the one callback actually opted in so far.
 4. **Is the `dr7` / legacy-URL behaviour** in `app_select_by_url` worth preserving verbatim
    through the route port, or can it be dropped now? **Half answered:** the port kept it verbatim
    (`ztf_viewer/__main__.py:358`), so nothing was lost while this went undecided. Whether to drop
@@ -2100,14 +2187,20 @@ Tick these off as they are answered.
     event as a *proxy* restart, and the test was against the dev/preview host, not production.
     Still requires a live proxy-restart test against the production deployment.
 11. **`THREAD_POOL_SIZE`'s default** (raised 16 → 64 by #697 as a judgement call, pinned by #695 —
-    not a measurement, see the Progress entry) **gets sharper now that `aio-stream` is next.**
-    `aio-ws` (#693) opted in exactly one callback, and it is single-shot — no new load landed on
-    the default executor by that PR. `aio-stream`'s first slice (#696) would have been the first
-    thing to actually stress pool width, but it was rejected on a correctness defect (the
-    per-catalog collapse) before pool width came into play at all — so this question is still
-    exactly as open as before, just against a default of 64 instead of 16. **#695's own attempt to
-    measure it (a `time.sleep`-driven queueing benchmark) was written and dropped before review**:
-    its numbers were derivable from its own parameters and identical on any machine, measuring
-    nothing about the deployment. The only route to a real answer is instrumenting the running
-    deployment; the `get_summary` slice of `aio-stream` is where that pressure will actually show
-    up, and it should answer this with a number, not inherit it unmeasured a third time.
+    not a measurement, see the Progress entry) — **still open; `aio-stream`'s `get_summary` slice
+    did not settle it, and could not have.** `aio-ws` (#693) opted in exactly one callback, and it
+    was single-shot — no new load landed on the default executor by that PR. `aio-stream`'s first
+    slice (#696) would have been the first thing to actually stress pool width, but it was
+    rejected on a correctness defect (the per-catalog collapse) before pool width came into play
+    at all. `aio-stream`'s second slice, `get_summary` (#706), has now landed — but it fans catalog
+    queries out with `asyncio.as_completed` over native coroutines, the same concurrency shape
+    `asyncio.gather` already had before streaming; nothing in #706 moved work onto or off
+    `THREAD_POOL_SIZE`'s executor. So this question is exactly as open as before, just against a
+    default of 64 instead of 16, and `aio-stream` landing did not exercise it — the thing that
+    would have stressed thread-pool width was never the streaming mechanism itself, it was upstream
+    fan-out volume, which is unchanged. **#695's own attempt to measure it (a `time.sleep`-driven
+    queueing benchmark) was written and dropped before review**: its numbers were derivable from
+    its own parameters and identical on any machine, measuring nothing about the deployment. The
+    only route to a real answer is instrumenting the running deployment — `plans/misc/load_test.py`
+    (#712) is the tool for that now, but has not yet been pointed at a live instance and asked this
+    specific question.
