@@ -171,6 +171,7 @@ def plot_data(oid, data, fmt="png", caption=True, title=None):
     ax.set_title(title, usetex=usetex)
     ax.set_xlabel("MJD", usetex=usetex)
     ax.set_ylabel("magnitude", usetex=usetex)
+    ax.ticklabel_format(axis="x", style="plain", useOffset=False)
     ax.xaxis.set_minor_locator(AutoMinorLocator(2))
     ax.yaxis.set_minor_locator(AutoMinorLocator(2))
     ax.tick_params(which="major", direction="in", length=6, width=1.5)

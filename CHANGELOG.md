@@ -14,6 +14,10 @@ Version schema is `year.month.num_release`
 
 - Switched the web server backend from Flask to FastAPI/Starlette, served by uvicorn, with Dash callbacks running as native coroutines
 
+### Fixed
+
+- X-axis offset text no longer collides with the "MJD" label on downloadable plots with a small time range https://github.com/snad-space/ztf-viewer/issues/173
+
 ## [2026.8.0] 2026 August 14
 
 ### Added
