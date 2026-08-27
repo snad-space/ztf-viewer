@@ -672,3 +672,59 @@ def test_set_figure_link_prevents_update_when_range_is_backwards():
 def test_set_figure_link_raises_for_unknown_type():
     with pytest.raises(ValueError, match="lc_type"):
         set_figure_link("633207400004730", "dr24", "Title", None, None, None, None, "bogus", None, None, "png")
+
+
+# ---------------------------------------------------------------------------------------------
+# parse_search / pick_fits_observation / fits_children_for_observation -- the `?fits=` query
+# param that loads a FITS image on page load instead of requiring a click on the light curve.
+# ---------------------------------------------------------------------------------------------
+
+parse_search = viewer.parse_search  # a plain function, never wrapped
+pick_fits_observation = viewer.pick_fits_observation  # a plain function, never wrapped
+fits_children_for_observation = inspect.unwrap(viewer.fits_children_for_observation)
+
+
+def test_parse_search_fits_param():
+    assert parse_search("?fits=peak")["fits"] == "peak"
+
+
+def test_parse_search_fits_param_absent():
+    assert parse_search("")["fits"] is None
+
+
+def test_pick_fits_observation_empty_lc():
+    assert pick_fits_observation([], "peak") is None
+
+
+def test_pick_fits_observation_unknown_param():
+    lc = [{"mjd": 58000.0, "mag": 18.0}]
+    assert pick_fits_observation(lc, "bogus") is None
+
+
+def test_pick_fits_observation_first():
+    lc = [{"mjd": 58002.0, "mag": 18.0}, {"mjd": 58000.0, "mag": 19.0}, {"mjd": 58001.0, "mag": 17.0}]
+    assert pick_fits_observation(lc, "first")["mjd"] == 58000.0
+
+
+def test_pick_fits_observation_last():
+    lc = [{"mjd": 58002.0, "mag": 18.0}, {"mjd": 58000.0, "mag": 19.0}, {"mjd": 58001.0, "mag": 17.0}]
+    assert pick_fits_observation(lc, "last")["mjd"] == 58002.0
+
+
+def test_pick_fits_observation_peak_is_brightest():
+    lc = [{"mjd": 58002.0, "mag": 18.0}, {"mjd": 58000.0, "mag": 19.0}, {"mjd": 58001.0, "mag": 17.0}]
+    assert pick_fits_observation(lc, "peak")["mjd"] == 58001.0
+
+
+async def test_fits_children_for_observation(summary_upstreams):
+    with patch.object(viewer, "correct_date", AsyncMock()):
+        children = await fits_children_for_observation(58000.0, "633207400004730", 796, 12, "zg", "dr24")
+    ra_text, dec_text, cutout_text, js9_link, _, download_link, _, prod_link = _project(children)
+    assert ra_text == "10.0"
+    assert dec_text == "20.0"
+    assert "size=449pix" in cutout_text
+    assert js9_link == {"text": "Open in JS9", "href": js9_link["href"]}
+    assert "ra=10.0" in js9_link["href"] and "dec=20.0" in js9_link["href"]
+    assert download_link["text"] == "Download FITS"
+    assert "_000796_zg_c" in download_link["href"]
+    assert prod_link["text"] == "Product directory"
