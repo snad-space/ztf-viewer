@@ -16,7 +16,9 @@ recoverable from the AST alone. So this only covers the specific call sites this
 import asyncio
 import inspect
 import threading
+from datetime import UTC, datetime
 
+import httpx
 import pytest
 
 from ztf_viewer import config
@@ -25,6 +27,7 @@ config.CACHE_TYPE = "memory"
 config.UNAVAILABLE_CATALOGS_CACHE_TYPE = "memory"
 
 import ztf_viewer.__main__ as main_module
+from ztf_viewer.catalogs.snad.catalog import snad_catalog as real_snad_catalog
 from ztf_viewer.exceptions import NotFound
 from ztf_viewer.pages import viewer
 
@@ -80,16 +83,44 @@ def test_sky_coord_from_str_snad_lookup_runs_on_the_loop(monkeypatch):
     assert seen_thread_id == loop_thread_id
 
 
-def test_sky_coord_from_str_reraises_key_error_as_value_error(monkeypatch):
+def test_sky_coord_from_str_reraises_not_found_as_value_error(monkeypatch):
     class StubSource:
         @classmethod
         async def create(cls, name):
-            raise KeyError(name)
+            raise NotFound(name)
 
     monkeypatch.setattr(main_module, "SnadCatalogSource", StubSource)
 
     with pytest.raises(ValueError):
         asyncio.run(main_module.sky_coord_from_str("SNAD123"))
+
+
+def test_sky_coord_from_str_does_not_mask_an_unrelated_key_error(monkeypatch):
+    """A KeyError unrelated to the name lookup (e.g. surfacing from deep in the refresh
+    path) must not be reported as an unknown SNAD ID.
+    """
+
+    class StubSource:
+        @classmethod
+        async def create(cls, name):
+            raise KeyError("last-modified")
+
+    monkeypatch.setattr(main_module, "SnadCatalogSource", StubSource)
+
+    with pytest.raises(KeyError):
+        asyncio.run(main_module.sky_coord_from_str("SNAD123"))
+
+
+def test_oid_from_input_does_not_mask_an_unrelated_key_error(monkeypatch):
+    class StubSource:
+        @classmethod
+        async def create(cls, name):
+            raise KeyError("last-modified")
+
+    monkeypatch.setattr(main_module, "SnadCatalogSource", StubSource)
+
+    with pytest.raises(KeyError):
+        asyncio.run(main_module.oid_from_input("SNAD123"))
 
 
 def test_oid_from_input_snad_lookup_runs_on_the_loop_without_to_thread(monkeypatch):
@@ -138,6 +169,61 @@ def test_set_title_snad_lookup_runs_on_the_loop(monkeypatch):
 
     source = inspect.getsource(inspect.unwrap(viewer.set_title))
     assert "asyncio.to_thread" not in source
+
+
+def test_oid_from_input_swallows_not_found(monkeypatch):
+    class StubSource:
+        @classmethod
+        async def create(cls, name):
+            raise NotFound(name)
+
+    monkeypatch.setattr(main_module, "SnadCatalogSource", StubSource)
+
+    result = asyncio.run(main_module.oid_from_input("SNAD123"))
+
+    assert result == "SNAD123"
+
+
+# --------------------------------------------------------------------------------------------
+# End-to-end: a real refresh through the real SnadCatalogSource, not a stub. A response with no
+# ``last-modified`` header must not surface as "ID ... isn't found in the SNAD catalog"; a
+# genuinely unknown SNAD name still must.
+# --------------------------------------------------------------------------------------------
+
+_SNAD_CSV_HEADER = "Name,R.A.,Dec.,OID,Discovery date (UT),mag,er_down,er_up,ref,er_ref,TNS,Type,Comments"
+_SNAD_CSV_ROW = "SNAD999,10.0,20.0,42,2018-04-08 09:45:49,21.11,0.27,0.36,20.84,0.06,AT 2018abc,PSN,test"
+_SNAD_CSV_BODY = f"{_SNAD_CSV_HEADER}\n{_SNAD_CSV_ROW}\n"
+
+
+def test_sky_coord_from_str_survives_a_response_with_no_last_modified_header(monkeypatch):
+    async def handler(request):
+        # No "last-modified" header at all, unlike a normal snad.space response.
+        return httpx.Response(200, content=_SNAD_CSV_BODY.encode())
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    monkeypatch.setattr("ztf_viewer.catalogs.snad.catalog.get_client", lambda: client)
+    monkeypatch.setattr(real_snad_catalog, "updated_at", datetime(1900, 1, 1, tzinfo=UTC))
+    monkeypatch.setattr(real_snad_catalog, "_failed_at", None)
+
+    result = asyncio.run(main_module.sky_coord_from_str("SNAD999"))
+
+    assert result is not None
+    asyncio.run(client.aclose())
+
+
+def test_sky_coord_from_str_still_reports_a_genuinely_unknown_name(monkeypatch):
+    async def handler(request):
+        return httpx.Response(200, content=_SNAD_CSV_BODY.encode())
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    monkeypatch.setattr("ztf_viewer.catalogs.snad.catalog.get_client", lambda: client)
+    monkeypatch.setattr(real_snad_catalog, "updated_at", datetime(1900, 1, 1, tzinfo=UTC))
+    monkeypatch.setattr(real_snad_catalog, "_failed_at", None)
+
+    with pytest.raises(ValueError, match="isn't found in the SNAD catalog"):
+        asyncio.run(main_module.sky_coord_from_str("SNADNOTAREALNAME"))
+
+    asyncio.run(client.aclose())
 
 
 def test_set_title_propagates_not_found(monkeypatch):

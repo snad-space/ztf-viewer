@@ -39,7 +39,9 @@ class _SnadCatalog:
 
     @staticmethod
     def _last_modified(resp):
-        s = resp.headers["last-modified"]
+        s = resp.headers.get("last-modified")
+        if s is None:
+            return None
         parsed = email.utils.parsedate(s)
         dt = datetime(*parsed[:7], tzinfo=UTC)
         return dt
@@ -63,7 +65,10 @@ class _SnadCatalog:
             self._failed_at = now
             return
         self._failed_at = None
-        if self.updated_at > self._last_modified(resp):
+        last_modified = self._last_modified(resp)
+        # A missing header means we can't tell whether the server has something
+        # newer, so treat it as newer rather than skip the download.
+        if last_modified is not None and self.updated_at > last_modified:
             # Already current: not a failure, just nothing new to fetch.
             self.updated_at = now
             return
@@ -97,7 +102,10 @@ class SnadCatalogSource:
             name = f"SNAD{name}"
         name = name.upper()
         catalog = await snad_catalog()
-        row = catalog.loc[name]
+        try:
+            row = catalog.loc[name]
+        except KeyError:
+            raise NotFound(f"{name} isn't found in the SNAD catalog") from None
         return cls(row)
 
     @property

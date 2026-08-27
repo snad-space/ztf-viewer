@@ -262,7 +262,7 @@ async def oid_from_input(s: str):
         try:
             source = await SnadCatalogSource.create(s)
             return str(source.ztf_oid)
-        except KeyError:
+        except NotFound:
             pass
     return s
 
@@ -273,7 +273,7 @@ async def sky_coord_from_str(s):
         try:
             source = await SnadCatalogSource.create(s)
             return source.coord
-        except KeyError:
+        except NotFound:
             raise ValueError(f"ID {s} isn't found in the SNAD catalog")
 
     try:

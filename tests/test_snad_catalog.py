@@ -198,3 +198,34 @@ async def test_already_current_response_is_not_treated_as_a_failure(monkeypatch)
     assert calls == 1
 
     await client.aclose()
+
+
+def test_last_modified_returns_none_for_a_missing_header():
+    resp = httpx.Response(200, content=CSV_BODY.encode())
+
+    assert _SnadCatalog._last_modified(resp) is None
+
+
+async def test_fetch_with_no_last_modified_header_does_not_raise_and_downloads(monkeypatch):
+    """A response missing the header can't be compared, so it is treated as newer: the table
+    is (re)downloaded rather than the fetch raising or silently doing nothing.
+    """
+    calls = 0
+
+    async def handler(request):
+        nonlocal calls
+        calls += 1
+        return httpx.Response(200, content=CSV_BODY.encode())
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    monkeypatch.setattr("ztf_viewer.catalogs.snad.catalog.get_client", lambda: client)
+
+    catalog = _stale_catalog()
+
+    await catalog._update()
+
+    assert calls == 1
+    assert catalog._failed_at is None
+    assert "SNAD999" in catalog.table["Name"]
+
+    await client.aclose()
