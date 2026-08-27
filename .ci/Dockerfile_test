@@ -1,5 +1,8 @@
 FROM ztf-viewer
 
+ENV CACHE_TYPE=memory
+ENV UNAVAILABLE_CATALOGS_CACHE_TYPE=memory
+
 RUN apt update \
     && apt install -y redis-server
 
