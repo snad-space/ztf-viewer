@@ -6,6 +6,10 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
+### Added
+
+- `?fits=first|last|peak` query parameter to load a FITS image on page load https://github.com/snad-space/ztf-viewer/issues/400
+
 ### Changed
 
 - Switched the web server backend from Flask to FastAPI/Starlette, served by uvicorn, with Dash callbacks running as native coroutines

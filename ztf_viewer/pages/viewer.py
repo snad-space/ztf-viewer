@@ -123,7 +123,43 @@ def parse_search(search_query: str) -> dict[str, Any]:
     result = {}
     result["min_mjd"] = float(parsed.get("min_mjd", [-INF])[-1])
     result["max_mjd"] = float(parsed.get("max_mjd", [INF])[-1])
+    result["fits"] = parsed.get("fits", [None])[-1]
     return result
+
+
+def pick_fits_observation(own_lc: list[dict], fits_param: str) -> dict | None:
+    """Pick an observation to show as a FITS image for the `fits` query parameter"""
+    if not own_lc:
+        return None
+    if fits_param == "first":
+        return min(own_lc, key=lambda obs: obs["mjd"])
+    if fits_param == "last":
+        return max(own_lc, key=lambda obs: obs["mjd"])
+    if fits_param == "peak":
+        return min(own_lc, key=lambda obs: obs["mag"])
+    return None
+
+
+async def fits_children_for_observation(mjd, oid, fieldid, rcid, fltr, dr):
+    ra, dec = await find_ztf_oid.get_coord(oid, dr)
+    coord = await find_ztf_oid.get_sky_coord(oid, dr)
+    date = DateWithFrac.from_hmjd(mjd, coord=coord)
+    await correct_date(date)
+    fits_url = urljoin(ZTF_FITS_PROXY_URL, date.sciimg_path(fieldid=fieldid, rcid=rcid, filter=fltr))
+    cutout_query = urlencode({"size": "449pix", "gzip": "false", "center": f"{ra},{dec}"})
+    fits_cutout_url = f"{fits_url}?{cutout_query}"
+    js9_url = f'{JS9_URL}?{urlencode({"url": fits_url,"zoom": 10,"ra": ra,"dec": dec,"scale": "histeq","flip": "y"})}'
+    prod_dir_url = urljoin(ZTF_FITS_PROXY_URL, date.products_path)
+    return [
+        html.Div(ra, id="fits-to-show-ra", style={"display": "none"}),
+        html.Div(dec, id="fits-to-show-dec", style={"display": "none"}),
+        html.Div(fits_cutout_url, id="fits-to-show-cutout-url", style={"display": "none"}),
+        html.A("Open in JS9", href=js9_url, id="fits-to-show-js9-url"),
+        " ",
+        html.A("Download FITS", href=fits_url, id="fits-to-download-url"),
+        " ",
+        html.A("Product directory", href=prod_dir_url, id="fits-to-show-dir-url"),
+    ]
 
 
 async def set_div_for_aladin(oid, version):
@@ -163,6 +199,15 @@ async def get_layout(pathname, search):
     search_query_parsed = parse_search(search)
     min_mjd = search_query_parsed.get("min_mjd", min_mjd)
     max_mjd = search_query_parsed.get("max_mjd", max_mjd)
+    fits_param = search_query_parsed.get("fits")
+
+    fits_to_show_children = []
+    if fits_param is not None:
+        own_lc = (await get_plot_data(oid, dr, min_mjd=min_mjd, max_mjd=max_mjd)).get(oid, [])
+        if obs := pick_fits_observation(own_lc, fits_param):
+            fits_to_show_children = await fits_children_for_observation(
+                obs["mjd"], obs["oid"], obs["fieldid"], obs["rcid"], obs["filter"], dr
+            )
 
     try:
         features = await light_curve_features(oid, dr, version="latest", min_mjd=min_mjd, max_mjd=max_mjd)
@@ -381,7 +426,7 @@ async def get_layout(pathname, search):
                         [
                             html.Div(className="JS9", id="JS9"),
                             dji.Import(src="/static/js/js9_helper.js"),
-                            html.Div(id="fits-to-show"),
+                            html.Div(fits_to_show_children, id="fits-to-show"),
                             html.Div(id="skybot"),
                         ],
                         style={"min-width": "450px", "width": "20%", "vertical-align": "top", "flex-shrink": 0},
@@ -2040,25 +2085,7 @@ async def load_fits_for_graph_clicked(data, dr):
         raise PreventUpdate
     point = points[0]
     mjd, oid, fieldid, rcid, fltr, *_ = point["customdata"]
-    ra, dec = await find_ztf_oid.get_coord(oid, dr)
-    coord = await find_ztf_oid.get_sky_coord(oid, dr)
-    date = DateWithFrac.from_hmjd(mjd, coord=coord)
-    await correct_date(date)
-    fits_url = urljoin(ZTF_FITS_PROXY_URL, date.sciimg_path(fieldid=fieldid, rcid=rcid, filter=fltr))
-    cutout_query = urlencode({"size": "449pix", "gzip": "false", "center": f"{ra},{dec}"})
-    fits_cutout_url = f"{fits_url}?{cutout_query}"
-    js9_url = f'{JS9_URL}?{urlencode({"url": fits_url,"zoom": 10,"ra": ra,"dec": dec,"scale": "histeq","flip": "y"})}'
-    prod_dir_url = urljoin(ZTF_FITS_PROXY_URL, date.products_path)
-    return [
-        html.Div(ra, id="fits-to-show-ra", style={"display": "none"}),
-        html.Div(dec, id="fits-to-show-dec", style={"display": "none"}),
-        html.Div(fits_cutout_url, id="fits-to-show-cutout-url", style={"display": "none"}),
-        html.A("Open in JS9", href=js9_url, id="fits-to-show-js9-url"),
-        " ",
-        html.A("Download FITS", href=fits_url, id="fits-to-download-url"),
-        " ",
-        html.A("Product directory", href=prod_dir_url, id="fits-to-show-dir-url"),
-    ]
+    return await fits_children_for_observation(mjd, oid, fieldid, rcid, fltr, dr)
 
 
 @app.callback(
