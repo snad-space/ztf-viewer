@@ -6,9 +6,9 @@ class CsfdQuery(_BaseApiExtinctionQuery):
     # CSFD (Chiang 2023)
     url = f"{DUSTMAPS_API_URL}/api/v1/csfd"
 
-    def ebv(self, coord):
+    async def ebv(self, coord):
         icrs = coord.icrs
-        return self.query({"ra": icrs.ra.deg, "dec": icrs.dec.deg})
+        return await self.query({"ra": icrs.ra.deg, "dec": icrs.dec.deg})
 
 
 csfd = CsfdQuery()
