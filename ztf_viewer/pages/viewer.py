@@ -199,15 +199,6 @@ async def get_layout(pathname, search):
     search_query_parsed = parse_search(search)
     min_mjd = search_query_parsed.get("min_mjd", min_mjd)
     max_mjd = search_query_parsed.get("max_mjd", max_mjd)
-    fits_param = search_query_parsed.get("fits")
-
-    fits_to_show_children = []
-    if fits_param is not None:
-        own_lc = (await get_plot_data(oid, dr, min_mjd=min_mjd, max_mjd=max_mjd)).get(oid, [])
-        if obs := pick_fits_observation(own_lc, fits_param):
-            fits_to_show_children = await fits_children_for_observation(
-                obs["mjd"], obs["oid"], obs["fieldid"], obs["rcid"], obs["filter"], dr
-            )
 
     try:
         features = await light_curve_features(oid, dr, version="latest", min_mjd=min_mjd, max_mjd=max_mjd)
@@ -426,7 +417,7 @@ async def get_layout(pathname, search):
                         [
                             html.Div(className="JS9", id="JS9"),
                             dji.Import(src="/static/js/js9_helper.js"),
-                            html.Div(fits_to_show_children, id="fits-to-show"),
+                            html.Div(id="fits-to-show"),
                             html.Div(id="skybot"),
                         ],
                         style={"min-width": "450px", "width": "20%", "vertical-align": "top", "flex-shrink": 0},
@@ -2077,8 +2068,29 @@ app.clientside_callback(
 )
 
 
-@app.callback(Output("fits-to-show", "children"), [Input("graph", "clickData")], [State("dr", "children")])
-async def load_fits_for_graph_clicked(data, dr):
+@app.callback(
+    Output("fits-to-show", "children"),
+    [Input("graph", "clickData"), Input("oid", "children")],
+    [State("dr", "children"), State("url", "search")],
+)
+async def load_fits_for_graph_clicked(data, oid, dr, search):
+    # On the very first firing of this callback -- right after the object page mounts -- Dash
+    # hasn't "changed" any Input yet, so `ctx.triggered_id` is None rather than "oid". Treat
+    # anything other than an actual graph click as that initial mount, so the `?fits=` query
+    # parameter can be honoured without waiting for a click on the light curve.
+    if ctx.triggered_id != "graph":
+        search_query_parsed = parse_search(search)
+        fits_param = search_query_parsed["fits"]
+        if fits_param is None:
+            raise PreventUpdate
+        own_lc = (
+            await get_plot_data(oid, dr, min_mjd=search_query_parsed["min_mjd"], max_mjd=search_query_parsed["max_mjd"])
+        ).get(oid, [])
+        if (obs := pick_fits_observation(own_lc, fits_param)) is None:
+            raise PreventUpdate
+        return await fits_children_for_observation(
+            obs["mjd"], obs["oid"], obs["fieldid"], obs["rcid"], obs["filter"], dr
+        )
     if data is None:
         raise PreventUpdate
     if not (points := data.get("points")):

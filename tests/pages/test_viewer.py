@@ -728,3 +728,75 @@ async def test_fits_children_for_observation(summary_upstreams):
     assert download_link["text"] == "Download FITS"
     assert "_000796_zg_c" in download_link["href"]
     assert prod_link["text"] == "Product directory"
+
+
+# The Dash clientside callback that hands the FITS cutout to JS9 only reacts to a `children`
+# update on an *already-mounted* "fits-to-show" div (as a graph click produces) -- not to that
+# div appearing for the first time with pre-populated content, which is what a naive `get_layout`
+# implementation of `?fits=` produced. So the `?fits=` load is instead wired as a second trigger
+# of the very callback the click uses, keyed off `oid` mounting -- a plain prop update on an
+# already-present component, just like the click case.
+#
+# On that very first firing, nothing has "changed" from Dash's point of view (there is no prior
+# value to diff against), so `ctx.triggered_id` is None rather than "oid" -- not "graph" either,
+# so the fits-param branch must be the default, not something keyed on seeing "oid" specifically.
+load_fits_for_graph_clicked = inspect.unwrap(viewer.load_fits_for_graph_clicked)
+
+
+def _set_triggered(*prop_ids):
+    return context_value.set(types.SimpleNamespace(triggered_inputs=[{"prop_id": p} for p in prop_ids]))
+
+
+async def test_load_fits_for_graph_clicked_initial_mount_honours_fits_param(monkeypatch, summary_upstreams):
+    """Reproduces the real page-load call: nothing "changed" yet, so `ctx.triggered_id` is None."""
+
+    async def fake_get_plot_data(oid, dr, min_mjd=None, max_mjd=None):
+        return {oid: [{"mjd": 58000.0, "mag": 18.0, "oid": oid, "fieldid": 796, "rcid": 12, "filter": "zg"}]}
+
+    monkeypatch.setattr(viewer, "get_plot_data", fake_get_plot_data)
+
+    token = _set_triggered()
+    try:
+        with patch.object(viewer, "correct_date", AsyncMock()):
+            children = await load_fits_for_graph_clicked(None, "633207400004730", "dr24", "?fits=last")
+    finally:
+        context_value.reset(token)
+    *_, download_link, _, _ = _project(children)
+    assert download_link["text"] == "Download FITS"
+
+
+async def test_load_fits_for_graph_clicked_oid_trigger_honours_fits_param(monkeypatch, summary_upstreams):
+    async def fake_get_plot_data(oid, dr, min_mjd=None, max_mjd=None):
+        return {oid: [{"mjd": 58000.0, "mag": 18.0, "oid": oid, "fieldid": 796, "rcid": 12, "filter": "zg"}]}
+
+    monkeypatch.setattr(viewer, "get_plot_data", fake_get_plot_data)
+
+    token = _set_triggered("oid.children")
+    try:
+        with patch.object(viewer, "correct_date", AsyncMock()):
+            children = await load_fits_for_graph_clicked(None, "633207400004730", "dr24", "?fits=last")
+    finally:
+        context_value.reset(token)
+    *_, download_link, _, _ = _project(children)
+    assert download_link["text"] == "Download FITS"
+
+
+async def test_load_fits_for_graph_clicked_oid_trigger_without_fits_param_prevents_update(summary_upstreams):
+    token = _set_triggered("oid.children")
+    try:
+        with pytest.raises(PreventUpdate):
+            await load_fits_for_graph_clicked(None, "633207400004730", "dr24", "")
+    finally:
+        context_value.reset(token)
+
+
+async def test_load_fits_for_graph_clicked_click_trigger_still_works(summary_upstreams):
+    data = {"points": [{"customdata": [58000.0, "633207400004730", 796, 12, "zg"]}]}
+    token = _set_triggered("graph.clickData")
+    try:
+        with patch.object(viewer, "correct_date", AsyncMock()):
+            children = await load_fits_for_graph_clicked(data, "633207400004730", "dr24", "")
+    finally:
+        context_value.reset(token)
+    *_, download_link, _, _ = _project(children)
+    assert download_link["text"] == "Download FITS"
