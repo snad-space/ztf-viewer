@@ -6,6 +6,8 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
+## [2026.8.1] 2026 August 28
+
 ### Added
 
 - `?fits=first|last|peak` query parameter to load a FITS image on page load https://github.com/snad-space/ztf-viewer/issues/400
