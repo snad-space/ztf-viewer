@@ -2074,9 +2074,11 @@ app.clientside_callback(
     [State("dr", "children"), State("url", "search")],
 )
 async def load_fits_for_graph_clicked(data, oid, dr, search):
-    # `oid` triggers once, right after the object page mounts, so the `?fits=` query
+    # On the very first firing of this callback -- right after the object page mounts -- Dash
+    # hasn't "changed" any Input yet, so `ctx.triggered_id` is None rather than "oid". Treat
+    # anything other than an actual graph click as that initial mount, so the `?fits=` query
     # parameter can be honoured without waiting for a click on the light curve.
-    if ctx.triggered_id == "oid":
+    if ctx.triggered_id != "graph":
         search_query_parsed = parse_search(search)
         fits_param = search_query_parsed["fits"]
         if fits_param is None:

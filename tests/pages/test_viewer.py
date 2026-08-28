@@ -736,11 +736,33 @@ async def test_fits_children_for_observation(summary_upstreams):
 # implementation of `?fits=` produced. So the `?fits=` load is instead wired as a second trigger
 # of the very callback the click uses, keyed off `oid` mounting -- a plain prop update on an
 # already-present component, just like the click case.
+#
+# On that very first firing, nothing has "changed" from Dash's point of view (there is no prior
+# value to diff against), so `ctx.triggered_id` is None rather than "oid" -- not "graph" either,
+# so the fits-param branch must be the default, not something keyed on seeing "oid" specifically.
 load_fits_for_graph_clicked = inspect.unwrap(viewer.load_fits_for_graph_clicked)
 
 
-def _set_triggered(prop_id):
-    return context_value.set(types.SimpleNamespace(triggered_inputs=[{"prop_id": prop_id}]))
+def _set_triggered(*prop_ids):
+    return context_value.set(types.SimpleNamespace(triggered_inputs=[{"prop_id": p} for p in prop_ids]))
+
+
+async def test_load_fits_for_graph_clicked_initial_mount_honours_fits_param(monkeypatch, summary_upstreams):
+    """Reproduces the real page-load call: nothing "changed" yet, so `ctx.triggered_id` is None."""
+
+    async def fake_get_plot_data(oid, dr, min_mjd=None, max_mjd=None):
+        return {oid: [{"mjd": 58000.0, "mag": 18.0, "oid": oid, "fieldid": 796, "rcid": 12, "filter": "zg"}]}
+
+    monkeypatch.setattr(viewer, "get_plot_data", fake_get_plot_data)
+
+    token = _set_triggered()
+    try:
+        with patch.object(viewer, "correct_date", AsyncMock()):
+            children = await load_fits_for_graph_clicked(None, "633207400004730", "dr24", "?fits=last")
+    finally:
+        context_value.reset(token)
+    *_, download_link, _, _ = _project(children)
+    assert download_link["text"] == "Download FITS"
 
 
 async def test_load_fits_for_graph_clicked_oid_trigger_honours_fits_param(monkeypatch, summary_upstreams):
