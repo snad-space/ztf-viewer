@@ -4,7 +4,6 @@ import argparse
 import asyncio
 import logging
 import pathlib
-import re
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
 
@@ -15,6 +14,7 @@ from astropy.coordinates.name_resolve import NameResolveError
 from dash import Input, Output, State, dcc, html, no_update
 from dash.exceptions import PreventUpdate
 
+from ztf_viewer import routes
 from ztf_viewer.akb import akb
 from ztf_viewer.app import app
 from ztf_viewer.catalogs.conesearch import ANTARES_QUERY, TNS_QUERY
@@ -66,6 +66,7 @@ app.title = "SNAD ZTF viewer"
 app.layout = html.Div(
     [
         dcc.Location(id="url", refresh=True),
+        dcc.Store(id="page-title"),
         html.Div(
             [
                 html.H1(
@@ -206,6 +207,29 @@ app.clientside_callback(
     """,
     Output("webgl-is-available", "children"),
     [Input("main-layout", "children")],
+)
+
+
+@app.callback(
+    Output("page-title", "data"),
+    [Input("url", "pathname")],
+)
+def set_page_title(pathname):
+    return routes.page_title(pathname)
+
+
+# Dash renders the index with `app.title` only; the document title has to be set from the browser.
+app.clientside_callback(
+    """
+    function(title) {
+        if (typeof title === "string" && title.length > 0) {
+            document.title = title;
+        }
+        return window.dash_clientside.no_update;
+    }
+    """,
+    [],
+    [Input("page-title", "data")],
 )
 
 
@@ -358,7 +382,7 @@ async def app_select_by_url(pathname, search):
     if not isinstance(pathname, str):
         raise PreventUpdate
     # DR7 is not supported anymore:
-    if m := re.search(r"^/dr7((?:/.*)?)$", pathname):
+    if m := routes.DR7.search(pathname):
         href = m.group(1) or "/"
         return [
             [
@@ -372,8 +396,8 @@ async def app_select_by_url(pathname, search):
             no_update,
             no_update,
         ]
-    if m := re.search(r"^/+(?:(dr\d{1,2})/+)?$", pathname):
-        dr = m.group(1) or DEFAULT_DR
+    if m := routes.HOME.search(pathname):
+        dr = m["dr"] or DEFAULT_DR
         other_drs = [other_dr for other_dr in available_drs if other_dr != dr]
         return [
             [
@@ -520,29 +544,19 @@ archivePrefix = {arXiv},
             no_update,
             no_update,
         ]
-    if match := re.search(r"^/+view/+(\d+)", pathname):
+    if match := routes.VIEWER_DEFAULT_DR.search(pathname):
         return [
-            await get_viewer_layout(f"/{DEFAULT_DR}/view/{match.group(1)}", search),
+            await get_viewer_layout(f"/{DEFAULT_DR}/view/{match['oid']}", search),
             no_update,
             no_update,
         ]
-    if re.search(r"^/+dr\d{1,2}/+view/+(\d+)", pathname):
+    if routes.VIEWER.search(pathname):
         return [
             await get_viewer_layout(pathname, search),
             no_update,
             no_update,
         ]
-    if search_match := re.search(
-        r"""^
-                                     (?:/+(?P<dr>dr\d{1,2}))?
-                                     /+search
-                                     /+(?P<coord_or_name>[^/]+)
-                                     /+(?P<radius_arcsec>[^/]+)
-                                     /*
-                                     $""",
-        pathname,
-        flags=re.VERBOSE,
-    ):
+    if search_match := routes.SEARCH.search(pathname):
         coord_or_name = urllib.parse.unquote(search_match["coord_or_name"])
         try:
             coordinates = await sky_coord_from_str(coord_or_name)
@@ -571,25 +585,25 @@ archivePrefix = {arXiv},
                 coord_or_name,
                 search_match["radius_arcsec"],
             ]
-        dr = search_match.group("dr") or DEFAULT_DR
+        dr = search_match["dr"] or DEFAULT_DR
         return [
             await get_search_layout(coordinates, radius_arcsec, dr),
             coord_or_name,
             radius_arcsec,
         ]
-    if re.search(r"^/+login/*$", pathname):
+    if routes.LOGIN.search(pathname):
         return [
             get_login_layout(pathname, search),
             no_update,
             no_update,
         ]
-    if re.search("^/+(?:(?:anomalies)|(?:akb))/*$", pathname):
+    if routes.ANOMALIES.search(pathname):
         return [
             get_anomalies_layout(pathname, search),
             no_update,
             no_update,
         ]
-    if re.search("^/+tags/*$", pathname):
+    if routes.TAGS.search(pathname):
         return [
             get_tags_layout(pathname, search),
             no_update,

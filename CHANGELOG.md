@@ -6,6 +6,10 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
+### Added
+
+- Per-page browser titles, so that tabs for different objects, searches and pages are distinguishable https://github.com/snad-space/ztf-viewer/issues/99
+
 ## [2026.8.1] 2026 August 28
 
 ### Added
