@@ -8,6 +8,10 @@ Version schema is `year.month.num_release`
 
 ### Added
 
+- A dashed cross-hair marks the observation whose FITS image is shown, and the FITS block names that observation's filter and MJD https://github.com/snad-space/ztf-viewer/issues/719
+
+### Added
+
 - Per-page browser titles, so that tabs for different objects, searches and pages are distinguishable https://github.com/snad-space/ztf-viewer/issues/99
 
 ## [2026.8.1] 2026 August 28
