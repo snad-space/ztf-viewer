@@ -34,6 +34,7 @@ _ALLOWED_SYNC_CALLBACKS = {
     "convert_astro_colibri_search_radius_to_arcsec",
     "dr_from_url",
     "set_dr_title",
+    "set_page_title",
 }
 
 
