@@ -5,6 +5,7 @@ from functools import partial
 from itertools import chain
 from typing import Any
 from urllib.parse import parse_qs, urlencode, urljoin, urlparse
+from uuid import uuid4
 
 import dash_defer_js_import as dji
 import numpy as np
@@ -140,6 +141,12 @@ def pick_fits_observation(own_lc: list[dict], fits_param: str) -> dict | None:
     return None
 
 
+# Point identity; `set_figure` appends the plotted x and y, which differ between the full and the
+# folded light curve. The cross-hair reads coordinates from here: plotly sends `x`/`y` as base64.
+CUSTOM_DATA = ["mjd", "oid", "fieldid", "rcid", "filter"]
+CUSTOM_DATA_X, CUSTOM_DATA_Y = len(CUSTOM_DATA), len(CUSTOM_DATA) + 1
+
+
 async def fits_children_for_observation(mjd, oid, fieldid, rcid, fltr, dr):
     ra, dec = await find_ztf_oid.get_coord(oid, dr)
     coord = await find_ztf_oid.get_sky_coord(oid, dr)
@@ -151,6 +158,7 @@ async def fits_children_for_observation(mjd, oid, fieldid, rcid, fltr, dr):
     js9_url = f'{JS9_URL}?{urlencode({"url": fits_url,"zoom": 10,"ra": ra,"dec": dec,"scale": "histeq","flip": "y"})}'
     prod_dir_url = urljoin(ZTF_FITS_PROXY_URL, date.products_path)
     return [
+        html.Div(f"FITS image for: {fltr}, MJD {mjd:.5f}", id="fits-to-show-info"),
         html.Div(ra, id="fits-to-show-ra", style={"display": "none"}),
         html.Div(dec, id="fits-to-show-dec", style={"display": "none"}),
         html.Div(fits_cutout_url, id="fits-to-show-cutout-url", style={"display": "none"}),
@@ -212,6 +220,8 @@ async def get_layout(pathname, search):
     layout = html.Div(
         [
             html.Div("", id="placeholder", style={"display": "none"}),
+            dcc.Store(id="selected-observation"),
+            dcc.Store(id="figure-version"),
             html.Div(f"{oid}", id="oid", style={"display": "none"}),
             html.Div(f"{dr}", id="dr", style={"display": "none"}),
             html.H2(id="title"),
@@ -1688,7 +1698,11 @@ def neighbour_oids(different_filter, different_field) -> frozenset:
 
 
 @app.callback(
-    [Output("graph", "figure"), Output("error-fit-curve-message-hidden", "value")],
+    [
+        Output("graph", "figure"),
+        Output("error-fit-curve-message-hidden", "value"),
+        Output("figure-version", "data"),
+    ],
     [
         Input("oid", "children"),
         Input("dr", "children"),
@@ -1833,7 +1847,7 @@ async def set_figure(
             size="mark_size",
             size_max=MARKER_SIZE,
             hover_data={f"mjd_{MJD_OFFSET}": ":.5f", "date": True, brighterr: True},
-            custom_data=["mjd", "oid", "fieldid", "rcid", "filter"],
+            custom_data=CUSTOM_DATA + [f"mjd_{MJD_OFFSET}", bright],
             render_mode=render_mode,
         )
     elif lc_type == "folded":
@@ -1851,7 +1865,7 @@ async def set_figure(
             size="mark_size",
             size_max=MARKER_SIZE,
             hover_data={"folded_time": True, f"mjd_{MJD_OFFSET}": ":.5f", "date": True, brighterr: True},
-            custom_data=["mjd", "oid", "fieldid", "rcid", "filter"],
+            custom_data=CUSTOM_DATA + ["phase", bright],
             range_x=[0.0, 1.0],
             render_mode=render_mode,
         )
@@ -1898,7 +1912,7 @@ async def set_figure(
     fw.layout.legend.xanchor = "left"
     fw.layout.legend.y = -0.1
     fw.layout.plot_bgcolor = "#E8E8E8"
-    return fw, message_fit
+    return fw, message_fit, str(uuid4())
 
 
 def set_figure_link(
@@ -2069,7 +2083,7 @@ app.clientside_callback(
 
 
 @app.callback(
-    Output("fits-to-show", "children"),
+    [Output("fits-to-show", "children"), Output("selected-observation", "data")],
     [Input("graph", "clickData"), Input("oid", "children")],
     [State("dr", "children"), State("url", "search")],
 )
@@ -2088,16 +2102,66 @@ async def load_fits_for_graph_clicked(data, oid, dr, search):
         ).get(oid, [])
         if (obs := pick_fits_observation(own_lc, fits_param)) is None:
             raise PreventUpdate
-        return await fits_children_for_observation(
+        children = await fits_children_for_observation(
             obs["mjd"], obs["oid"], obs["fieldid"], obs["rcid"], obs["filter"], dr
         )
+        return children, {"mjd": obs["mjd"], "oid": obs["oid"]}
     if data is None:
         raise PreventUpdate
     if not (points := data.get("points")):
         raise PreventUpdate
     point = points[0]
     mjd, oid, fieldid, rcid, fltr, *_ = point["customdata"]
-    return await fits_children_for_observation(mjd, oid, fieldid, rcid, fltr, dr)
+    children = await fits_children_for_observation(mjd, oid, fieldid, rcid, fltr, dr)
+    return children, {"mjd": mjd, "oid": oid}
+
+
+# Layout shapes, not an extra trace, so the cross-hair spans the axes and cannot be hovered or
+# clicked like a data point. It goes into `graph.figure` rather than through `Plotly.relayout`,
+# which races with the figure `set_figure` builds in parallel and loses. `figure-version` is the
+# "figure was replaced" trigger; `graph.figure` itself would be a circular dependency here.
+app.clientside_callback(
+    """
+    function(selected, _version, figure) {
+        const [MJD, OID, X, Y] = CUSTOM_DATA_INDEXES;
+        if (!figure) {
+            return window.dash_clientside.no_update;
+        }
+        let x = null;
+        let y = null;
+        for (const trace of selected ? figure.data || [] : []) {
+            // Coordinates come from `customdata`, a plain array; trace `x`/`y` reach the browser
+            // as base64-packed typed arrays.
+            for (const point of trace.customdata || []) {
+                if (Math.abs(point[MJD] - selected.mjd) < 1e-9 && String(point[OID]) === String(selected.oid)) {
+                    x = point[X];
+                    y = point[Y];
+                    break;
+                }
+            }
+            if (x !== null) {
+                break;
+            }
+        }
+        const line = {color: "#333333", width: 1, dash: "dash"};
+        const shapes = x === null ? [] : [
+            {type: "line", layer: "above", line: line, xref: "x", yref: "paper", x0: x, x1: x, y0: 0, y1: 1},
+            {type: "line", layer: "above", line: line, xref: "paper", yref: "y", x0: 0, x1: 1, y0: y, y1: y},
+        ];
+        const layout = figure.layout || {};
+        if (JSON.stringify(layout.shapes || []) === JSON.stringify(shapes)) {
+            return window.dash_clientside.no_update;
+        }
+        return {...figure, layout: {...layout, shapes: shapes}};
+    }
+    """.replace(
+        "CUSTOM_DATA_INDEXES", str([CUSTOM_DATA.index("mjd"), CUSTOM_DATA.index("oid"), CUSTOM_DATA_X, CUSTOM_DATA_Y])
+    ),
+    Output("graph", "figure", allow_duplicate=True),
+    [Input("selected-observation", "data"), Input("figure-version", "data")],
+    [State("graph", "figure")],
+    prevent_initial_call=True,
+)
 
 
 @app.callback(

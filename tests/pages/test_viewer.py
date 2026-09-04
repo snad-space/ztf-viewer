@@ -719,7 +719,8 @@ def test_pick_fits_observation_peak_is_brightest():
 async def test_fits_children_for_observation(summary_upstreams):
     with patch.object(viewer, "correct_date", AsyncMock()):
         children = await fits_children_for_observation(58000.0, "633207400004730", 796, 12, "zg", "dr24")
-    ra_text, dec_text, cutout_text, js9_link, _, download_link, _, prod_link = _project(children)
+    info_text, ra_text, dec_text, cutout_text, js9_link, _, download_link, _, prod_link = _project(children)
+    assert info_text == "FITS image for: zg, MJD 58000.00000"
     assert ra_text == "10.0"
     assert dec_text == "20.0"
     assert "size=449pix" in cutout_text
@@ -758,11 +759,12 @@ async def test_load_fits_for_graph_clicked_initial_mount_honours_fits_param(monk
     token = _set_triggered()
     try:
         with patch.object(viewer, "correct_date", AsyncMock()):
-            children = await load_fits_for_graph_clicked(None, "633207400004730", "dr24", "?fits=last")
+            children, selected = await load_fits_for_graph_clicked(None, "633207400004730", "dr24", "?fits=last")
     finally:
         context_value.reset(token)
     *_, download_link, _, _ = _project(children)
     assert download_link["text"] == "Download FITS"
+    assert selected == {"mjd": 58000.0, "oid": "633207400004730"}
 
 
 async def test_load_fits_for_graph_clicked_oid_trigger_honours_fits_param(monkeypatch, summary_upstreams):
@@ -774,11 +776,12 @@ async def test_load_fits_for_graph_clicked_oid_trigger_honours_fits_param(monkey
     token = _set_triggered("oid.children")
     try:
         with patch.object(viewer, "correct_date", AsyncMock()):
-            children = await load_fits_for_graph_clicked(None, "633207400004730", "dr24", "?fits=last")
+            children, selected = await load_fits_for_graph_clicked(None, "633207400004730", "dr24", "?fits=last")
     finally:
         context_value.reset(token)
     *_, download_link, _, _ = _project(children)
     assert download_link["text"] == "Download FITS"
+    assert selected == {"mjd": 58000.0, "oid": "633207400004730"}
 
 
 async def test_load_fits_for_graph_clicked_oid_trigger_without_fits_param_prevents_update(summary_upstreams):
@@ -795,8 +798,37 @@ async def test_load_fits_for_graph_clicked_click_trigger_still_works(summary_ups
     token = _set_triggered("graph.clickData")
     try:
         with patch.object(viewer, "correct_date", AsyncMock()):
-            children = await load_fits_for_graph_clicked(data, "633207400004730", "dr24", "")
+            children, selected = await load_fits_for_graph_clicked(data, "633207400004730", "dr24", "")
     finally:
         context_value.reset(token)
     *_, download_link, _, _ = _project(children)
     assert download_link["text"] == "Download FITS"
+    assert selected == {"mjd": 58000.0, "oid": "633207400004730"}
+
+
+# ---------------------------------------------------------------------------------------------
+# The cross-hair over the observation whose FITS frame is on screen.
+# ---------------------------------------------------------------------------------------------
+#
+# The cross-hair is positioned by a clientside callback, which cannot read the trace `x`/`y`
+# arrays: plotly serializes those as base64 typed arrays. It reads the coordinates out of
+# `customdata` instead, which stays a plain array of arrays -- so what these tests pin is the
+# contract between the two sides, the only part of it that can go wrong silently.
+
+
+def test_custom_data_indexes_point_past_the_identity_columns():
+    """The x and y the cross-hair needs are appended after the identity columns, so the existing
+    `mjd, oid, fieldid, rcid, fltr, *_ = point["customdata"]` unpacking keeps working."""
+    assert viewer.CUSTOM_DATA[:2] == ["mjd", "oid"]
+    assert viewer.CUSTOM_DATA_X == len(viewer.CUSTOM_DATA)
+    assert viewer.CUSTOM_DATA_Y == len(viewer.CUSTOM_DATA) + 1
+
+
+def test_crosshair_callback_javascript_has_the_indexes_substituted():
+    """A rename of the placeholder would otherwise leave the JS referencing an undefined name,
+    which fails silently in the browser -- the cross-hair simply never appears."""
+    crosshair = [script for script in viewer.app._inline_scripts if "shapes" in script]
+
+    assert len(crosshair) == 1
+    assert "CUSTOM_DATA_INDEXES" not in crosshair[0]
+    assert f"[0, 1, {viewer.CUSTOM_DATA_X}, {viewer.CUSTOM_DATA_Y}]" in crosshair[0]
