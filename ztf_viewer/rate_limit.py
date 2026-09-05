@@ -91,7 +91,8 @@ class AsyncRateLimiter:
 
         ``max_wait`` overrides the constructor's budget for this one call. A caller that would go
         over budget raises :class:`RateLimitTimeout` *without* claiming a slot, so shedding it
-        costs the callers behind it nothing.
+        costs the callers behind it nothing. A caller cancelled while waiting gives its slot back
+        the same way — see :meth:`_release`.
         """
         if max_wait is None:
             max_wait = self._max_wait
@@ -108,5 +109,28 @@ class AsyncRateLimiter:
             self._next_slot = slot + self._min_interval
 
         if wait > 0:
-            await asyncio.sleep(wait)
+            try:
+                await asyncio.sleep(wait)
+            except asyncio.CancelledError:
+                self._release(slot)
+                raise
         return wait
+
+    def _release(self, slot):
+        """Give back a slot reserved by a caller that never used it.
+
+        Cancellation here is routine, not exceptional: `get_summary` cancels every catalog query
+        still in flight when a viewer's websocket goes away, which is what happens each time
+        someone navigates off a page. Without this, each of those abandoned queries would leave
+        its reservation standing, and the schedule would run further and further ahead of the
+        queries actually being sent — until a genuine request is told the queue is deeper than
+        its budget and shed, on behalf of users who left.
+
+        Only the *last* reservation can be given back. Once a later caller has taken its slot
+        relative to ours, ours is load-bearing: moving the schedule back under it would let the
+        two go out closer together than the rate allows. Leaving that one standing is safe in the
+        direction that matters — the upstream sees fewer queries than the cap, never more.
+        """
+        with self._lock:
+            if self._next_slot == slot + self._min_interval:
+                self._next_slot = slot

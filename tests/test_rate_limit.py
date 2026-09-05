@@ -125,6 +125,52 @@ async def test_shed_call_does_not_reserve_a_slot():
     assert 0.0 < wait <= PERIOD
 
 
+async def test_cancelled_caller_gives_its_slot_back():
+    """`get_summary` cancels every in-flight catalog query when a viewer navigates away.
+
+    A cancelled caller that kept its reservation would push the schedule ahead of the queries
+    actually sent, and enough of them would have later callers shed against a queue of ghosts.
+    """
+    limiter = AsyncRateLimiter(max_calls=1, period=PERIOD)
+    await limiter.acquire()
+
+    for _ in range(5):
+        task = asyncio.create_task(limiter.acquire())
+        await asyncio.sleep(0)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    # One period of waiting, not six: the five abandoned reservations were handed back.
+    assert await limiter.acquire() <= PERIOD
+
+
+async def test_slot_is_kept_when_someone_is_already_queued_behind_it():
+    """The reservation a later caller scheduled itself against cannot be given back.
+
+    Rolling the schedule back under that caller would let the two calls go out closer together
+    than the rate allows, which is the one direction that must never happen.
+    """
+    limiter = AsyncRateLimiter(max_calls=1, period=PERIOD)
+    await limiter.acquire()
+
+    cancelled = asyncio.create_task(limiter.acquire())
+    await asyncio.sleep(0)
+    behind = asyncio.create_task(limiter.acquire())
+    await asyncio.sleep(0)
+    cancelled.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await cancelled
+
+    # Handing that slot back would leave the schedule pointing at the slot `behind` already
+    # holds, and the next caller would then go out at the same instant as `behind`.
+    await behind
+    served = time.monotonic()
+    await limiter.acquire()
+
+    assert time.monotonic() - served >= limiter.min_interval
+
+
 def test_window_is_shared_across_event_loops():
     """One limiter per upstream per process — not per loop, unlike a loop-affine resource.
 
