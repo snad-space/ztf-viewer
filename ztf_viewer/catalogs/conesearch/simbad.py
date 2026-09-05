@@ -5,9 +5,19 @@ from astropy import units
 from astroquery.simbad import Simbad
 
 from ztf_viewer.catalogs.conesearch._base import _BaseCatalogQuery
+from ztf_viewer.config import SIMBAD_MAX_QUERIES_PER_SECOND, SIMBAD_RATE_LIMIT_MAX_WAIT
+from ztf_viewer.rate_limit import AsyncRateLimiter
 
 
 class SimbadQuery(_BaseCatalogQuery):
+    # SIMBAD blacklists clients that query it more than 8 times in the same second. astroquery
+    # will not hold us back, so `find()` waits here before every uncached query (issue #51).
+    _rate_limiter: ClassVar[AsyncRateLimiter] = AsyncRateLimiter(
+        max_calls=SIMBAD_MAX_QUERIES_PER_SECOND,
+        period=1.0,
+        max_wait=SIMBAD_RATE_LIMIT_MAX_WAIT,
+    )
+
     id_column = "main_id"
     type_column = "otype"
     _table_ra = "RA"

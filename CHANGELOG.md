@@ -6,6 +6,10 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
+### Changed
+
+- Cone searches to Simbad are paced to its published limit of 8 queries per second, so a busy moment cannot get us temporarily blacklisted https://github.com/snad-space/ztf-viewer/issues/51
+
 ### Added
 
 - A dashed cross-hair marks the observation whose FITS image is shown, and the FITS block names that observation's filter and MJD https://github.com/snad-space/ztf-viewer/issues/719
