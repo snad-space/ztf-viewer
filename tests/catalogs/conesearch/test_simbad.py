@@ -21,7 +21,14 @@ from numpy import ma
 # first as the cross product of 2 object types x 2 distance measurements (one variability
 # measurement), the second with no measurements at all, so its `mes*` cells are masked.
 RAW_ROWS = {
-    "main_id": ["V* RR Lyr", "V* RR Lyr", "V* RR Lyr", "V* RR Lyr", "2MASS J05343217+2200560", "2MASS J05343217+2200560"],
+    "main_id": [
+        "V* RR Lyr",
+        "V* RR Lyr",
+        "V* RR Lyr",
+        "V* RR Lyr",
+        "2MASS J05343217+2200560",
+        "2MASS J05343217+2200560",
+    ],
     "ra": [291.36637, 291.36637, 291.36637, 291.36637, 83.63410, 83.63410],
     "dec": [42.78431, 42.78431, 42.78431, 42.78431, 22.01556, 22.01556],
     "otype": ["RR*", "RR*", "RR*", "RR*", "*", "*"],
