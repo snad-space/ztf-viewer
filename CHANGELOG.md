@@ -6,6 +6,16 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
+### Changed
+
+- Cone searches to Simbad are paced to its published limit of 8 queries per second, so a busy moment cannot get us temporarily blacklisted https://github.com/snad-space/ztf-viewer/issues/51
+
+### Fixed
+
+- Simbad cross-match works again: astroquery ≥0.4.8 returns `ra`/`dec` in degrees instead of `RA`/`DEC` in hours, so every Simbad cone search raised `KeyError` and the catalog was silently absent from every object page
+- Simbad rows are no longer duplicated once per object type, distance and variability measurement, and each measurement group now shows the one Simbad ranks first
+- Simbad "Variable type" is populated again, and its period is back in the summary and the cross-match table
+
 ### Added
 
 - A dashed cross-hair marks the observation whose FITS image is shown, and the FITS block names that observation's filter and MJD https://github.com/snad-space/ztf-viewer/issues/719

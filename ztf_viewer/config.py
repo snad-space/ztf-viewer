@@ -59,5 +59,16 @@ TIMEOUT_AKB = httpx.Timeout(10.0)  # akb.py: small CRUD-shaped JSON requests
 TIMEOUT_ZTF_FITS_PROXY = httpx.Timeout(60.0)  # catalogs/ztf_ref.py, date_with_frac.py: both hit ZTF_FITS_PROXY_URL
 TIMEOUT_SNAD = httpx.Timeout(10.0)  # catalogs/snad/catalog.py: a 16 KB CSV off snad.space
 
+# Per-API query-rate caps (ztf_viewer/rate_limit.py). Plain constants for the same reason as the
+# timeouts above: an upstream's published policy is not a deployment knob.
+# SIMBAD asks for no more than 8 queries in the same second and temporarily blacklists clients
+# that ignore it (http://simbad.u-strasbg.fr/guide/sim-url.htx), so we hold ourselves to exactly
+# its stated number. Only uncached cone searches count against it -- `find()` is `@cache()`d.
+SIMBAD_MAX_QUERIES_PER_SECOND = 8
+# How long a cone search may sit in that queue before we shed it instead. Same 10s as the query
+# itself gets from `_BaseCatalogQuery`'s timeout decorator: a request that has already waited a
+# full query's worth of time for a slot is one whose user is unlikely to still be waiting.
+SIMBAD_RATE_LIMIT_MAX_WAIT = 10.0
+
 # Must stay well under the deployed proxy's live 60s read-timeout default, in ms.
 WEBSOCKET_HEARTBEAT_INTERVAL_MS = int(os.environ.get("WEBSOCKET_HEARTBEAT_INTERVAL_MS", "20000"))

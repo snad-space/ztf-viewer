@@ -22,6 +22,7 @@ from ztf_viewer.catalogs import find_ztf_oid, unavailable_catalogs, unavailable_
 from ztf_viewer.config import TIMEOUT_CONESEARCH_API
 from ztf_viewer.exceptions import CatalogUnavailable, NotFound
 from ztf_viewer.http import get_client
+from ztf_viewer.rate_limit import AsyncRateLimiter, RateLimitTimeout
 from ztf_viewer.util import async_timeout, compose_plus_minus_expression, safe_link, to_str
 
 COSMO = FlatLambdaCDM(H0=70, Om0=0.3)
@@ -109,6 +110,12 @@ class _BaseCatalogQuery:
     _value_with_interval_columns: ClassVar[list[ValueWithIntervalColumn]] = []
     _value_with_uncertainty_columns: ClassVar[list[ValueWithUncertaintyColumn]] = []
 
+    # Self-imposed cap on how often this catalog's upstream may be queried, or None where the
+    # upstream publishes no policy. Set on the subclass, so every instance of it -- in practice
+    # the single singleton in `conesearch/__init__.py` -- shares one schedule. See
+    # `conesearch/simbad.py` and `ztf_viewer/rate_limit.py`.
+    _rate_limiter: ClassVar[AsyncRateLimiter | None] = None
+
     # Column keys with pre-built HTML cell values (see html_from_astropy_table's html_columns).
     # Subclasses with extra HTML columns should extend this, e.g. `frozenset({"__link", "x"})`.
     _declared_html_columns: frozenset = frozenset({"__link"})
@@ -178,12 +185,33 @@ class _BaseCatalogQuery:
         if await unavailable_catalogs_async.contains(self.query_name):
             raise CatalogUnavailable(self.query_name, prolongate=False)
 
+    async def _wait_for_rate_limit(self):
+        """Hold the caller until this catalog's self-imposed query rate allows another query.
+
+        Called outside ``_timeout_decorator`` on purpose: that budget is for how long the
+        upstream may take to answer, and time spent queueing here is not the upstream being
+        slow. The limiter's own ``max_wait`` bounds this wait instead, and turns a queue too
+        deep to be worth joining into a shed request rather than one that keeps a slot warm for
+        a user who has already given up.
+        """
+        if self._rate_limiter is None:
+            return
+        try:
+            wait = await self._rate_limiter.acquire()
+        except RateLimitTimeout as e:
+            # prolongate=False: this is us declining to send a query, so we have learned nothing
+            # about the upstream's health -- the next request must be free to try it again.
+            raise CatalogUnavailable(str(e), catalog=self, prolongate=False) from e
+        if wait > 0:
+            logger.info(f"Waited {wait:.2f}s for the {self.query_name} rate limit")
+
     @cache()
     async def find(self, ra, dec, radius_arcsec):
         await self._raise_if_unavailable_async()
         coord = SkyCoord(ra, dec, unit="deg", frame="icrs")
         radius = f"{radius_arcsec}s"
         logger.info(f"Querying ra={ra}, dec={dec}, r={radius_arcsec}")
+        await self._wait_for_rate_limit()
         query_region = self._timeout_decorator(_ensure_coroutine(self._query_region))
         try:
             table = await query_region(coord, radius=radius)
