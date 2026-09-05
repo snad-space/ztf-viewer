@@ -48,6 +48,7 @@ config.UNAVAILABLE_CATALOGS_CACHE_TYPE = "memory"
 
 from ztf_viewer.catalogs import unavailable_catalogs
 from ztf_viewer.exceptions import CatalogUnavailable, NotFound
+from ztf_viewer.lc_data.plot_data import folded_plot_data, plot_data
 from ztf_viewer.pages import viewer
 
 # Callback registration leaves coroutine functions unwrapped, but unwrap anyway: it's a no-op if
@@ -832,3 +833,83 @@ def test_crosshair_callback_javascript_has_the_indexes_substituted():
     assert len(crosshair) == 1
     assert "CUSTOM_DATA_INDEXES" not in crosshair[0]
     assert f"[0, 1, {viewer.CUSTOM_DATA_X}, {viewer.CUSTOM_DATA_Y}]" in crosshair[0]
+
+
+# ---------------------------------------------------------------------------------------------
+# set_figure -- the hover box over a light-curve point.
+# ---------------------------------------------------------------------------------------------
+#
+# The hover rows are built by plotly express out of the x/y columns, the `color`/`symbol`/`size`
+# dimensions and `hover_data`, in that order. Both of the things pinned here are consequences of
+# that ordering rather than of anything written literally in the template, so they can regress
+# silently: the brightness error has to sit right below the brightness it belongs to, and
+# `mark_size` -- which encodes whether the point belongs to the current OID, not anything
+# measured -- must not show up as a data row at all.
+
+set_figure = inspect.unwrap(viewer.set_figure)
+
+
+def _hover_rows(figure) -> list[str]:
+    """The left-hand labels of the hover box, in the order they are rendered."""
+    template = figure.data[0].hovertemplate.replace("<extra></extra>", "")
+    return [row.split("=", maxsplit=1)[0] for row in template.split("<br>")]
+
+
+async def _figure_hover_rows(brightness_type="mag", lc_type="full", period=None):
+    lc = [
+        {
+            "mjd": 58000.0 + i,
+            "mag": 18.0 + 0.1 * i,
+            "magerr": 0.05,
+            "filter": "zr",
+            "oid": "633207400004730",
+            "fieldid": 633,
+            "rcid": 12,
+        }
+        for i in range(3)
+    ]
+    lcs = {"633207400004730": plot_data(lc, mark_size=3)}
+    if lc_type == "folded":
+        lcs = {oid: folded_plot_data(one, period=period) for oid, one in lcs.items()}
+
+    with (
+        patch.object(viewer, "get_plot_data", AsyncMock(return_value=lcs)),
+        patch.object(viewer, "get_folded_plot_data", AsyncMock(return_value=lcs)),
+    ):
+        figure, _message, _version = await set_figure(
+            cur_oid="633207400004730",
+            dr="dr24",
+            different_filter=None,
+            different_field=None,
+            min_mjd=None,
+            max_mjd=None,
+            brightness_type=brightness_type,
+            lc_type=lc_type,
+            period=period,
+            phase0=None,
+            ref_mag_ids=[],
+            ref_mag_values=[],
+            ref_magerr_ids=[],
+            ref_magerr_values=[],
+            additional_lc_types=[],
+            webgl_available="1",
+            name_model=None,
+            fit_params=None,
+        )
+    return _hover_rows(figure)
+
+
+async def test_set_figure_hover_puts_the_error_right_after_the_brightness():
+    assert await _figure_hover_rows() == ["filter", "oid", "mjd − 58000", "mag", "mag error", "date"]
+
+
+async def test_set_figure_hover_of_a_folded_curve_puts_the_error_right_after_the_brightness():
+    # The folded branch passes no `labels` for the brightness columns, so they keep their raw
+    # names here -- what is pinned is the position of the error row, not how it is spelled.
+    rows = await _figure_hover_rows(lc_type="folded", period=1.5)
+    assert rows == ["filter", "oid", "phase", "mag", "magerr", "folded_time", "mjd − 58000", "date"]
+
+
+@pytest.mark.parametrize("brightness_type", ["mag", "flux", "diffmag", "diffflux"])
+async def test_set_figure_hover_never_shows_mark_size(brightness_type):
+    assert "mark_size" not in await _figure_hover_rows(brightness_type=brightness_type)
