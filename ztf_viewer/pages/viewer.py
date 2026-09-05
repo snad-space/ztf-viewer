@@ -1846,7 +1846,7 @@ async def set_figure(
             symbol="oid",
             size="mark_size",
             size_max=MARKER_SIZE,
-            hover_data={f"mjd_{MJD_OFFSET}": ":.5f", "date": True, brighterr: True},
+            hover_data={brighterr: True, "mark_size": False, f"mjd_{MJD_OFFSET}": ":.5f", "date": True},
             custom_data=CUSTOM_DATA + [f"mjd_{MJD_OFFSET}", bright],
             render_mode=render_mode,
         )
@@ -1864,7 +1864,13 @@ async def set_figure(
             symbol="oid",
             size="mark_size",
             size_max=MARKER_SIZE,
-            hover_data={"folded_time": True, f"mjd_{MJD_OFFSET}": ":.5f", "date": True, brighterr: True},
+            hover_data={
+                brighterr: True,
+                "mark_size": False,
+                "folded_time": True,
+                f"mjd_{MJD_OFFSET}": ":.5f",
+                "date": True,
+            },
             custom_data=CUSTOM_DATA + ["phase", bright],
             range_x=[0.0, 1.0],
             render_mode=render_mode,
