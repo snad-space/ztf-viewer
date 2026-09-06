@@ -16,6 +16,13 @@ TNS_API_URL = os.environ.get("TNS_API_URL", "https://tns.snad.space")
 JS9_URL = os.environ.get("JS9_URL", "https://www.js9.org/js9.html")
 DUSTMAPS_API_URL = os.environ.get("DUSTMAPS_API_URL", "https://dustmaps.snad.space")
 
+# Astro-COLIBRI user id, from the account settings of a registered user. Their documented
+# `POST /cone_search` is restricted to registered users and metered per account, so this is what
+# decides which of the two endpoints `conesearch/colibri.py` queries and whether the daily quota
+# below applies. Empty (the default) keeps the unauthenticated legacy call. A secret: it belongs
+# in the deployment's environment, never in this file.
+ASTRO_COLIBRI_UID = os.environ.get("ASTRO_COLIBRI_UID", "")
+
 # Size of both thread pools the entrypoint installs: asyncio's default executor and anyio's
 # sync-route limiter. Caps how many blocking calls the single event loop can have in flight.
 THREAD_POOL_SIZE = int(os.environ.get("THREAD_POOL_SIZE", "64"))
@@ -69,6 +76,12 @@ SIMBAD_MAX_QUERIES_PER_SECOND = 8
 # itself gets from `_BaseCatalogQuery`'s timeout decorator: a request that has already waited a
 # full query's worth of time for a slot is one whose user is unlikely to still be waiting.
 SIMBAD_RATE_LIMIT_MAX_WAIT = 10.0
+# Astro-COLIBRI grants each registered user 100 cone searches per day and asks anyone who needs
+# more to get in touch (https://astro-colibri.science/apidoc, issue #421). A budget rather than a
+# rate, so it is spent at whatever speed traffic arrives and refused once gone -- see
+# `AsyncCallQuota`. Only applies when `ASTRO_COLIBRI_UID` identifies the account it is metered
+# against; only uncached cone searches spend it, as `find()` is `@cache()`d.
+ASTRO_COLIBRI_MAX_QUERIES_PER_DAY = 100
 
 # Must stay well under the deployed proxy's live 60s read-timeout default, in ms.
 WEBSOCKET_HEARTBEAT_INTERVAL_MS = int(os.environ.get("WEBSOCKET_HEARTBEAT_INTERVAL_MS", "20000"))

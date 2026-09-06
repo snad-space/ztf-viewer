@@ -9,6 +9,7 @@ Version schema is `year.month.num_release`
 ### Changed
 
 - Cone searches to Simbad are paced to its published limit of 8 queries per second, so a busy moment cannot get us temporarily blacklisted https://github.com/snad-space/ztf-viewer/issues/51
+- Astro-COLIBRI cone searches use its documented, registered-users-only endpoint and keep to the 100 requests per day that comes with the account, when the new `ASTRO_COLIBRI_UID` environment variable identifies one; without it the older unauthenticated call is made as before https://github.com/snad-space/ztf-viewer/issues/421
 
 ### Fixed
 

@@ -16,6 +16,8 @@ services:
       - OGLE_III_API_URL=http://ogle3.snad.space
       - ZTF_PERIODIC_API_URL=http://periodic.ztf.snad.space
       - TNS_API_URL=http://tns.snad.space
+      # Secret, so passed through from the host environment rather than written here.
+      - ASTRO_COLIBRI_UID
       - VIRTUAL_HOST=ztf.snad.space
       - DYNDNS_HOST=ztf.snad.space
       - LETSENCRYPT_HOST=ztf.snad.space

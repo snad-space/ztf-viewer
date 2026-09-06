@@ -22,7 +22,7 @@ from ztf_viewer.catalogs import find_ztf_oid, unavailable_catalogs, unavailable_
 from ztf_viewer.config import TIMEOUT_CONESEARCH_API
 from ztf_viewer.exceptions import CatalogUnavailable, NotFound
 from ztf_viewer.http import get_client
-from ztf_viewer.rate_limit import AsyncRateLimiter, RateLimitTimeout
+from ztf_viewer.rate_limit import AsyncCallQuota, AsyncRateLimiter, RateLimitTimeout
 from ztf_viewer.util import async_timeout, compose_plus_minus_expression, safe_link, to_str
 
 COSMO = FlatLambdaCDM(H0=70, Om0=0.3)
@@ -111,10 +111,12 @@ class _BaseCatalogQuery:
     _value_with_uncertainty_columns: ClassVar[list[ValueWithUncertaintyColumn]] = []
 
     # Self-imposed cap on how often this catalog's upstream may be queried, or None where the
-    # upstream publishes no policy. Set on the subclass, so every instance of it -- in practice
-    # the single singleton in `conesearch/__init__.py` -- shares one schedule. See
-    # `conesearch/simbad.py` and `ztf_viewer/rate_limit.py`.
-    _rate_limiter: ClassVar[AsyncRateLimiter | None] = None
+    # upstream publishes no policy. A pace (`AsyncRateLimiter`) or a budget (`AsyncCallQuota`),
+    # whichever shape that upstream words its policy in; both are acquired the same way below.
+    # Set on the subclass, so every instance of it -- in practice the single singleton in
+    # `conesearch/__init__.py` -- shares one schedule. See `conesearch/simbad.py`,
+    # `conesearch/colibri.py` and `ztf_viewer/rate_limit.py`.
+    _rate_limiter: ClassVar[AsyncRateLimiter | AsyncCallQuota | None] = None
 
     # Column keys with pre-built HTML cell values (see html_from_astropy_table's html_columns).
     # Subclasses with extra HTML columns should extend this, e.g. `frozenset({"__link", "x"})`.

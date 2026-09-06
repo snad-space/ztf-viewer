@@ -25,6 +25,7 @@ Environment variables to configure the server, see default values in `config.py`
 - `TNS_API_URL`: SNAD mirror of the TNS
 - `ZTF_FITS_PROXY_URL`: address of SNAD proxy for ZTF FITS
 - `JS9_URL`: address of full-functional JS9 viewer supporting `JS9.LoadProxy`
+- `ASTRO_COLIBRI_UID`: user id of a registered [Astro-COLIBRI](https://astro-colibri.science) account (found in the account settings), a secret to keep in `secret.env`. Astro-COLIBRI restricts its documented cone-search endpoint to registered users and grants each of them 100 requests per day; with this set, the viewer queries that endpoint and holds itself to the daily quota, and without it, it falls back to the older unauthenticated call. The viewer sends no `filter` of its own, so the account's saved filter configuration decides which events the cone search returns — an account with none configured gets an error back rather than results
 
 ### Running development docker-compose
 

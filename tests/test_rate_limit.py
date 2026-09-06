@@ -22,9 +22,9 @@ import time
 
 import pytest
 
-from ztf_viewer.config import SIMBAD_MAX_QUERIES_PER_SECOND
+from ztf_viewer.config import ASTRO_COLIBRI_MAX_QUERIES_PER_DAY, SIMBAD_MAX_QUERIES_PER_SECOND
 from ztf_viewer.exceptions import CatalogUnavailable
-from ztf_viewer.rate_limit import AsyncRateLimiter, RateLimitTimeout
+from ztf_viewer.rate_limit import AsyncCallQuota, AsyncRateLimiter, RateLimitTimeout
 
 PERIOD = 0.2
 
@@ -195,6 +195,118 @@ def test_rejects_a_limit_that_admits_nothing(max_calls, period):
         AsyncRateLimiter(max_calls=max_calls, period=period)
 
 
+async def test_a_quota_spends_its_whole_allowance_without_waiting():
+    """The difference from `AsyncRateLimiter` that the class exists for.
+
+    A daily allowance says nothing about how fast it may be spent, so pacing it would make every
+    caller but the first wait for a slot the upstream never asked us to leave free.
+    """
+    quota = AsyncCallQuota(max_calls=3, period=PERIOD)
+
+    waits = [await quota.acquire() for _ in range(3)]
+
+    assert waits == [0.0, 0.0, 0.0]
+
+
+async def test_a_spent_quota_refuses_rather_than_queueing():
+    """The default `max_wait` of zero: the next slot in a day-long window outlives the request."""
+    quota = AsyncCallQuota(max_calls=2, period=PERIOD)
+    await quota.acquire()
+    await quota.acquire()
+
+    with pytest.raises(RateLimitTimeout):
+        await quota.acquire()
+
+
+async def test_the_window_rolls_rather_than_resetting():
+    """A slot comes back one period after the call that spent it, not at a fixed daily reset.
+
+    Sleeping past the period is the only way to observe this, so the period here is short.
+    """
+    quota = AsyncCallQuota(max_calls=1, period=PERIOD)
+    await quota.acquire()
+
+    await asyncio.sleep(PERIOD)
+
+    assert await quota.acquire() == 0.0
+
+
+async def test_refused_calls_do_not_spend_the_allowance():
+    """Being turned away must not cost the allowance a slot, or a busy day would never recover.
+
+    Each refusal below would otherwise push the window out by another period, and the two calls
+    that the rolled window owes us would not both be there when it comes back around.
+    """
+    quota = AsyncCallQuota(max_calls=2, period=PERIOD)
+    await quota.acquire()
+    await quota.acquire()
+
+    for _ in range(5):
+        with pytest.raises(RateLimitTimeout):
+            await quota.acquire()
+
+    await asyncio.sleep(PERIOD)
+    assert [await quota.acquire() for _ in range(2)] == [0.0, 0.0]
+
+
+async def test_a_caller_may_wait_for_a_slot_when_its_budget_allows():
+    """`max_wait` is a default, not the whole contract: a caller with time to spare can queue."""
+    quota = AsyncCallQuota(max_calls=1, period=PERIOD, max_wait=None)
+    await quota.acquire()
+
+    start = time.monotonic()
+    wait = await quota.acquire()
+
+    assert wait > 0
+    assert time.monotonic() - start >= PERIOD
+
+
+async def test_queued_callers_each_wait_for_a_slot_of_their_own():
+    """A waiter's reservation has to count against the window, not just the calls already sent.
+
+    Measuring the next slot from the oldest entry alone would hand the second and third caller
+    below the same instant, and the upstream would see the day's last allowance spent twice over.
+    """
+    quota = AsyncCallQuota(max_calls=1, period=PERIOD, max_wait=None)
+
+    start = time.monotonic()
+    await asyncio.gather(*(asyncio.create_task(quota.acquire()) for _ in range(3)))
+
+    assert time.monotonic() - start >= 2 * PERIOD
+
+
+async def test_cancelled_caller_gives_its_quota_slot_back():
+    """Navigating away cancels in-flight cone searches, and an unsent query spends nothing."""
+    quota = AsyncCallQuota(max_calls=1, period=PERIOD, max_wait=None)
+    await quota.acquire()
+
+    for _ in range(5):
+        task = asyncio.create_task(quota.acquire())
+        await asyncio.sleep(0)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    # One period of waiting, not six: the five abandoned reservations were handed back.
+    assert await quota.acquire() <= PERIOD
+
+
+def test_quota_window_is_shared_across_event_loops():
+    """Same process-wide scope as `AsyncRateLimiter`, and for the same reason."""
+    quota = AsyncCallQuota(max_calls=1, period=60.0)
+
+    asyncio.run(quota.acquire())
+
+    with pytest.raises(RateLimitTimeout):
+        asyncio.run(quota.acquire())
+
+
+@pytest.mark.parametrize(("max_calls", "period"), [(0, 1.0), (-1, 1.0), (1, 0.0), (1, -1.0)])
+def test_rejects_a_quota_that_admits_nothing(max_calls, period):
+    with pytest.raises(ValueError):
+        AsyncCallQuota(max_calls=max_calls, period=period)
+
+
 def test_simbad_is_the_catalog_that_is_limited():
     """SIMBAD is the only upstream with a published policy today (issue #51).
 
@@ -206,6 +318,49 @@ def test_simbad_is_the_catalog_that_is_limited():
     assert SIMBAD_QUERY._rate_limiter is not None
     assert SIMBAD_QUERY._rate_limiter.max_calls == SIMBAD_MAX_QUERIES_PER_SECOND
     assert SIMBAD_QUERY._rate_limiter.period == 1.0
+
+
+@pytest.fixture
+def colibri_with_uid(monkeypatch):
+    """Import ``conesearch.colibri`` with a chosen ``ASTRO_COLIBRI_UID``, then put it back.
+
+    The quota is built in the class body, so the uid is read at import time and re-importing is
+    the only way to ask the module about a different one. The instance the app actually uses is
+    the one `conesearch/__init__.py` built at its own import and is not touched by this; the
+    teardown reload restores the module object itself.
+    """
+    module_name = "ztf_viewer.catalogs.conesearch.colibri"
+
+    def load(uid):
+        monkeypatch.setattr("ztf_viewer.config.ASTRO_COLIBRI_UID", uid)
+        return importlib.reload(importlib.import_module(module_name))
+
+    yield load
+
+    monkeypatch.undo()
+    importlib.reload(importlib.import_module(module_name))
+
+
+def test_astro_colibri_is_unmetered_without_an_account(colibri_with_uid):
+    """A per-user allowance needs a user: with no uid we make the older, unmetered call instead.
+
+    Capping that one at 100 a day would take the catalog off the page for the rest of the day on
+    behalf of a ledger nobody is keeping.
+    """
+    assert colibri_with_uid("").ColibriQuery._rate_limiter is None
+
+
+def test_astro_colibri_holds_itself_to_its_daily_allowance(colibri_with_uid):
+    """100 requests per day per registered user (issue #421).
+
+    The window matters as much as the count: the policy is a daily allowance, so the same number
+    over any other period would not be that policy.
+    """
+    quota = colibri_with_uid("test-uid").ColibriQuery._rate_limiter
+
+    assert quota is not None
+    assert quota.max_calls == ASTRO_COLIBRI_MAX_QUERIES_PER_DAY
+    assert quota.period == 86400.0
 
 
 @pytest.fixture
