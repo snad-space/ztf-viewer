@@ -119,12 +119,44 @@ def parse_pathname(pathname):
     return dr, int(oid), is_short
 
 
+ADDITIONAL_LC_OPTIONS = (
+    {
+        "label": "Closest Antares object, diff-photometry",
+        "value": "antares",
+        "disabled": False,
+    },
+    {
+        "label": "Closest Pan-STARRS object, apparent",
+        "value": "panstarrs",
+        "disabled": False,
+    },
+    {
+        "label": "Closest Gaia object, apparent",
+        "value": "gaia",
+        "disabled": False,
+    },
+)
+
+
+def parse_additional_lc(values: list[str]) -> list[str]:
+    """Additional light curves asked for by the `?lc=` query parameter.
+
+    Both `?lc=antares&lc=gaia` and `?lc=antares,gaia` are accepted. Unknown names are dropped
+    rather than raising: a stale bookmark should still show the object. The order follows the
+    checklist, not the query, so the returned value compares equal to what the widget reports
+    back once the user touches it.
+    """
+    requested = {name.strip().lower() for value in values for name in value.split(",")}
+    return [option["value"] for option in ADDITIONAL_LC_OPTIONS if option["value"] in requested]
+
+
 def parse_search(search_query: str) -> dict[str, Any]:
     parsed = parse_qs(urlparse(search_query).query)
     result = {}
     result["min_mjd"] = float(parsed.get("min_mjd", [-INF])[-1])
     result["max_mjd"] = float(parsed.get("max_mjd", [INF])[-1])
     result["fits"] = parsed.get("fits", [None])[-1]
+    result["lc"] = parse_additional_lc(parsed.get("lc", []))
     return result
 
 
@@ -207,6 +239,7 @@ async def get_layout(pathname, search):
     search_query_parsed = parse_search(search)
     min_mjd = search_query_parsed.get("min_mjd", min_mjd)
     max_mjd = search_query_parsed.get("max_mjd", max_mjd)
+    additional_lc = search_query_parsed["lc"]
 
     try:
         features = await light_curve_features(oid, dr, version="latest", min_mjd=min_mjd, max_mjd=max_mjd)
@@ -337,20 +370,8 @@ async def get_layout(pathname, search):
                             ),
                             dcc.Checklist(
                                 id="additional-light-curves",
-                                options=[
-                                    {
-                                        "label": "Closest Antares object, diff-photometry",
-                                        "value": "antares",
-                                        "disabled": False,
-                                    },
-                                    {
-                                        "label": "Closest Pan-STARRS object, apparent",
-                                        "value": "panstarrs",
-                                        "disabled": False,
-                                    },
-                                    {"label": "Closest Gaia object, apparent", "value": "gaia", "disabled": False},
-                                ],
-                                value=[],
+                                options=[dict(option) for option in ADDITIONAL_LC_OPTIONS],
+                                value=additional_lc,
                                 inline=True,
                             ),
                             dcc.RadioItems(

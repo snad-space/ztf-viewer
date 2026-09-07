@@ -48,6 +48,7 @@ config.UNAVAILABLE_CATALOGS_CACHE_TYPE = "memory"
 
 from ztf_viewer.catalogs import unavailable_catalogs
 from ztf_viewer.exceptions import CatalogUnavailable, NotFound
+from ztf_viewer.lc_data import EXTERNAL_LC_DATA
 from ztf_viewer.lc_data.plot_data import folded_plot_data, plot_data
 from ztf_viewer.pages import viewer
 
@@ -691,6 +692,54 @@ def test_parse_search_fits_param():
 
 def test_parse_search_fits_param_absent():
     assert parse_search("")["fits"] is None
+
+
+# ---------------------------------------------------------------------------------------------
+# parse_additional_lc -- the `?lc=` query param that plots external light curves on page load.
+# ---------------------------------------------------------------------------------------------
+
+parse_additional_lc = viewer.parse_additional_lc  # a plain function, never wrapped
+
+
+def test_parse_search_lc_param_absent():
+    assert parse_search("")["lc"] == []
+
+
+def test_parse_search_lc_param_single():
+    assert parse_search("?lc=antares")["lc"] == ["antares"]
+
+
+def test_parse_search_lc_param_comma_separated():
+    assert parse_search("?lc=antares,gaia")["lc"] == ["antares", "gaia"]
+
+
+def test_parse_search_lc_param_repeated():
+    assert parse_search("?lc=antares&lc=gaia")["lc"] == ["antares", "gaia"]
+
+
+def test_parse_additional_lc_is_case_insensitive_and_trims():
+    assert parse_additional_lc([" Antares , GAIA "]) == ["antares", "gaia"]
+
+
+def test_parse_additional_lc_drops_unknown_names():
+    assert parse_additional_lc(["antares,bogus"]) == ["antares"]
+
+
+def test_parse_additional_lc_deduplicates():
+    assert parse_additional_lc(["gaia,gaia", "gaia"]) == ["gaia"]
+
+
+def test_parse_additional_lc_follows_checklist_order():
+    """The widget reports its values in checklist order, so the parsed value has to match it,
+    otherwise the first user interaction would look like a change and redraw the figure."""
+    checklist_order = [option["value"] for option in viewer.ADDITIONAL_LC_OPTIONS]
+    assert parse_additional_lc(["gaia,panstarrs,antares"]) == checklist_order
+
+
+def test_parse_additional_lc_values_are_plottable():
+    """Every name the query parameter accepts must have an external light curve loader, since
+    `set_figure` passes the checklist values straight to `get_plot_data`."""
+    assert {option["value"] for option in viewer.ADDITIONAL_LC_OPTIONS} == set(EXTERNAL_LC_DATA)
 
 
 def test_pick_fits_observation_empty_lc():
