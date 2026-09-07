@@ -161,12 +161,7 @@ def parse_search(search_query: str) -> dict[str, Any]:
 
 
 def pick_fits_observation(own_lc: list[dict], fits_param: str) -> dict | None:
-    """Pick an observation to show as a FITS image for the `fits` query parameter.
-
-    Besides `first`, `last` and `peak`, an MJD picks the observation closest to it. It is a
-    nearest match rather than an exact one so that a link keeps working when the MJD it carries
-    has been rounded, or when the object is looked at in a different data release.
-    """
+    """Pick an observation to show as a FITS image for the `fits` query parameter"""
     if not own_lc:
         return None
     if fits_param == "first":
