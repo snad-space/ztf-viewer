@@ -243,9 +243,6 @@ async def get_layout(pathname, search):
     short_min_mjd, short_max_mjd = min_max_mjd_short(dr)
     min_mjd, max_mjd = (short_min_mjd, short_max_mjd) if is_short else (-INF, INF)
     search_query_parsed = parse_search(search)
-    # What the MJD inputs would show for this pathname alone, before the query string is applied.
-    # The URL-sync callback below omits a parameter that still equals its default, so that opening
-    # a page without a query string -- `/short` included -- does not immediately grow one.
     default_min_mjd = max(DEFAULT_MIN_MAX_MJD[0], min_mjd)
     default_max_mjd = min(DEFAULT_MIN_MAX_MJD[1], max_mjd)
     min_mjd = search_query_parsed.get("min_mjd", min_mjd)
