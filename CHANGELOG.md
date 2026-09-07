@@ -19,6 +19,7 @@ Version schema is `year.month.num_release`
 ### Added
 
 - A dashed cross-hair marks the observation whose FITS image is shown, and the FITS block names that observation's filter and MJD https://github.com/snad-space/ztf-viewer/issues/719
+- The URL follows the MJD range, the new `?lc=antares,panstarrs,gaia` external light curves and the FITS observation, which `?fits=` now also takes as an MJD, so a copied link reproduces the page https://github.com/snad-space/ztf-viewer/issues/329
 
 ### Added
 

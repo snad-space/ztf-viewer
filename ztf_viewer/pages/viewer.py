@@ -119,12 +119,44 @@ def parse_pathname(pathname):
     return dr, int(oid), is_short
 
 
+ADDITIONAL_LC_OPTIONS = (
+    {
+        "label": "Closest Antares object, diff-photometry",
+        "value": "antares",
+        "disabled": False,
+    },
+    {
+        "label": "Closest Pan-STARRS object, apparent",
+        "value": "panstarrs",
+        "disabled": False,
+    },
+    {
+        "label": "Closest Gaia object, apparent",
+        "value": "gaia",
+        "disabled": False,
+    },
+)
+
+
+def parse_additional_lc(values: list[str]) -> list[str]:
+    """Additional light curves asked for by the `?lc=` query parameter.
+
+    Both `?lc=antares&lc=gaia` and `?lc=antares,gaia` are accepted. Unknown names are dropped
+    rather than raising: a stale bookmark should still show the object. The order follows the
+    checklist, not the query, so the returned value compares equal to what the widget reports
+    back once the user touches it.
+    """
+    requested = {name.strip().lower() for value in values for name in value.split(",")}
+    return [option["value"] for option in ADDITIONAL_LC_OPTIONS if option["value"] in requested]
+
+
 def parse_search(search_query: str) -> dict[str, Any]:
     parsed = parse_qs(urlparse(search_query).query)
     result = {}
     result["min_mjd"] = float(parsed.get("min_mjd", [-INF])[-1])
     result["max_mjd"] = float(parsed.get("max_mjd", [INF])[-1])
     result["fits"] = parsed.get("fits", [None])[-1]
+    result["lc"] = parse_additional_lc(parsed.get("lc", []))
     return result
 
 
@@ -138,7 +170,13 @@ def pick_fits_observation(own_lc: list[dict], fits_param: str) -> dict | None:
         return max(own_lc, key=lambda obs: obs["mjd"])
     if fits_param == "peak":
         return min(own_lc, key=lambda obs: obs["mag"])
-    return None
+    try:
+        mjd = float(fits_param)
+    except TypeError, ValueError:
+        return None
+    if not np.isfinite(mjd):
+        return None
+    return min(own_lc, key=lambda obs: abs(obs["mjd"] - mjd))
 
 
 # Point identity; `set_figure` appends the plotted x and y, which differ between the full and the
@@ -205,8 +243,11 @@ async def get_layout(pathname, search):
     short_min_mjd, short_max_mjd = min_max_mjd_short(dr)
     min_mjd, max_mjd = (short_min_mjd, short_max_mjd) if is_short else (-INF, INF)
     search_query_parsed = parse_search(search)
+    default_min_mjd = max(DEFAULT_MIN_MAX_MJD[0], min_mjd)
+    default_max_mjd = min(DEFAULT_MIN_MAX_MJD[1], max_mjd)
     min_mjd = search_query_parsed.get("min_mjd", min_mjd)
     max_mjd = search_query_parsed.get("max_mjd", max_mjd)
+    additional_lc = search_query_parsed["lc"]
 
     try:
         features = await light_curve_features(oid, dr, version="latest", min_mjd=min_mjd, max_mjd=max_mjd)
@@ -220,6 +261,11 @@ async def get_layout(pathname, search):
     layout = html.Div(
         [
             html.Div("", id="placeholder", style={"display": "none"}),
+            html.Div("", id="url-query-sync", style={"display": "none"}),
+            dcc.Store(
+                id="url-query-defaults",
+                data={"min_mjd": default_min_mjd, "max_mjd": default_max_mjd},
+            ),
             dcc.Store(id="selected-observation"),
             dcc.Store(id="figure-version"),
             html.Div(f"{oid}", id="oid", style={"display": "none"}),
@@ -337,20 +383,8 @@ async def get_layout(pathname, search):
                             ),
                             dcc.Checklist(
                                 id="additional-light-curves",
-                                options=[
-                                    {
-                                        "label": "Closest Antares object, diff-photometry",
-                                        "value": "antares",
-                                        "disabled": False,
-                                    },
-                                    {
-                                        "label": "Closest Pan-STARRS object, apparent",
-                                        "value": "panstarrs",
-                                        "disabled": False,
-                                    },
-                                    {"label": "Closest Gaia object, apparent", "value": "gaia", "disabled": False},
-                                ],
-                                value=[],
+                                options=[dict(option) for option in ADDITIONAL_LC_OPTIONS],
+                                value=additional_lc,
                                 inline=True,
                             ),
                             dcc.RadioItems(
@@ -2120,6 +2154,86 @@ async def load_fits_for_graph_clicked(data, oid, dr, search):
     mjd, oid, fieldid, rcid, fltr, *_ = point["customdata"]
     children = await fits_children_for_observation(mjd, oid, fieldid, rcid, fltr, dr)
     return children, {"mjd": mjd, "oid": oid}
+
+
+# Keeps the address bar in step with the controls, so that the URL a user copies reproduces what
+# they are looking at. Clientside because the query string must change without the router seeing
+# it: `url.search` is an `Input` of `app_select_by_url`, and round-tripping through `dcc.Location`
+# would rebuild the whole page on every keystroke in the MJD inputs.
+app.clientside_callback(
+    """
+    function(minMjd, maxMjd, additionalLc, lcOptions, selected, oid, defaults) {
+        const params = new URLSearchParams(window.location.search);
+
+        // A control still on its default is left out, so an untouched page keeps a clean URL.
+        const mjdParam = (value, fallback) => {
+            if (value === null || value === undefined || value === "") {
+                return null;
+            }
+            const number = Number(value);
+            if (!Number.isFinite(number) || number === fallback) {
+                return null;
+            }
+            return String(number);
+        };
+        for (const [name, value] of [
+            ["min_mjd", mjdParam(minMjd, defaults.min_mjd)],
+            ["max_mjd", mjdParam(maxMjd, defaults.max_mjd)],
+        ]) {
+            if (value === null) {
+                params.delete(name);
+            } else {
+                params.set(name, value);
+            }
+        }
+
+        // A source with no object within the search radius is left out: it has nothing to plot,
+        // so carrying it in a shared link would only re-run a cross-match that already failed.
+        // `disabled` is exactly that case -- a source whose API is merely down stays enabled, and
+        // stays in the URL, because it is worth retrying. Until the cross-matches come back the
+        // options are all enabled, so an incoming `?lc=` survives until it is known to be empty.
+        const notFound = new Set((lcOptions || []).filter((o) => o.disabled).map((o) => o.value));
+        // One `lc` per source rather than a comma-separated list: `URLSearchParams` would escape
+        // the comma to `%2C` and make the shared link harder to read.
+        params.delete("lc");
+        for (const value of additionalLc || []) {
+            if (!notFound.has(value)) {
+                params.append("lc", value);
+            }
+        }
+
+        // `fits` is only ever added, never removed: this callback also runs on mount, before the
+        // callback that acts on an incoming `?fits=` has resolved, and it must not drop the
+        // parameter out from under it. An observation of a neighbouring object is not addressable
+        // by MJD alone on this page, so it is left out.
+        if (selected && String(selected.oid) === String(oid)) {
+            // 5 decimals is a second of MJD, well inside one ZTF exposure; `Number` then drops
+            // the trailing zeros an exact MJD would otherwise leave in the shared link.
+            params.set("fits", String(Number(selected.mjd.toFixed(5))));
+        }
+
+        const query = params.toString();
+        const url = window.location.pathname + (query ? "?" + query : "") + window.location.hash;
+        // `replaceState`, not `pushState`: typing in the MJD inputs should not fill the back
+        // button with every intermediate value. `dcc.Location` only listens for `popstate` and
+        // Dash's own pushstate event, so this stays invisible to the router by construction.
+        window.history.replaceState(window.history.state, "", url);
+        return window.dash_clientside.no_update;
+    }
+    """,
+    Output("url-query-sync", "children"),
+    [
+        Input("min-mjd", "value"),
+        Input("max-mjd", "value"),
+        Input("additional-light-curves", "value"),
+        Input("additional-light-curves", "options"),
+        Input("selected-observation", "data"),
+    ],
+    [
+        State("oid", "children"),
+        State("url-query-defaults", "data"),
+    ],
+)
 
 
 # Layout shapes, not an extra trace, so the cross-hair spans the axes and cannot be hovered or
