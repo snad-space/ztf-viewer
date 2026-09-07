@@ -161,7 +161,12 @@ def parse_search(search_query: str) -> dict[str, Any]:
 
 
 def pick_fits_observation(own_lc: list[dict], fits_param: str) -> dict | None:
-    """Pick an observation to show as a FITS image for the `fits` query parameter"""
+    """Pick an observation to show as a FITS image for the `fits` query parameter.
+
+    Besides `first`, `last` and `peak`, an MJD picks the observation closest to it. It is a
+    nearest match rather than an exact one so that a link keeps working when the MJD it carries
+    has been rounded, or when the object is looked at in a different data release.
+    """
     if not own_lc:
         return None
     if fits_param == "first":
@@ -170,7 +175,13 @@ def pick_fits_observation(own_lc: list[dict], fits_param: str) -> dict | None:
         return max(own_lc, key=lambda obs: obs["mjd"])
     if fits_param == "peak":
         return min(own_lc, key=lambda obs: obs["mag"])
-    return None
+    try:
+        mjd = float(fits_param)
+    except TypeError, ValueError:
+        return None
+    if not np.isfinite(mjd):
+        return None
+    return min(own_lc, key=lambda obs: abs(obs["mjd"] - mjd))
 
 
 # Point identity; `set_figure` appends the plotted x and y, which differ between the full and the
@@ -237,6 +248,11 @@ async def get_layout(pathname, search):
     short_min_mjd, short_max_mjd = min_max_mjd_short(dr)
     min_mjd, max_mjd = (short_min_mjd, short_max_mjd) if is_short else (-INF, INF)
     search_query_parsed = parse_search(search)
+    # What the MJD inputs would show for this pathname alone, before the query string is applied.
+    # The URL-sync callback below omits a parameter that still equals its default, so that opening
+    # a page without a query string -- `/short` included -- does not immediately grow one.
+    default_min_mjd = max(DEFAULT_MIN_MAX_MJD[0], min_mjd)
+    default_max_mjd = min(DEFAULT_MIN_MAX_MJD[1], max_mjd)
     min_mjd = search_query_parsed.get("min_mjd", min_mjd)
     max_mjd = search_query_parsed.get("max_mjd", max_mjd)
     additional_lc = search_query_parsed["lc"]
@@ -253,6 +269,11 @@ async def get_layout(pathname, search):
     layout = html.Div(
         [
             html.Div("", id="placeholder", style={"display": "none"}),
+            html.Div("", id="url-query-sync", style={"display": "none"}),
+            dcc.Store(
+                id="url-query-defaults",
+                data={"min_mjd": default_min_mjd, "max_mjd": default_max_mjd},
+            ),
             dcc.Store(id="selected-observation"),
             dcc.Store(id="figure-version"),
             html.Div(f"{oid}", id="oid", style={"display": "none"}),
@@ -2141,6 +2162,77 @@ async def load_fits_for_graph_clicked(data, oid, dr, search):
     mjd, oid, fieldid, rcid, fltr, *_ = point["customdata"]
     children = await fits_children_for_observation(mjd, oid, fieldid, rcid, fltr, dr)
     return children, {"mjd": mjd, "oid": oid}
+
+
+# Keeps the address bar in step with the controls, so that the URL a user copies reproduces what
+# they are looking at. Clientside because the query string must change without the router seeing
+# it: `url.search` is an `Input` of `app_select_by_url`, and round-tripping through `dcc.Location`
+# would rebuild the whole page on every keystroke in the MJD inputs.
+app.clientside_callback(
+    """
+    function(minMjd, maxMjd, additionalLc, selected, oid, defaults) {
+        const params = new URLSearchParams(window.location.search);
+
+        // A control still on its default is left out, so an untouched page keeps a clean URL.
+        const mjdParam = (value, fallback) => {
+            if (value === null || value === undefined || value === "") {
+                return null;
+            }
+            const number = Number(value);
+            if (!Number.isFinite(number) || number === fallback) {
+                return null;
+            }
+            return String(number);
+        };
+        for (const [name, value] of [
+            ["min_mjd", mjdParam(minMjd, defaults.min_mjd)],
+            ["max_mjd", mjdParam(maxMjd, defaults.max_mjd)],
+        ]) {
+            if (value === null) {
+                params.delete(name);
+            } else {
+                params.set(name, value);
+            }
+        }
+
+        // One `lc` per source rather than a comma-separated list: `URLSearchParams` would escape
+        // the comma to `%2C` and make the shared link harder to read.
+        params.delete("lc");
+        for (const value of additionalLc || []) {
+            params.append("lc", value);
+        }
+
+        // `fits` is only ever added, never removed: this callback also runs on mount, before the
+        // callback that acts on an incoming `?fits=` has resolved, and it must not drop the
+        // parameter out from under it. An observation of a neighbouring object is not addressable
+        // by MJD alone on this page, so it is left out.
+        if (selected && String(selected.oid) === String(oid)) {
+            // 5 decimals is a second of MJD, well inside one ZTF exposure; `Number` then drops
+            // the trailing zeros an exact MJD would otherwise leave in the shared link.
+            params.set("fits", String(Number(selected.mjd.toFixed(5))));
+        }
+
+        const query = params.toString();
+        const url = window.location.pathname + (query ? "?" + query : "") + window.location.hash;
+        // `replaceState`, not `pushState`: typing in the MJD inputs should not fill the back
+        // button with every intermediate value. `dcc.Location` only listens for `popstate` and
+        // Dash's own pushstate event, so this stays invisible to the router by construction.
+        window.history.replaceState(window.history.state, "", url);
+        return window.dash_clientside.no_update;
+    }
+    """,
+    Output("url-query-sync", "children"),
+    [
+        Input("min-mjd", "value"),
+        Input("max-mjd", "value"),
+        Input("additional-light-curves", "value"),
+        Input("selected-observation", "data"),
+    ],
+    [
+        State("oid", "children"),
+        State("url-query-defaults", "data"),
+    ],
+)
 
 
 # Layout shapes, not an extra trace, so the cross-hair spans the axes and cannot be hovered or

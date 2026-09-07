@@ -766,6 +766,33 @@ def test_pick_fits_observation_peak_is_brightest():
     assert pick_fits_observation(lc, "peak")["mjd"] == 58001.0
 
 
+def test_pick_fits_observation_by_exact_mjd():
+    lc = [{"mjd": 58002.0, "mag": 18.0}, {"mjd": 58000.0, "mag": 19.0}, {"mjd": 58001.0, "mag": 17.0}]
+    assert pick_fits_observation(lc, "58002.0")["mjd"] == 58002.0
+
+
+def test_pick_fits_observation_by_mjd_is_nearest_match():
+    """A rounded or slightly-off MJD still resolves, so a shared link survives rounding."""
+    lc = [{"mjd": 58002.0, "mag": 18.0}, {"mjd": 58000.0, "mag": 19.0}, {"mjd": 58001.0, "mag": 17.0}]
+    assert pick_fits_observation(lc, "58001.4")["mjd"] == 58001.0
+
+
+def test_pick_fits_observation_by_mjd_outside_the_light_curve():
+    lc = [{"mjd": 58002.0, "mag": 18.0}, {"mjd": 58000.0, "mag": 19.0}]
+    assert pick_fits_observation(lc, "59000")["mjd"] == 58002.0
+
+
+def test_pick_fits_observation_by_mjd_empty_lc():
+    assert pick_fits_observation([], "58001.4") is None
+
+
+@pytest.mark.parametrize("fits_param", ["nan", "inf", "-inf"])
+def test_pick_fits_observation_rejects_non_finite_mjd(fits_param):
+    """`float()` accepts these, but `min()` over `abs(mjd - nan)` would return an arbitrary point."""
+    lc = [{"mjd": 58002.0, "mag": 18.0}, {"mjd": 58000.0, "mag": 19.0}]
+    assert pick_fits_observation(lc, fits_param) is None
+
+
 async def test_fits_children_for_observation(summary_upstreams):
     with patch.object(viewer, "correct_date", AsyncMock()):
         children = await fits_children_for_observation(58000.0, "633207400004730", 796, 12, "zg", "dr24")
