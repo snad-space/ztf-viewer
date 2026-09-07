@@ -19,9 +19,7 @@ Version schema is `year.month.num_release`
 ### Added
 
 - A dashed cross-hair marks the observation whose FITS image is shown, and the FITS block names that observation's filter and MJD https://github.com/snad-space/ztf-viewer/issues/719
-- `?lc=antares,panstarrs,gaia` query parameter to plot the closest Antares, Pan-STARRS and/or Gaia light curves on page load, so a link can share an object with its external photometry already shown https://github.com/snad-space/ztf-viewer/issues/329
-- The address bar now follows the MJD range, the external light curve checkboxes and the observation whose FITS image is shown, so copying the URL shares the object as it is on screen. A light curve source with no object within the search radius is left out of the URL, since it has nothing to plot https://github.com/snad-space/ztf-viewer/issues/329
-- `?fits=` also accepts an MJD, addressing one specific observation instead of only `first`, `last` and `peak`; the closest observation wins, so a rounded MJD still resolves https://github.com/snad-space/ztf-viewer/issues/329
+- The URL follows the MJD range, the new `?lc=antares,panstarrs,gaia` external light curves and the FITS observation, which `?fits=` now also takes as an MJD, so a copied link reproduces the page https://github.com/snad-space/ztf-viewer/issues/329
 
 ### Added
 
