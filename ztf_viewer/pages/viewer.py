@@ -2170,7 +2170,7 @@ async def load_fits_for_graph_clicked(data, oid, dr, search):
 # would rebuild the whole page on every keystroke in the MJD inputs.
 app.clientside_callback(
     """
-    function(minMjd, maxMjd, additionalLc, selected, oid, defaults) {
+    function(minMjd, maxMjd, additionalLc, lcOptions, selected, oid, defaults) {
         const params = new URLSearchParams(window.location.search);
 
         // A control still on its default is left out, so an untouched page keeps a clean URL.
@@ -2195,11 +2195,19 @@ app.clientside_callback(
             }
         }
 
+        // A source with no object within the search radius is left out: it has nothing to plot,
+        // so carrying it in a shared link would only re-run a cross-match that already failed.
+        // `disabled` is exactly that case -- a source whose API is merely down stays enabled, and
+        // stays in the URL, because it is worth retrying. Until the cross-matches come back the
+        // options are all enabled, so an incoming `?lc=` survives until it is known to be empty.
+        const notFound = new Set((lcOptions || []).filter((o) => o.disabled).map((o) => o.value));
         // One `lc` per source rather than a comma-separated list: `URLSearchParams` would escape
         // the comma to `%2C` and make the shared link harder to read.
         params.delete("lc");
         for (const value of additionalLc || []) {
-            params.append("lc", value);
+            if (!notFound.has(value)) {
+                params.append("lc", value);
+            }
         }
 
         // `fits` is only ever added, never removed: this callback also runs on mount, before the
@@ -2226,6 +2234,7 @@ app.clientside_callback(
         Input("min-mjd", "value"),
         Input("max-mjd", "value"),
         Input("additional-light-curves", "value"),
+        Input("additional-light-curves", "options"),
         Input("selected-observation", "data"),
     ],
     [
