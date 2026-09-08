@@ -123,7 +123,9 @@ app.layout = html.Div(
                     id="input-search-radius",
                     placeholder="1.23",
                     type="number",
-                    step="0.1",
+                    # The browser rejects any value off the step grid, so a coarser step would
+                    # refuse the sub-arcsecond radii this search is for - the placeholder included.
+                    step="0.001",
                     min="0",
                     max="60",
                     n_submit=0,
