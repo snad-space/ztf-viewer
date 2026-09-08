@@ -916,11 +916,14 @@ def test_crosshair_callback_javascript_has_the_indexes_substituted():
 # ---------------------------------------------------------------------------------------------
 #
 # The hover rows are built by plotly express out of the x/y columns, the `color`/`symbol`/`size`
-# dimensions and `hover_data`, in that order. Both of the things pinned here are consequences of
-# that ordering rather than of anything written literally in the template, so they can regress
-# silently: the brightness error has to sit right below the brightness it belongs to, and
-# `mark_size` -- which encodes whether the point belongs to the current OID, not anything
-# measured -- must not show up as a data row at all.
+# dimensions and `hover_data`, in that order. Everything pinned here is a consequence of that
+# ordering rather than of anything written literally in the template, so it can regress silently.
+#
+# The brightness error is not a row of its own: plotly.js appends the error bars to the brightness
+# value itself (`mag=18.000 ± 0.050`), so listing the error columns in `hover_data` on top of that
+# repeats them, detached from the value they belong to -- issue #745. `mark_size`, which encodes
+# whether the point belongs to the current OID rather than anything measured, must not show up as
+# a data row either.
 
 set_figure = inspect.unwrap(viewer.set_figure)
 
@@ -931,7 +934,7 @@ def _hover_rows(figure) -> list[str]:
     return [row.split("=", maxsplit=1)[0] for row in template.split("<br>")]
 
 
-async def _figure_hover_rows(brightness_type="mag", lc_type="full", period=None):
+async def _figure(brightness_type="mag", lc_type="full", period=None):
     lc = [
         {
             "mjd": 58000.0 + i,
@@ -972,18 +975,53 @@ async def _figure_hover_rows(brightness_type="mag", lc_type="full", period=None)
             name_model=None,
             fit_params=None,
         )
-    return _hover_rows(figure)
+    return figure
 
 
-async def test_set_figure_hover_puts_the_error_right_after_the_brightness():
-    assert await _figure_hover_rows() == ["filter", "oid", "mjd − 58000", "mag", "mag error", "date"]
+async def _figure_hover_rows(**kwargs):
+    return _hover_rows(await _figure(**kwargs))
 
 
-async def test_set_figure_hover_of_a_folded_curve_puts_the_error_right_after_the_brightness():
-    # The folded branch passes no `labels` for the brightness columns, so they keep their raw
-    # names here -- what is pinned is the position of the error row, not how it is spelled.
+async def test_set_figure_hover_ends_at_the_brightness_and_the_date():
+    assert await _figure_hover_rows() == ["filter", "oid", "mjd − 58000", "mag", "date"]
+
+
+async def test_set_figure_hover_of_a_folded_curve_keeps_the_folded_times_after_the_brightness():
     rows = await _figure_hover_rows(lc_type="folded", period=1.5)
-    assert rows == ["filter", "oid", "phase", "mag", "magerr", "folded_time", "mjd − 58000", "date"]
+    assert rows == ["filter", "oid", "phase", "mag", "folded time", "mjd − 58000", "date"]
+
+
+@pytest.mark.parametrize("lc_type,period", [("full", None), ("folded", 1.5)])
+@pytest.mark.parametrize("brightness_type", ["mag", "flux", "diffmag", "diffflux"])
+async def test_set_figure_hover_does_not_repeat_the_error_columns(brightness_type, lc_type, period):
+    """The error bars are rendered by plotly.js next to the brightness value, so a row of their
+    own is a duplicate -- and the one for an asymmetric error shows only half of it."""
+    figure = await _figure(brightness_type=brightness_type, lc_type=lc_type, period=period)
+
+    for column, label in viewer.BRIGHTERR_LABELS.items():
+        assert column not in figure.data[0].hovertemplate
+        assert label not in figure.data[0].hovertemplate
+
+
+@pytest.mark.parametrize("lc_type,period", [("full", None), ("folded", 1.5)])
+async def test_set_figure_keeps_asymmetric_diffmag_errors(lc_type, period):
+    """`diffmag` is the one brightness with a separate minus error; the folded branch used to drop
+    it and mirror the plus one instead."""
+    figure = await _figure(brightness_type="diffmag", lc_type=lc_type, period=period)
+
+    error_y = figure.data[0].error_y
+    assert error_y.arrayminus is not None
+    assert not error_y.symmetric
+
+
+@pytest.mark.parametrize("lc_type,period", [("full", None), ("folded", 1.5)])
+@pytest.mark.parametrize("brightness_type", ["mag", "flux", "diffmag", "diffflux"])
+async def test_set_figure_rounds_the_brightness_in_the_hover(brightness_type, lc_type, period):
+    """`yaxis.hoverformat` is what rounds the error bars too -- they are formatted by plotly.js
+    with the y axis' hover format, not by anything in the template."""
+    figure = await _figure(brightness_type=brightness_type, lc_type=lc_type, period=period)
+
+    assert figure.layout.yaxis.hoverformat
 
 
 @pytest.mark.parametrize("brightness_type", ["mag", "flux", "diffmag", "diffflux"])

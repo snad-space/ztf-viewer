@@ -15,6 +15,8 @@ Version schema is `year.month.num_release`
 - Simbad cross-match works again: astroquery ≥0.4.8 returns `ra`/`dec` in degrees instead of `RA`/`DEC` in hours, so every Simbad cone search raised `KeyError` and the catalog was silently absent from every object page
 - Simbad rows are no longer duplicated once per object type, distance and variability measurement, and each measurement group now shows the one Simbad ranks first
 - Simbad "Variable type" is populated again, and its period is back in the summary and the cross-match table
+- Light-curve tooltip no longer repeats the photometric error https://github.com/snad-space/ztf-viewer/issues/745
+- Folded plot shows asymmetric diff mag errors
 
 ### Added
 
