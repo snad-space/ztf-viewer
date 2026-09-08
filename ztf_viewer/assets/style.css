@@ -15,6 +15,15 @@
     font-size: large;
 }
 
+/* Explanatory prose next to a result, not a result itself: smaller and quieter than the
+   surrounding content, and narrow enough to stay readable on a wide screen. */
+.note {
+    font-size: 90%;
+    color: #444;
+    max-width: 60em;
+    margin-bottom: 1.5rem;
+}
+
 /* Links
 –––––––––––––––––––––––––––––––––––––––––––––––––– */
 a {

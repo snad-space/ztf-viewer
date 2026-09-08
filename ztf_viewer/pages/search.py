@@ -13,6 +13,14 @@ COLUMNS = {
     "duration": "Duration, days",
 }
 
+# A cone search usually returns several rows for what is a single star or transient, which reads
+# as a bug unless you know how ZTF data releases are built. Say it on the page instead.
+MULTIPLE_OIDS_NOTE = (
+    "ZTF DR objects are based on the ZTF reference catalog, where a celestial source may be "
+    "represented by multiple objects (OIDs), one per a unique set of passband, field ID and CCD "
+    "quadrant. Several of the OIDs listed here are therefore likely to be the same source."
+)
+
 
 async def get_layout(coordinates, radius_arcsec, dr):
     ra = coordinates.ra.to_value("deg")
@@ -36,6 +44,8 @@ async def get_layout(coordinates, radius_arcsec, dr):
     layout = html.Div(
         [
             html.H1(f"Objects inside cone {cone_str}"),
+            # Nothing to explain when the cone holds a single OID.
+            *([html.P(MULTIPLE_OIDS_NOTE, className="note", id="multiple-oids-note")] if len(j) > 1 else []),
             dcc.Markdown(
                 html_from_astropy_table(table, COLUMNS, html_columns=frozenset({"oid"})),
                 dangerously_allow_html=True,
