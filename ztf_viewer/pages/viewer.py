@@ -107,6 +107,13 @@ BRIGHTERR_LABELS = {
     "diffmagerr_minus": "diff mag error -",
     "difffluxerr_Jy": "diff flux error, Jy",
 }
+# d3 format for the brightness value and its error bars in the tooltip, see `layout.yaxis.hoverformat`
+BRIGHT_HOVER_FORMATS = {
+    "mag": ".3f",
+    "flux_Jy": ".4g",
+    "diffmag": ".3f",
+    "diffflux_Jy": ".4g",
+}
 
 
 def parse_pathname(pathname):
@@ -183,6 +190,37 @@ def pick_fits_observation(own_lc: list[dict], fits_param: str) -> dict | None:
 # folded light curve. The cross-hair reads coordinates from here: plotly sends `x`/`y` as base64.
 CUSTOM_DATA = ["mjd", "oid", "fieldid", "rcid", "filter"]
 CUSTOM_DATA_X, CUSTOM_DATA_Y = len(CUSTOM_DATA), len(CUSTOM_DATA) + 1
+
+
+def lc_hover_layout(lc_type, bright, brighterr, brighterr_minus):
+    """Labels and `hover_data` for the light-curve scatter tooltip.
+
+    Plotly appends the error bar values to the brightness value in the tooltip itself, so the error columns must not
+    be listed in `hover_data`: they would be repeated there, detached from the value they belong to.
+    """
+    labels = {
+        f"mjd_{MJD_OFFSET}": f"mjd − {MJD_OFFSET}",
+        "folded_time": "folded time",
+        bright: BRIGHT_LABELS[bright],
+        brighterr: BRIGHTERR_LABELS[brighterr],
+    }
+    if brighterr_minus is not None:
+        labels[brighterr_minus] = BRIGHTERR_LABELS[brighterr_minus]
+
+    if lc_type == "full":
+        hover_data = {"mark_size": False, f"mjd_{MJD_OFFSET}": ":.5f", "date": True}
+    elif lc_type == "folded":
+        hover_data = {
+            "mark_size": False,
+            "phase": ":.5f",
+            "folded_time": ":.5f",
+            f"mjd_{MJD_OFFSET}": ":.5f",
+            "date": True,
+        }
+    else:
+        raise ValueError(f"{lc_type = } is unknown")
+
+    return labels, hover_data
 
 
 async def fits_children_for_observation(mjd, oid, fieldid, rcid, fltr, dr):
@@ -1861,6 +1899,7 @@ async def set_figure(
     else:
         raise ValueError(f'Wrong brightness_type "{brightness_type}"')
     df = pd.DataFrame.from_records(lcs)
+    labels, hover_data = lc_hover_layout(lc_type, bright, brighterr, brighterr_minus)
     if lc_type == "full":
         figure = px.scatter(
             df,
@@ -1870,17 +1909,12 @@ async def set_figure(
             error_y_minus=brighterr_minus,
             color="filter",
             range_y=range_y,
-            labels={
-                f"mjd_{MJD_OFFSET}": f"mjd − {MJD_OFFSET}",
-                bright: BRIGHT_LABELS[bright],
-                brighterr: BRIGHTERR_LABELS[brighterr],
-            }
-            | ({} if brighterr_minus is None else {brighterr_minus: BRIGHTERR_LABELS[brighterr_minus]}),
+            labels=labels,
             color_discrete_map=FILTER_COLORS,
             symbol="oid",
             size="mark_size",
             size_max=MARKER_SIZE,
-            hover_data={brighterr: True, "mark_size": False, f"mjd_{MJD_OFFSET}": ":.5f", "date": True},
+            hover_data=hover_data,
             custom_data=CUSTOM_DATA + [f"mjd_{MJD_OFFSET}", bright],
             render_mode=render_mode,
         )
@@ -1890,21 +1924,15 @@ async def set_figure(
             x="phase",
             y=bright,
             error_y=brighterr,
-            error_y_minus=None,
+            error_y_minus=brighterr_minus,
             color="filter",
             range_y=range_y,
-            labels={f"mjd_{MJD_OFFSET}": f"mjd − {MJD_OFFSET}"},
+            labels=labels,
             color_discrete_map=FILTER_COLORS,
             symbol="oid",
             size="mark_size",
             size_max=MARKER_SIZE,
-            hover_data={
-                brighterr: True,
-                "mark_size": False,
-                "folded_time": True,
-                f"mjd_{MJD_OFFSET}": ":.5f",
-                "date": True,
-            },
+            hover_data=hover_data,
             custom_data=CUSTOM_DATA + ["phase", bright],
             range_x=[0.0, 1.0],
             render_mode=render_mode,
@@ -1946,6 +1974,8 @@ async def set_figure(
     )
     fw = go.FigureWidget(figure)
     fw.layout.hovermode = "closest"
+    # Applies to both the brightness value and the error bars appended to it in the tooltip
+    fw.layout.yaxis.hoverformat = BRIGHT_HOVER_FORMATS[bright]
     fw.layout.xaxis.title.standoff = 0
     fw.layout.yaxis.title.standoff = 0
     fw.layout.legend.orientation = "h"
