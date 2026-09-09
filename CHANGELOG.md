@@ -18,6 +18,8 @@ Version schema is `year.month.num_release`
 - Light-curve tooltip no longer repeats the photometric error https://github.com/snad-space/ztf-viewer/issues/745
 - Folded plot shows asymmetric diff mag errors
 - Search radius fields accept three decimal digits, so a sub-arcsecond radius, the `1.23` shown as the cone-search placeholder included, is no longer rejected by the browser
+- SDSS DR16 Quasars "redshift source" spells the source out instead of showing the raw `PIPE`/`VI`/`DR6Q_HW`/`DR7QV_SCH`/`DR12QV` code, and links the three borrowed ones to the catalog the redshift comes from https://github.com/snad-space/ztf-viewer/issues/375
+- SDSS DR16 Quasars cross-match no longer prints every row to the server log, and an unknown source class no longer raises `KeyError` and drops the whole catalog from the object page
 
 ### Added
 
