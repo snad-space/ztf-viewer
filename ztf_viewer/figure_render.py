@@ -17,12 +17,48 @@ from matplotlib.ticker import AutoMinorLocator
 
 from ztf_viewer.util import FILTER_COLORS, FILTERS_ORDER, ZTF_FILTERS, flip
 
+# Brightness the figure plots, keyed as the light-curve page's radio buttons name it. Fields
+# are the ones `lc_data.plot_data` puts on every observation; `err_minus` is set only where the
+# error bar is asymmetric, and `inverted` marks the magnitude-like axes, which grow downwards.
+BRIGHTNESS = {
+    "mag": {"value": "mag", "err": "magerr", "err_minus": None, "label": "magnitude", "inverted": True},
+    "flux": {"value": "flux_Jy", "err": "fluxerr_Jy", "err_minus": None, "label": "flux, Jy", "inverted": False},
+    "diffmag": {
+        "value": "diffmag",
+        "err": "diffmagerr_plus",
+        "err_minus": "diffmagerr_minus",
+        "label": "difference magnitude",
+        "inverted": True,
+    },
+    "diffflux": {
+        "value": "diffflux_Jy",
+        "err": "difffluxerr_Jy",
+        "err_minus": None,
+        "label": "difference flux, Jy",
+        "inverted": False,
+    },
+}
+DEFAULT_BRIGHTNESS = "mag"
 
-def plot_folded_data(oid, data, period, repeat=None, fmt="png", caption=True, title=None):
+
+def _brightness_arrays(lc, brightness):
+    """Brightness and its error bar, as matplotlib takes them."""
+    fields = BRIGHTNESS[brightness]
+    m = np.array([obs[fields["value"]] for obs in lc], dtype=float)
+    err = np.array([obs[fields["err"]] for obs in lc], dtype=float)
+    if fields["err_minus"] is None:
+        return m, err
+    err_minus = np.array([obs[fields["err_minus"]] for obs in lc], dtype=float)
+    # matplotlib reads a 2 x N `yerr` as (below the point, above the point)
+    return m, np.stack([err_minus, err])
+
+
+def plot_folded_data(oid, data, period, repeat=None, fmt="png", caption=True, title=None, brightness=None):
     if repeat is None:
         repeat = 2
 
     usetex = fmt == "pdf"
+    brightness = brightness or DEFAULT_BRIGHTNESS
 
     if title is None:
         title = str(oid)
@@ -34,12 +70,13 @@ def plot_folded_data(oid, data, period, repeat=None, fmt="png", caption=True, ti
             continue
         first_obs = lc[0]
         fltr = first_obs["filter"]
+        m, err = _brightness_arrays(lc, brightness)
         lcs[lc_oid] = {
             "filter": fltr,
             "folded_time": np.array([obs["folded_time"] for obs in lc]),
             "phase": np.array([obs["phase"] for obs in lc]),
-            "m": np.array([obs["mag"] for obs in lc]),
-            "err": np.array([obs["magerr"] for obs in lc]),
+            "m": m,
+            "err": err,
             "color": FILTER_COLORS[fltr],
             "marker_size": 24 if lc_oid == oid else 12,
             "label": "" if fltr in seen_filters else fltr,
@@ -58,10 +95,11 @@ def plot_folded_data(oid, data, period, repeat=None, fmt="png", caption=True, ti
             fontdict={"size": 8, "color": "grey", "usetex": usetex},
         )
     ax = fig.subplots()
-    ax.invert_yaxis()
+    if BRIGHTNESS[brightness]["inverted"]:
+        ax.invert_yaxis()
     ax.set_title(f"{title}, P = {period:.6g} days", usetex=usetex)
     ax.set_xlabel("phase", usetex=usetex)
-    ax.set_ylabel("magnitude", usetex=usetex)
+    ax.set_ylabel(BRIGHTNESS[brightness]["label"], usetex=usetex)
     ax.xaxis.set_minor_locator(AutoMinorLocator(2))
     ax.yaxis.set_minor_locator(AutoMinorLocator(2))
     ax.tick_params(which="major", direction="in", length=6, width=1.5)
@@ -111,8 +149,9 @@ def plot_folded_data(oid, data, period, repeat=None, fmt="png", caption=True, ti
     return bytes_io.getvalue()
 
 
-def plot_data(oid, data, fmt="png", caption=True, title=None):
+def plot_data(oid, data, fmt="png", caption=True, title=None, brightness=None):
     usetex = fmt == "pdf"
+    brightness = brightness or DEFAULT_BRIGHTNESS
 
     if title is None:
         title = str(oid)
@@ -143,11 +182,13 @@ def plot_data(oid, data, fmt="png", caption=True, title=None):
         if fltr not in ZTF_FILTERS:
             zorder = 3
 
+        m, err = _brightness_arrays(lc, brightness)
+
         lcs[lc_oid] = {
             "filter": fltr,
             "t": [obs["mjd"] for obs in lc],
-            "m": [obs["mag"] for obs in lc],
-            "err": [obs["magerr"] for obs in lc],
+            "m": m,
+            "err": err,
             "color": FILTER_COLORS[fltr],
             "marker_size": marker_size,
             "label_errorbar": "" if fltr in seen_filters or fltr not in ZTF_FILTERS else fltr,
@@ -167,10 +208,11 @@ def plot_data(oid, data, fmt="png", caption=True, title=None):
             fontdict={"size": 8, "color": "grey", "usetex": usetex},
         )
     ax = fig.subplots()
-    ax.invert_yaxis()
+    if BRIGHTNESS[brightness]["inverted"]:
+        ax.invert_yaxis()
     ax.set_title(title, usetex=usetex)
     ax.set_xlabel("MJD", usetex=usetex)
-    ax.set_ylabel("magnitude", usetex=usetex)
+    ax.set_ylabel(BRIGHTNESS[brightness]["label"], usetex=usetex)
     ax.ticklabel_format(axis="x", style="plain", useOffset=False)
     ax.xaxis.set_minor_locator(AutoMinorLocator(2))
     ax.yaxis.set_minor_locator(AutoMinorLocator(2))

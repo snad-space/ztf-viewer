@@ -30,6 +30,7 @@ Version schema is `year.month.num_release`
 - The URL follows the MJD range, the new `?lc=antares,panstarrs,gaia` external light curves and the FITS observation, which `?fits=` now also takes as an MJD, so a copied link reproduces the page https://github.com/snad-space/ztf-viewer/issues/329
 - A note on the cone-search results page explains why one star or transient is listed under several OIDs https://github.com/snad-space/ztf-viewer/issues/559
 - Features are downloadable as CSV, for the feature-extraction version and MJD range the Features section is showing https://github.com/snad-space/ztf-viewer/issues/71
+- Downloadable PNG and PDF plots follow the brightness selected on the page: flux, difference magnitude and difference flux, not magnitude only https://github.com/snad-space/ztf-viewer/issues/121
 
 ### Added
 

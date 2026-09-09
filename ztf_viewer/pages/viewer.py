@@ -1992,7 +1992,22 @@ async def set_figure(
 
 
 def set_figure_link(
-    cur_oid, dr, title, different_filter, different_field, min_mjd, max_mjd, lc_type, period, phase0, fmt
+    cur_oid,
+    dr,
+    title,
+    different_filter,
+    different_field,
+    min_mjd,
+    max_mjd,
+    lc_type,
+    period,
+    phase0,
+    brightness_type,
+    ref_mag_ids,
+    ref_mag_values,
+    ref_magerr_ids,
+    ref_magerr_values,
+    fmt,
 ):
     if lc_type == "folded" and not period:
         raise PreventUpdate
@@ -2001,6 +2016,12 @@ def set_figure_link(
     other_oids = neighbour_oids(different_filter, different_field)
     data = [("other_oid", oid) for oid in other_oids]
     data.append(("title", title))
+    data.append(("brightness", brightness_type))
+    if brightness_type in {"diffmag", "diffflux"}:
+        # Difference photometry is relative to the reference magnitudes typed on the page
+        refs = (("ref_mag", ref_mag_ids, ref_mag_values), ("ref_magerr", ref_magerr_ids, ref_magerr_values))
+        for name, ids, values in refs:
+            data.extend((name, f"{id['index']}:{value}") for id, value in zip(ids, values) if value is not None)
     if min_mjd is not None:
         data.append(("min_mjd", min_mjd))
     if max_mjd is not None:
@@ -2030,6 +2051,11 @@ app.callback(
         Input("light-curve-type", "value"),
         Input("fold-period", "value"),
         Input("fold-zero-phase", "value"),
+        Input("light-curve-brightness", "value"),
+        Input({"type": "ref-mag-input", "index": ALL}, "id"),
+        Input({"type": "ref-mag-input", "index": ALL}, "value"),
+        Input({"type": "ref-magerr-input", "index": ALL}, "id"),
+        Input({"type": "ref-magerr-input", "index": ALL}, "value"),
     ],
 )(partial(set_figure_link, fmt="png"))
 
@@ -2047,6 +2073,11 @@ app.callback(
         Input("light-curve-type", "value"),
         Input("fold-period", "value"),
         Input("fold-zero-phase", "value"),
+        Input("light-curve-brightness", "value"),
+        Input({"type": "ref-mag-input", "index": ALL}, "id"),
+        Input({"type": "ref-mag-input", "index": ALL}, "value"),
+        Input({"type": "ref-magerr-input", "index": ALL}, "id"),
+        Input({"type": "ref-magerr-input", "index": ALL}, "value"),
     ],
 )(partial(set_figure_link, fmt="pdf"))
 
