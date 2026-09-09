@@ -98,8 +98,6 @@ def parse_figure_args_helper(args, data=None):
     fmt = args.get("format", "png")
     brightness = args.get("brightness", DEFAULT_BRIGHTNESS)
     try:
-        # OIDs are integers on the path, so keep them integers here too: `get_plot_data` puts
-        # them on every observation, where the reference magnitudes are looked up by OID
         other_oids = frozenset(int(oid) for oid in args.getlist("other_oid"))
     except ValueError as e:
         raise InvalidFigureArgs(str(e)) from None
