@@ -67,10 +67,12 @@ jobs:
     - name: Stop
       run: |
         docker context use dev-snad
-        docker compose -f docker-compose-github.yml -p ${SUBDOMAIN} down
+        docker compose -f docker-compose-github.yml -p ${SUBDOMAIN} down --rmi local
+        docker image prune -af --filter until=336h
     - name: Start
       if: ${{ github.event.pull_request.state != 'closed' }}
       run: |
         docker context use dev-snad
         docker compose -f docker-compose-github.yml -p ${SUBDOMAIN} build --build-arg GITHUB_SHA
         docker compose -f docker-compose-github.yml -p ${SUBDOMAIN} up -d
+        docker image prune -af --filter until=336h

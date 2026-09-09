@@ -4,10 +4,6 @@ FROM python:3.14-bookworm
 ENV TZ=Europe/Moscow
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
-# Install uv
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
-ENV UV_COMPILE_BYTECODE=1
-
 # Install JS9 for FITS viewer
 # Original repo: https://github.com/ericmandel/js9
 ARG JS9_VERSION=3.9
@@ -30,6 +26,10 @@ RUN echo "main_memory = 50000000" > /etc/texmf/texmf.d/10main_memory.cnf \
     && update-texmf \
     && texhash \
     && fmtutil-sys --all || test 1
+
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:0.12.11 /uv /uvx /usr/local/bin/
+ENV UV_COMPILE_BYTECODE=1
 
 # Install dependencies, but not the project itself yet, so this layer stays cached
 # across source changes
