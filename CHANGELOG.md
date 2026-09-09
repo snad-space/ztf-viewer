@@ -31,6 +31,7 @@ Version schema is `year.month.num_release`
 - A note on the cone-search results page explains why one star or transient is listed under several OIDs https://github.com/snad-space/ztf-viewer/issues/559
 - Features are downloadable as CSV, for the feature-extraction version and MJD range the Features section is showing https://github.com/snad-space/ztf-viewer/issues/71
 - Downloadable PNG and PDF plots follow the brightness selected on the page: flux, difference magnitude and difference flux, not magnitude only https://github.com/snad-space/ztf-viewer/issues/121
+- Downloadable PNG and PDF plots include the Antares, Pan-STARRS and Gaia light curves checked on the page https://github.com/snad-space/ztf-viewer/issues/137
 
 ### Added
 

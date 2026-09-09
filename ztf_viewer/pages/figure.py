@@ -4,6 +4,7 @@ from immutabledict import immutabledict
 
 from ztf_viewer.app import app
 from ztf_viewer.figure_render import BRIGHTNESS, DEFAULT_BRIGHTNESS, plot_data, plot_folded_data
+from ztf_viewer.lc_data.external import external_lc_data, parse_external_lc_names
 from ztf_viewer.lc_data.plot_data import get_folded_plot_data, get_plot_data
 from ztf_viewer.procpool import run_in_process
 from ztf_viewer.util import immutabledefaultdict, parse_json_to_immutable
@@ -99,6 +100,7 @@ def parse_figure_args_helper(args, data=None):
         raise InvalidFigureArgs(str(e)) from None
     ref_mag = _parse_ref_mags(args.getlist("ref_mag"), lambda: np.inf)
     ref_magerr = _parse_ref_mags(args.getlist("ref_magerr"), float)
+    external_data = external_lc_data(parse_external_lc_names(args.getlist("lc")))
     title = args.get("title", None)
     min_mjd = args.get("min_mjd", None)
     if min_mjd is not None:
@@ -125,6 +127,7 @@ def parse_figure_args_helper(args, data=None):
         "min_mjd": min_mjd,
         "max_mjd": max_mjd,
         "caption": caption,
+        "external_data": external_data,
         "additional_data": data,
         "ref_mag": ref_mag,
         "ref_magerr": ref_magerr,

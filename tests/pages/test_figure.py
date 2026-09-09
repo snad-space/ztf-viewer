@@ -217,6 +217,25 @@ def test_malformed_reference_magnitude_is_rejected():
         _parse(ref_mag=["1:not-a-magnitude"])
 
 
+def test_external_light_curves_are_taken_from_the_query():
+    """`lc=` puts the other surveys' observations on the downloaded figure, as the page plots
+    them, in the shape `get_plot_data` takes."""
+    from ztf_viewer.lc_data.external import ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC
+
+    external_data = _parse(lc=["antares", "gaia,panstarrs"])["external_data"]
+    assert set(external_data) == {"antares", "gaia", "panstarrs"}
+    assert external_data["antares"] == {"radius_arcsec": ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC}
+
+
+def test_no_external_light_curves_without_the_query_argument():
+    assert _parse()["external_data"] == {}
+
+
+def test_unknown_external_light_curve_is_dropped():
+    """A stale bookmark should still render the ZTF light curve rather than 404."""
+    assert set(_parse(lc=["antares,bogus"])["external_data"]) == {"antares"}
+
+
 def test_other_oids_are_parsed_as_integers():
     """`get_plot_data` puts them on every observation, where reference magnitudes are looked
     up by OID, so a string OID would silently miss its reference."""
