@@ -28,11 +28,7 @@ class UnknownBrightness(InvalidFigureArgs):
 
 
 def _parse_ref_mags(values, default_factory):
-    """Parse repeated `oid:value` query arguments into the mapping `get_plot_data` takes.
-
-    Reference magnitudes are per-OID and editable on the light-curve page, so the difference
-    photometry the figure shows is only the one on the page if the link carries them along.
-    """
+    """Parse repeated `oid:value` query arguments into the mapping `get_plot_data` takes."""
     ref = {}
     for value in values:
         oid, _, mag = value.partition(":")
