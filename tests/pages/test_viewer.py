@@ -1027,3 +1027,22 @@ async def test_set_figure_rounds_the_brightness_in_the_hover(brightness_type, lc
 @pytest.mark.parametrize("brightness_type", ["mag", "flux", "diffmag", "diffflux"])
 async def test_set_figure_hover_never_shows_mark_size(brightness_type):
     assert "mark_size" not in await _figure_hover_rows(brightness_type=brightness_type)
+
+
+def test_set_features_csv_link_bare():
+    assert viewer.set_features_csv_link(1, "dr24", None, None, None) == "/dr24/features/1"
+
+
+def test_set_features_csv_link_carries_the_version_and_the_mjd_range():
+    """The link must download exactly what the Features section shows, so every input the
+    features callback reads has to end up in the query."""
+    url = viewer.set_features_csv_link(1, "dr24", "v0.2", 58000.5, 59000.0)
+
+    assert url.startswith("/dr24/features/1?")
+    assert sorted(url.split("?", 1)[1].split("&")) == ["max_mjd=59000.0", "min_mjd=58000.5", "version=v0.2"]
+
+
+def test_set_features_csv_link_of_an_empty_mjd_range_prevents_update():
+    """Matches `set_features_list`: an inverted range is a half-typed input, not a new link."""
+    with pytest.raises(PreventUpdate):
+        viewer.set_features_csv_link(1, "dr24", "latest", 59000.0, 58000.0)

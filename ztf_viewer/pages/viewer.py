@@ -907,6 +907,13 @@ async def get_layout(pathname, search):
                     ),
                     html.Br(),
                     html.Div(id="features-list"),
+                    html.Br(),
+                    html.Div(
+                        [
+                            "Download features: ",
+                            html.A("CSV", href=f"/{dr}/features/{oid}", id="features-csv-link"),
+                        ],
+                    ),
                 ],
                 id="features",
             ),
@@ -2487,6 +2494,34 @@ async def set_features_list(oid, dr, version, min_mjd, max_mjd):
         style={"columns": f"{column_width}ch"},
     )
     return div
+
+
+@app.callback(
+    Output("features-csv-link", "href"),
+    [
+        Input("oid", "children"),
+        Input("dr", "children"),
+        Input("features-api-version", "value"),
+        Input("min-mjd", "value"),
+        Input("max-mjd", "value"),
+    ],
+)
+def set_features_csv_link(oid, dr, version, min_mjd, max_mjd):
+    """Keep the features CSV link pointing at what the Features section currently shows."""
+    if min_mjd is not None and max_mjd is not None and min_mjd >= max_mjd:
+        raise PreventUpdate
+    query = {}
+    if version is not None:
+        query["version"] = version
+    if min_mjd is not None:
+        query["min_mjd"] = min_mjd
+    if max_mjd is not None:
+        query["max_mjd"] = max_mjd
+
+    url = f"/{dr}/features/{oid}"
+    if len(query) > 0:
+        url += "?" + urlencode(query)
+    return url
 
 
 @app.callback(

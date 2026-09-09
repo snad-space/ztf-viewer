@@ -23,6 +23,7 @@ from ztf_viewer.config import THREAD_POOL_SIZE
 from ztf_viewer.exceptions import CatalogUnavailable, NotFound, UnAuthorized
 from ztf_viewer.http import aclose_client
 from ztf_viewer.pages import favicon as _
+from ztf_viewer.pages import features_csv as _  # noqa: F811
 from ztf_viewer.pages import figure as _  # noqa: F811
 from ztf_viewer.pages import lc_csv as _  # noqa: F811,F401
 from ztf_viewer.pages.akb_table import get_layout as get_anomalies_layout
