@@ -649,29 +649,80 @@ async def test_set_lc_table_prevents_update_when_range_is_backwards():
 # ---------------------------------------------------------------------------------------------
 
 
+def _figure_link(*, lc_type, fmt, min_mjd=None, max_mjd=None, period=None, phase0=None, brightness="mag", refs=()):
+    """`set_figure_link` for one OID with no neighbours, the way the page's callback calls it.
+
+    `refs` are `(oid, mag, magerr)` triples, as the reference-magnitude inputs provide them.
+    """
+    ref_ids = [{"type": "ref-mag-input", "index": oid} for oid, _, _ in refs]
+    ref_magerr_ids = [{"type": "ref-magerr-input", "index": oid} for oid, _, _ in refs]
+    return set_figure_link(
+        "633207400004730",
+        "dr24",
+        "Title",
+        None,
+        None,
+        min_mjd,
+        max_mjd,
+        lc_type,
+        period,
+        phase0,
+        brightness,
+        ref_ids,
+        [mag for _, mag, _ in refs],
+        ref_magerr_ids,
+        [magerr for _, _, magerr in refs],
+        fmt,
+    )
+
+
 def test_set_figure_link_full():
-    href = set_figure_link("633207400004730", "dr24", "Title", None, None, 58000.0, 59000.0, "full", None, None, "png")
-    assert href == "/dr24/figure/633207400004730?title=Title&min_mjd=58000.0&max_mjd=59000.0&format=png"
+    href = _figure_link(lc_type="full", min_mjd=58000.0, max_mjd=59000.0, fmt="png")
+    assert href == "/dr24/figure/633207400004730?title=Title&brightness=mag&min_mjd=58000.0&max_mjd=59000.0&format=png"
 
 
 def test_set_figure_link_folded():
-    href = set_figure_link("633207400004730", "dr24", "Title", None, None, None, None, "folded", 3.5, 0.25, "pdf")
-    assert href == "/dr24/figure/633207400004730/folded/3.5?title=Title&format=pdf&offset=-0.875"
+    href = _figure_link(lc_type="folded", period=3.5, phase0=0.25, fmt="pdf")
+    assert href == "/dr24/figure/633207400004730/folded/3.5?title=Title&brightness=mag&format=pdf&offset=-0.875"
+
+
+def test_set_figure_link_carries_the_brightness():
+    assert "brightness=flux" in _figure_link(lc_type="full", brightness="flux", fmt="png")
+
+
+def test_set_figure_link_carries_reference_magnitudes_for_difference_photometry():
+    """Difference photometry is relative to the reference magnitudes typed on the page, so the
+    figure only matches the plot if the link carries them, per OID."""
+    href = _figure_link(
+        lc_type="full",
+        brightness="diffmag",
+        refs=[("633207400004730", 19.5, 0.02), ("633207400004731", None, None)],
+        fmt="png",
+    )
+    assert "ref_mag=633207400004730%3A19.5" in href
+    assert "ref_magerr=633207400004730%3A0.02" in href
+    # An OID whose reference is not filled in is left out rather than sent as "None"
+    assert "633207400004731" not in href
+
+
+def test_set_figure_link_omits_reference_magnitudes_for_magnitude():
+    href = _figure_link(lc_type="full", refs=[("633207400004730", 19.5, 0.02)], fmt="png")
+    assert "ref_mag" not in href
 
 
 def test_set_figure_link_prevents_update_without_period_when_folded():
     with pytest.raises(PreventUpdate):
-        set_figure_link("633207400004730", "dr24", "Title", None, None, None, None, "folded", None, None, "png")
+        _figure_link(lc_type="folded", fmt="png")
 
 
 def test_set_figure_link_prevents_update_when_range_is_backwards():
     with pytest.raises(PreventUpdate):
-        set_figure_link("633207400004730", "dr24", "Title", None, None, 59000.0, 58000.0, "full", None, None, "png")
+        _figure_link(lc_type="full", min_mjd=59000.0, max_mjd=58000.0, fmt="png")
 
 
 def test_set_figure_link_raises_for_unknown_type():
     with pytest.raises(ValueError, match="lc_type"):
-        set_figure_link("633207400004730", "dr24", "Title", None, None, None, None, "bogus", None, None, "png")
+        _figure_link(lc_type="bogus", fmt="png")
 
 
 # ---------------------------------------------------------------------------------------------
