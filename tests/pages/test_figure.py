@@ -78,20 +78,11 @@ def _photometry_lc(n=60, ref_mag=19.0):
 
 def test_brightness_arrays_keep_asymmetric_diff_mag_errors():
     lc = _photometry_lc()[1]
-    m, err, idx = _brightness_arrays(lc, "diffmag")
-    assert idx.size > 0
-    assert np.all(np.isfinite(m))
+    m, err = _brightness_arrays(lc, "diffmag")
+    assert m == pytest.approx([obs["diffmag"] for obs in lc])
     # (below the point, above the point): brighter is a smaller magnitude, so the "minus" error
-    assert err[0] == pytest.approx([lc[i]["diffmagerr_minus"] for i in idx])
-    assert err[1] == pytest.approx([lc[i]["diffmagerr_plus"] for i in idx])
-
-
-def test_brightness_arrays_drop_non_finite_points():
-    # A reference brighter than every observation leaves no positive difference flux at all
-    lc = _photometry_lc(ref_mag=10.0)[1]
-    assert not np.any(np.isfinite([obs["diffmag"] for obs in lc]))
-    _, _, idx = _brightness_arrays(lc, "diffmag")
-    assert idx.size == 0
+    assert err[0] == pytest.approx([obs["diffmagerr_minus"] for obs in lc])
+    assert err[1] == pytest.approx([obs["diffmagerr_plus"] for obs in lc])
 
 
 @pytest.mark.parametrize("brightness", sorted(BRIGHTNESS))
@@ -110,9 +101,12 @@ def test_plot_folded_data_renders_every_brightness(brightness):
     assert img.startswith(_PNG_MAGIC)
 
 
-def test_plot_data_renders_when_nothing_is_left_to_plot():
-    """Difference magnitude can drop every point, and an empty figure still has to be served."""
-    img = plot_data(1, _photometry_lc(ref_mag=10.0), fmt="png", brightness="diffmag")
+def test_plot_data_renders_all_infinite_difference_magnitude():
+    """A reference brighter than every observation leaves no positive difference flux, so every
+    difference magnitude is infinite; matplotlib skips such points and the figure still renders."""
+    data = _photometry_lc(ref_mag=10.0)
+    assert not np.any(np.isfinite([obs["diffmag"] for obs in data[1]]))
+    img = plot_data(1, data, fmt="png", brightness="diffmag")
     assert img.startswith(_PNG_MAGIC)
 
 

@@ -42,21 +42,15 @@ DEFAULT_BRIGHTNESS = "mag"
 
 
 def _brightness_arrays(lc, brightness):
-    """Brightness, its error bar and the indices of the observations they are taken from.
-
-    Difference magnitude is infinite where the difference flux is consistent with zero, so drop
-    every non-finite point: matplotlib would otherwise autoscale the axes to infinity.
-    """
+    """Brightness and its error bar, as matplotlib takes them."""
     fields = BRIGHTNESS[brightness]
     m = np.array([obs[fields["value"]] for obs in lc], dtype=float)
     err = np.array([obs[fields["err"]] for obs in lc], dtype=float)
     if fields["err_minus"] is None:
-        err_minus = err
-    else:
-        err_minus = np.array([obs[fields["err_minus"]] for obs in lc], dtype=float)
-    idx = np.nonzero(np.isfinite(m) & np.isfinite(err) & np.isfinite(err_minus))[0]
+        return m, err
+    err_minus = np.array([obs[fields["err_minus"]] for obs in lc], dtype=float)
     # matplotlib reads a 2 x N `yerr` as (below the point, above the point)
-    return m[idx], np.stack([err_minus[idx], err[idx]]), idx
+    return m, np.stack([err_minus, err])
 
 
 def plot_folded_data(oid, data, period, repeat=None, fmt="png", caption=True, title=None, brightness=None):
@@ -76,13 +70,11 @@ def plot_folded_data(oid, data, period, repeat=None, fmt="png", caption=True, ti
             continue
         first_obs = lc[0]
         fltr = first_obs["filter"]
-        m, err, idx = _brightness_arrays(lc, brightness)
-        if idx.size == 0:
-            continue
+        m, err = _brightness_arrays(lc, brightness)
         lcs[lc_oid] = {
             "filter": fltr,
-            "folded_time": np.array([lc[i]["folded_time"] for i in idx]),
-            "phase": np.array([lc[i]["phase"] for i in idx]),
+            "folded_time": np.array([obs["folded_time"] for obs in lc]),
+            "phase": np.array([obs["phase"] for obs in lc]),
             "m": m,
             "err": err,
             "color": FILTER_COLORS[fltr],
@@ -190,13 +182,11 @@ def plot_data(oid, data, fmt="png", caption=True, title=None, brightness=None):
         if fltr not in ZTF_FILTERS:
             zorder = 3
 
-        m, err, idx = _brightness_arrays(lc, brightness)
-        if idx.size == 0:
-            continue
+        m, err = _brightness_arrays(lc, brightness)
 
         lcs[lc_oid] = {
             "filter": fltr,
-            "t": [lc[i]["mjd"] for i in idx],
+            "t": [obs["mjd"] for obs in lc],
             "m": m,
             "err": err,
             "color": FILTER_COLORS[fltr],
@@ -253,18 +243,16 @@ def plot_data(oid, data, fmt="png", caption=True, title=None, brightness=None):
             alpha=0.7,
         )
     legend_anchor_y = -0.026 if usetex else -0.032
-    # Difference magnitude can leave nothing to plot, and an empty legend has nothing to sort
-    if legend_entries := sorted(zip(*ax.get_legend_handles_labels()), key=lambda hl: FILTERS_ORDER[hl[1]]):
-        handles, labels = zip(*legend_entries)
-        ax.legend(
-            list(flip(handles, 3)),
-            list(flip(labels, 3)),
-            bbox_to_anchor=(1, legend_anchor_y),
-            ncol=min(3, len(seen_filters)),
-            columnspacing=0.5,
-            frameon=False,
-            handletextpad=0.0,
-        )
+    handles, labels = zip(*sorted(zip(*ax.get_legend_handles_labels()), key=lambda hl: FILTERS_ORDER[hl[1]]))
+    ax.legend(
+        list(flip(handles, 3)),
+        list(flip(labels, 3)),
+        bbox_to_anchor=(1, legend_anchor_y),
+        ncol=min(3, len(seen_filters)),
+        columnspacing=0.5,
+        frameon=False,
+        handletextpad=0.0,
+    )
     bytes_io = save_fig(fig, fmt)
     return bytes_io.getvalue()
 
