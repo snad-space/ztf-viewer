@@ -110,6 +110,26 @@ def test_plot_data_renders_all_infinite_difference_magnitude():
     assert img.startswith(_PNG_MAGIC)
 
 
+def test_plot_data_renders_a_filter_no_colour_is_mapped_for():
+    """The interactive figure hands `FILTER_COLORS` to plotly as a map, so an unmapped filter
+    just gets a default colour there. The downloadable figure looked its colour up directly and
+    raised a `KeyError`, turning a light curve from a new catalog into a 500."""
+    data = {1: [{"mjd": 58000.0 + i, "mag": 18.0, "magerr": 0.05, "filter": "unheard_of"} for i in range(5)]}
+    img = plot_data(1, data, fmt="png")
+    assert img.startswith(_PNG_MAGIC)
+
+
+def test_plot_folded_data_renders_a_filter_no_colour_is_mapped_for():
+    data = {
+        1: [
+            {"mjd": 58000.0 + i, "mag": 18.0, "magerr": 0.05, "filter": "unheard_of", "folded_time": 0.1, "phase": 0.1}
+            for i in range(5)
+        ]
+    }
+    img = plot_folded_data(1, data, period=1.5, fmt="png")
+    assert img.startswith(_PNG_MAGIC)
+
+
 def test_plot_data_renders_png():
     img = plot_data(1, _synthetic_lc(), fmt="png")
     assert img.startswith(_PNG_MAGIC)

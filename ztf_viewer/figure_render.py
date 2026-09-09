@@ -17,6 +17,11 @@ from matplotlib.ticker import AutoMinorLocator
 
 from ztf_viewer.util import FILTER_COLORS, FILTERS_ORDER, ZTF_FILTERS, flip
 
+# A filter no catalog has claimed a colour for. The interactive figure passes FILTER_COLORS
+# to plotly as a map and unknown filters just fall back to a default colour, so the
+# downloadable figure must not be the only place that fails on one.
+UNKNOWN_FILTER_COLOR = "#777777"
+
 # Brightness the figure plots, keyed as the light-curve page's radio buttons name it. Fields
 # are the ones `lc_data.plot_data` puts on every observation; `err_minus` is set only where the
 # error bar is asymmetric, and `inverted` marks the magnitude-like axes, which grow downwards.
@@ -77,7 +82,7 @@ def plot_folded_data(oid, data, period, repeat=None, fmt="png", caption=True, ti
             "phase": np.array([obs["phase"] for obs in lc]),
             "m": m,
             "err": err,
-            "color": FILTER_COLORS[fltr],
+            "color": FILTER_COLORS.get(fltr, UNKNOWN_FILTER_COLOR),
             "marker_size": 24 if lc_oid == oid else 12,
             "label": "" if fltr in seen_filters else fltr,
             "marker": "o" if lc_oid == oid else "s",
@@ -189,7 +194,7 @@ def plot_data(oid, data, fmt="png", caption=True, title=None, brightness=None):
             "t": [obs["mjd"] for obs in lc],
             "m": m,
             "err": err,
-            "color": FILTER_COLORS[fltr],
+            "color": FILTER_COLORS.get(fltr, UNKNOWN_FILTER_COLOR),
             "marker_size": marker_size,
             "label_errorbar": "" if fltr in seen_filters or fltr not in ZTF_FILTERS else fltr,
             "label_scatter": "" if fltr in seen_filters or fltr in ZTF_FILTERS else fltr,
