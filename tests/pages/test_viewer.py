@@ -318,8 +318,6 @@ async def test_get_summary_mixed_success_and_failures(summary_upstreams):
             {"text": "Antares", "href": antares_href},
             ", ",
             {"text": "Fink", "href": "https://ztf.fink-portal.org/?action=conesearch&ra=10.0&dec=20.0&radius=3"},
-            ", ",
-            {"text": "MARS", "href": "https://mars.lco.global/?cone=10.0%2C20.0%2C0.0008333333333333334"},
         ],
         ["Coordinates", ": ", "Eq 10.00000 +20.00000", ", ", "Gal 00h40m00s +20d00m00s"],
     ]

@@ -10,6 +10,10 @@ Version schema is `year.month.num_release`
 
 - Cone searches to Simbad are paced to its published limit of 8 queries per second, so a busy moment cannot get us temporarily blacklisted https://github.com/snad-space/ztf-viewer/issues/51
 
+### Removed
+
+- MARS from "Search in brokers", the broker is retired https://github.com/snad-space/ztf-viewer/issues/382
+
 ### Fixed
 
 - Simbad cross-match works again: astroquery ≥0.4.8 returns `ra`/`dec` in degrees instead of `RA`/`DEC` in hours, so every Simbad cone search raised `KeyError` and the catalog was silently absent from every object page
