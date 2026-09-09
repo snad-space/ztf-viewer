@@ -22,7 +22,11 @@ from ztf_viewer import config
 config.CACHE_TYPE = "memory"
 config.UNAVAILABLE_CATALOGS_CACHE_TYPE = "memory"
 
-from ztf_viewer.figure_render import plot_data, plot_folded_data
+import numpy as np
+
+from ztf_viewer.figure_render import BRIGHTNESS, _brightness_arrays, plot_data, plot_folded_data
+from ztf_viewer.lc_data.plot_data import plot_data as add_photometry
+from ztf_viewer.util import immutabledefaultdict
 
 _PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 _PDF_MAGIC = b"%PDF-"
@@ -51,6 +55,65 @@ def _synthetic_folded_lc(n=60, period=1.5):
             obs["folded_time"] = obs["mjd"] % period
             obs["phase"] = obs["folded_time"] / period
     return lc
+
+
+def _photometry_lc(n=60, ref_mag=19.0):
+    """A synthetic light curve carrying the fields the light-curve page plots.
+
+    Built through the real `lc_data.plot_data`, so flux, difference flux and difference
+    magnitude (infinite where the difference flux is consistent with zero) are the same
+    quantities the interactive figure shows.
+    """
+    lc = _synthetic_lc(n)[1]
+    for obs in lc:
+        obs["oid"] = 1
+    return {
+        1: add_photometry(
+            lc,
+            ref_mag=immutabledefaultdict(lambda: np.inf, {1: ref_mag}),
+            ref_magerr=immutabledefaultdict(float, {1: 0.05}),
+        )
+    }
+
+
+def test_brightness_arrays_keep_asymmetric_diff_mag_errors():
+    lc = _photometry_lc()[1]
+    m, err, idx = _brightness_arrays(lc, "diffmag")
+    assert idx.size > 0
+    assert np.all(np.isfinite(m))
+    # (below the point, above the point): brighter is a smaller magnitude, so the "minus" error
+    assert err[0] == pytest.approx([lc[i]["diffmagerr_minus"] for i in idx])
+    assert err[1] == pytest.approx([lc[i]["diffmagerr_plus"] for i in idx])
+
+
+def test_brightness_arrays_drop_non_finite_points():
+    # A reference brighter than every observation leaves no positive difference flux at all
+    lc = _photometry_lc(ref_mag=10.0)[1]
+    assert not np.any(np.isfinite([obs["diffmag"] for obs in lc]))
+    _, _, idx = _brightness_arrays(lc, "diffmag")
+    assert idx.size == 0
+
+
+@pytest.mark.parametrize("brightness", sorted(BRIGHTNESS))
+def test_plot_data_renders_every_brightness(brightness):
+    img = plot_data(1, _photometry_lc(), fmt="png", brightness=brightness)
+    assert img.startswith(_PNG_MAGIC)
+
+
+@pytest.mark.parametrize("brightness", sorted(BRIGHTNESS))
+def test_plot_folded_data_renders_every_brightness(brightness):
+    data = _photometry_lc()
+    for obs in data[1]:
+        obs["folded_time"] = obs["mjd"] % 1.5
+        obs["phase"] = obs["folded_time"] / 1.5
+    img = plot_folded_data(1, data, period=1.5, fmt="png", brightness=brightness)
+    assert img.startswith(_PNG_MAGIC)
+
+
+def test_plot_data_renders_when_nothing_is_left_to_plot():
+    """Difference magnitude can drop every point, and an empty figure still has to be served."""
+    img = plot_data(1, _photometry_lc(ref_mag=10.0), fmt="png", brightness="diffmag")
+    assert img.startswith(_PNG_MAGIC)
 
 
 def test_plot_data_renders_png():
@@ -114,3 +177,66 @@ def test_broken_pool_surfaces_as_500(monkeypatch):
         response = test_client.get("/dr24/figure/1")
 
     assert response.status_code == 500
+
+
+def _parse(**query):
+    """`parse_figure_args_helper` against the same query-argument view the routes get."""
+    from starlette.datastructures import QueryParams
+
+    from ztf_viewer.pages.figure import parse_figure_args_helper
+    from ztf_viewer.web import QueryArgs
+
+    pairs = [(key, str(value)) for key, values in query.items() for value in values]
+    return parse_figure_args_helper(QueryArgs(QueryParams(pairs)))
+
+
+def test_brightness_defaults_to_magnitude():
+    assert _parse()["brightness"] == "mag"
+
+
+def test_brightness_is_taken_from_the_query():
+    assert _parse(brightness=["diffflux"])["brightness"] == "diffflux"
+
+
+def test_unknown_brightness_is_rejected():
+    from ztf_viewer.pages.figure import UnknownBrightness
+
+    with pytest.raises(UnknownBrightness):
+        _parse(brightness=["luminosity"])
+
+
+def test_reference_magnitudes_are_taken_from_the_query():
+    """Difference photometry follows the reference magnitudes typed on the light-curve page,
+    so the link has to carry them, per OID, for the figure to match the plot."""
+    kwargs = _parse(ref_mag=["1:19.5", "2:18.25"], ref_magerr=["1:0.02"])
+    assert dict(kwargs["ref_mag"]) == {1: 19.5, 2: 18.25}
+    assert dict(kwargs["ref_magerr"]) == {1: 0.02}
+    # OIDs without a reference fall back to no reference at all, and to a zero error
+    assert kwargs["ref_mag"][3] == np.inf
+    assert kwargs["ref_magerr"][3] == 0.0
+
+
+def test_malformed_reference_magnitude_is_rejected():
+    from ztf_viewer.pages.figure import InvalidFigureArgs
+
+    with pytest.raises(InvalidFigureArgs):
+        _parse(ref_mag=["1:not-a-magnitude"])
+
+
+def test_other_oids_are_parsed_as_integers():
+    """`get_plot_data` puts them on every observation, where reference magnitudes are looked
+    up by OID, so a string OID would silently miss its reference."""
+    assert _parse(other_oid=["2", "3"])["other_oids"] == frozenset({2, 3})
+
+
+def test_unknown_brightness_is_a_404(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    import ztf_viewer.pages.figure as figure_module
+
+    monkeypatch.setattr(figure_module, "get_plot_data", _fake_get_plot_data)
+
+    import ztf_viewer.__main__ as main_module
+
+    with TestClient(main_module.app.server) as test_client:
+        assert test_client.get("/dr24/figure/1?brightness=luminosity").status_code == 404
