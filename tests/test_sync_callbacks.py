@@ -30,6 +30,7 @@ _ALLOWED_SYNC_CALLBACKS = {
     "show_fold_period_layout",
     "show_ref_mag_layout",
     "set_csv_link",
+    "set_features_csv_link",
     "set_figure_link",
     "convert_astro_colibri_search_radius_to_arcsec",
     "dr_from_url",
