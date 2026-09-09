@@ -3,7 +3,7 @@ from dash import dcc, html
 
 from ztf_viewer.catalogs import find_ztf_circle
 from ztf_viewer.exceptions import NotFound
-from ztf_viewer.util import html_from_astropy_table
+from ztf_viewer.util import format_sep, html_from_astropy_table
 
 COLUMNS = {
     "oid": "OID",
@@ -25,7 +25,9 @@ MULTIPLE_OIDS_NOTE = (
 async def get_layout(coordinates, radius_arcsec, dr):
     ra = coordinates.ra.to_value("deg")
     dec = coordinates.dec.to_value("deg")
-    cone_str = f"({ra:.5f} deg, {dec:.5f} deg), r = {radius_arcsec:.1f}″"
+    # Not `:.1f`: the radius field takes three decimal digits, and rounding them off here would
+    # report a different cone than the one actually searched.
+    cone_str = f"({ra:.5f} deg, {dec:.5f} deg), r = {format_sep(radius_arcsec)}"
     try:
         j = await find_ztf_circle.find(ra, dec, radius_arcsec, dr)
     except NotFound:
