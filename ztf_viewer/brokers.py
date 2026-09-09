@@ -46,13 +46,3 @@ def fink_conesearch_url(ra, dec, radius_arcsec=DEFAULT_SEARCH_RADIUS_ARCSEC):
 
 def fink_tag(ra, dec, radius_arcsec=DEFAULT_SEARCH_RADIUS_ARCSEC):
     return _a_tag("Fink", fink_conesearch_url(ra, dec, radius_arcsec))
-
-
-def mars_conesearch_url(ra, dec, radius_arcsec=DEFAULT_SEARCH_RADIUS_ARCSEC):
-    radius_deg = radius_arcsec / 3600.0
-    cone = quote_plus(f"{ra},{dec},{radius_deg}")
-    return f"https://mars.lco.global/?cone={cone}"
-
-
-def mars_tag(ra, dec, radius_arcsec=DEFAULT_SEARCH_RADIUS_ARCSEC):
-    return _a_tag("MARS", mars_conesearch_url(ra, dec, radius_arcsec))
