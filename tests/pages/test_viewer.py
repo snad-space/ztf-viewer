@@ -649,7 +649,18 @@ async def test_set_lc_table_prevents_update_when_range_is_backwards():
 # ---------------------------------------------------------------------------------------------
 
 
-def _figure_link(*, lc_type, fmt, min_mjd=None, max_mjd=None, period=None, phase0=None, brightness="mag", refs=()):
+def _figure_link(
+    *,
+    lc_type,
+    fmt,
+    min_mjd=None,
+    max_mjd=None,
+    period=None,
+    phase0=None,
+    brightness="mag",
+    refs=(),
+    additional_lc=None,
+):
     """`set_figure_link` for one OID with no neighbours, the way the page's callback calls it.
 
     `refs` are `(oid, mag, magerr)` triples, as the reference-magnitude inputs provide them.
@@ -672,6 +683,7 @@ def _figure_link(*, lc_type, fmt, min_mjd=None, max_mjd=None, period=None, phase
         [mag for _, mag, _ in refs],
         ref_magerr_ids,
         [magerr for _, _, magerr in refs],
+        additional_lc,
         fmt,
     )
 
@@ -708,6 +720,22 @@ def test_set_figure_link_carries_reference_magnitudes_for_difference_photometry(
 def test_set_figure_link_omits_reference_magnitudes_for_magnitude():
     href = _figure_link(lc_type="full", refs=[("633207400004730", 19.5, 0.02)], fmt="png")
     assert "ref_mag" not in href
+
+
+def test_set_figure_link_carries_the_external_light_curves():
+    """The checked external light curves are plotted on the page, so the downloaded figure only
+    matches the plot if the link asks for them too."""
+    href = _figure_link(lc_type="full", additional_lc=["antares", "gaia"], fmt="png")
+    assert "lc=antares&lc=gaia" in href
+
+
+def test_set_figure_link_omits_the_external_light_curves_when_none_are_checked():
+    assert "lc=" not in _figure_link(lc_type="full", additional_lc=[], fmt="png")
+    assert "lc=" not in _figure_link(lc_type="full", additional_lc=None, fmt="png")
+
+
+def test_set_figure_link_carries_the_external_light_curves_when_folded():
+    assert "lc=panstarrs" in _figure_link(lc_type="folded", period=3.5, additional_lc=["panstarrs"], fmt="png")
 
 
 def test_set_figure_link_prevents_update_without_period_when_folded():

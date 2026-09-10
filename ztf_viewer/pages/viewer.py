@@ -40,6 +40,7 @@ from ztf_viewer.catalogs.ztf_ref import ztf_ref
 from ztf_viewer.config import JS9_URL, ZTF_FITS_PROXY_URL
 from ztf_viewer.date_with_frac import DateWithFrac, correct_date
 from ztf_viewer.exceptions import CatalogUnavailable, NotFound
+from ztf_viewer.lc_data.external import ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC, external_lc_data
 from ztf_viewer.lc_data.plot_data import MJD_OFFSET, get_folded_plot_data, get_plot_data
 from ztf_viewer.lc_features import light_curve_features
 from ztf_viewer.model_fit import model_fit
@@ -85,8 +86,6 @@ SUMMARY_PROB_CLASS_MIN_PROBABILITY = 0.5
 MARKER_SIZE = 10
 
 LIST_MAXSHOW = 4
-
-ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC = 5.0
 
 LIGHT_CURVE_VALUE_VERSION_ANNOTATION = defaultdict(str) | {
     "v0.1": " (Malanchev et al. 2021)",
@@ -1854,9 +1853,7 @@ async def set_figure(
         float, {id["index"]: value for id, value in zip(ref_magerr_ids, ref_magerr_values) if value is not None}
     )
 
-    external_data = immutabledict(
-        {value: immutabledict({"radius_arcsec": ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC}) for value in additional_lc_types}
-    )
+    external_data = external_lc_data(additional_lc_types)
 
     # It is "0" or "1" or None
     webgl_available = True if webgl_available is None else bool(int(webgl_available))
@@ -2007,6 +2004,7 @@ def set_figure_link(
     ref_mag_values,
     ref_magerr_ids,
     ref_magerr_values,
+    additional_lc_types,
     fmt,
 ):
     if lc_type == "folded" and not period:
@@ -2015,6 +2013,8 @@ def set_figure_link(
         raise PreventUpdate
     other_oids = neighbour_oids(different_filter, different_field)
     data = [("other_oid", oid) for oid in other_oids]
+    # The external light curves checked on the page are plotted in the downloaded figure too
+    data.extend(("lc", value) for value in additional_lc_types or [])
     data.append(("title", title))
     data.append(("brightness", brightness_type))
     if brightness_type in {"diffmag", "diffflux"}:
@@ -2056,6 +2056,7 @@ app.callback(
         Input({"type": "ref-mag-input", "index": ALL}, "value"),
         Input({"type": "ref-magerr-input", "index": ALL}, "id"),
         Input({"type": "ref-magerr-input", "index": ALL}, "value"),
+        Input("additional-light-curves", "value"),
     ],
 )(partial(set_figure_link, fmt="png"))
 
@@ -2078,6 +2079,7 @@ app.callback(
         Input({"type": "ref-mag-input", "index": ALL}, "value"),
         Input({"type": "ref-magerr-input", "index": ALL}, "id"),
         Input({"type": "ref-magerr-input", "index": ALL}, "value"),
+        Input("additional-light-curves", "value"),
     ],
 )(partial(set_figure_link, fmt="pdf"))
 

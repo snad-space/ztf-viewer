@@ -23,6 +23,7 @@ Version schema is `year.month.num_release`
 - Folded plot shows asymmetric diff mag errors
 - Search radius fields accept three decimal digits, so a sub-arcsecond radius, the `1.23` shown as the cone-search placeholder included, is no longer rejected by the browser
 - SDSS DR16 Quasars "redshift source" is spelled out instead of shown as a raw `DR6Q_HW`-like code https://github.com/snad-space/ztf-viewer/issues/375
+- Gaia light-curve points are named `gaia_G`, `gaia_BP` and `gaia_RP`, so they get the colours meant for them instead of an arbitrary one
 
 ### Added
 
@@ -31,6 +32,7 @@ Version schema is `year.month.num_release`
 - A note on the cone-search results page explains why one star or transient is listed under several OIDs https://github.com/snad-space/ztf-viewer/issues/559
 - Features are downloadable as CSV, for the feature-extraction version and MJD range the Features section is showing https://github.com/snad-space/ztf-viewer/issues/71
 - Downloadable PNG and PDF plots follow the brightness selected on the page: flux, difference magnitude and difference flux, not magnitude only https://github.com/snad-space/ztf-viewer/issues/121
+- Downloadable PNG and PDF plots include the Antares, Pan-STARRS and Gaia light curves checked on the page https://github.com/snad-space/ztf-viewer/issues/137
 
 ### Added
 

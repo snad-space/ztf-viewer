@@ -17,6 +17,11 @@ from matplotlib.ticker import AutoMinorLocator
 
 from ztf_viewer.util import FILTER_COLORS, FILTERS_ORDER, ZTF_FILTERS, flip
 
+# A filter no catalog has claimed a colour for. The interactive figure passes FILTER_COLORS
+# to plotly as a map and unknown filters just fall back to a default colour, so the
+# downloadable figure must not be the only place that fails on one.
+UNKNOWN_FILTER_COLOR = "#777777"
+
 # Brightness the figure plots, keyed as the light-curve page's radio buttons name it. Fields
 # are the ones `lc_data.plot_data` puts on every observation; `err_minus` is set only where the
 # error bar is asymmetric, and `inverted` marks the magnitude-like axes, which grow downwards.
@@ -53,6 +58,19 @@ def _brightness_arrays(lc, brightness):
     return m, np.stack([err_minus, err])
 
 
+def _split_by_filter(lc):
+    """Group one object's observations by passband, in the order the passbands first appear.
+
+    A ZTF OID is a single passband by construction, but an external light curve is not: one
+    Gaia source carries G, BP and RP, and one Pan-STARRS object g, r, i, z and y. Each of them
+    has to be drawn -- and named in the legend -- on its own.
+    """
+    by_filter = {}
+    for obs in lc:
+        by_filter.setdefault(obs["filter"], []).append(obs)
+    return by_filter.items()
+
+
 def plot_folded_data(oid, data, period, repeat=None, fmt="png", caption=True, title=None, brightness=None):
     if repeat is None:
         repeat = 2
@@ -68,22 +86,21 @@ def plot_folded_data(oid, data, period, repeat=None, fmt="png", caption=True, ti
     for lc_oid, lc in data.items():
         if len(lc) == 0:
             continue
-        first_obs = lc[0]
-        fltr = first_obs["filter"]
-        m, err = _brightness_arrays(lc, brightness)
-        lcs[lc_oid] = {
-            "filter": fltr,
-            "folded_time": np.array([obs["folded_time"] for obs in lc]),
-            "phase": np.array([obs["phase"] for obs in lc]),
-            "m": m,
-            "err": err,
-            "color": FILTER_COLORS[fltr],
-            "marker_size": 24 if lc_oid == oid else 12,
-            "label": "" if fltr in seen_filters else fltr,
-            "marker": "o" if lc_oid == oid else "s",
-            "zorder": 2 if lc_oid == oid else 1,
-        }
-        seen_filters.add(fltr)
+        for fltr, obs_list in _split_by_filter(lc):
+            m, err = _brightness_arrays(obs_list, brightness)
+            lcs[lc_oid, fltr] = {
+                "filter": fltr,
+                "folded_time": np.array([obs["folded_time"] for obs in obs_list]),
+                "phase": np.array([obs["phase"] for obs in obs_list]),
+                "m": m,
+                "err": err,
+                "color": FILTER_COLORS.get(fltr, UNKNOWN_FILTER_COLOR),
+                "marker_size": 24 if lc_oid == oid else 12,
+                "label": "" if fltr in seen_filters else fltr,
+                "marker": "o" if lc_oid == oid else "s",
+                "zorder": 2 if lc_oid == oid else 1,
+            }
+            seen_filters.add(fltr)
 
     fig = matplotlib.figure.Figure(dpi=300, figsize=(6.4, 4.8), constrained_layout=True)
     if caption:
@@ -104,7 +121,7 @@ def plot_folded_data(oid, data, period, repeat=None, fmt="png", caption=True, ti
     ax.yaxis.set_minor_locator(AutoMinorLocator(2))
     ax.tick_params(which="major", direction="in", length=6, width=1.5)
     ax.tick_params(which="minor", direction="in", length=4, width=1)
-    for lc_oid, lc in sorted(lcs.items(), key=lambda item: FILTERS_ORDER[item[1]["filter"]]):
+    for _key, lc in sorted(lcs.items(), key=lambda item: FILTERS_ORDER[item[1]["filter"]]):
         for i in range(-1, repeat + 1):
             label = ""
             if i == 0:
@@ -161,42 +178,40 @@ def plot_data(oid, data, fmt="png", caption=True, title=None, brightness=None):
     for lc_oid, lc in data.items():
         if len(lc) == 0:
             continue
-        first_obs = lc[0]
-        fltr = first_obs["filter"]
+        for fltr, obs_list in _split_by_filter(lc):
+            marker = "s"
+            if lc_oid == oid:
+                marker = "o"
+            if fltr not in ZTF_FILTERS:
+                marker = "d"
 
-        marker = "s"
-        if lc_oid == oid:
-            marker = "o"
-        if fltr not in ZTF_FILTERS:
-            marker = "d"
+            marker_size = 12
+            if lc_oid == oid:
+                marker_size = 24
+            if fltr not in ZTF_FILTERS:
+                marker_size = 36
 
-        marker_size = 12
-        if lc_oid == oid:
-            marker_size = 24
-        if fltr not in ZTF_FILTERS:
-            marker_size = 36
+            zorder = 1
+            if lc_oid == oid:
+                zorder = 2
+            if fltr not in ZTF_FILTERS:
+                zorder = 3
 
-        zorder = 1
-        if lc_oid == oid:
-            zorder = 2
-        if fltr not in ZTF_FILTERS:
-            zorder = 3
+            m, err = _brightness_arrays(obs_list, brightness)
 
-        m, err = _brightness_arrays(lc, brightness)
-
-        lcs[lc_oid] = {
-            "filter": fltr,
-            "t": [obs["mjd"] for obs in lc],
-            "m": m,
-            "err": err,
-            "color": FILTER_COLORS[fltr],
-            "marker_size": marker_size,
-            "label_errorbar": "" if fltr in seen_filters or fltr not in ZTF_FILTERS else fltr,
-            "label_scatter": "" if fltr in seen_filters or fltr in ZTF_FILTERS else fltr,
-            "marker": marker,
-            "zorder": zorder,
-        }
-        seen_filters.add(fltr)
+            lcs[lc_oid, fltr] = {
+                "filter": fltr,
+                "t": [obs["mjd"] for obs in obs_list],
+                "m": m,
+                "err": err,
+                "color": FILTER_COLORS.get(fltr, UNKNOWN_FILTER_COLOR),
+                "marker_size": marker_size,
+                "label_errorbar": "" if fltr in seen_filters or fltr not in ZTF_FILTERS else fltr,
+                "label_scatter": "" if fltr in seen_filters or fltr in ZTF_FILTERS else fltr,
+                "marker": marker,
+                "zorder": zorder,
+            }
+            seen_filters.add(fltr)
 
     fig = matplotlib.figure.Figure(dpi=300, figsize=(6.4, 4.8), constrained_layout=True)
     if caption:

@@ -130,8 +130,13 @@ class GaiaDr3Query(_BaseVizierQuery, _BaseLightCurveQuery):
         )
         magerr = np.hypot(LGE_25 / flux_over_error, ab_zp_err)
 
+        # The rest of the app names Gaia's passbands "gaia_G", "gaia_BP" and "gaia_RP", the way
+        # it prefixes Antares's and Pan-STARRS's, so that they get their own colour and legend
+        # entry instead of colliding with a survey that also calls a band "G"
+        fltr = np.char.add("gaia_", band)
+
         keys = ["oid", "mjd", "mag", "magerr", "filter"]
-        return [dict(zip(keys, values)) for values in zip(source_id, time, mag, magerr, band)]
+        return [dict(zip(keys, values)) for values in zip(source_id, time, mag, magerr, fltr)]
 
     def light_curve(self, id, row=None):
         self._raise_if_unavailable()
