@@ -22,6 +22,7 @@ from ztf_viewer import config
 config.CACHE_TYPE = "memory"
 config.UNAVAILABLE_CATALOGS_CACHE_TYPE = "memory"
 
+import matplotlib.colors
 import numpy as np
 
 from ztf_viewer.figure_render import BRIGHTNESS, _brightness_arrays, plot_data, plot_folded_data
@@ -108,6 +109,65 @@ def test_plot_data_renders_all_infinite_difference_magnitude():
     assert not np.any(np.isfinite([obs["diffmag"] for obs in data[1]]))
     img = plot_data(1, data, fmt="png", brightness="diffmag")
     assert img.startswith(_PNG_MAGIC)
+
+
+def _external_lc(oid=9001, filters=("gaia_G", "gaia_BP", "gaia_RP"), n=9):
+    """One external object's light curve, which -- unlike a ZTF OID -- spans several passbands."""
+    return {
+        oid: [{"mjd": 58000.0 + i, "mag": 18.0, "magerr": 0.05, "filter": filters[i % len(filters)]} for i in range(n)]
+    }
+
+
+def _legend_labels(monkeypatch, render, *args, **kwargs):
+    """The legend the renderer actually draws, captured on its way to `save_fig`."""
+    from ztf_viewer import figure_render
+
+    captured = []
+    real_save_fig = figure_render.save_fig
+
+    def spy(fig, fmt):
+        captured.append(fig)
+        return real_save_fig(fig, fmt)
+
+    monkeypatch.setattr(figure_render, "save_fig", spy)
+    render(*args, **kwargs)
+    (fig,) = captured
+    return [label for label in fig.axes[0].get_legend_handles_labels()[1] if label]
+
+
+def test_plot_data_gives_every_passband_of_an_external_survey_its_own_legend_entry(monkeypatch):
+    """One Gaia source carries G, BP and RP, and one Pan-STARRS object five bands. The renderer
+    used to take the first observation's filter for the whole light curve, so every external
+    survey collapsed into a single passband, drawn in one colour under one legend entry."""
+    labels = _legend_labels(monkeypatch, plot_data, 1, _external_lc(), fmt="png")
+    assert sorted(labels) == ["gaia_BP", "gaia_G", "gaia_RP"]
+
+
+def test_plot_folded_data_gives_every_passband_of_an_external_survey_its_own_legend_entry(monkeypatch):
+    data = _external_lc()
+    for obs in data[9001]:
+        obs["folded_time"] = obs["mjd"] % 1.5
+        obs["phase"] = obs["folded_time"] / 1.5
+    labels = _legend_labels(monkeypatch, plot_folded_data, 1, data, period=1.5, fmt="png")
+    assert sorted(labels) == ["gaia_BP", "gaia_G", "gaia_RP"]
+
+
+def test_plot_data_draws_each_passband_in_its_own_colour(monkeypatch):
+    """The legend is only right if the points under it are: one colour per passband."""
+    from ztf_viewer import figure_render
+    from ztf_viewer.util import FILTER_COLORS
+
+    captured = []
+    real_save_fig = figure_render.save_fig
+    monkeypatch.setattr(figure_render, "save_fig", lambda fig, fmt: captured.append(fig) or real_save_fig(fig, fmt))
+    plot_data(1, _external_lc(), fmt="png")
+    (fig,) = captured
+
+    # The error bars are `LineCollection`s matplotlib labels "_nolegend_"; the points are ours
+    drawn = {c.get_label(): c.get_facecolor() for c in fig.axes[0].collections if not c.get_label().startswith("_")}
+    assert set(drawn) == {"gaia_G", "gaia_BP", "gaia_RP"}
+    for fltr, color in drawn.items():
+        assert matplotlib.colors.to_hex(color[0]) == matplotlib.colors.to_hex(FILTER_COLORS[fltr])
 
 
 def test_plot_data_renders_a_filter_no_colour_is_mapped_for():
