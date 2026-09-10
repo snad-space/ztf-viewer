@@ -1,13 +1,8 @@
 """`go_to_url` -- the header's OID and coordinate/name boxes.
 
-It drives `dcc.Location`, which is configured with `refresh=True`. In that mode the component
-force-assigns every part of `window.location` that differs from its own props, in order, and the
-last assignment wins. The light-curve page keeps the query string in step with its controls
-through `history.replaceState`, which the component does not observe, so its `search` prop stays
-at the value the page loaded with. Navigating by `pathname` therefore also re-applied that stale
-`search`, sending the browser back to the current page with an empty query instead of to the
-page asked for -- no search could be started from an object page whose URL had picked up a
-`?min_mjd=`, `?lc=` or `?fits=`. Navigating by `href` moves the whole URL at once.
+`dcc.Location(refresh=True)` re-applies every part of the URL its props still hold, so
+navigating by `pathname` was undone by the `search` the light-curve page's clientside sync
+leaves stale: no search could be started from an object page whose URL carried a query.
 """
 
 import pytest
@@ -49,8 +44,7 @@ async def test_submitting_the_coordinate_box_navigates_to_the_search_page():
 
 
 async def test_the_target_carries_no_query_string():
-    """What is navigated to is the whole URL, so a query left over from the object page -- its
-    MJD range, its external light curves -- must not be carried onto the page being opened."""
+    """The whole URL is navigated, so the object page's MJD range must not come along."""
     target = await _go(n_clicks_search=1, coord_or_name="M31")
     assert "?" not in target
 
@@ -60,8 +54,7 @@ async def test_a_name_with_a_space_is_quoted():
 
 
 async def test_nothing_submitted_does_not_navigate():
-    """The initial call. Returning the current location would navigate to it stripped of its
-    query string, throwing away the `?min_mjd=`/`?lc=`/`?fits=` an incoming link asked for."""
+    """The initial call: navigating to the current location would drop its query string."""
     with pytest.raises(PreventUpdate):
         await _go()
 

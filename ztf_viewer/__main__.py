@@ -333,13 +333,8 @@ async def sky_coord_from_str(s):
 
 
 @app.callback(
-    # `href`, not `pathname`: `dcc.Location(refresh=True)` force-assigns every one of
-    # `window.location`'s parts that differs from its own props, in order, and the last
-    # assignment wins. Navigating by `pathname` therefore also re-applied the component's
-    # `search` prop, which the light-curve page's clientside sync deliberately leaves stale --
-    # sending the browser back to the current page with an empty query instead of to the new
-    # one. Setting `href` moves both parts at once, and drops the query the previous page
-    # accumulated rather than carrying its MJD range onto the next object.
+    # `href`, not `pathname`: `refresh=True` re-applies every other part of the URL after it,
+    # including the `search` the clientside sync leaves stale, which undid the navigation.
     Output("url", "href"),
     [
         Input("button-oid", "n_clicks"),
@@ -374,9 +369,7 @@ async def go_to_url(
     if n_clicks_search != 0 or n_submit_coord_or_name != 0 or n_submit_radius != 0:
         coord_or_name = urllib.parse.quote(coord_or_name)
         return f"/{dr}/search/{coord_or_name}/{radius_arcsec}"
-    # Nothing was submitted -- this is the initial call. Returning the current location would be
-    # a navigation to it stripped of its query string, throwing away the `?min_mjd=`/`?lc=`/
-    # `?fits=` an incoming link asked for.
+    # The initial call: returning the current location would navigate to it without its query.
     raise PreventUpdate
 
 
@@ -389,10 +382,8 @@ async def go_to_url(
     [
         Input("url", "pathname"),
     ],
-    # A `State`, not an `Input`: the query string carries the state a page is *built* with, and
-    # is read whenever the pathname changes, page load included. As an `Input` it also fired on
-    # every query-string change the light-curve page's clientside sync makes -- one per keystroke
-    # in the MJD inputs -- rebuilding the whole page and re-running every cross-match.
+    # `State`: the query is read when the page is built. As an `Input` every sync of it rebuilt
+    # the page, once per keystroke in the MJD inputs.
     [
         State("url", "search"),
     ],
