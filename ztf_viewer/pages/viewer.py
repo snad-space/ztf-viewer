@@ -2287,6 +2287,9 @@ app.clientside_callback(
         // button with every intermediate value. `dcc.Location` only listens for `popstate` and
         // Dash's own pushstate event, so this stays invisible to the router by construction.
         window.history.replaceState(window.history.state, "", url);
+        // ... which is why it has to be told: props it still believes are re-applied on the next
+        // navigation, undoing it. Harmless to set, `url.search` being a `State` of the router.
+        window.dash_clientside.set_props("url", {search: window.location.search, href: window.location.href});
         return window.dash_clientside.no_update;
     }
     """,

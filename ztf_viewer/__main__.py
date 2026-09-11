@@ -333,7 +333,9 @@ async def sky_coord_from_str(s):
 
 
 @app.callback(
-    Output("url", "pathname"),
+    # `href`, not `pathname`: `refresh=True` re-applies every other part of the URL after it,
+    # including the `search` the clientside sync leaves stale, which undid the navigation.
+    Output("url", "href"),
     [
         Input("button-oid", "n_clicks"),
         Input("input-oid", "n_submit"),
@@ -367,7 +369,8 @@ async def go_to_url(
     if n_clicks_search != 0 or n_submit_coord_or_name != 0 or n_submit_radius != 0:
         coord_or_name = urllib.parse.quote(coord_or_name)
         return f"/{dr}/search/{coord_or_name}/{radius_arcsec}"
-    return current_pathname
+    # The initial call: returning the current location would navigate to it without its query.
+    raise PreventUpdate
 
 
 @app.callback(
@@ -378,7 +381,11 @@ async def go_to_url(
     ],
     [
         Input("url", "pathname"),
-        Input("url", "search"),
+    ],
+    # `State`: the query is read when the page is built. As an `Input` every sync of it rebuilt
+    # the page, once per keystroke in the MJD inputs.
+    [
+        State("url", "search"),
     ],
 )
 async def app_select_by_url(pathname, search):
