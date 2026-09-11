@@ -3,7 +3,6 @@ import logging
 logger = logging.getLogger(__name__)
 from itertools import count
 from typing import ClassVar
-from urllib.parse import urlencode
 
 import httpx
 import numpy as np
@@ -109,8 +108,6 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
     }
 
     _detection_url = "https://catalogs.mast.stsci.edu/panstarrs/detections.html"
-    # Where an object with no detections is visible https://github.com/snad-space/ztf-viewer/issues/150
-    _stack_image_url = "https://ps1images.stsci.edu/cgi-bin/ps1cutouts"
 
     _bands = "grizy"
     _band_ids: ClassVar[dict] = dict(zip(count(1), _bands))
@@ -177,16 +174,6 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
         return int(n_detections) > 0
 
     def get_url(self, id, row=None):
-        if not self.has_detections(row):
-            query = urlencode(
-                {
-                    "pos": f"{row[self._table_ra]} {row[self._table_dec]}",
-                    "filter": "color",
-                    "filetypes": "stack",
-                    "size": 240,
-                }
-            )
-            return f"{self._stack_image_url}?{query}"
         return f'{self._detection_url}?objID={row["objID"]}'
 
     def _table_to_light_curve(self, table):

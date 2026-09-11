@@ -71,8 +71,7 @@ async def test_query_region():
 # Objects with no single-epoch detections -- https://github.com/snad-space/ztf-viewer/issues/150
 #
 # A stacked object can be visible on the stack image and still have nothing in the detections
-# table, only upper limits. The viewer offered its light curve anyway, plotting nothing, and
-# linked its name to a detections page that answers "No records found".
+# table, only upper limits. The viewer offered its light curve anyway, plotting nothing.
 # ---------------------------------------------------------------------------------------------
 
 
@@ -108,19 +107,3 @@ def test_an_unknown_detection_count_is_taken_as_having_them(query):
     assert query.has_detections(_stack_row()) is True
     assert query.has_detections(_stack_row(nDetections=ma.array([0], mask=[True])[0])) is True
     assert query.has_detections(None) is True
-
-
-def test_an_object_with_detections_links_to_the_detections_table(query):
-    row = _stack_row(nDetections=40)
-    assert query.get_url(row["objID"], row=row) == (
-        "https://catalogs.mast.stsci.edu/panstarrs/detections.html?objID=181862059718856450"
-    )
-
-
-def test_an_object_without_detections_links_to_the_stack_image(query):
-    """The detections page has nothing for it; the stack image is what it was detected on."""
-    row = _stack_row(nDetections=0)
-    url = query.get_url(row["objID"], row=row)
-    assert url.startswith("https://ps1images.stsci.edu/cgi-bin/ps1cutouts?")
-    assert "pos=205.97189667+61.55477902" in url
-    assert "filetypes=stack" in url
