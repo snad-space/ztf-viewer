@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from astropy.coordinates import SkyCoord
+from astropy.coordinates import Distance, SkyCoord
 from astropy.table import QTable
 from astropy.units import Quantity
 from dash import ALL, MATCH, Input, Output, State, ctx, dcc, html, set_props
@@ -1708,18 +1708,32 @@ async def get_summary(oid, dr, different_filter, different_field, radius_ids, ra
 
     try:
         ebv = await csfd.ebv(coord)
-        elements["Extinction"] = [f"CSFD E(B-V) = {ebv:.2f}"]
+        # setdefault: the Gaia block below appends here even when CSFD is unavailable
+        elements.setdefault("Extinction", []).append(f"CSFD E(B-V) = {ebv:.2f}")
     except CatalogUnavailable:
         pass
     try:
         table = await get_catalog_query("Gaia EDR3 Distances").find(ra, dec, 1)
         row = QTable(table[np.argmin(table["separation"])])
 
-        distance = row["__distance"]
+        # [0] keeps the SkyCoord scalar, otherwise dustmaps gets array params and answers 400
+        distance = row["__distance"][0]
         af = await bayestar(SkyCoord(coord, distance=distance))
-        elements["Extinction"].append(
+        elements.setdefault("Extinction", []).append(
             f'Bayestar & Gaia EDR distance Ag = {af["zg"]:.2f} Ar = {af["zr"]:.2f} Ai = {af["zi"]:.2f}'
         )
+
+        if np.isfinite(distance.value) and distance.value > 0.0:
+            distance_modulus = Distance(distance).distmod.value
+            absolute_mag = {
+                fltr: mean_mag[fltr] - distance_modulus - af[fltr]
+                for fltr in ZTF_FILTERS
+                if fltr in mean_mag and fltr in af
+            }
+            if absolute_mag:
+                elements["Absolute mag (Gaia EDR3 distance, dereddened)"] = [
+                    f"M_{fltr} ≈ {mag:.1f}" for fltr, mag in absolute_mag.items()
+                ]
     except NotFound, CatalogUnavailable:
         pass
 

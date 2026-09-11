@@ -384,6 +384,76 @@ async def test_get_summary_mixed_success_and_failures(summary_upstreams):
 
 
 # ---------------------------------------------------------------------------------------------
+# get_summary -- absolute magnitude, from the Gaia EDR3 distance and the Bayestar extinction.
+# ---------------------------------------------------------------------------------------------
+
+
+@pytest.fixture
+def gaia_distance_upstreams(monkeypatch):
+    """Give `get_summary` a Gaia EDR3 distance and a Bayestar extinction, and record the coord.
+
+    Returns the list the `bayestar` stub appends the `SkyCoord` it was called with to, so a test
+    can assert the coordinate is scalar -- a length-1 `distance` column reaches the dustmaps API
+    as `[1000.0]`-shaped query params and it answers 400.
+    """
+    from astropy import units
+
+    table = Table()
+    table["separation"] = [0.24]
+    table["__distance"] = [1000.0] * units.pc
+
+    class _GaiaEdr3Dis:
+        async def find(self, ra, dec, radius):
+            return table
+
+    monkeypatch.setattr(viewer, "get_catalog_query", lambda name: _GaiaEdr3Dis())
+
+    coords = []
+
+    async def fake_bayestar(coord):
+        coords.append(coord)
+        return {"zg": 0.30, "zr": 0.21, "zi": 0.15}
+
+    monkeypatch.setattr(viewer, "bayestar", fake_bayestar)
+
+    return coords
+
+
+async def test_get_summary_absolute_mag_uses_gaia_distance_and_extinction(
+    summary_upstreams, gaia_distance_upstreams
+):
+    with patch.object(viewer, "catalog_query_objects", dict):
+        div = (await _run_get_summary([], summary_upstreams))[-1]
+
+    # mu = 5 * log10(1000) - 5 = 10, so 18.00 - 10 - 0.30 = 7.70 and 17.40 - 10 - 0.21 = 7.19,
+    # shown to one decimal
+    assert [
+        line for line in _project(div) if line[0] == "Absolute mag (Gaia EDR3 distance, dereddened)"
+    ] == [["Absolute mag (Gaia EDR3 distance, dereddened)", ": ", "M_zg ≈ 7.7", ", ", "M_zr ≈ 7.2"]]
+
+
+async def test_get_summary_queries_bayestar_with_a_scalar_coord(summary_upstreams, gaia_distance_upstreams):
+    with patch.object(viewer, "catalog_query_objects", dict):
+        await _run_get_summary([], summary_upstreams)
+
+    (coord,) = gaia_distance_upstreams
+    assert coord.isscalar
+    assert coord.distance.isscalar
+
+
+async def test_get_summary_extinction_line_survives_csfd_being_unavailable(
+    summary_upstreams, gaia_distance_upstreams
+):
+    """`summary_upstreams` stubs CSFD as unavailable, so only the Bayestar half is rendered."""
+    with patch.object(viewer, "catalog_query_objects", dict):
+        div = (await _run_get_summary([], summary_upstreams))[-1]
+
+    assert [line for line in _project(div) if line[0] == "Extinction"] == [
+        ["Extinction", ": ", "Bayestar & Gaia EDR distance Ag = 0.30 Ar = 0.21 Ai = 0.15"]
+    ]
+
+
+# ---------------------------------------------------------------------------------------------
 # get_summary -- the catalog loop is now a concurrent gather, not a serial for-loop.
 # ---------------------------------------------------------------------------------------------
 

@@ -26,6 +26,7 @@ Version schema is `year.month.num_release`
 - SDSS DR16 Quasars "redshift source" is spelled out instead of shown as a raw `DR6Q_HW`-like code https://github.com/snad-space/ztf-viewer/issues/375
 - Gaia light-curve points are named `gaia_G`, `gaia_BP` and `gaia_RP`, so they get the colours meant for them instead of an arbitrary one
 - Pan-STARRS objects with no detections are marked as such https://github.com/snad-space/ztf-viewer/issues/150
+- Bayestar extinction is shown again, it was queried with array-shaped coordinates and the dustmaps API answered 400
 
 ### Added
 
@@ -35,6 +36,7 @@ Version schema is `year.month.num_release`
 - Features are downloadable as CSV, for the feature-extraction version and MJD range the Features section is showing https://github.com/snad-space/ztf-viewer/issues/71
 - Downloadable PNG and PDF plots follow the brightness selected on the page: flux, difference magnitude and difference flux, not magnitude only https://github.com/snad-space/ztf-viewer/issues/121
 - Downloadable PNG and PDF plots include the Antares, Pan-STARRS and Gaia light curves checked on the page https://github.com/snad-space/ztf-viewer/issues/137
+- Summary shows the absolute magnitude, from the Gaia EDR3 distance and dereddened with the Bayestar extinction https://github.com/snad-space/ztf-viewer/issues/34
 
 ### Added
 
