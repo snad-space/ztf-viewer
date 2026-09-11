@@ -1377,8 +1377,6 @@ async def get_panstarrs_lc_option(oid, dr, old):
         option["disabled"] = False
     else:
         if not PANSTARRS_DR2_QUERY.has_detections(row):
-            # The object is in the stacked catalog but has no single-epoch detections, so there
-            # is no light curve to plot https://github.com/snad-space/ztf-viewer/issues/150
             option["label"] = (
                 f"Pan-STARRS {row[PANSTARRS_DR2_QUERY.id_column]} "
                 f'({np.round(row["separation"], 1)}″), no detections'
