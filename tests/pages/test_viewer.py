@@ -1123,3 +1123,46 @@ def test_set_features_csv_link_of_an_empty_mjd_range_prevents_update():
     """Matches `set_features_list`: an inverted range is a half-typed input, not a new link."""
     with pytest.raises(PreventUpdate):
         viewer.set_features_csv_link(1, "dr24", "latest", 59000.0, 58000.0)
+
+
+# ---------------------------------------------------------------------------------------------
+# get_panstarrs_lc_option -- https://github.com/snad-space/ztf-viewer/issues/150
+#
+# A stacked Pan-STARRS object can have no single-epoch detections, only upper limits. The option
+# was offered anyway, and ticking it plotted nothing.
+# ---------------------------------------------------------------------------------------------
+
+
+def _panstarrs_row(n_detections):
+    return Table(
+        {
+            "objID": [181862059718856450],
+            "objName": ["PSO J205.9719+61.5548"],
+            "raMean": [205.97189667],
+            "decMean": [61.55477902],
+            "separation": [0.73],
+            "nDetections": [n_detections],
+        }
+    )[0]
+
+
+async def _panstarrs_option(monkeypatch, n_detections):
+    monkeypatch.setattr(viewer.find_ztf_oid, "get_coord", AsyncMock(return_value=(205.97, 61.55)))
+    monkeypatch.setattr(
+        viewer.PANSTARRS_DR2_QUERY, "find_closest", AsyncMock(return_value=_panstarrs_row(n_detections))
+    )
+    old = {"label": "Closest Pan-STARRS object, apparent", "value": "panstarrs", "disabled": False}
+    return await viewer.get_panstarrs_lc_option(1, "dr24", old=old)
+
+
+async def test_panstarrs_option_without_detections_is_disabled(monkeypatch):
+    option = await _panstarrs_option(monkeypatch, 0)
+    assert option["disabled"] is True
+    assert "no detections" in option["label"]
+    assert "PSO J205.9719+61.5548" in option["label"]
+
+
+async def test_panstarrs_option_with_detections_stays_offered(monkeypatch):
+    option = await _panstarrs_option(monkeypatch, 40)
+    assert option["disabled"] is False
+    assert "apparent" in _dump(option["label"])

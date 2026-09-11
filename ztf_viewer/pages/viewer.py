@@ -1376,6 +1376,13 @@ async def get_panstarrs_lc_option(oid, dr, old):
         option["label"] = "MAST Pan-STARRS archive is unavailable now"
         option["disabled"] = False
     else:
+        if not PANSTARRS_DR2_QUERY.has_detections(row):
+            option["label"] = (
+                f"Pan-STARRS {row[PANSTARRS_DR2_QUERY.id_column]} "
+                f'({np.round(row["separation"], 1)}″), no detections'
+            )
+            option["disabled"] = True
+            return option
         option["label"] = html.Span(
             [
                 f'Pan-STARRS {row[PANSTARRS_DR2_QUERY.id_column]} ({np.round(row["separation"], 1)}″), apparent',

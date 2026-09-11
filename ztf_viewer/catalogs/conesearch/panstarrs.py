@@ -164,6 +164,15 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
         table = Table.from_pandas(df)
         return table
 
+    @staticmethod
+    def has_detections(row) -> bool:
+        if row is None or "nDetections" not in row.colnames:
+            return True
+        n_detections = row["nDetections"]
+        if n_detections is None or np.ma.is_masked(n_detections):
+            return True
+        return int(n_detections) > 0
+
     def get_url(self, id, row=None):
         return f'{self._detection_url}?objID={row["objID"]}'
 

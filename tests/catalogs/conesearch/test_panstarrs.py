@@ -65,3 +65,45 @@ async def test_query_region():
     table = await q._query_region(coord, f"{_RADIUS_DEG * 3600}s")
     assert len(table) > 0
     assert "raMean" in table.colnames
+
+
+# ---------------------------------------------------------------------------------------------
+# Objects with no single-epoch detections -- https://github.com/snad-space/ztf-viewer/issues/150
+#
+# A stacked object can be visible on the stack image and still have nothing in the detections
+# table, only upper limits. The viewer offered its light curve anyway, plotting nothing.
+# ---------------------------------------------------------------------------------------------
+
+
+def _stack_row(**overrides):
+    """One row shaped like `_query_region` returns it."""
+    from astropy.table import Table
+
+    columns = {"objID": [181862059718856450], "raMean": [205.97189667], "decMean": [61.55477902]}
+    columns |= {key: [value] for key, value in overrides.items()}
+    return Table(columns)[0]
+
+
+@pytest.fixture(scope="module")
+def query():
+    """The singleton the app itself uses; the registry refuses a second query of a given name."""
+    from ztf_viewer.catalogs.conesearch import PANSTARRS_DR2_QUERY
+
+    return PANSTARRS_DR2_QUERY
+
+
+def test_no_detections_is_recognised(query):
+    assert query.has_detections(_stack_row(nDetections=0)) is False
+
+
+def test_detections_are_recognised(query):
+    assert query.has_detections(_stack_row(nDetections=40)) is True
+
+
+def test_an_unknown_detection_count_is_taken_as_having_them(query):
+    """Only a definite zero is acted on: the detections page is the better one when in doubt."""
+    from numpy import ma
+
+    assert query.has_detections(_stack_row()) is True
+    assert query.has_detections(_stack_row(nDetections=ma.array([0], mask=[True])[0])) is True
+    assert query.has_detections(None) is True
