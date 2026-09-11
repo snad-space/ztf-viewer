@@ -3,6 +3,7 @@ import logging
 logger = logging.getLogger(__name__)
 from itertools import count
 from typing import ClassVar
+from urllib.parse import urlencode
 
 import httpx
 import numpy as np
@@ -108,6 +109,10 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
     }
 
     _detection_url = "https://catalogs.mast.stsci.edu/panstarrs/detections.html"
+    # A stacked object can have no single-epoch detections at all, only upper limits, and the
+    # detections table then has nothing to show for it. The stack image does, being what the
+    # object was detected on. https://github.com/snad-space/ztf-viewer/issues/150
+    _stack_image_url = "https://ps1images.stsci.edu/cgi-bin/ps1cutouts"
 
     _bands = "grizy"
     _band_ids: ClassVar[dict] = dict(zip(count(1), _bands))
@@ -164,7 +169,31 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
         table = Table.from_pandas(df)
         return table
 
+    @staticmethod
+    def has_detections(row) -> bool:
+        """Whether the detections table holds anything for this stacked object.
+
+        Unknown counts as "yes": the detections table is the better page and the light curve is
+        worth trying, so only a definite zero is acted on.
+        """
+        if row is None or "nDetections" not in row.colnames:
+            return True
+        n_detections = row["nDetections"]
+        if n_detections is None or np.ma.is_masked(n_detections):
+            return True
+        return int(n_detections) > 0
+
     def get_url(self, id, row=None):
+        if not self.has_detections(row):
+            query = urlencode(
+                {
+                    "pos": f"{row[self._table_ra]} {row[self._table_dec]}",
+                    "filter": "color",
+                    "filetypes": "stack",
+                    "size": 240,
+                }
+            )
+            return f"{self._stack_image_url}?{query}"
         return f'{self._detection_url}?objID={row["objID"]}'
 
     def _table_to_light_curve(self, table):

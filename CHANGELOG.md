@@ -24,6 +24,7 @@ Version schema is `year.month.num_release`
 - Search radius fields accept three decimal digits, so a sub-arcsecond radius, the `1.23` shown as the cone-search placeholder included, is no longer rejected by the browser
 - SDSS DR16 Quasars "redshift source" is spelled out instead of shown as a raw `DR6Q_HW`-like code https://github.com/snad-space/ztf-viewer/issues/375
 - Gaia light-curve points are named `gaia_G`, `gaia_BP` and `gaia_RP`, so they get the colours meant for them instead of an arbitrary one
+- A Pan-STARRS object with no detections says so instead of offering an empty light curve, and its name links to the stack image it is visible on rather than to an empty detections table https://github.com/snad-space/ztf-viewer/issues/150
 
 ### Added
 
