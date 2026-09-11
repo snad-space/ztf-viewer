@@ -169,7 +169,6 @@ class PanstarrsDr2StackedQuery(_BaseCatalogQuery, _BaseLightCurveQuery):
 
     @staticmethod
     def has_detections(row) -> bool:
-        """Whether the detections table holds anything for this object; unknown counts as yes."""
         if row is None or "nDetections" not in row.colnames:
             return True
         n_detections = row["nDetections"]
