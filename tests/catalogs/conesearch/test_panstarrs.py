@@ -106,7 +106,7 @@ def test_an_unknown_detection_count_is_taken_as_having_them(query):
     from numpy import ma
 
     assert query.has_detections(_stack_row()) is True
-    assert query.has_detections(_stack_row(nDetections=ma.masked_array([0], mask=[True]))) is True
+    assert query.has_detections(_stack_row(nDetections=ma.array([0], mask=[True])[0])) is True
     assert query.has_detections(None) is True
 
 
