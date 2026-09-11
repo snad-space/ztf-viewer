@@ -5,6 +5,7 @@ from astropy import units
 from ztf_viewer.catalogs.conesearch._base import (
     ValueWithIntervalColumn,
     _BaseVizierQuery,
+    distance_quantity,
 )
 
 
@@ -31,4 +32,4 @@ class GaiaEdr3Dis(_BaseVizierQuery):
     ]
 
     def add_distance_column(self, table):
-        table["__distance"] = [x * units.pc for x in table["rgeo"]]
+        table["__distance"] = distance_quantity(table["rgeo"], units.pc)

@@ -174,3 +174,22 @@ def test_ceres_integration():
 
     names = [row["__name"] for row in result]
     assert "Ceres" in names, f"Expected Ceres in results, got: {names}"
+
+
+def test_object_without_magnitude_is_returned_without_one():
+    """SkyBot gives no V magnitude for some objects, and `float()` of a masked value raises
+    `MaskError` -- which the caller does not catch, so the whole minor-planet block broke."""
+    from ztf_viewer.catalogs.skybot import SkybotQuery
+
+    table = _make_skybot_table_with_ceres(sep_arcsec=5.0)
+    table["V"] = MaskedColumn([0.0], mask=[True])
+
+    query = SkybotQuery.__new__(SkybotQuery)
+    query._query = MagicMock()
+    query._query.cone_search.return_value = table
+
+    result = query.find(ra=331.0, dec=-11.4, observatory_mjd=_OBS_MJD, radius_arcsec=60.0)
+
+    assert len(result) == 1
+    assert result[0]["__name"] == "Ceres"
+    assert result[0]["__v_mag"] is None

@@ -1123,3 +1123,60 @@ def test_set_features_csv_link_of_an_empty_mjd_range_prevents_update():
     """Matches `set_features_list`: an inverted range is a half-typed input, not a new link."""
     with pytest.raises(PreventUpdate):
         viewer.set_features_csv_link(1, "dr24", "latest", 59000.0, 58000.0)
+
+
+# ---------------------------------------------------------------------------------------------
+# Extinction from the Gaia distance catalog: a source whose distance the catalog does not give
+# used to reach Bayestar as zero (`masked * units.pc` is `0 pc`), which answered for distance 0.
+# ---------------------------------------------------------------------------------------------
+
+
+class _DistanceCatalogQuery:
+    """`Gaia EDR3 Distances` as `get_summary` uses it: one row, `__distance` with a unit."""
+
+    query_name = "Gaia EDR3 Distances"
+
+    def __init__(self, distance_pc):
+        from astropy import units
+
+        from ztf_viewer.catalogs.conesearch._base import distance_quantity
+
+        self.table = Table({"separation": [1.0]})
+        self.table["__distance"] = distance_quantity(distance_pc, units.pc)
+
+    async def find(self, ra, dec, radius):
+        return self.table
+
+
+async def _extinction_line(monkeypatch, summary_upstreams, distance_pc):
+    monkeypatch.setattr(viewer, "get_catalog_query", lambda name: _DistanceCatalogQuery(distance_pc))
+
+    async def fake_ebv(coord):
+        return 0.05
+
+    monkeypatch.setattr(viewer.csfd, "ebv", fake_ebv)
+
+    async def fake_bayestar(coord):
+        return {"zg": 0.3, "zr": 0.2, "zi": 0.1}
+
+    monkeypatch.setattr(viewer, "bayestar", fake_bayestar)
+    pushed = await _run_get_summary({}, summary_upstreams)
+    return _dump(pushed[-1])
+
+
+async def test_extinction_is_reported_for_a_known_distance(monkeypatch, summary_upstreams):
+    from numpy import ma
+
+    rendered = await _extinction_line(monkeypatch, summary_upstreams, ma.array([250.0], mask=[False]))
+    assert "Bayestar" in rendered
+    assert "CSFD E(B-V)" in rendered
+
+
+async def test_extinction_is_not_reported_for_a_missing_distance(monkeypatch, summary_upstreams):
+    """Bayestar must not be asked about, nor answer for, a distance the catalog does not give."""
+    from numpy import ma
+
+    rendered = await _extinction_line(monkeypatch, summary_upstreams, ma.array([0.0], mask=[True]))
+    assert "Bayestar" not in rendered
+    # The rest of the extinction block still stands
+    assert "CSFD E(B-V)" in rendered

@@ -1705,6 +1705,8 @@ async def get_summary(oid, dr, different_filter, different_field, radius_ids, ra
         row = QTable(table[np.argmin(table["separation"])])
 
         distance = row["__distance"]
+        if not np.all(np.isfinite(distance.value)):
+            raise NotFound  # the catalog has the source but not its distance
         af = await bayestar(SkyCoord(coord, distance=distance))
         elements["Extinction"].append(
             f'Bayestar & Gaia EDR distance Ag = {af["zg"]:.2f} Ar = {af["zr"]:.2f} Ai = {af["zi"]:.2f}'
@@ -2379,9 +2381,11 @@ async def update_skybot_for_graph_clicked(data, dr):
     except CatalogUnavailable:
         return html.Div("Skybot is unavailable now")
 
-    return [html.B("Minor planets: ")] + list_join(
-        ", ", (f"{row['__name']} ({row['__separation']}, mV={row['__v_mag']:.1f})" for row in table)
-    )
+    def describe(row):
+        mag = "" if row["__v_mag"] is None else f", mV={row['__v_mag']:.1f}"
+        return f"{row['__name']} ({row['__separation']}{mag})"
+
+    return [html.B("Minor planets: ")] + list_join(", ", (describe(row) for row in table))
 
 
 @app.callback(

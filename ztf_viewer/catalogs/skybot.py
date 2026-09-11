@@ -1,6 +1,7 @@
 import logging
 
 logger = logging.getLogger(__name__)
+import numpy as np
 from astropy.coordinates import Angle, SkyCoord
 from astropy.time import Time
 from astroquery.imcce import Skybot
@@ -76,7 +77,8 @@ class SkybotQuery:
                     f"{row['centerdist'].to_value('arcsec'):.02f}″" f"±{row['posunc'].to_value('arcsec'):.02f}″"
                 ),
                 "__delta_epoch": (epoch - Time(row["epoch"], format="jd")).to_value("day"),
-                "__v_mag": float(row["V"]),
+                # Skybot gives no magnitude for some objects, and float() of a masked value raises
+                "__v_mag": None if np.ma.is_masked(row["V"]) else float(row["V"]),
             }
             for row in table
         ]

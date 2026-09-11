@@ -149,6 +149,9 @@ def to_str(s, *, float_decimal_digits=3):
             return ""
         return f"{s:.{float_decimal_digits}f}"
     if isinstance(s, units.Quantity) and s.unit.is_equivalent("cm"):
+        # As for a bare float below: a distance that is not a number is no distance
+        if not np.all(np.isfinite(s.value)):
+            return ""
         for unit in (units.pc, units.kpc, units.Mpc, units.Gpc):
             if 1e-1 < (distance := s.to(unit)).value < 3e3:
                 return f"{distance:.2f}"

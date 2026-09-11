@@ -2,7 +2,7 @@ from typing import ClassVar
 
 from astropy import units
 
-from ztf_viewer.catalogs.conesearch._base import _BaseVizierQuery
+from ztf_viewer.catalogs.conesearch._base import _BaseVizierQuery, distance_quantity
 
 
 class Gaia2Dis(_BaseVizierQuery):
@@ -26,4 +26,4 @@ class Gaia2Dis(_BaseVizierQuery):
     _vizier_catalog = "I/347/gaia2dis"
 
     def add_distance_column(self, table):
-        table["__distance"] = [x * units.pc for x in table["rest"]]
+        table["__distance"] = distance_quantity(table["rest"], units.pc)

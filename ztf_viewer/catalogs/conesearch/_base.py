@@ -9,7 +9,9 @@ from functools import partial
 from typing import ClassVar
 
 import httpx
+import numpy as np
 import pandas as pd
+from astropy import units
 from astropy.coordinates import SkyCoord
 from astropy.cosmology import FlatLambdaCDM
 from astropy.table import Table
@@ -26,6 +28,16 @@ from ztf_viewer.rate_limit import AsyncRateLimiter, RateLimitTimeout
 from ztf_viewer.util import async_timeout, compose_plus_minus_expression, safe_link, to_str
 
 COSMO = FlatLambdaCDM(H0=70, Om0=0.3)
+
+
+def distance_quantity(column, unit):
+    """A distance column as a `Quantity`, with a missing value kept missing.
+
+    Multiplying a masked value by a unit yields plain zero, so a source whose distance the
+    catalog does not give would be reported as sitting at zero distance.
+    """
+    values = np.ma.filled(np.ma.asarray(column, dtype=float), np.nan)
+    return units.Quantity(values, unit)
 
 
 def _ensure_coroutine(func):
