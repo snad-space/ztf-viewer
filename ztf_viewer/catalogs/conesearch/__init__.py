@@ -7,6 +7,7 @@ from .colibri import ColibriQuery
 from .fink import FinkQuery
 from .gaia2dis import Gaia2Dis
 from .gaia_dr3 import GaiaDr3Query
+from .gaia_dr3_extragalactic import GaiaDr3GalaxyCandidates, GaiaDr3QsoCandidates
 from .gaia_edr3_dis import GaiaEdr3Dis
 from .gcvs import GcvsQuery
 from .ogle import OgleQuery
@@ -28,6 +29,8 @@ COLIBRI_QUERY = ColibriQuery("Astro-COLIBRI")
 FINK_QUERY = FinkQuery("Fink")
 GAIA2_DIS = Gaia2Dis("Gaia DR2 Distances")
 GAIA_DR3 = GaiaDr3Query("Gaia DR3")
+GAIA_DR3_GALAXY_CANDIDATES = GaiaDr3GalaxyCandidates("Gaia DR3 Galaxy Candidates")
+GAIA_DR3_QSO_CANDIDATES = GaiaDr3QsoCandidates("Gaia DR3 QSO Candidates")
 GAIA_EDR3_DIS = GaiaEdr3Dis("Gaia EDR3 Distances")
 GCVS_QUERY = GcvsQuery("GCVS")
 OGLE_QUERY = OgleQuery("OGLE")

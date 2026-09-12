@@ -819,6 +819,34 @@ async def get_layout(pathname, search):
             ),
             html.Div(
                 [
+                    html.H2("Gaia DR3 QSO Candidates"),
+                    dcc.Input(
+                        value="1",
+                        id={"type": "search-radius", "index": "gaia-dr3-qso-candidates"},
+                        placeholder="Search radius, arcsec",
+                        type="number",
+                    ),
+                    " search radius, arcsec",
+                    html.Div(id="gaia-dr3-qso-candidates-table"),
+                ],
+                id="gaia-dr3-qso-candidates",
+            ),
+            html.Div(
+                [
+                    html.H2("Gaia DR3 Galaxy Candidates"),
+                    dcc.Input(
+                        value="1",
+                        id={"type": "search-radius", "index": "gaia-dr3-galaxy-candidates"},
+                        placeholder="Search radius, arcsec",
+                        type="number",
+                    ),
+                    " search radius, arcsec",
+                    html.Div(id="gaia-dr3-galaxy-candidates-table"),
+                ],
+                id="gaia-dr3-galaxy-candidates",
+            ),
+            html.Div(
+                [
                     html.H2("ALeRCE"),
                     dcc.Input(
                         value="1",
