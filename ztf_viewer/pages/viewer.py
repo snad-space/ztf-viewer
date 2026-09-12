@@ -1527,6 +1527,41 @@ async def _find_catalog_for_summary(catalog, query, ra, dec, radii):
     return catalog, table
 
 
+def _row_distance(table, row):
+    """Distance of one cross-match row as a Quantity, or None when it has no usable one."""
+    if "__distance" not in row.columns:
+        return None
+    value = row["__distance"]
+    if value is None or np.ma.is_masked(value):
+        return None
+    if not isinstance(value, Quantity):
+        unit = table["__distance"].unit
+        if unit is None:
+            return None
+        value = value * unit
+    if not value.unit.is_equivalent("pc") or not np.isfinite(value.value) or value.value <= 0.0:
+        return None
+    return value
+
+
+def _closest_redshift_match(catalogs, catalog_tables):
+    """Nearest cross-match carrying a redshift, as `(catalog, query, row, distance)`, or None."""
+    best = None
+    for catalog, query in catalogs.items():
+        table = catalog_tables.get(catalog)
+        if table is None or len(table) == 0 or "__redshift" not in table.columns:
+            continue
+        row = table[np.argmin(table["separation"])]
+        if not row["__redshift"]:
+            continue
+        distance = _row_distance(table, row)
+        if distance is None:
+            continue
+        if best is None or row["separation"] < best[2]["separation"]:
+            best = (catalog, query, row, distance)
+    return best
+
+
 def _summary_catalog_elements(catalogs, catalog_tables):
     """Render the Name/Type/Distance/... rows for whichever catalogs have resolved so far.
 
@@ -1700,12 +1735,14 @@ async def get_summary(oid, dr, different_filter, different_field, radius_ids, ra
     for obs in chain.from_iterable(lcs.values()):
         mags.setdefault(obs["filter"], []).append(obs["mag"])
     mean_mag = {fltr: np.mean(m) for fltr, m in mags.items()}
+    peak_mag = {fltr: np.min(m) for fltr, m in mags.items()}
     elements["Average mag (including neighbourhood)"] = [
         f"{fltr} {mean_mag[fltr]: .2f}" for fltr in ZTF_FILTERS if fltr in mean_mag
     ]
     if "zg" in mean_mag and "zr" in mean_mag:
         elements["Average mag (including neighbourhood)"].append(f'(zg–zr) {mean_mag["zg"] - mean_mag["zr"]: .2f}')
 
+    ebv = None
     try:
         ebv = await csfd.ebv(coord)
         # setdefault: the Gaia block below appends here even when CSFD is unavailable
@@ -1726,19 +1763,52 @@ async def get_summary(oid, dr, different_filter, different_field, radius_ids, ra
         if np.isfinite(distance.value) and distance.value > 0.0:
             distance_modulus = Distance(distance).distmod.value
             absolute_mag = {
-                fltr: mean_mag[fltr] - distance_modulus - af[fltr]
+                fltr: peak_mag[fltr] - distance_modulus - af[fltr]
                 for fltr in ZTF_FILTERS
-                if fltr in mean_mag and fltr in af
+                if fltr in peak_mag and fltr in af
             }
             if absolute_mag:
-                elements["Absolute mag (Gaia EDR3 distance, dereddened)"] = [
+                elements["Peak absolute mag (Gaia EDR3 distance)"] = [
                     f"M_{fltr} ≈ {mag:.1f}" for fltr, mag in absolute_mag.items()
                 ]
     except NotFound, CatalogUnavailable:
         pass
 
+    # Extragalactic: a catalog redshift for the distance, and the 2-D CSFD full Galactic column
+    # rather than the 3-D Bayestar above, which saturates within a few kpc
+    redshift_match = _closest_redshift_match(catalogs, catalog_tables)
+    if redshift_match is not None and ebv is not None:
+        catalog, query, row, distance = redshift_match
+        af_csfd = {band: csfd.r * ebv * af2av for band, af2av in csfd.af2av.items()}
+        distance_modulus = Distance(distance).distmod.value
+        absolute_mag = {
+            fltr: peak_mag[fltr] - distance_modulus - af_csfd[fltr]
+            for fltr in ZTF_FILTERS
+            if fltr in peak_mag and fltr in af_csfd
+        }
+        if absolute_mag:
+            values = ", ".join(f"M_{fltr} ≈ {mag:.1f}" for fltr, mag in absolute_mag.items())
+            elements["Peak absolute mag (redshift, no K-correction)"] = [
+                html.Div(
+                    [
+                        f'{values} (z={to_str(row["__redshift"])}, {format_sep(row["separation"])} ',
+                        html.A(
+                            query.query_name,
+                            href=f"#{catalog}",
+                            style={"border-bottom": "1px dashed", "text-decoration": "none"},
+                        ),
+                        ")",
+                    ],
+                    style={"display": "inline"},
+                )
+            ]
+
     # Put these elements last, so that both magnitudes follow the extinction they use
-    for element_name in ["Average mag (including neighbourhood)", "Absolute mag (Gaia EDR3 distance, dereddened)"]:
+    for element_name in [
+        "Average mag (including neighbourhood)",
+        "Peak absolute mag (Gaia EDR3 distance)",
+        "Peak absolute mag (redshift, no K-correction)",
+    ]:
         try:
             elements.move_to_end(element_name)
         except KeyError:

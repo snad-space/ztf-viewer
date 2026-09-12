@@ -419,14 +419,43 @@ def gaia_distance_upstreams(monkeypatch):
     return coords
 
 
+@pytest.fixture
+def varying_light_curve(monkeypatch):
+    """A light curve whose per-filter peak is well away from its mean."""
+
+    async def fake_get_plot_data(oid, dr, other_oids=frozenset()):
+        return {
+            "main": [
+                {"filter": "zg", "mag": 22.0},
+                {"filter": "zg", "mag": 18.0},
+                {"filter": "zr", "mag": 21.8},
+                {"filter": "zr", "mag": 17.4},
+            ]
+        }
+
+    monkeypatch.setattr(viewer, "get_plot_data", fake_get_plot_data)
+
+
 async def test_get_summary_absolute_mag_uses_gaia_distance_and_extinction(summary_upstreams, gaia_distance_upstreams):
     with patch.object(viewer, "catalog_query_objects", dict):
         div = (await _run_get_summary([], summary_upstreams))[-1]
 
     # mu = 5 * log10(1000) - 5 = 10, so 18.00 - 10 - 0.30 = 7.70 and 17.40 - 10 - 0.21 = 7.19,
     # shown to one decimal
-    assert [line for line in _project(div) if line[0] == "Absolute mag (Gaia EDR3 distance, dereddened)"] == [
-        ["Absolute mag (Gaia EDR3 distance, dereddened)", ": ", "M_zg ≈ 7.7", ", ", "M_zr ≈ 7.2"]
+    assert [line for line in _project(div) if line[0] == "Peak absolute mag (Gaia EDR3 distance)"] == [
+        ["Peak absolute mag (Gaia EDR3 distance)", ": ", "M_zg ≈ 7.7", ", ", "M_zr ≈ 7.2"]
+    ]
+
+
+async def test_get_summary_absolute_mag_uses_the_peak_not_the_mean(
+    summary_upstreams, gaia_distance_upstreams, varying_light_curve
+):
+    """The peaks are 18.00 and 17.40; the means, 20.00 and 19.60, would give 9.7 and 9.4."""
+    with patch.object(viewer, "catalog_query_objects", dict):
+        div = (await _run_get_summary([], summary_upstreams))[-1]
+
+    assert [line for line in _project(div) if line[0] == "Peak absolute mag (Gaia EDR3 distance)"] == [
+        ["Peak absolute mag (Gaia EDR3 distance)", ": ", "M_zg ≈ 7.7", ", ", "M_zr ≈ 7.2"]
     ]
 
 
@@ -440,7 +469,7 @@ async def test_get_summary_orders_extinction_then_average_then_absolute_mag(summ
     assert names == [
         "Extinction",
         "Average mag (including neighbourhood)",
-        "Absolute mag (Gaia EDR3 distance, dereddened)",
+        "Peak absolute mag (Gaia EDR3 distance)",
         "Search in brokers",
         "Coordinates",
     ]
@@ -463,6 +492,84 @@ async def test_get_summary_extinction_line_survives_csfd_being_unavailable(summa
     assert [line for line in _project(div) if line[0] == "Extinction"] == [
         ["Extinction", ": ", "Bayestar & Gaia EDR distance Ag = 0.30 Ar = 0.21 Ai = 0.15"]
     ]
+
+
+# ---------------------------------------------------------------------------------------------
+# get_summary -- peak absolute magnitude for an extragalactic object, off a catalog redshift.
+# Uses the 2-D CSFD full Galactic column rather than the 3-D Bayestar map.
+# ---------------------------------------------------------------------------------------------
+
+REDSHIFT_MAG_LABEL = "Peak absolute mag (redshift, no K-correction)"
+
+
+@pytest.fixture
+def csfd_ebv(monkeypatch):
+    """Make CSFD available. Must be requested *after* `summary_upstreams`, which stubs it out."""
+
+    async def fake_ebv(coord):
+        return 0.1
+
+    monkeypatch.setattr(viewer.csfd, "ebv", fake_ebv)
+
+
+def _redshift_catalog(name="TNS", separation=4.94):
+    from astropy import units
+
+    return _StubCatalogQuery(
+        name, table=_stub_table(distance=[10.0] * units.Mpc, redshift=[0.0023], separation=separation)
+    )
+
+
+async def test_get_summary_redshift_absolute_mag_uses_csfd_and_peak_mag(
+    summary_upstreams, csfd_ebv, varying_light_curve
+):
+    # mu = 5 * log10(1e7) - 5 = 30; A = 3.1 * 0.1 * af2av, so 0.3751 in zg and 0.26288 in zr.
+    # Peaks 18.00 and 17.40 give -12.38 and -12.86; the means would give -10.4 and -10.9.
+    catalogs = {"tns": _redshift_catalog()}
+    with patch.object(viewer, "catalog_query_objects", lambda: catalogs):
+        div = (await _run_get_summary(["tns"], summary_upstreams))[-1]
+
+    assert [line for line in _project(div) if line[0] == REDSHIFT_MAG_LABEL] == [
+        [
+            REDSHIFT_MAG_LABEL,
+            ": ",
+            ["M_zg ≈ -12.4, M_zr ≈ -12.9 (z=0.002, 4.940″ ", {"text": "TNS", "href": "#tns"}, ")"],
+        ]
+    ]
+
+
+async def test_get_summary_redshift_absolute_mag_prefers_the_closest_catalog(
+    summary_upstreams, csfd_ebv, varying_light_curve
+):
+    catalogs = {
+        "far": _redshift_catalog("Far Catalog", separation=763.7),
+        "near": _redshift_catalog("Near Catalog", separation=0.3),
+    }
+    with patch.object(viewer, "catalog_query_objects", lambda: catalogs):
+        div = (await _run_get_summary(list(catalogs), summary_upstreams))[-1]
+
+    (line,) = [line for line in _project(div) if line[0] == REDSHIFT_MAG_LABEL]
+    assert {"text": "Near Catalog", "href": "#near"} in line[2]
+    assert "0.300″" in line[2][0]
+
+
+async def test_get_summary_no_redshift_absolute_mag_when_csfd_is_unavailable(summary_upstreams, varying_light_curve):
+    """`summary_upstreams` alone leaves CSFD unavailable, so there is nothing to deredden with."""
+    catalogs = {"tns": _redshift_catalog()}
+    with patch.object(viewer, "catalog_query_objects", lambda: catalogs):
+        div = (await _run_get_summary(["tns"], summary_upstreams))[-1]
+
+    assert [line for line in _project(div) if line[0] == REDSHIFT_MAG_LABEL] == []
+
+
+async def test_get_summary_no_redshift_absolute_mag_without_a_redshift(
+    summary_upstreams, csfd_ebv, varying_light_curve
+):
+    catalogs = {"no-z": _StubCatalogQuery("No Redshift Catalog", table=_stub_table())}
+    with patch.object(viewer, "catalog_query_objects", lambda: catalogs):
+        div = (await _run_get_summary(list(catalogs), summary_upstreams))[-1]
+
+    assert [line for line in _project(div) if line[0] == REDSHIFT_MAG_LABEL] == []
 
 
 # ---------------------------------------------------------------------------------------------
