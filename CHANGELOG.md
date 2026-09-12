@@ -36,7 +36,7 @@ Version schema is `year.month.num_release`
 - Features are downloadable as CSV, for the feature-extraction version and MJD range the Features section is showing https://github.com/snad-space/ztf-viewer/issues/71
 - Downloadable PNG and PDF plots follow the brightness selected on the page: flux, difference magnitude and difference flux, not magnitude only https://github.com/snad-space/ztf-viewer/issues/121
 - Downloadable PNG and PDF plots include the Antares, Pan-STARRS and Gaia light curves checked on the page https://github.com/snad-space/ztf-viewer/issues/137
-- Summary shows the peak absolute magnitude, from the Gaia EDR3 distance with the Bayestar extinction, and from a cross-match redshift with the CSFD one, the latter not K-corrected https://github.com/snad-space/ztf-viewer/issues/34
+- Summary shows the peak absolute magnitude, off the first distance available: the Gaia EDR3 parallax, then a cross-match redshift, then any other cross-match, naming that catalog and the dust map used https://github.com/snad-space/ztf-viewer/issues/34
 
 ### Added
 
