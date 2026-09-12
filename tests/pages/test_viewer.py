@@ -99,6 +99,10 @@ class _StubCatalogQuery:
         self._exc = exc
         self._prob_class_columns = {}
 
+    @property
+    def normalized_query_name(self):
+        return self.query_name.replace(" ", "-").lower()
+
     async def find(self, ra, dec, radius_arcsec):
         if self._exc is not None:
             raise self._exc
@@ -381,6 +385,241 @@ async def test_get_summary_mixed_success_and_failures(summary_upstreams):
         ],
         ["Coordinates", ": ", "Eq 10.00000 +20.00000", ", ", "Gal 00h40m00s +20d00m00s"],
     ]
+
+
+# ---------------------------------------------------------------------------------------------
+# get_summary -- absolute magnitude, from the Gaia EDR3 distance and the Bayestar extinction.
+# ---------------------------------------------------------------------------------------------
+
+
+@pytest.fixture
+def gaia_distance_upstreams(monkeypatch):
+    """Give `get_summary` a Gaia EDR3 distance and a Bayestar extinction, and record the coord.
+
+    Returns the list the `bayestar` stub appends the `SkyCoord` it was called with to, so a test
+    can assert the coordinate is scalar -- a length-1 `distance` column reaches the dustmaps API
+    as `[1000.0]`-shaped query params and it answers 400.
+    """
+    from astropy import units
+
+    table = Table()
+    table["separation"] = [0.24]
+    table["__distance"] = [1000.0] * units.pc
+
+    class _GaiaEdr3Dis:
+        query_name = "Gaia EDR3 Distances"
+        normalized_query_name = "gaia-edr3-distances"
+
+        async def find(self, ra, dec, radius):
+            return table
+
+    monkeypatch.setattr(viewer, "get_catalog_query", lambda name: _GaiaEdr3Dis())
+
+    coords = []
+
+    async def fake_bayestar(coord):
+        coords.append(coord)
+        return {"zg": 0.30, "zr": 0.21, "zi": 0.15}
+
+    monkeypatch.setattr(viewer, "bayestar", fake_bayestar)
+
+    return coords
+
+
+@pytest.fixture
+def varying_light_curve(monkeypatch):
+    """A light curve whose per-filter peak is well away from its mean."""
+
+    async def fake_get_plot_data(oid, dr, other_oids=frozenset()):
+        return {
+            "main": [
+                {"filter": "zg", "mag": 22.0},
+                {"filter": "zg", "mag": 18.0},
+                {"filter": "zr", "mag": 21.8},
+                {"filter": "zr", "mag": 17.4},
+            ]
+        }
+
+    monkeypatch.setattr(viewer, "get_plot_data", fake_get_plot_data)
+
+
+ABS_MAG_LABEL = "Peak absolute mag"
+GAIA_LINK = {"text": "Gaia EDR3 Distances", "href": "#gaia-edr3-distances"}
+
+
+def _abs_mag_lines(div):
+    return [line for line in _project(div) if line[0] == ABS_MAG_LABEL]
+
+
+async def test_get_summary_absolute_mag_uses_gaia_distance_and_extinction(summary_upstreams, gaia_distance_upstreams):
+    with patch.object(viewer, "catalog_query_objects", dict):
+        div = (await _run_get_summary([], summary_upstreams))[-1]
+
+    # mu = 5 * log10(1000) - 5 = 10, so 18.00 - 10 - 0.30 = 7.70 and 17.40 - 10 - 0.21 = 7.19,
+    # shown to one decimal. The brackets name the distance catalog and the extinction map.
+    assert _abs_mag_lines(div) == [[ABS_MAG_LABEL, ": ", ["M_zg ≈ 7.7, M_zr ≈ 7.2 (", GAIA_LINK, ", Bayestar)"]]]
+
+
+async def test_get_summary_absolute_mag_uses_the_peak_not_the_mean(
+    summary_upstreams, gaia_distance_upstreams, varying_light_curve
+):
+    """The peaks are 18.00 and 17.40; the means, 20.00 and 19.60, would give 9.7 and 9.4."""
+    with patch.object(viewer, "catalog_query_objects", dict):
+        div = (await _run_get_summary([], summary_upstreams))[-1]
+
+    assert _abs_mag_lines(div) == [[ABS_MAG_LABEL, ": ", ["M_zg ≈ 7.7, M_zr ≈ 7.2 (", GAIA_LINK, ", Bayestar)"]]]
+
+
+async def test_get_summary_orders_extinction_then_average_then_absolute_mag(summary_upstreams, gaia_distance_upstreams):
+    """The two magnitudes follow the extinction they are computed from. Reordering relies on the
+    labels matching literally in two places, so a typo in either must fail here."""
+    with patch.object(viewer, "catalog_query_objects", dict):
+        div = (await _run_get_summary([], summary_upstreams))[-1]
+
+    names = [line[0] for line in _project(div)]
+    assert names == [
+        "Extinction",
+        "Average mag (including neighbourhood)",
+        ABS_MAG_LABEL,
+        "Search in brokers",
+        "Coordinates",
+    ]
+
+
+async def test_get_summary_queries_bayestar_with_a_scalar_coord(summary_upstreams, gaia_distance_upstreams):
+    with patch.object(viewer, "catalog_query_objects", dict):
+        await _run_get_summary([], summary_upstreams)
+
+    (coord,) = gaia_distance_upstreams
+    assert coord.isscalar
+    assert coord.distance.isscalar
+
+
+async def test_get_summary_extinction_line_survives_csfd_being_unavailable(summary_upstreams, gaia_distance_upstreams):
+    """`summary_upstreams` stubs CSFD as unavailable, so only the Bayestar half is rendered."""
+    with patch.object(viewer, "catalog_query_objects", dict):
+        div = (await _run_get_summary([], summary_upstreams))[-1]
+
+    assert [line for line in _project(div) if line[0] == "Extinction"] == [
+        ["Extinction", ": ", "Bayestar & Gaia EDR distance Ag = 0.30 Ar = 0.21 Ai = 0.15"]
+    ]
+
+
+# ---------------------------------------------------------------------------------------------
+# get_summary -- the single absolute-magnitude row picks its distance by priority: the Gaia EDR3
+# parallax, then a redshift, then any other cross-match. Only Gaia is dereddened with the 3-D
+# Bayestar map; everything else gets the 2-D CSFD full Galactic column.
+# ---------------------------------------------------------------------------------------------
+
+
+@pytest.fixture
+def csfd_ebv(monkeypatch):
+    """Make CSFD available. Must be requested *after* `summary_upstreams`, which stubs it out."""
+
+    async def fake_ebv(coord):
+        return 0.1
+
+    monkeypatch.setattr(viewer.csfd, "ebv", fake_ebv)
+
+
+def _redshift_catalog(name="TNS", separation=4.94):
+    from astropy import units
+
+    return _StubCatalogQuery(
+        name, table=_stub_table(distance=[10.0] * units.Mpc, redshift=[0.0023], separation=separation)
+    )
+
+
+async def test_get_summary_absolute_mag_from_redshift_uses_csfd(summary_upstreams, csfd_ebv, varying_light_curve):
+    # mu = 5 * log10(1e7) - 5 = 30; A = 3.1 * 0.1 * af2av, so 0.3751 in zg and 0.26288 in zr.
+    # Peaks 18.00 and 17.40 give -12.38 and -12.86; the means would give -10.4 and -10.9.
+    catalogs = {"tns": _redshift_catalog()}
+    with patch.object(viewer, "catalog_query_objects", lambda: catalogs):
+        div = (await _run_get_summary(["tns"], summary_upstreams))[-1]
+
+    assert _abs_mag_lines(div) == [
+        [
+            ABS_MAG_LABEL,
+            ": ",
+            ["M_zg ≈ -12.4, M_zr ≈ -12.9 (", {"text": "TNS", "href": "#tns"}, ", CSFD)"],
+        ]
+    ]
+
+
+async def test_get_summary_absolute_mag_prefers_gaia_over_a_redshift(
+    summary_upstreams, gaia_distance_upstreams, csfd_ebv, varying_light_curve
+):
+    """Gaia outranks a redshift even when the redshift catalog matches closer."""
+    catalogs = {"tns": _redshift_catalog(separation=0.01)}
+    with patch.object(viewer, "catalog_query_objects", lambda: catalogs):
+        div = (await _run_get_summary(["tns"], summary_upstreams))[-1]
+
+    assert _abs_mag_lines(div) == [[ABS_MAG_LABEL, ": ", ["M_zg ≈ 7.7, M_zr ≈ 7.2 (", GAIA_LINK, ", Bayestar)"]]]
+
+
+async def test_get_summary_absolute_mag_falls_back_to_any_distance(summary_upstreams, csfd_ebv, varying_light_curve):
+    """No Gaia and no redshift, so the last resort is any cross-match carrying a distance."""
+    from astropy import units
+
+    catalogs = {"simbad": _StubCatalogQuery("Simbad", table=_stub_table(distance=[500.0] * units.pc))}
+    with patch.object(viewer, "catalog_query_objects", lambda: catalogs):
+        div = (await _run_get_summary(["simbad"], summary_upstreams))[-1]
+
+    # mu = 5 * log10(500) - 5 = 8.4949, so 18.00 - 8.4949 - 0.3751 and 17.40 - 8.4949 - 0.26288
+    assert _abs_mag_lines(div) == [
+        [
+            ABS_MAG_LABEL,
+            ": ",
+            ["M_zg ≈ 9.1, M_zr ≈ 8.6 (", {"text": "Simbad", "href": "#simbad"}, ", CSFD)"],
+        ]
+    ]
+
+
+async def test_get_summary_absolute_mag_prefers_a_redshift_over_a_plain_distance(
+    summary_upstreams, csfd_ebv, varying_light_curve
+):
+    from astropy import units
+
+    catalogs = {
+        "simbad": _StubCatalogQuery("Simbad", table=_stub_table(distance=[500.0] * units.pc, separation=0.01)),
+        "tns": _redshift_catalog(separation=4.94),
+    }
+    with patch.object(viewer, "catalog_query_objects", lambda: catalogs):
+        div = (await _run_get_summary(list(catalogs), summary_upstreams))[-1]
+
+    (line,) = _abs_mag_lines(div)
+    assert {"text": "TNS", "href": "#tns"} in line[2]
+
+
+async def test_get_summary_absolute_mag_from_redshift_prefers_the_closest_catalog(
+    summary_upstreams, csfd_ebv, varying_light_curve
+):
+    catalogs = {
+        "far": _redshift_catalog("Far", separation=763.7),
+        "near": _redshift_catalog("Near", separation=0.3),
+    }
+    with patch.object(viewer, "catalog_query_objects", lambda: catalogs):
+        div = (await _run_get_summary(list(catalogs), summary_upstreams))[-1]
+
+    (line,) = _abs_mag_lines(div)
+    assert {"text": "Near", "href": "#near"} in line[2]
+
+
+async def test_get_summary_no_absolute_mag_when_csfd_is_unavailable(summary_upstreams, varying_light_curve):
+    """`summary_upstreams` alone leaves CSFD unavailable, so there is nothing to deredden with."""
+    catalogs = {"tns": _redshift_catalog()}
+    with patch.object(viewer, "catalog_query_objects", lambda: catalogs):
+        div = (await _run_get_summary(["tns"], summary_upstreams))[-1]
+
+    assert _abs_mag_lines(div) == []
+
+
+async def test_get_summary_no_absolute_mag_without_any_distance(summary_upstreams, csfd_ebv, varying_light_curve):
+    catalogs = {"no-z": _StubCatalogQuery("No Distance Catalog", table=_stub_table())}
+    with patch.object(viewer, "catalog_query_objects", lambda: catalogs):
+        div = (await _run_get_summary(list(catalogs), summary_upstreams))[-1]
+
+    assert _abs_mag_lines(div) == []
 
 
 # ---------------------------------------------------------------------------------------------

@@ -12,8 +12,7 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from astropy.coordinates import SkyCoord
-from astropy.table import QTable
+from astropy.coordinates import Distance, SkyCoord
 from astropy.units import Quantity
 from dash import ALL, MATCH, Input, Output, State, ctx, dcc, html, set_props
 from dash.dash_table import DataTable
@@ -1527,6 +1526,52 @@ async def _find_catalog_for_summary(catalog, query, ra, dec, radii):
     return catalog, table
 
 
+def _row_distance(table, row):
+    """Distance of one cross-match row as a Quantity, or None when it has no usable one."""
+    if "__distance" not in row.columns:
+        return None
+    value = row["__distance"]
+    if value is None or np.ma.is_masked(value):
+        return None
+    if not isinstance(value, Quantity):
+        unit = table["__distance"].unit
+        if unit is None:
+            return None
+        value = value * unit
+    if not value.unit.is_equivalent("pc") or not np.isfinite(value.value) or value.value <= 0.0:
+        return None
+    return value
+
+
+def _closest_distance_match(catalogs, catalog_tables, *, from_redshift):
+    """Nearest cross-match with a usable distance, as `(query, distance)`, or None.
+
+    from_redshift restricts it to catalogs whose distance is derived from a redshift.
+    """
+    best = None
+    best_separation = None
+    for catalog, query in catalogs.items():
+        table = catalog_tables.get(catalog)
+        if table is None or len(table) == 0:
+            continue
+        if from_redshift and "__redshift" not in table.columns:
+            continue
+        row = table[np.argmin(table["separation"])]
+        if from_redshift and not row["__redshift"]:
+            continue
+        distance = _row_distance(table, row)
+        if distance is None:
+            continue
+        if best_separation is None or row["separation"] < best_separation:
+            best = (query, distance)
+            best_separation = row["separation"]
+    return best
+
+
+def _csfd_extinction(ebv):
+    return {band: csfd.r * ebv * af2av for band, af2av in csfd.af2av.items()}
+
+
 def _summary_catalog_elements(catalogs, catalog_tables):
     """Render the Name/Type/Distance/... rows for whichever catalogs have resolved so far.
 
@@ -1700,28 +1745,85 @@ async def get_summary(oid, dr, different_filter, different_field, radius_ids, ra
     for obs in chain.from_iterable(lcs.values()):
         mags.setdefault(obs["filter"], []).append(obs["mag"])
     mean_mag = {fltr: np.mean(m) for fltr, m in mags.items()}
+    peak_mag = {fltr: np.min(m) for fltr, m in mags.items()}
     elements["Average mag (including neighbourhood)"] = [
         f"{fltr} {mean_mag[fltr]: .2f}" for fltr in ZTF_FILTERS if fltr in mean_mag
     ]
     if "zg" in mean_mag and "zr" in mean_mag:
         elements["Average mag (including neighbourhood)"].append(f'(zg–zr) {mean_mag["zg"] - mean_mag["zr"]: .2f}')
 
+    ebv = None
     try:
         ebv = await csfd.ebv(coord)
-        elements["Extinction"] = [f"CSFD E(B-V) = {ebv:.2f}"]
+        # setdefault: the Gaia block below appends here even when CSFD is unavailable
+        elements.setdefault("Extinction", []).append(f"CSFD E(B-V) = {ebv:.2f}")
     except CatalogUnavailable:
         pass
+    gaia_query = get_catalog_query("Gaia EDR3 Distances")
+    gaia_distance = None
     try:
-        table = await get_catalog_query("Gaia EDR3 Distances").find(ra, dec, 1)
-        row = QTable(table[np.argmin(table["separation"])])
-
-        distance = row["__distance"]
-        af = await bayestar(SkyCoord(coord, distance=distance))
-        elements["Extinction"].append(
-            f'Bayestar & Gaia EDR distance Ag = {af["zg"]:.2f} Ar = {af["zr"]:.2f} Ai = {af["zi"]:.2f}'
-        )
+        table = await gaia_query.find(ra, dec, 1)
+        # A Row, not a one-row table: that keeps the distance, and so the SkyCoord, scalar --
+        # otherwise dustmaps gets `[291.1]`-shaped params and answers 400
+        row = table[np.argmin(table["separation"])]
+        gaia_distance = _row_distance(table, row)
     except NotFound, CatalogUnavailable:
         pass
+
+    # One row, from the first reliable distance: the Gaia EDR3 parallax, then a redshift, then
+    # any other cross-match. Only the Gaia one is dereddened with the 3-D Bayestar map, which
+    # saturates within a few kpc; everything else gets the 2-D CSFD full Galactic column.
+    abs_mag_source = None
+    if gaia_distance is not None:
+        try:
+            af = await bayestar(SkyCoord(coord, distance=gaia_distance))
+            elements.setdefault("Extinction", []).append(
+                f'Bayestar & Gaia EDR distance Ag = {af["zg"]:.2f} Ar = {af["zr"]:.2f} Ai = {af["zi"]:.2f}'
+            )
+            abs_mag_source = (gaia_distance, af, gaia_query, "Bayestar")
+        except CatalogUnavailable:
+            pass
+        if abs_mag_source is None and ebv is not None:
+            abs_mag_source = (gaia_distance, _csfd_extinction(ebv), gaia_query, "CSFD")
+    if abs_mag_source is None and ebv is not None:
+        match = _closest_distance_match(catalogs, catalog_tables, from_redshift=True) or _closest_distance_match(
+            catalogs, catalog_tables, from_redshift=False
+        )
+        if match is not None:
+            query, distance = match
+            abs_mag_source = (distance, _csfd_extinction(ebv), query, "CSFD")
+
+    if abs_mag_source is not None:
+        distance, af, query, extinction_name = abs_mag_source
+        distance_modulus = Distance(distance).distmod.value
+        absolute_mag = {
+            fltr: peak_mag[fltr] - distance_modulus - af[fltr]
+            for fltr in ZTF_FILTERS
+            if fltr in peak_mag and fltr in af
+        }
+        if absolute_mag:
+            values = ", ".join(f"M_{fltr} ≈ {mag:.1f}" for fltr, mag in absolute_mag.items())
+            elements["Peak absolute mag"] = [
+                html.Div(
+                    [
+                        f"{values} (",
+                        html.A(
+                            query.query_name,
+                            href=f"#{query.normalized_query_name}",
+                            style={"border-bottom": "1px dashed", "text-decoration": "none"},
+                        ),
+                        f", {extinction_name})",
+                    ],
+                    style={"display": "inline"},
+                )
+            ]
+
+    # Put these elements last, so that both magnitudes follow the extinction they use
+    for element_name in ["Average mag (including neighbourhood)", "Peak absolute mag"]:
+        try:
+            elements.move_to_end(element_name)
+        except KeyError:
+            pass
 
     elements["Search in brokers"] = [
         brokers.alerce_tag(ra, dec),
