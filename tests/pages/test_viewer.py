@@ -405,6 +405,10 @@ def gaia_distance_upstreams(monkeypatch):
     table = Table()
     table["separation"] = [0.24]
     table["__distance"] = [1000.0] * units.pc
+    # A 4%-wide Bailer-Jones interval, inside `GAIA_DISTANCE_MAX_INTERVAL_FRACTION`
+    table["rgeo"] = [1000.0]
+    table["b_rgeo"] = [980.0]
+    table["B_rgeo"] = [1020.0]
 
     class _GaiaEdr3Dis:
         query_name = "Gaia EDR3 Distances"
@@ -449,6 +453,140 @@ GAIA_LINK = {"text": "Gaia EDR3 Distances", "href": "#gaia-edr3-distances"}
 
 def _abs_mag_lines(div):
     return [line for line in _project(div) if line[0] == ABS_MAG_LABEL]
+
+
+@pytest.fixture
+def wide_gaia_interval(monkeypatch):
+    """Widen the Bailer-Jones interval past the cut, the way an extragalactic source's is.
+
+    3C 273 comes back at rgeo = 17119 pc with b_rgeo = 13371 and B_rgeo = 24594, an interval 66%
+    as wide as the distance, because a quasar has no real parallax.
+    """
+    wrapped = viewer.get_catalog_query("Gaia EDR3 Distances")
+    monkeypatch.setattr(viewer, "get_catalog_query", lambda name: _WideIntervalGaiaEdr3Dis(wrapped))
+
+
+class _WideIntervalGaiaEdr3Dis:
+    query_name = "Gaia EDR3 Distances"
+    normalized_query_name = "gaia-edr3-distances"
+
+    def __init__(self, wrapped):
+        self._wrapped = wrapped
+
+    async def find(self, ra, dec, radius):
+        table = await self._wrapped.find(ra, dec, radius)
+        table = table.copy()
+        table["b_rgeo"] = [13370.82]
+        table["B_rgeo"] = [24594.19]
+        table["rgeo"] = [17119.41]
+        return table
+
+
+async def test_get_summary_no_absolute_mag_from_a_wide_gaia_interval(
+    summary_upstreams, gaia_distance_upstreams, wide_gaia_interval
+):
+    """A 66%-wide interval is 3C 273's, and it must not become an absolute magnitude."""
+    with patch.object(viewer, "catalog_query_objects", dict):
+        div = (await _run_get_summary([], summary_upstreams))[-1]
+
+    assert _abs_mag_lines(div) == []
+
+
+async def test_get_summary_wide_gaia_interval_keeps_the_bayestar_extinction(
+    summary_upstreams, gaia_distance_upstreams, wide_gaia_interval
+):
+    """The 3-D extinction changes slowly with distance, so the cut does not apply to it."""
+    with patch.object(viewer, "catalog_query_objects", dict):
+        div = (await _run_get_summary([], summary_upstreams))[-1]
+
+    assert [line for line in _project(div) if line[0] == "Extinction"] == [
+        ["Extinction", ": ", "Bayestar & Gaia EDR distance Ag = 0.30 Ar = 0.21 Ai = 0.15"]
+    ]
+
+
+async def test_get_summary_absolute_mag_falls_back_when_the_gaia_interval_is_wide(
+    summary_upstreams, gaia_distance_upstreams, wide_gaia_interval, csfd_ebv, varying_light_curve
+):
+    """With Gaia barred, the redshift takes over -- the 3C 273 case in full."""
+    catalogs = {"tns": _redshift_catalog()}
+    with patch.object(viewer, "catalog_query_objects", lambda: catalogs):
+        div = (await _run_get_summary(["tns"], summary_upstreams))[-1]
+
+    (line,) = _abs_mag_lines(div)
+    assert {"text": "TNS", "href": "#tns"} in line[2]
+    assert line[2][-1] == ", CSFD)"
+
+
+@pytest.mark.parametrize("columns", [("rgeo", "b_rgeo", "B_rgeo"), ("rest", "b_rest", "B_rest")])
+@pytest.mark.parametrize(
+    ("value", "lower", "upper", "expected"),
+    [
+        (1000.0, 980.0, 1020.0, True),  # 4% wide
+        (1000.0, 950.0, 1050.0, False),  # exactly 10% wide, the cut is strict
+        (1000.0, 960.0, 1050.0, True),  # 9% wide but off-centre, still inside the cut
+        (17119.41, 13370.82, 24594.19, False),  # 3C 273
+        (1027.92, 847.41, 1285.12, False),  # a faint 1 kpc M dwarf, 42% wide
+    ],
+)
+def test_parallax_distance_is_reliable(columns, value, lower, upper, expected):
+    """Gaia EDR3 and DR2 name their Bailer-Jones columns differently; both must be checked."""
+    table = Table()
+    table[columns[0]] = [value]
+    table[columns[1]] = [lower]
+    table[columns[2]] = [upper]
+    assert viewer._parallax_distance_is_reliable(table[0]) is expected
+
+
+def test_parallax_distance_is_not_reliable_without_the_full_interval():
+    """Never silently treat an unverifiable Bailer-Jones distance as reliable."""
+    table = Table()
+    table["rgeo"] = [1000.0]
+    assert viewer._parallax_distance_is_reliable(table[0]) is False
+
+
+def test_non_parallax_distance_is_left_alone():
+    """A redshift or Simbad distance has no Bailer-Jones interval and must not be rejected."""
+    table = Table()
+    table["separation"] = [1.0]
+    assert viewer._parallax_distance_is_reliable(table[0]) is True
+
+
+def _gaia_distances_catalog(lower, upper):
+    """Gaia EDR3 Distances as the cross-match fan-out sees it, not the separate 1″ query."""
+    from astropy import units
+
+    table = Table()
+    table["separation"] = [0.24]
+    table["__distance"] = [1000.0] * units.pc
+    table["rgeo"] = [1000.0]
+    table["b_rgeo"] = [lower]
+    table["B_rgeo"] = [upper]
+    return {"gaia-edr3-distances": _StubCatalogQuery("Gaia EDR3 Distances", table=table)}
+
+
+async def test_get_summary_wide_gaia_interval_is_not_readmitted_by_the_fallback(
+    summary_upstreams, csfd_ebv, varying_light_curve
+):
+    """Gaia EDR3 Distances is a registered catalog too, so the last-resort tier sees it again.
+
+    Rejecting it only in the priority-one branch would let it straight back in here.
+    """
+    catalogs = _gaia_distances_catalog(lower=500.0, upper=2000.0)
+    with patch.object(viewer, "catalog_query_objects", lambda: catalogs):
+        div = (await _run_get_summary(list(catalogs), summary_upstreams))[-1]
+
+    assert _abs_mag_lines(div) == []
+
+
+async def test_get_summary_narrow_gaia_interval_is_used_by_the_fallback(
+    summary_upstreams, csfd_ebv, varying_light_curve
+):
+    catalogs = _gaia_distances_catalog(lower=980.0, upper=1020.0)
+    with patch.object(viewer, "catalog_query_objects", lambda: catalogs):
+        div = (await _run_get_summary(list(catalogs), summary_upstreams))[-1]
+
+    (line,) = _abs_mag_lines(div)
+    assert GAIA_LINK in line[2]
 
 
 async def test_get_summary_absolute_mag_uses_gaia_distance_and_extinction(summary_upstreams, gaia_distance_upstreams):
