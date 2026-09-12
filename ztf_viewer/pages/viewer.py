@@ -1559,6 +1559,8 @@ def _closest_distance_match(catalogs, catalog_tables, *, from_redshift):
         row = table[np.argmin(table["separation"])]
         if from_redshift and not row["__redshift"]:
             continue
+        if not _parallax_distance_is_reliable(row):
+            continue
         distance = _row_distance(table, row)
         if distance is None:
             continue
@@ -1566,6 +1568,36 @@ def _closest_distance_match(catalogs, catalog_tables, *, from_redshift):
             best = (query, distance)
             best_separation = row["separation"]
     return best
+
+
+GAIA_DISTANCE_MAX_INTERVAL_FRACTION = 0.1
+
+# Bailer-Jones parallax distances, as (value, lower, upper) columns: Gaia EDR3 then DR2
+_PARALLAX_DISTANCE_COLUMNS = (("rgeo", "b_rgeo", "B_rgeo"), ("rest", "b_rest", "B_rest"))
+
+
+def _parallax_distance_is_reliable(row):
+    """Whether a Bailer-Jones interval is narrower than 10% of the distance itself.
+
+    Bailer-Jones quotes a distance for anything with a parallax, an extragalactic source that
+    has none included: 3C 273 comes back at 17 kpc, off an interval 66% as wide as that. Such a
+    distance must not reach the absolute magnitude, where it lands as a ~23 mag error.
+
+    True for a row with no such interval -- only the two Gaia distance catalogs carry one, and
+    every other catalog's distance is judged elsewhere.
+    """
+    for value, lower, upper in _PARALLAX_DISTANCE_COLUMNS:
+        columns = (value, lower, upper)
+        if not any(column in row.columns for column in columns):
+            continue
+        if not all(column in row.columns for column in columns):
+            return False
+        if any(np.ma.is_masked(row[column]) for column in columns):
+            return False
+        if row[value] <= 0.0:
+            return False
+        return bool(row[upper] - row[lower] < GAIA_DISTANCE_MAX_INTERVAL_FRACTION * row[value])
+    return True
 
 
 def _csfd_extinction(ebv):
@@ -1761,18 +1793,24 @@ async def get_summary(oid, dr, different_filter, different_field, radius_ids, ra
         pass
     gaia_query = get_catalog_query("Gaia EDR3 Distances")
     gaia_distance = None
+    gaia_distance_reliable = False
     try:
         table = await gaia_query.find(ra, dec, 1)
         # A Row, not a one-row table: that keeps the distance, and so the SkyCoord, scalar --
         # otherwise dustmaps gets `[291.1]`-shaped params and answers 400
         row = table[np.argmin(table["separation"])]
         gaia_distance = _row_distance(table, row)
+        gaia_distance_reliable = _parallax_distance_is_reliable(row)
     except NotFound, CatalogUnavailable:
         pass
 
     # One row, from the first reliable distance: the Gaia EDR3 parallax, then a redshift, then
     # any other cross-match. Only the Gaia one is dereddened with the 3-D Bayestar map, which
     # saturates within a few kpc; everything else gets the 2-D CSFD full Galactic column.
+    #
+    # A wide Bailer-Jones interval only bars the distance from the absolute magnitude, where it
+    # would be a several-magnitude error. The Bayestar line keeps it: the 3-D extinction changes
+    # slowly with distance, so it does not inherit the distance modulus's sensitivity.
     abs_mag_source = None
     if gaia_distance is not None:
         try:
@@ -1780,10 +1818,11 @@ async def get_summary(oid, dr, different_filter, different_field, radius_ids, ra
             elements.setdefault("Extinction", []).append(
                 f'Bayestar & Gaia EDR distance Ag = {af["zg"]:.2f} Ar = {af["zr"]:.2f} Ai = {af["zi"]:.2f}'
             )
-            abs_mag_source = (gaia_distance, af, gaia_query, "Bayestar")
+            if gaia_distance_reliable:
+                abs_mag_source = (gaia_distance, af, gaia_query, "Bayestar")
         except CatalogUnavailable:
             pass
-        if abs_mag_source is None and ebv is not None:
+        if gaia_distance_reliable and abs_mag_source is None and ebv is not None:
             abs_mag_source = (gaia_distance, _csfd_extinction(ebv), gaia_query, "CSFD")
     if abs_mag_source is None and ebv is not None:
         match = _closest_distance_match(catalogs, catalog_tables, from_redshift=True) or _closest_distance_match(

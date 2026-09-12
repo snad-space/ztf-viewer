@@ -27,6 +27,7 @@ Version schema is `year.month.num_release`
 - Gaia light-curve points are named `gaia_G`, `gaia_BP` and `gaia_RP`, so they get the colours meant for them instead of an arbitrary one
 - Pan-STARRS objects with no detections are marked as such https://github.com/snad-space/ztf-viewer/issues/150
 - Bayestar extinction is shown again, it was queried with array-shaped coordinates and the dustmaps API answered 400
+- Peak absolute magnitude ignores a Bailer-Jones distance whose confidence interval is 10% of the distance or wider, so a quasar is no longer quoted off the meaningless parallax distance Gaia gives it
 
 ### Added
 
