@@ -9,6 +9,7 @@ Version schema is `year.month.num_release`
 ### Changed
 
 - Cone searches to Simbad are paced to its published limit of 8 queries per second, so a busy moment cannot get us temporarily blacklisted https://github.com/snad-space/ztf-viewer/issues/51
+- Astro-COLIBRI reaches the summary only within 5″, its own cross-match table keeps the full radius https://github.com/snad-space/ztf-viewer/issues/317
 
 ### Removed
 
