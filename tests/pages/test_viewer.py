@@ -114,9 +114,9 @@ class _UnavailableCheckingCatalogQuery(_StubCatalogQuery):
         return await super().find(ra, dec, radius_arcsec)
 
 
-def _stub_table(*, objname="Stub Object", type_="SN Ia", distance=None, redshift=None):
+def _stub_table(*, objname="Stub Object", type_="SN Ia", distance=None, redshift=None, separation=4.94):
     table = Table()
-    table["separation"] = [4.94]
+    table["separation"] = [separation]
     table["__objname"] = [objname]
     table["__type"] = [type_]
     if distance is not None:
@@ -284,6 +284,66 @@ async def test_get_summary_skips_catalog_with_no_radius_input(summary_upstreams)
         without = (await _run_get_summary(["other"], summary_upstreams))[-1]
 
     assert _dump(with_missing) == _dump(without)
+
+
+# ---------------------------------------------------------------------------------------------
+# get_summary -- the per-catalog separation cap.
+# ---------------------------------------------------------------------------------------------
+
+
+async def test_get_summary_drops_capped_catalog_match_beyond_the_cap(summary_upstreams):
+    """A 1°-away Astro-COLIBRI event must be indistinguishable from no Astro-COLIBRI match."""
+    far = {"astro-colibri": _StubCatalogQuery("Astro-COLIBRI", table=_stub_table(separation=763.7))}
+    with patch.object(viewer, "catalog_query_objects", lambda: far):
+        with_far_match = (await _run_get_summary(["astro-colibri"], summary_upstreams))[-1]
+
+    none_found = {"astro-colibri": _StubCatalogQuery("Astro-COLIBRI", exc=NotFound())}
+    with patch.object(viewer, "catalog_query_objects", lambda: none_found):
+        without = (await _run_get_summary(["astro-colibri"], summary_upstreams))[-1]
+
+    assert _dump(with_far_match) == _dump(without)
+
+
+async def test_get_summary_keeps_capped_catalog_match_inside_the_cap(summary_upstreams):
+    catalogs = {
+        "astro-colibri": _StubCatalogQuery(
+            "Astro-COLIBRI", table=_stub_table(objname="GW170817", type_="ot_gw", separation=1.2)
+        )
+    }
+    with patch.object(viewer, "catalog_query_objects", lambda: catalogs):
+        div = (await _run_get_summary(["astro-colibri"], summary_upstreams))[-1]
+
+    colibri_link = {"text": "Astro-COLIBRI", "href": "#astro-colibri"}
+    assert [line for line in _project(div) if line[0] in ("Name", "Type")] == [
+        ["Name", ": ", ["GW170817 (1.200″ ", colibri_link, ")"]],
+        ["Type", ": ", ["ot_gw (1.200″ ", colibri_link, ")"]],
+    ]
+
+
+async def test_get_summary_drops_only_the_capped_rows(summary_upstreams):
+    """The cap filters rows, so a near event is still found when a far one is also returned."""
+    table = Table()
+    table["separation"] = [763.7, 1.2]
+    table["__objname"] = ["SN 2024zro", "GW170817"]
+    table["__type"] = ["ot_sn", "ot_gw"]
+    catalogs = {"astro-colibri": _StubCatalogQuery("Astro-COLIBRI", table=table)}
+    with patch.object(viewer, "catalog_query_objects", lambda: catalogs):
+        div = (await _run_get_summary(["astro-colibri"], summary_upstreams))[-1]
+
+    (name_line,) = [line for line in _project(div) if line[0] == "Name"]
+    assert name_line[2][0] == "GW170817 (1.200″ "
+
+
+async def test_get_summary_does_not_cap_an_uncapped_catalog(summary_upstreams):
+    """Only catalogs named in `SUMMARY_MAX_SEPARATION_ARCSEC` are filtered."""
+    assert "other" not in viewer.SUMMARY_MAX_SEPARATION_ARCSEC
+    catalogs = {"other": _StubCatalogQuery("Other Catalog", table=_stub_table(separation=763.7))}
+    with patch.object(viewer, "catalog_query_objects", lambda: catalogs):
+        div = (await _run_get_summary(["other"], summary_upstreams))[-1]
+
+    assert [line for line in _project(div) if line[0] == "Name"] == [
+        ["Name", ": ", ["Stub Object (12′43.7″ ", {"text": "Other Catalog", "href": "#other"}, ")"]]
+    ]
 
 
 async def test_get_summary_mixed_success_and_failures(summary_upstreams):

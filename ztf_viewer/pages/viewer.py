@@ -1510,16 +1510,20 @@ async def set_ref_mag_magerr(dr, _n_clicks, link_id, all_mag_ids, all_mag_values
     )
 
 
-async def _find_catalog_for_summary(catalog, query, ra, dec, radii):
-    """Isolate one catalog's query so an expected failure here can never reach its siblings.
+SUMMARY_MAX_SEPARATION_ARCSEC = immutabledict({"astro-colibri": 5.0})
 
-    radii is keyed by the radius inputs the layout renders, which don't cover every registered
-    catalog -- the lookup has to fail inside this per-task coroutine so it stays contained.
-    """
+
+async def _find_catalog_for_summary(catalog, query, ra, dec, radii):
+    """Query one catalog for the summary; expected failures and an empty result return None."""
     try:
         table = await query.find(ra, dec, radii[catalog])
     except NotFound, CatalogUnavailable, KeyError:
         return catalog, None
+    max_separation = SUMMARY_MAX_SEPARATION_ARCSEC.get(catalog)
+    if max_separation is not None:
+        table = table[table["separation"] <= max_separation]
+        if len(table) == 0:
+            return catalog, None
     return catalog, table
 
 
