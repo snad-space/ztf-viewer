@@ -419,17 +419,15 @@ def gaia_distance_upstreams(monkeypatch):
     return coords
 
 
-async def test_get_summary_absolute_mag_uses_gaia_distance_and_extinction(
-    summary_upstreams, gaia_distance_upstreams
-):
+async def test_get_summary_absolute_mag_uses_gaia_distance_and_extinction(summary_upstreams, gaia_distance_upstreams):
     with patch.object(viewer, "catalog_query_objects", dict):
         div = (await _run_get_summary([], summary_upstreams))[-1]
 
     # mu = 5 * log10(1000) - 5 = 10, so 18.00 - 10 - 0.30 = 7.70 and 17.40 - 10 - 0.21 = 7.19,
     # shown to one decimal
-    assert [
-        line for line in _project(div) if line[0] == "Absolute mag (Gaia EDR3 distance, dereddened)"
-    ] == [["Absolute mag (Gaia EDR3 distance, dereddened)", ": ", "M_zg ≈ 7.7", ", ", "M_zr ≈ 7.2"]]
+    assert [line for line in _project(div) if line[0] == "Absolute mag (Gaia EDR3 distance, dereddened)"] == [
+        ["Absolute mag (Gaia EDR3 distance, dereddened)", ": ", "M_zg ≈ 7.7", ", ", "M_zr ≈ 7.2"]
+    ]
 
 
 async def test_get_summary_queries_bayestar_with_a_scalar_coord(summary_upstreams, gaia_distance_upstreams):
@@ -441,9 +439,7 @@ async def test_get_summary_queries_bayestar_with_a_scalar_coord(summary_upstream
     assert coord.distance.isscalar
 
 
-async def test_get_summary_extinction_line_survives_csfd_being_unavailable(
-    summary_upstreams, gaia_distance_upstreams
-):
+async def test_get_summary_extinction_line_survives_csfd_being_unavailable(summary_upstreams, gaia_distance_upstreams):
     """`summary_upstreams` stubs CSFD as unavailable, so only the Bayestar half is rendered."""
     with patch.object(viewer, "catalog_query_objects", dict):
         div = (await _run_get_summary([], summary_upstreams))[-1]
