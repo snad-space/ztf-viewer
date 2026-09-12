@@ -1737,6 +1737,13 @@ async def get_summary(oid, dr, different_filter, different_field, radius_ids, ra
     except NotFound, CatalogUnavailable:
         pass
 
+    # Put these elements last, so that both magnitudes follow the extinction they use
+    for element_name in ["Average mag (including neighbourhood)", "Absolute mag (Gaia EDR3 distance, dereddened)"]:
+        try:
+            elements.move_to_end(element_name)
+        except KeyError:
+            pass
+
     elements["Search in brokers"] = [
         brokers.alerce_tag(ra, dec),
         brokers.antares_tag(ra, dec, oid=oid),

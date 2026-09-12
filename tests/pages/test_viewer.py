@@ -430,6 +430,22 @@ async def test_get_summary_absolute_mag_uses_gaia_distance_and_extinction(summar
     ]
 
 
+async def test_get_summary_orders_extinction_then_average_then_absolute_mag(summary_upstreams, gaia_distance_upstreams):
+    """The two magnitudes follow the extinction they are computed from. Reordering relies on the
+    labels matching literally in two places, so a typo in either must fail here."""
+    with patch.object(viewer, "catalog_query_objects", dict):
+        div = (await _run_get_summary([], summary_upstreams))[-1]
+
+    names = [line[0] for line in _project(div)]
+    assert names == [
+        "Extinction",
+        "Average mag (including neighbourhood)",
+        "Absolute mag (Gaia EDR3 distance, dereddened)",
+        "Search in brokers",
+        "Coordinates",
+    ]
+
+
 async def test_get_summary_queries_bayestar_with_a_scalar_coord(summary_upstreams, gaia_distance_upstreams):
     with patch.object(viewer, "catalog_query_objects", dict):
         await _run_get_summary([], summary_upstreams)
