@@ -1426,9 +1426,15 @@ async def get_zubercal_lc_option(oid, dr, old):
         option["label"] = "HATS API is unavailable now"
         option["disabled"] = False
     else:
-        option["label"] = (
-            f'Zubercal DR20 {row[ZUBERCAL_QUERY.id_column]} ({np.round(row["separation"], 1)}″), '
-            f'{row["n_obs"]} detections, apparent'
+        option["label"] = html.Span(
+            [
+                (
+                    f'Zubercal DR20 {row[ZUBERCAL_QUERY.id_column]} ({np.round(row["separation"], 1)}″), '
+                    f'{row["n_obs"]} detections, apparent'
+                ),
+                " ",
+                html.A("CSV", href=f"/zubercal/csv/{dr}/{oid}"),
+            ]
         )
         option["disabled"] = False
     return option
@@ -1448,9 +1454,15 @@ async def get_tess_lc_option(oid, dr, old):
         option["label"] = "HATS API is unavailable now"
         option["disabled"] = False
     else:
-        option["label"] = (
-            f'TESS TIC {row[TESS_QUERY.id_column]} ({np.round(row["separation"], 1)}″), '
-            f'{row["n_obs"]} points, apparent'
+        option["label"] = html.Span(
+            [
+                (
+                    f'TESS TIC {row[TESS_QUERY.id_column]} ({np.round(row["separation"], 1)}″), '
+                    f'{row["n_obs"]} points, apparent'
+                ),
+                " ",
+                html.A("CSV", href=f"/tess/csv/{dr}/{oid}"),
+            ]
         )
         option["disabled"] = False
     return option

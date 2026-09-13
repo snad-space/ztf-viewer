@@ -115,3 +115,61 @@ async def test_get_csv_raises_not_found_when_lc_is_missing():
         pytest.raises(NotFound),
     ):
         await lc_csv.get_csv("dr24", ["1"])
+
+
+# ---------------------------------------------------------------------------------------------
+# HATS catalogs are keyed by the ZTF object rather than by their own id: hats-api has no lookup
+# by id, so the route repeats the cone search instead.
+# ---------------------------------------------------------------------------------------------
+
+HATS_OID = 680113300005170
+HATS_ROW = {"ticid": 341738544, "separation": 0.1}
+
+
+class _FakeHatsQuery:
+    id_column = "ticid"
+
+    def __init__(self, error=None):
+        self.error = error
+        self.radius_arcsec = None
+
+    async def find_closest(self, ra, dec, radius_arcsec):
+        self.radius_arcsec = radius_arcsec
+        if self.error is not None:
+            raise self.error
+        return HATS_ROW
+
+    def light_curve(self, id, row=None):
+        return [{"oid": id, "mjd": 59000.0, "mag": 12.0, "magerr": 0.01, "filter": "TESS"}]
+
+
+async def _hats_response(query):
+    async def fake_get_coord(oid, dr):
+        return 10.0, 20.0
+
+    with patch.object(lc_csv.find_ztf_oid, "get_coord", fake_get_coord):
+        return await lc_csv._hats_csv_response(query, "tess", "dr24", HATS_OID)
+
+
+async def test_hats_csv_is_named_after_the_catalog_object():
+    """The ZTF oid addresses the route, but the file is the TESS target's."""
+    response = await _hats_response(_FakeHatsQuery())
+
+    assert response.status_code == 200
+    assert response.headers["content-disposition"] == "attachment; filename=tess_341738544.csv"
+    assert response.body.decode().splitlines()[0] == "oid,mjd,mag,magerr,filter"
+
+
+async def test_hats_csv_searches_the_cone_the_light_curve_was_plotted_from():
+    """A wider cone than the plot used would hand back a different object's light curve."""
+    query = _FakeHatsQuery()
+    await _hats_response(query)
+
+    assert query.radius_arcsec == lc_csv.lc_search_radius_arcsec("tess")
+
+
+@pytest.mark.parametrize("error", [NotFound, CatalogUnavailable])
+async def test_hats_csv_without_a_match_is_a_404(error):
+    response = await _hats_response(_FakeHatsQuery(error=error()))
+
+    assert response.status_code == 404
