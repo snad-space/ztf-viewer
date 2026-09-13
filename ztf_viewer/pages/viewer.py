@@ -27,6 +27,8 @@ from ztf_viewer.catalogs.conesearch import (
     ANTARES_QUERY,
     GAIA_DR3,
     PANSTARRS_DR2_QUERY,
+    TESS_QUERY,
+    ZUBERCAL_QUERY,
     catalog_query_objects,
     get_catalog_query,
 )
@@ -39,7 +41,11 @@ from ztf_viewer.catalogs.ztf_ref import ztf_ref
 from ztf_viewer.config import JS9_URL, ZTF_FITS_PROXY_URL
 from ztf_viewer.date_with_frac import DateWithFrac, correct_date
 from ztf_viewer.exceptions import CatalogUnavailable, NotFound
-from ztf_viewer.lc_data.external import ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC, external_lc_data
+from ztf_viewer.lc_data.external import (
+    ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC,
+    external_lc_data,
+    lc_search_radius_arcsec,
+)
 from ztf_viewer.lc_data.plot_data import MJD_OFFSET, get_folded_plot_data, get_plot_data
 from ztf_viewer.lc_features import light_curve_features
 from ztf_viewer.model_fit import model_fit
@@ -126,18 +132,28 @@ def parse_pathname(pathname):
 
 ADDITIONAL_LC_OPTIONS = (
     {
-        "label": "Closest Antares object, diff-photometry",
+        "label": "Antares object, diff-photometry",
         "value": "antares",
         "disabled": False,
     },
     {
-        "label": "Closest Pan-STARRS object, apparent",
+        "label": "Pan-STARRS object, apparent",
         "value": "panstarrs",
         "disabled": False,
     },
     {
-        "label": "Closest Gaia object, apparent",
+        "label": "Gaia object, apparent",
         "value": "gaia",
+        "disabled": False,
+    },
+    {
+        "label": "Zubercal DR20 object, apparent",
+        "value": "zubercal",
+        "disabled": False,
+    },
+    {
+        "label": "TESS light curve, apparent",
+        "value": "tess",
         "disabled": False,
     },
 )
@@ -1300,6 +1316,10 @@ async def update_additional_light_curve_options(oid, dr, values, old_options):
             option = await get_gaia_lc_option(oid, dr, old=options_dict[value])
         elif value == "panstarrs":
             option = await get_panstarrs_lc_option(oid, dr, old=options_dict[value])
+        elif value == "zubercal":
+            option = await get_zubercal_lc_option(oid, dr, old=options_dict[value])
+        elif value == "tess":
+            option = await get_tess_lc_option(oid, dr, old=options_dict[value])
         else:
             raise ValueError(f'additional light curve value "{value}" unknown')
         options_dict[value] = option
@@ -1388,6 +1408,49 @@ async def get_panstarrs_lc_option(oid, dr, old):
                 " ",
                 html.A("CSV", href=f"/panstarrs/csv/{row['objID']}"),
             ]
+        )
+        option["disabled"] = False
+    return option
+
+
+async def get_zubercal_lc_option(oid, dr, old):
+    option = old.copy()
+    radius = lc_search_radius_arcsec("zubercal")
+    ra, dec = await find_ztf_oid.get_coord(oid, dr)
+    try:
+        row = await ZUBERCAL_QUERY.find_closest(ra, dec, radius_arcsec=radius)
+    except NotFound:
+        option["label"] = f"Zubercal DR20 object (not found in {radius}″)"
+        option["disabled"] = True
+    except CatalogUnavailable:
+        option["label"] = "HATS API is unavailable now"
+        option["disabled"] = False
+    else:
+        option["label"] = (
+            f'Zubercal DR20 {row[ZUBERCAL_QUERY.id_column]} ({np.round(row["separation"], 1)}″), '
+            f'{row["n_obs"]} detections, apparent'
+        )
+        option["disabled"] = False
+    return option
+
+
+async def get_tess_lc_option(oid, dr, old):
+    option = old.copy()
+    radius = lc_search_radius_arcsec("tess")
+    ra, dec = await find_ztf_oid.get_coord(oid, dr)
+    try:
+        # The longest light curve in the cone, not the nearest target -- see TessLightCurveQuery
+        row = await TESS_QUERY.find_closest(ra, dec, radius_arcsec=radius)
+    except NotFound:
+        option["label"] = f"TESS target (not found in {radius}″)"
+        option["disabled"] = True
+    except CatalogUnavailable:
+        option["label"] = "HATS API is unavailable now"
+        option["disabled"] = False
+    else:
+        option["label"] = (
+            f'TESS TIC {row[TESS_QUERY.id_column]} ({np.round(row["separation"], 1)}″), '
+            f'{row["n_obs"]} points, apparent'
         )
         option["disabled"] = False
     return option
@@ -1887,6 +1950,24 @@ def neighbour_oids(different_filter, different_field) -> frozenset:
     return oids
 
 
+def _draw_smallest_markers_first(figure):
+    """Put a dense light curve behind the rest without moving it in the legend.
+
+    Plotly takes both the drawing order and the legend order from the trace order, so the
+    legend order is pinned with `legendrank` before the traces themselves are reordered.
+    """
+    for rank, trace in enumerate(figure.data):
+        trace.legendrank = rank
+    figure.data = tuple(sorted(figure.data, key=_trace_marker_size))
+
+
+def _trace_marker_size(trace):
+    size = getattr(trace.marker, "size", None)
+    if size is None:
+        return np.inf
+    return np.min(size)
+
+
 @app.callback(
     [
         Output("graph", "figure"),
@@ -2088,6 +2169,7 @@ async def set_figure(
         marker={"line": {"width": 0.5, "color": "black"}},
         selector={"mode": "markers"},
     )
+    _draw_smallest_markers_first(figure)
     fw = go.FigureWidget(figure)
     fw.layout.hovermode = "closest"
     # Applies to both the brightness value and the error bars appended to it in the tooltip
@@ -2533,8 +2615,15 @@ async def set_table(radius, oid, dr, catalog):
     return div
 
 
+# Light-curve sources only: their cone-search tables say nothing the light-curve checkbox does
+# not, so the page has no section for them.
+CATALOGS_WITHOUT_TABLE = frozenset({"zubercal-dr20", "tess"})
+
+
 def set_tables():
     for catalog in catalog_query_objects():
+        if catalog in CATALOGS_WITHOUT_TABLE:
+            continue
         app.callback(
             Output(f"{catalog}-table", "children"),
             [Input({"type": "search-radius", "index": catalog}, "value")],

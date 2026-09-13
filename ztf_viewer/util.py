@@ -58,10 +58,22 @@ FILTER_COLORS = {
     "ps_i": "#694721",
     "ps_z": "#5c5cff",
     "ps_y": "#9370d8",
+    # The base band colours at 70% brightness: Zubercal is ZTF photometry, plotted next to the
+    # DR light curve rather than instead of it.
+    "zuber_g": "#45922B",
+    "zuber_r": "#8F2430",
+    "zuber_i": "#140D06",
+    "TESS": "#8C7853",
 }
 FILTERS_ORDER = defaultdict(lambda: 100) | dict(zip(FILTER_COLORS, count(1)))
 FILTERS = tuple(FILTER_COLORS)
 ZTF_FILTERS = ("zg", "zr", "zi")
+
+# A light curve of this many points is a band across the plot rather than a set of markers: one
+# TESS sector alone is ~20000 two-minute cadences against a few hundred ZTF epochs. Such a curve
+# is drawn with small markers, and behind everything else.
+DENSE_LC_MIN_POINTS = 5_000
+DENSE_LC_MARK_SIZE = 0.2
 
 
 DEFAULT_DR = "dr24"

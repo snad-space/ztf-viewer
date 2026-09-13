@@ -8,9 +8,17 @@ from ztf_viewer.cache import cache
 from ztf_viewer.lc_data import EXTERNAL_LC_DATA
 from ztf_viewer.lc_data.arbitrary import add_id_to_obs
 from ztf_viewer.lc_data.ztf_dr import ztf_dr_lc
-from ztf_viewer.util import ABZPMAG_JY, FILTERS_ORDER, LN10_04, immutabledefaultdict
+from ztf_viewer.util import (
+    ABZPMAG_JY,
+    DENSE_LC_MARK_SIZE,
+    DENSE_LC_MIN_POINTS,
+    FILTERS_ORDER,
+    LN10_04,
+    immutabledefaultdict,
+)
 
 MJD_OFFSET = 58000
+
 
 _DEFAULT_REF_MAG = immutabledefaultdict(lambda: np.inf)
 _DEFAULT_REF_MAGERR = immutabledefaultdict(float)
@@ -141,9 +149,10 @@ async def get_plot_data(
         )
 
     async def _external_lc(source, kwargs):
+        lc = await EXTERNAL_LC_DATA[source](cur_oid, dr, **kwargs)
         return plot_data(
-            await EXTERNAL_LC_DATA[source](cur_oid, dr, **kwargs),
-            mark_size=1,
+            lc,
+            mark_size=DENSE_LC_MARK_SIZE if len(lc) >= DENSE_LC_MIN_POINTS else 1,
             min_mjd=min_mjd,
             max_mjd=max_mjd,
             ref_mag=ref_mag,

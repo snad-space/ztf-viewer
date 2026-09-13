@@ -15,9 +15,11 @@ from .panstarrs import PanstarrsDr2StackedQuery
 from .sdss import SdssQuasarsQuery
 from .simbad import SimbadQuery
 from .spicy import SpicyQuery
+from .tess import TessLightCurveQuery
 from .tns import TnsQuery
 from .vsx import VsxQuery
 from .ztf_periodic import ZtfPeriodicQuery
+from .zubercal import ZubercalQuery
 
 ALERCE_QUERY = AlerceQuery("Alerce")
 ATLAS_QUERY = AtlasQuery("ATLAS")
@@ -35,9 +37,11 @@ PANSTARRS_DR2_QUERY = PanstarrsDr2StackedQuery("Pan-STARRS DR2 Stacked")
 SDSS_QUASARS_QUERY = SdssQuasarsQuery("SDSS DR16 Quasars")
 SIMBAD_QUERY = SimbadQuery("Simbad")
 SPICY_QUERY = SpicyQuery("SPICY")
+TESS_QUERY = TessLightCurveQuery("TESS")
 TNS_QUERY = TnsQuery("Transient Name Server")
 VSX_QUERY = VsxQuery("VSX")
 ZTF_PERIODIC_QUERY = ZtfPeriodicQuery("ZTF Periodic")
+ZUBERCAL_QUERY = ZubercalQuery("Zubercal DR20")
 
 
 catalog_query_objects = _BaseCatalogQuery.get_objects
