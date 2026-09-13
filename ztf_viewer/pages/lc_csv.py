@@ -13,10 +13,17 @@ from fastapi import Request
 
 from ztf_viewer.app import app
 from ztf_viewer.catalogs import find_ztf_oid
-from ztf_viewer.catalogs.conesearch import ANTARES_QUERY, GAIA_DR3, PANSTARRS_DR2_QUERY
+from ztf_viewer.catalogs.conesearch import (
+    ANTARES_QUERY,
+    GAIA_DR3,
+    PANSTARRS_DR2_QUERY,
+    TESS_QUERY,
+    ZUBERCAL_QUERY,
+)
 from ztf_viewer.catalogs.ztf_ref import ztf_ref
 from ztf_viewer.csv_render import dfs_to_csv
 from ztf_viewer.exceptions import CatalogUnavailable, NotFound
+from ztf_viewer.lc_data.external import lc_search_radius_arcsec
 from ztf_viewer.procpool import run_in_process
 from ztf_viewer.web import csv_response, error_response, query_args
 
@@ -94,6 +101,33 @@ def response_antares_csv(locus_id: str):
     except NotFound, CatalogUnavailable:
         return error_response("", 404)
     return _lc_to_csv_response(lc, f"antares_{locus_id}.csv")
+
+
+async def _hats_csv_response(query, name, dr, oid):
+    """A HATS light curve as CSV, keyed by the ZTF object it was found for.
+
+    hats-api has no lookup by catalog id -- without a region a query scans the whole catalog,
+    and Zubercal is several TB -- so this repeats the cone search the plot already cached.
+    """
+    try:
+        ra, dec = await find_ztf_oid.get_coord(oid, dr)
+        row = await query.find_closest(ra, dec, lc_search_radius_arcsec(name))
+        lc = query.light_curve(row[query.id_column], row=row)
+    except NotFound, CatalogUnavailable:
+        return error_response("", 404)
+    return _lc_to_csv_response(lc, f"{name}_{row[query.id_column]}.csv")
+
+
+@app.server.api_route("/zubercal/csv/{dr}/{oid}")
+async def response_zubercal_csv(dr: str, oid: int):
+    """Download the Zubercal DR20 light curve closest to a ZTF object as CSV."""
+    return await _hats_csv_response(ZUBERCAL_QUERY, "zubercal", dr, oid)
+
+
+@app.server.api_route("/tess/csv/{dr}/{oid}")
+async def response_tess_csv(dr: str, oid: int):
+    """Download the longest TESS light curve near a ZTF object as CSV."""
+    return await _hats_csv_response(TESS_QUERY, "tess", dr, oid)
 
 
 # Keep last: `oid` is an int, so this also matches the catalog routes above.
