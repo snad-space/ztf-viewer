@@ -1247,7 +1247,7 @@ def test_parse_additional_lc_follows_checklist_order():
     """The widget reports its values in checklist order, so the parsed value has to match it,
     otherwise the first user interaction would look like a change and redraw the figure."""
     checklist_order = [option["value"] for option in viewer.ADDITIONAL_LC_OPTIONS]
-    assert parse_additional_lc(["gaia,panstarrs,antares"]) == checklist_order
+    assert parse_additional_lc([",".join(reversed(checklist_order))]) == checklist_order
 
 
 def test_parse_additional_lc_values_are_plottable():

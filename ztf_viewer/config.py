@@ -13,6 +13,7 @@ MODEL_FIT_API_URL = os.environ.get("MODEL_FIT_API_URL", "https://fit.lc.snad.spa
 OGLE_III_API_URL = os.environ.get("OGLE_III_API_URL", "https://ogle3.snad.space")
 ZTF_PERIODIC_API_URL = os.environ.get("ZTF_PERIODIC_API_URL", "https://periodic.ztf.snad.space")
 TNS_API_URL = os.environ.get("TNS_API_URL", "https://tns.snad.space")
+HATS_API_URL = os.environ.get("HATS_API_URL", "https://hats.snad.space")
 JS9_URL = os.environ.get("JS9_URL", "https://www.js9.org/js9.html")
 DUSTMAPS_API_URL = os.environ.get("DUSTMAPS_API_URL", "https://dustmaps.snad.space")
 
@@ -52,6 +53,11 @@ TIMEOUT_OGLE_LIGHT_CURVE = httpx.Timeout(60.0)  # conesearch/ogle.py: third-part
 # answer once connected, but connecting itself should not -- split connect from read.
 TIMEOUT_PANSTARRS = httpx.Timeout(10.0, read=600.0)
 TIMEOUT_EXTINCTION = httpx.Timeout(10.0)  # extinction/_base.py
+# catalogs/conesearch/_hats.py: the service scans parquet partitions in object storage, and a
+# light-curve catalog answers with the photometry itself, so both the query and the transfer are
+# slower than the conesearch APIs above -- a few seconds for a small cone, and it can be much
+# worse.
+TIMEOUT_HATS = httpx.Timeout(30.0)
 
 TIMEOUT_FEATURES = httpx.Timeout(60.0)  # lc_features.py: feature extraction over a full light curve
 TIMEOUT_MODEL_FIT = httpx.Timeout(120.0)  # model_fit.py: the heaviest per-request compute of the first-party APIs

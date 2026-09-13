@@ -15,7 +15,7 @@ import matplotlib.backends.backend_pgf
 import numpy as np
 from matplotlib.ticker import AutoMinorLocator
 
-from ztf_viewer.util import FILTER_COLORS, FILTERS_ORDER, ZTF_FILTERS, flip
+from ztf_viewer.util import DENSE_LC_MIN_POINTS, FILTER_COLORS, FILTERS_ORDER, ZTF_FILTERS, flip
 
 # A filter no catalog has claimed a colour for. The interactive figure passes FILTER_COLORS
 # to plotly as a map and unknown filters just fall back to a default colour, so the
@@ -58,6 +58,16 @@ def _brightness_arrays(lc, brightness):
     return m, np.stack([err_minus, err])
 
 
+LEGEND_MARKER_SIZE = 24
+
+
+def _enlarge_legend_markers(legend):
+    """Keep the legend readable for a light curve drawn with markers too small to see in it."""
+    for handle in legend.legend_handles:
+        if hasattr(handle, "set_sizes"):
+            handle.set_sizes([LEGEND_MARKER_SIZE])
+
+
 def _split_by_filter(lc):
     """Group one object's observations by passband, in the order the passbands first appear.
 
@@ -88,6 +98,7 @@ def plot_folded_data(oid, data, period, repeat=None, fmt="png", caption=True, ti
             continue
         for fltr, obs_list in _split_by_filter(lc):
             m, err = _brightness_arrays(obs_list, brightness)
+            is_dense = len(obs_list) >= DENSE_LC_MIN_POINTS
             lcs[lc_oid, fltr] = {
                 "filter": fltr,
                 "folded_time": np.array([obs["folded_time"] for obs in obs_list]),
@@ -95,10 +106,10 @@ def plot_folded_data(oid, data, period, repeat=None, fmt="png", caption=True, ti
                 "m": m,
                 "err": err,
                 "color": FILTER_COLORS.get(fltr, UNKNOWN_FILTER_COLOR),
-                "marker_size": 24 if lc_oid == oid else 12,
+                "marker_size": 1 if is_dense else (24 if lc_oid == oid else 12),
                 "label": "" if fltr in seen_filters else fltr,
                 "marker": "o" if lc_oid == oid else "s",
-                "zorder": 2 if lc_oid == oid else 1,
+                "zorder": 0 if is_dense else (2 if lc_oid == oid else 1),
             }
             seen_filters.add(fltr)
 
@@ -155,13 +166,14 @@ def plot_folded_data(oid, data, period, repeat=None, fmt="png", caption=True, ti
     secax.minorticks_on()
     secax.tick_params(direction="in", which="both")
     legend_anchor_y = -0.026 if usetex else -0.032
-    ax.legend(
+    legend = ax.legend(
         bbox_to_anchor=(1, legend_anchor_y),
         ncol=min(3, len(seen_filters)),
         columnspacing=0.5,
         frameon=False,
         handletextpad=0.0,
     )
+    _enlarge_legend_markers(legend)
     bytes_io = save_fig(fig, fmt)
     return bytes_io.getvalue()
 
@@ -185,17 +197,23 @@ def plot_data(oid, data, fmt="png", caption=True, title=None, brightness=None):
             if fltr not in ZTF_FILTERS:
                 marker = "d"
 
+            is_dense = len(obs_list) >= DENSE_LC_MIN_POINTS
+
             marker_size = 12
             if lc_oid == oid:
                 marker_size = 24
             if fltr not in ZTF_FILTERS:
                 marker_size = 36
+            if is_dense:
+                marker_size = 1
 
             zorder = 1
             if lc_oid == oid:
                 zorder = 2
             if fltr not in ZTF_FILTERS:
                 zorder = 3
+            if is_dense:
+                zorder = 0
 
             m, err = _brightness_arrays(obs_list, brightness)
 
@@ -259,7 +277,7 @@ def plot_data(oid, data, fmt="png", caption=True, title=None, brightness=None):
         )
     legend_anchor_y = -0.026 if usetex else -0.032
     handles, labels = zip(*sorted(zip(*ax.get_legend_handles_labels()), key=lambda hl: FILTERS_ORDER[hl[1]]))
-    ax.legend(
+    legend = ax.legend(
         list(flip(handles, 3)),
         list(flip(labels, 3)),
         bbox_to_anchor=(1, legend_anchor_y),
@@ -268,6 +286,7 @@ def plot_data(oid, data, fmt="png", caption=True, title=None, brightness=None):
         frameon=False,
         handletextpad=0.0,
     )
+    _enlarge_legend_markers(legend)
     bytes_io = save_fig(fig, fmt)
     return bytes_io.getvalue()
 

@@ -1,6 +1,7 @@
 import asyncio
 import dataclasses
 import inspect
+import io
 import logging
 
 logger = logging.getLogger(__name__)
@@ -15,11 +16,12 @@ from astropy.cosmology import FlatLambdaCDM
 from astropy.table import Table
 from astroquery.utils.commons import TableList
 from astroquery.vizier import Vizier
+from nested_pandas import NestedFrame, read_parquet
 from requests import RequestException
 
 from ztf_viewer.cache import cache
 from ztf_viewer.catalogs import find_ztf_oid, unavailable_catalogs, unavailable_catalogs_async
-from ztf_viewer.config import TIMEOUT_CONESEARCH_API
+from ztf_viewer.config import HATS_API_URL, TIMEOUT_CONESEARCH_API, TIMEOUT_HATS
 from ztf_viewer.exceptions import CatalogUnavailable, NotFound
 from ztf_viewer.http import get_client
 from ztf_viewer.rate_limit import AsyncRateLimiter, RateLimitTimeout
@@ -116,6 +118,10 @@ class _BaseCatalogQuery:
     # `conesearch/simbad.py` and `ztf_viewer/rate_limit.py`.
     _rate_limiter: ClassVar[AsyncRateLimiter | None] = None
 
+    # How long `find()` lets this catalog's upstream take to answer. Ten seconds suits a small
+    # JSON conesearch; a catalog that answers with bulk data raises it on the subclass.
+    _query_timeout_seconds: ClassVar[float] = 10.0
+
     # Column keys with pre-built HTML cell values (see html_from_astropy_table's html_columns).
     # Subclasses with extra HTML columns should extend this, e.g. `frozenset({"__link", "x"})`.
     _declared_html_columns: frozenset = frozenset({"__link"})
@@ -135,7 +141,7 @@ class _BaseCatalogQuery:
     def __init__(self, query_name):
         self.__query_name = query_name
         self._timeout_decorator = async_timeout(
-            seconds=10.0,
+            seconds=self._query_timeout_seconds,
             exception=CatalogUnavailable,
             exception_kwargs={"catalog": self},
         )
@@ -375,6 +381,48 @@ class _BaseCatalogApiQuery(_BaseCatalogQuery):
     def _get_api_url(self, query):
         query_string = urllib.parse.urlencode(query)
         return f"{self._base_api_url}?{query_string}"
+
+
+class _BaseHatsQuery(_BaseCatalogQuery):
+    """A cone search over one HATS catalog quering hats-api"""
+
+    _hats_url: ClassVar[str]
+    _hats_columns: ClassVar[tuple[str, ...]]
+    _hats_row_limit: ClassVar[int | None] = None
+
+    _query_timeout_seconds: ClassVar[float] = TIMEOUT_HATS.read
+
+    _api_url = f"{HATS_API_URL}/api/v1/simple/hats"
+
+    async def _api_query_region(self, ra, dec, radius_arcsec) -> NestedFrame:
+        """The rows of the cone, asked for as parquet."""
+        body = {
+            "url": self._hats_url,
+            "columns": self._hats_columns,
+            "region": [{"type": "circle", "ra": ra, "dec": dec, "radius_arcsec": radius_arcsec}],
+            "format": "parquet",
+        }
+        if self._hats_row_limit is not None:
+            body["limit"] = self._hats_row_limit
+        response = await get_client().post(self._api_url, json=body, timeout=TIMEOUT_HATS)
+        if response.status_code != 200:
+            logger.warning(response.text)
+            raise CatalogUnavailable(response.text, catalog=self)
+        df = read_parquet(io.BytesIO(response.content))
+        logger.info(f"{self.query_name}: {len(df)} rows in {response.headers['x-hats-elapsed-ms']}ms")
+        if len(df) == 0:
+            raise NotFound
+        return df
+
+    async def _query_region(self, coord, radius):
+        if not (isinstance(radius, str) and radius.endswith("s")):
+            raise ValueError('radius argument should be a string that ends with "s" letter')
+        radius_arcsec = float(radius[:-1])
+        df = await self._api_query_region(coord.ra.to_value("deg"), coord.dec.to_value("deg"), radius_arcsec)
+        return self._table_from_rows(df)
+
+    def _table_from_rows(self, df: NestedFrame) -> Table:
+        return Table.from_pandas(df)
 
 
 class _BaseVizierQuery(_BaseCatalogQuery):
