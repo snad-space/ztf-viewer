@@ -1688,7 +1688,7 @@ wheels = [
 
 [[package]]
 name = "ztf-viewer"
-version = "2026.8.1"
+version = "2026.9.0"
 source = { editable = "." }
 dependencies = [
     { name = "alerce" },

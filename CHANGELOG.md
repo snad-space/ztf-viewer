@@ -6,10 +6,12 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
+## [2026.9.0] 2026 September 13
+
 ### Changed
 
-- Cone searches to Simbad are paced to its published limit of 8 queries per second, so a busy moment cannot get us temporarily blacklisted https://github.com/snad-space/ztf-viewer/issues/51
-- Astro-COLIBRI reaches the summary only within 5″, its own cross-match table keeps the full radius https://github.com/snad-space/ztf-viewer/issues/317
+- Simbad cone searches are rate-limited to avoid getting us blacklisted https://github.com/snad-space/ztf-viewer/issues/51
+- Astro-COLIBRI reaches the summary only within 5″, its cross-match table keeps the full radius https://github.com/snad-space/ztf-viewer/issues/317
 
 ### Removed
 
@@ -17,31 +19,28 @@ Version schema is `year.month.num_release`
 
 ### Fixed
 
-- Simbad cross-match works again: astroquery ≥0.4.8 returns `ra`/`dec` in degrees instead of `RA`/`DEC` in hours, so every Simbad cone search raised `KeyError` and the catalog was silently absent from every object page
-- Simbad rows are no longer duplicated once per object type, distance and variability measurement, and each measurement group now shows the one Simbad ranks first
-- Simbad "Variable type" is populated again, and its period is back in the summary and the cross-match table
+- Simbad cross-match works again (broken by astroquery ≥0.4.8) https://github.com/snad-space/ztf-viewer/pull/741
+- Simbad rows are no longer duplicated per measurement, and "Variable type" and period are back https://github.com/snad-space/ztf-viewer/pull/741
 - Light-curve tooltip no longer repeats the photometric error https://github.com/snad-space/ztf-viewer/issues/745
-- Folded plot shows asymmetric diff mag errors
-- Search radius fields accept three decimal digits, so a sub-arcsecond radius, the `1.23` shown as the cone-search placeholder included, is no longer rejected by the browser
-- SDSS DR16 Quasars "redshift source" is spelled out instead of shown as a raw `DR6Q_HW`-like code https://github.com/snad-space/ztf-viewer/issues/375
-- Gaia light-curve points are named `gaia_G`, `gaia_BP` and `gaia_RP`, so they get the colours meant for them instead of an arbitrary one
+- Folded plot shows asymmetric diff mag errors https://github.com/snad-space/ztf-viewer/issues/745
+- Search radius fields accept three decimal digits, matching the placeholder they show https://github.com/snad-space/ztf-viewer/pull/748
+- SDSS DR16 Quasars "redshift source" is spelled out instead of a raw code https://github.com/snad-space/ztf-viewer/issues/375
+- Gaia light-curve points get their intended colours again https://github.com/snad-space/ztf-viewer/pull/754
 - Pan-STARRS objects with no detections are marked as such https://github.com/snad-space/ztf-viewer/issues/150
-- Bayestar extinction is shown again, it was queried with array-shaped coordinates and the dustmaps API answered 400
-- Peak absolute magnitude ignores a Bailer-Jones distance whose confidence interval is 10% of the distance or wider, so a quasar is no longer quoted off the meaningless parallax distance Gaia gives it
+- Bayestar extinction is shown again https://github.com/snad-space/ztf-viewer/pull/758
+- Peak absolute magnitude ignores unreliable Gaia parallax distances https://github.com/snad-space/ztf-viewer/pull/759
 
 ### Added
 
-- A dashed cross-hair marks the observation whose FITS image is shown, and the FITS block names that observation's filter and MJD https://github.com/snad-space/ztf-viewer/issues/719
-- The URL follows the MJD range, the new `?lc=antares,panstarrs,gaia` external light curves and the FITS observation, which `?fits=` now also takes as an MJD, so a copied link reproduces the page https://github.com/snad-space/ztf-viewer/issues/329
-- A note on the cone-search results page explains why one star or transient is listed under several OIDs https://github.com/snad-space/ztf-viewer/issues/559
-- Features are downloadable as CSV, for the feature-extraction version and MJD range the Features section is showing https://github.com/snad-space/ztf-viewer/issues/71
-- Downloadable PNG and PDF plots follow the brightness selected on the page: flux, difference magnitude and difference flux, not magnitude only https://github.com/snad-space/ztf-viewer/issues/121
-- Downloadable PNG and PDF plots include the Antares, Pan-STARRS and Gaia light curves checked on the page https://github.com/snad-space/ztf-viewer/issues/137
-- Summary shows the peak absolute magnitude, off the first distance available: the Gaia EDR3 parallax, then a cross-match redshift, then any other cross-match, naming that catalog and the dust map used https://github.com/snad-space/ztf-viewer/issues/34
-
-### Added
-
-- Per-page browser titles, so that tabs for different objects, searches and pages are distinguishable https://github.com/snad-space/ztf-viewer/issues/99
+- A cross-hair marks the observation whose FITS image is shown https://github.com/snad-space/ztf-viewer/issues/719
+- The URL tracks the MJD range, selected external light curves and FITS observation, so a copied link reproduces the page https://github.com/snad-space/ztf-viewer/issues/329
+- A note explains why a cone search lists a star under several OIDs https://github.com/snad-space/ztf-viewer/issues/559
+- Features are downloadable as CSV https://github.com/snad-space/ztf-viewer/issues/71
+- Downloadable plots follow the brightness selected on the page https://github.com/snad-space/ztf-viewer/issues/121
+- Downloadable plots include the external light curves checked on the page https://github.com/snad-space/ztf-viewer/issues/137
+- Summary shows the peak absolute magnitude https://github.com/snad-space/ztf-viewer/issues/34
+- Per-page browser titles https://github.com/snad-space/ztf-viewer/issues/99
+- Zubercal DR20 and TESS light curves, downloadable as CSV https://github.com/snad-space/ztf-viewer/pull/760 https://github.com/snad-space/ztf-viewer/pull/761
 
 ## [2026.8.1] 2026 August 28
 
