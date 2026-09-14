@@ -266,8 +266,7 @@ def test_fit_lc_extinction_lookup_runs_on_the_loop_without_to_thread(monkeypatch
         viewer.fit_lc(
             cur_oid="123",
             dr="dr24",
-            different_filter=None,
-            different_field=None,
+            neighbours=None,
             min_mjd=None,
             max_mjd=None,
             ref_mag_ids=[],

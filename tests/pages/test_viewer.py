@@ -59,6 +59,7 @@ get_metadata = inspect.unwrap(viewer.get_metadata)
 get_layout = inspect.unwrap(viewer.get_layout)
 set_features_list = inspect.unwrap(viewer.set_features_list)
 set_lc_table = inspect.unwrap(viewer.set_lc_table)
+find_neighbours = inspect.unwrap(viewer.find_neighbours)
 set_figure_link = viewer.set_figure_link  # a plain function, never wrapped
 
 
@@ -214,8 +215,7 @@ async def _run_get_summary(catalogs, summary_upstreams, ws=None):
             await get_summary(
                 oid="633207400004730",
                 dr="dr24",
-                different_filter=None,
-                different_field=None,
+                neighbours=None,
                 radius_ids=ids,
                 radius_values=values,
             )
@@ -836,8 +836,7 @@ async def test_get_summary_streams_fast_catalog_before_slow_one_finishes(summary
             await get_summary(
                 oid="633207400004730",
                 dr="dr24",
-                different_filter=None,
-                different_field=None,
+                neighbours=None,
                 radius_ids=ids,
                 radius_values=values,
             )
@@ -895,8 +894,7 @@ async def test_get_summary_stops_work_on_disconnect(summary_upstreams):
                 await get_summary(
                     oid="633207400004730",
                     dr="dr24",
-                    different_filter=None,
-                    different_field=None,
+                    neighbours=None,
                     radius_ids=ids,
                     radius_values=values,
                 )
@@ -937,8 +935,7 @@ async def test_get_summary_works_over_http_without_a_websocket(summary_upstreams
                     "inputs": [
                         {"id": "oid", "property": "children", "value": "633207400004730"},
                         {"id": "dr", "property": "children", "value": "dr24"},
-                        {"id": "different_filter_neighbours", "property": "children", "value": None},
-                        {"id": "different_field_neighbours", "property": "children", "value": None},
+                        {"id": "neighbours", "property": "children", "value": None},
                         {
                             "id": [{"index": "other", "type": "search-radius"}],
                             "property": "id",
@@ -1108,7 +1105,6 @@ def _figure_link(
         "633207400004730",
         "dr24",
         "Title",
-        None,
         None,
         min_mjd,
         max_mjd,
@@ -1478,8 +1474,7 @@ async def _figure(brightness_type="mag", lc_type="full", period=None):
         figure, _message, _version = await set_figure(
             cur_oid="633207400004730",
             dr="dr24",
-            different_filter=None,
-            different_field=None,
+            neighbours=None,
             min_mjd=None,
             max_mjd=None,
             brightness_type=brightness_type,
@@ -1609,3 +1604,65 @@ async def test_panstarrs_option_with_detections_stays_offered(monkeypatch):
     option = await _panstarrs_option(monkeypatch, 40)
     assert option["disabled"] is False
     assert "apparent" in _dump(option["label"])
+
+
+# ---------------------------------------------------------------------------------------------
+# find_neighbours -- https://github.com/snad-space/ztf-viewer/issues/440
+#
+# One list of every OID in the circle. It used to be two, "different passband, same field" and
+# "different field", and a twin sharing both the field and the passband fell between them.
+# ---------------------------------------------------------------------------------------------
+
+
+_CENTER_OID = "794208200022136"
+
+
+def _circle_around_the_center():
+    return {
+        _CENTER_OID: {"meta": {"filter": "zr", "fieldid": 794}, "separation": 0.0},
+        # The twin from the issue: the same field and passband, a different OID.
+        "794208200041246": {"meta": {"filter": "zr", "fieldid": 794}, "separation": 0.4},
+        "763208200011111": {"meta": {"filter": "zr", "fieldid": 763}, "separation": 0.8},
+        "794208100013151": {"meta": {"filter": "zg", "fieldid": 794}, "separation": 0.6},
+    }
+
+
+async def _neighbours(monkeypatch, radius=1.0):
+    monkeypatch.setattr(viewer.find_ztf_oid, "get_coord", AsyncMock(return_value=(123.4, 56.7)))
+    monkeypatch.setattr(viewer.find_ztf_oid, "get_meta", AsyncMock(return_value={"filter": "zr", "fieldid": 794}))
+    monkeypatch.setattr(viewer.find_ztf_circle, "find", AsyncMock(return_value=_circle_around_the_center()))
+    return await find_neighbours(radius, _CENTER_OID, "dr24")
+
+
+async def test_neighbours_list_every_other_oid_closest_first(monkeypatch):
+    children = await _neighbours(monkeypatch)
+    assert [div.id for div in children] == [
+        "neighbour-794208200041246",
+        "neighbour-794208100013151",
+        "neighbour-763208200011111",
+    ]
+
+
+async def test_neighbours_leave_out_the_object_itself(monkeypatch):
+    children = await _neighbours(monkeypatch)
+    assert f"neighbour-{_CENTER_OID}" not in [div.id for div in children]
+
+
+async def test_neighbour_oids_reads_the_oids_back_off_the_rendered_list(monkeypatch):
+    children = await _neighbours(monkeypatch)
+    rendered = json.loads(_dump(children))
+    assert viewer.neighbour_oids(rendered) == frozenset(_circle_around_the_center()) - {_CENTER_OID}
+
+
+async def test_neighbours_name_the_passband_only_when_it_differs(monkeypatch):
+    """The centre is zr, so only the zg neighbour is worth naming."""
+    children = await _neighbours(monkeypatch)
+    assert [_project(div.children)[-1] for div in children] == [
+        " (0.400″)",  # 794208200041246, zr like the centre
+        " (0.600″, zg)",  # 794208100013151
+        " (0.800″)",  # 763208200011111, zr again -- a different field is not a different band
+    ]
+
+
+async def test_neighbours_report_a_non_positive_radius(monkeypatch):
+    assert "positive" in _dump(await _neighbours(monkeypatch, radius=0))
