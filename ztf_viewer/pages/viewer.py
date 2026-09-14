@@ -254,7 +254,9 @@ async def fits_children_for_observation(mjd, oid, fieldid, rcid, fltr, dr):
         html.Div(fits_cutout_url, id="fits-to-show-cutout-url", style={"display": "none"}),
         html.A("Open in JS9", href=js9_url, id="fits-to-show-js9-url"),
         " ",
-        html.A("Download FITS", href=fits_url, id="fits-to-download-url"),
+        html.A("Download cutout", href=fits_cutout_url, id="fits-to-download-cutout-url"),
+        " ",
+        html.A("Download full FITS", href=fits_url, id="fits-to-download-url"),
         " ",
         html.A("Product directory", href=prod_dir_url, id="fits-to-show-dir-url"),
     ]
