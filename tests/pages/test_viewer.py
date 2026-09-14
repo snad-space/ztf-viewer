@@ -1310,15 +1310,21 @@ def test_pick_fits_observation_rejects_non_finite_mjd(fits_param):
 async def test_fits_children_for_observation(summary_upstreams):
     with patch.object(viewer, "correct_date", AsyncMock()):
         children = await fits_children_for_observation(58000.0, "633207400004730", 796, 12, "zg", "dr24")
-    info_text, ra_text, dec_text, cutout_text, js9_link, _, download_link, _, prod_link = _project(children)
+    info_text, ra_text, dec_text, cutout_text, js9_link, _, cutout_link, _, download_link, _, prod_link = _project(
+        children
+    )
     assert info_text == "FITS image for: zg, MJD 58000.00000"
     assert ra_text == "10.0"
     assert dec_text == "20.0"
     assert "size=449pix" in cutout_text
     assert js9_link == {"text": "Open in JS9", "href": js9_link["href"]}
     assert "ra=10.0" in js9_link["href"] and "dec=20.0" in js9_link["href"]
-    assert download_link["text"] == "Download FITS"
+    # The cutout link must offer the very image the page shows, cutout query and all
+    assert cutout_link["text"] == "Download cutout"
+    assert cutout_link["href"] == cutout_text
+    assert download_link["text"] == "Download full FITS"
     assert "_000796_zg_c" in download_link["href"]
+    assert "size=449pix" not in download_link["href"]
     assert prod_link["text"] == "Product directory"
 
 
@@ -1354,7 +1360,7 @@ async def test_load_fits_for_graph_clicked_initial_mount_honours_fits_param(monk
     finally:
         context_value.reset(token)
     *_, download_link, _, _ = _project(children)
-    assert download_link["text"] == "Download FITS"
+    assert download_link["text"] == "Download full FITS"
     assert selected == {"mjd": 58000.0, "oid": "633207400004730"}
 
 
@@ -1371,7 +1377,7 @@ async def test_load_fits_for_graph_clicked_oid_trigger_honours_fits_param(monkey
     finally:
         context_value.reset(token)
     *_, download_link, _, _ = _project(children)
-    assert download_link["text"] == "Download FITS"
+    assert download_link["text"] == "Download full FITS"
     assert selected == {"mjd": 58000.0, "oid": "633207400004730"}
 
 
@@ -1393,7 +1399,7 @@ async def test_load_fits_for_graph_clicked_click_trigger_still_works(summary_ups
     finally:
         context_value.reset(token)
     *_, download_link, _, _ = _project(children)
-    assert download_link["text"] == "Download FITS"
+    assert download_link["text"] == "Download full FITS"
     assert selected == {"mjd": 58000.0, "oid": "633207400004730"}
 
 
