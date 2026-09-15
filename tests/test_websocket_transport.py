@@ -74,8 +74,7 @@ def test_only_get_summary_opts_into_websocket_transport():
     assert [str(inp) for inp in entry["raw_inputs"]] == [
         "oid.children",
         "dr.children",
-        "different_filter_neighbours.children",
-        "different_field_neighbours.children",
+        "neighbours.children",
         '{"index":["ALL"],"type":"search-radius"}.id',
         '{"index":["ALL"],"type":"search-radius"}.value',
     ]

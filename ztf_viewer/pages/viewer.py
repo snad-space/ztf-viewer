@@ -537,40 +537,19 @@ async def get_layout(pathname, search):
                             html.Div(
                                 [
                                     html.H2("Neighbours"),
-                                    html.Div(
-                                        [
-                                            html.H4("Different passband, same field"),
-                                            dcc.Input(
-                                                value="1",
-                                                id="different_filter_radius",
-                                                placeholder="Search radius, arcsec",
-                                                type="number",
-                                                step="0.001",
-                                                min="0",
-                                                max="60",
-                                            ),
-                                            " search radius, arcsec",
-                                            html.Div(id="different_filter_neighbours"),
-                                        ],
-                                        style={"width": "45%", "display": "inline-block"},
+                                    dcc.Input(
+                                        value="1",
+                                        id="neighbours_radius",
+                                        placeholder="Search radius, arcsec",
+                                        type="number",
+                                        step="0.001",
+                                        min="0",
+                                        max="60",
                                     ),
-                                    html.Div(
-                                        [
-                                            html.H4("Different field"),
-                                            dcc.Input(
-                                                value="1",
-                                                id="different_field_radius",
-                                                placeholder="Search radius, arcsec",
-                                                type="number",
-                                                step="0.001",
-                                                min="0",
-                                                max="60",
-                                            ),
-                                            " search radius, arcsec",
-                                            html.Div(id="different_field_neighbours"),
-                                        ],
-                                        style={"width": "45%", "display": "inline-block"},
-                                    ),
+                                    " search radius, arcsec",
+                                    # The style lives here and not on the callback's output: the
+                                    # callback replaces `children` only, so the columns survive it.
+                                    html.Div(id="neighbours", style={"columns": 2}),
                                 ],
                                 id="neighbours-layout",
                             ),
@@ -1019,8 +998,7 @@ def show_error_message(message_fit, message_curve, list_models, old_header):
     [
         Input("oid", "children"),
         Input("dr", "children"),
-        Input("different_filter_neighbours", "children"),
-        Input("different_field_neighbours", "children"),
+        Input("neighbours", "children"),
         Input("min-mjd", "value"),
         Input("max-mjd", "value"),
         Input({"type": "ref-mag-input", "index": ALL}, "id"),
@@ -1033,8 +1011,7 @@ def show_error_message(message_fit, message_curve, list_models, old_header):
 async def fit_lc(
     cur_oid,
     dr,
-    different_filter,
-    different_field,
+    neighbours,
     min_mjd,
     max_mjd,
     ref_mag_ids,
@@ -1053,7 +1030,7 @@ async def fit_lc(
         float, {id["index"]: value for id, value in zip(ref_magerr_ids, ref_magerr_values) if value is not None}
     )
 
-    other_oids = neighbour_oids(different_filter, different_field)
+    other_oids = neighbour_oids(neighbours)
     coord = await find_ztf_oid.get_sky_coord(cur_oid, dr)
     try:
         ebv = await csfd.ebv(coord)
@@ -1099,15 +1076,14 @@ async def fit_lc(
 @app.callback(
     Output("akb-neighbours", "children"),
     [
-        Input("different_filter_neighbours", "children"),
-        Input("different_field_neighbours", "children"),
+        Input("neighbours", "children"),
     ],
 )
-async def set_akb_neighbours(different_filter, different_field):
+async def set_akb_neighbours(neighbours):
     if not await akb.is_token_valid():
         return None
 
-    oids = neighbour_oids(different_filter, different_field)
+    oids = neighbour_oids(neighbours)
     labeled_oids = [oid for oid in oids if await akb.oid_exists(oid)]
     if len(labeled_oids) == 0:
         return None
@@ -1491,11 +1467,10 @@ def show_ref_mag_layout(brightness_type, name_model, old_style):
     Output("ref-mag", "children"),
     Input("oid", "children"),
     Input("dr", "children"),
-    Input("different_filter_neighbours", "children"),
-    Input("different_field_neighbours", "children"),
+    Input("neighbours", "children"),
 )
-async def show_ref_mag_or_magerr(oid, dr, different_filter, different_field):
-    oids = sorted(neighbour_oids(different_filter, different_field) | {oid}, key=int)
+async def show_ref_mag_or_magerr(oid, dr, neighbours):
+    oids = sorted(neighbour_oids(neighbours) | {oid}, key=int)
 
     filters = defaultdict(list)
     for objectid in oids:
@@ -1746,8 +1721,7 @@ def _summary_list_div(elements):
 @app.callback(
     Input("oid", "children"),
     Input("dr", "children"),
-    Input("different_filter_neighbours", "children"),
-    Input("different_field_neighbours", "children"),
+    Input("neighbours", "children"),
     Input({"type": "search-radius", "index": ALL}, "id"),
     Input({"type": "search-radius", "index": ALL}, "value"),
     # No Output: results are pushed with `set_props` as each catalog resolves, so the page is
@@ -1756,7 +1730,7 @@ def _summary_list_div(elements):
     # to one batched HTTP response (the final push below) for clients without the WS transport.
     websocket=True,
 )
-async def get_summary(oid, dr, different_filter, different_field, radius_ids, radius_values):
+async def get_summary(oid, dr, neighbours, radius_ids, radius_values):
     if None in radius_values:
         raise PreventUpdate
     ws = ctx.websocket
@@ -1848,7 +1822,7 @@ async def get_summary(oid, dr, different_filter, different_field, radius_ids, ra
         except KeyError:
             pass
 
-    other_oids = neighbour_oids(different_filter, different_field)
+    other_oids = neighbour_oids(neighbours)
     lcs = await get_plot_data(oid, dr, other_oids=other_oids)
     mags = {}
     for obs in chain.from_iterable(lcs.values()):
@@ -1990,17 +1964,10 @@ async def get_metadata(oid, dr):
     return div
 
 
-def neighbour_oids(different_filter, different_field) -> frozenset:
-    if not isinstance(different_filter, list):
-        different_filter = []
-    if not isinstance(different_field, list):
-        different_field = []
-    oids = frozenset(
-        div["props"]["id"].rsplit("-", maxsplit=1)[-1]
-        for div in different_filter + different_field
-        if isinstance(div, dict)
-    )
-    return oids
+def neighbour_oids(neighbours) -> frozenset:
+    if not isinstance(neighbours, list):
+        return frozenset()
+    return frozenset(div["props"]["id"].rsplit("-", maxsplit=1)[-1] for div in neighbours if isinstance(div, dict))
 
 
 def _draw_smallest_markers_first(figure):
@@ -2030,8 +1997,7 @@ def _trace_marker_size(trace):
     [
         Input("oid", "children"),
         Input("dr", "children"),
-        Input("different_filter_neighbours", "children"),
-        Input("different_field_neighbours", "children"),
+        Input("neighbours", "children"),
         Input("min-mjd", "value"),
         Input("max-mjd", "value"),
         Input("light-curve-brightness", "value"),
@@ -2051,8 +2017,7 @@ def _trace_marker_size(trace):
 async def set_figure(
     cur_oid,
     dr,
-    different_filter,
-    different_field,
+    neighbours,
     min_mjd,
     max_mjd,
     brightness_type,
@@ -2106,7 +2071,7 @@ async def set_figure(
     webgl_available = True if webgl_available is None else bool(int(webgl_available))
     render_mode = "auto" if webgl_available else "svg"
 
-    other_oids = neighbour_oids(different_filter, different_field)
+    other_oids = neighbour_oids(neighbours)
     if lc_type == "full":
         lcs = await get_plot_data(
             cur_oid,
@@ -2240,8 +2205,7 @@ def set_figure_link(
     cur_oid,
     dr,
     title,
-    different_filter,
-    different_field,
+    neighbours,
     min_mjd,
     max_mjd,
     lc_type,
@@ -2259,7 +2223,7 @@ def set_figure_link(
         raise PreventUpdate
     if min_mjd is not None and max_mjd is not None and min_mjd >= max_mjd:
         raise PreventUpdate
-    other_oids = neighbour_oids(different_filter, different_field)
+    other_oids = neighbour_oids(neighbours)
     data = [("other_oid", oid) for oid in other_oids]
     # The external light curves checked on the page are plotted in the downloaded figure too
     data.extend(("lc", value) for value in additional_lc_types or [])
@@ -2292,8 +2256,7 @@ app.callback(
         Input("oid", "children"),
         Input("dr", "children"),
         Input("title", "children"),
-        Input("different_filter_neighbours", "children"),
-        Input("different_field_neighbours", "children"),
+        Input("neighbours", "children"),
         Input("min-mjd", "value"),
         Input("max-mjd", "value"),
         Input("light-curve-type", "value"),
@@ -2315,8 +2278,7 @@ app.callback(
         Input("oid", "children"),
         Input("dr", "children"),
         Input("title", "children"),
-        Input("different_filter_neighbours", "children"),
-        Input("different_field_neighbours", "children"),
+        Input("neighbours", "children"),
         Input("min-mjd", "value"),
         Input("max-mjd", "value"),
         Input("light-curve-type", "value"),
@@ -2337,17 +2299,16 @@ app.callback(
     [
         Input("oid", "children"),
         Input("dr", "children"),
-        Input("different_filter_neighbours", "children"),
-        Input("different_field_neighbours", "children"),
+        Input("neighbours", "children"),
         Input("min-mjd", "value"),
         Input("max-mjd", "value"),
     ],
 )
-def set_csv_link(oid, dr, different_filter, different_field, min_mjd, max_mjd):
+def set_csv_link(oid, dr, neighbours, min_mjd, max_mjd):
     url = f"/{dr}/csv/{oid}"
     query = {}
 
-    if other_oids := neighbour_oids(different_filter, different_field):
+    if other_oids := neighbour_oids(neighbours):
         query |= {"other_oid": list(other_oids)}
     if min_mjd is not None:
         query["min_mjd"] = [min_mjd]
@@ -2359,7 +2320,20 @@ def set_csv_link(oid, dr, different_filter, different_field, min_mjd, max_mjd):
     return url
 
 
-async def find_neighbours(radius, center_oid, dr, different):
+@app.callback(
+    Output("neighbours", "children"),
+    [Input("neighbours_radius", "value")],
+    [
+        State("oid", "children"),
+        State("dr", "children"),
+    ],
+)
+async def find_neighbours(radius, center_oid, dr):
+    """Every other OID within the radius, whatever its field and passband.
+
+    A source may hold more than one OID even within a single field and passband, so nothing but
+    the object itself is filtered out https://github.com/snad-space/ztf-viewer/issues/440
+    """
     if radius is None:
         return html.P("No radius is specified")
     if float(radius) <= 0:
@@ -2368,50 +2342,21 @@ async def find_neighbours(radius, center_oid, dr, different):
         find_ztf_oid.get_coord(center_oid, dr),
         find_ztf_oid.get_meta(center_oid, dr),
     )
-    kwargs = {"ra": ra, "dec": dec, "radius_arcsec": radius, "dr": dr}
-    fltr = meta["filter"]
-    fieldid = meta["fieldid"]
-    j = await find_ztf_circle.find(**kwargs)
-    if different == "filter":
-        j = {
-            oid: value
-            for oid, value in j.items()
-            if value["meta"]["filter"] != fltr and value["meta"]["fieldid"] == fieldid
-        }
-    elif different == "fieldid":
-        j = {oid: value for oid, value in j.items() if value["meta"]["fieldid"] != fieldid}
-    else:
-        raise ValueError(f'Wrong "different" value {different}')
+    j = await find_ztf_circle.find(ra=ra, dec=dec, radius_arcsec=radius, dr=dr)
     children = []
-    for i, (oid, obj) in enumerate(sorted(j.items(), key=lambda kv: kv[1]["separation"])):
-        div = html.Div(
-            [html.A(f"{oid}", href=f"./{oid}"), f' ({format_sep(obj["separation"])})'],
-            id=f"different-{different}-{oid}",
-            style={"display": "inline"},
+    for oid, obj in sorted(j.items(), key=lambda kv: kv[1]["separation"]):
+        if str(oid) == str(center_oid):
+            continue
+        # The passband is worth naming only where it differs from the one the page is showing
+        fltr = obj["meta"]["filter"]
+        band = "" if fltr == meta["filter"] else f", {fltr}"
+        children.append(
+            html.Div(
+                [html.A(f"{oid}", href=f"./{oid}"), f' ({format_sep(obj["separation"])}{band})'],
+                id=f"neighbour-{oid}",
+            )
         )
-        if i != 0:
-            div.children.insert(0, ", ")
-        children.append(div)
     return children
-
-
-app.callback(
-    Output("different_field_neighbours", "children"),
-    [Input("different_field_radius", "value")],
-    [
-        State("oid", "children"),
-        State("dr", "children"),
-    ],
-)(partial(find_neighbours, different="fieldid"))
-
-app.callback(
-    Output("different_filter_neighbours", "children"),
-    [Input("different_filter_radius", "value")],
-    [
-        State("oid", "children"),
-        State("dr", "children"),
-    ],
-)(partial(find_neighbours, different="filter"))
 
 
 app.clientside_callback(

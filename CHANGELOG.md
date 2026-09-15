@@ -6,6 +6,10 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
+### Changed
+
+- "Neighbours" is a single list of every OID around https://github.com/snad-space/ztf-viewer/issues/440
+
 ### Added
 
 - "Download cutout" saves the FITS crop shown on the page, the one whose pixel coordinates match it https://github.com/snad-space/ztf-viewer/issues/340

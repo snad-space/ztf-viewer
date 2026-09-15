@@ -166,8 +166,7 @@ def _summary_request_body(spec, oid, dr, radius_arcsec):
     scalar_values = {
         "oid": oid,
         "dr": dr,
-        "different_filter_neighbours": None,
-        "different_field_neighbours": None,
+        "neighbours": None,
     }
     inputs = []
     for dep in spec["inputs"]:
