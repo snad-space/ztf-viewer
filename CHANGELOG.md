@@ -17,6 +17,7 @@ Version schema is `year.month.num_release`
 - Sections and the plot say when they are loading or updating https://github.com/snad-space/ztf-viewer/issues/377
 - "Download cutout" saves the FITS crop shown on the page https://github.com/snad-space/ztf-viewer/issues/340
 - A shared link previews as a card in social media and messengers https://github.com/snad-space/ztf-viewer/issues/98
+- Gaia DR3 cross-matches for variability, quasar candidates and galaxy candidates https://github.com/snad-space/ztf-viewer/issues/167
 
 ## [2026.9.0] 2026 September 13
 
