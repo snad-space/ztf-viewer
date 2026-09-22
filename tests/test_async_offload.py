@@ -27,6 +27,7 @@ config.CACHE_TYPE = "memory"
 config.UNAVAILABLE_CATALOGS_CACHE_TYPE = "memory"
 
 import ztf_viewer.__main__ as main_module
+from ztf_viewer.catalogs.snad import catalog as snad_module
 from ztf_viewer.catalogs.snad.catalog import snad_catalog as real_snad_catalog
 from ztf_viewer.exceptions import NotFound
 from ztf_viewer.pages import viewer
@@ -158,15 +159,16 @@ def test_set_title_snad_lookup_runs_on_the_loop(monkeypatch):
         seen_thread_id = threading.get_ident()
         return "SNAD1"
 
-    monkeypatch.setattr(viewer.find_ztf_oid, "get_coord", stub_get_coord)
-    monkeypatch.setattr(viewer.snad_catalog, "search_region", stub_search_region)
+    monkeypatch.setattr(snad_module.find_ztf_oid, "get_coord", stub_get_coord)
+    monkeypatch.setattr(snad_module.snad_catalog, "search_region", stub_search_region)
 
     result = asyncio.run(viewer.set_title("oid", "dr"))
 
     assert result == "SNAD1 — oid"
     assert seen_thread_id == loop_thread_id
 
-    source = inspect.getsource(inspect.unwrap(viewer.set_title))
+    # The lookup itself lives in `catalogs.snad.catalog` now; the heading only spells its result
+    source = inspect.getsource(inspect.unwrap(viewer.set_title)) + inspect.getsource(snad_module.snad_name)
     assert "asyncio.to_thread" not in source
 
 
@@ -232,8 +234,8 @@ def test_set_title_propagates_not_found(monkeypatch):
     async def stub_search_region(ra, dec, radius_arcsec):
         raise NotFound
 
-    monkeypatch.setattr(viewer.find_ztf_oid, "get_coord", stub_get_coord)
-    monkeypatch.setattr(viewer.snad_catalog, "search_region", stub_search_region)
+    monkeypatch.setattr(snad_module.find_ztf_oid, "get_coord", stub_get_coord)
+    monkeypatch.setattr(snad_module.snad_catalog, "search_region", stub_search_region)
 
     result = asyncio.run(viewer.set_title("oid", "dr"))
 

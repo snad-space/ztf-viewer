@@ -11,9 +11,11 @@ network is unavailable. These tests cover what that one can't, without any netwo
   route and the real process pool (only `get_plot_data` and the renderer are stubbed).
 """
 
+import pickle
 import shutil
 import subprocess
 import sys
+from io import BytesIO
 
 import pytest
 
@@ -25,12 +27,19 @@ config.UNAVAILABLE_CATALOGS_CACHE_TYPE = "memory"
 import matplotlib.colors
 import numpy as np
 
-from ztf_viewer.figure_render import BRIGHTNESS, _brightness_arrays, plot_data, plot_folded_data
+from ztf_viewer.figure_render import BRIGHTNESS, _brightness_arrays, plot_card, plot_data, plot_folded_data
 from ztf_viewer.lc_data.plot_data import plot_data as add_photometry
 from ztf_viewer.util import immutabledefaultdict
 
 _PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 _PDF_MAGIC = b"%PDF-"
+# RIFF container, with "WEBP" four bytes after the length
+_WEBP_MAGIC = b"RIFF"
+
+# Rows of the card the header's two lines fall in, and the first column right of the logo
+_TITLE_ROWS = (45, 82)
+_SUBTITLE_ROWS = (92, 118)
+_RIGHT_OF_LOGO = 130
 
 
 def _pgf_texsystem():
@@ -118,8 +127,8 @@ def _external_lc(oid=9001, filters=("gaia_G", "gaia_BP", "gaia_RP"), n=9):
     }
 
 
-def _legend_labels(monkeypatch, render, *args, **kwargs):
-    """The legend the renderer actually draws, captured on its way to `save_fig`."""
+def _captured_figure(monkeypatch, render, *args, **kwargs):
+    """The figure a renderer actually draws, caught on its way to `save_fig`."""
     from ztf_viewer import figure_render
 
     captured = []
@@ -132,6 +141,12 @@ def _legend_labels(monkeypatch, render, *args, **kwargs):
     monkeypatch.setattr(figure_render, "save_fig", spy)
     render(*args, **kwargs)
     (fig,) = captured
+    return fig
+
+
+def _legend_labels(monkeypatch, render, *args, **kwargs):
+    """The legend the renderer actually draws."""
+    fig = _captured_figure(monkeypatch, render, *args, **kwargs)
     return [label for label in fig.axes[0].get_legend_handles_labels()[1] if label]
 
 
@@ -154,14 +169,9 @@ def test_plot_folded_data_gives_every_passband_of_an_external_survey_its_own_leg
 
 def test_plot_data_draws_each_passband_in_its_own_colour(monkeypatch):
     """The legend is only right if the points under it are: one colour per passband."""
-    from ztf_viewer import figure_render
     from ztf_viewer.util import FILTER_COLORS
 
-    captured = []
-    real_save_fig = figure_render.save_fig
-    monkeypatch.setattr(figure_render, "save_fig", lambda fig, fmt: captured.append(fig) or real_save_fig(fig, fmt))
-    plot_data(1, _external_lc(), fmt="png")
-    (fig,) = captured
+    fig = _captured_figure(monkeypatch, plot_data, 1, _external_lc(), fmt="png")
 
     # The error bars are `LineCollection`s matplotlib labels "_nolegend_"; the points are ours
     drawn = {c.get_label(): c.get_facecolor() for c in fig.axes[0].collections if not c.get_label().startswith("_")}
@@ -206,6 +216,121 @@ def test_plot_data_renders_pdf():
 def test_plot_folded_data_renders_png():
     img = plot_folded_data(1, _synthetic_folded_lc(), period=1.5, fmt="png")
     assert img.startswith(_PNG_MAGIC)
+
+
+def test_plot_card_renders_the_card_format():
+    img = plot_card(1, _synthetic_lc(), title="SNAD101 — 1", subtitle="SNAD ZTF DR24 viewer")
+    assert img.startswith(_WEBP_MAGIC)
+
+
+def test_card_is_two_to_one():
+    """What every card renderer crops to, so the plot keeps all of itself in the preview."""
+    from PIL import Image
+
+    width, height = Image.open(BytesIO(plot_card(1, _synthetic_lc()))).size
+    assert width / height == pytest.approx(2.0)
+    # Above Twitter's 300x157 minimum for the large card, and both sides of its 5 MB limit
+    assert width >= 600
+
+
+def test_card_is_lossless_and_smaller_than_the_figure_png():
+    """Quantized to 256 colours, then encoded losslessly."""
+    from PIL import Image
+
+    card = plot_card(1, _synthetic_lc())
+    with Image.open(BytesIO(card)) as img:
+        assert img.format == "WEBP"
+        assert not img.info.get("lossy", False)
+    assert len(card) < len(plot_data(1, _synthetic_lc(), fmt="png"))
+
+
+def test_card_carries_the_logo_and_names_the_object(monkeypatch):
+    """The picture is the site's, not just a plot: logo, OID and data release are on it."""
+    from ztf_viewer.figure_render import LOGO_PATH
+
+    assert LOGO_PATH.is_file()
+    fig = _captured_figure(monkeypatch, plot_card, 1, _synthetic_lc(), title="1", subtitle="SNAD ZTF DR24 viewer")
+
+    assert [ax for ax in fig.axes if ax.images]
+    assert {text.get_text() for text in fig.texts} == {"1", "SNAD ZTF DR24 viewer"}
+
+
+def test_card_legend_is_off_the_plot(monkeypatch):
+    """A legend inside the axes would sit on top of the light curve."""
+    fig = _captured_figure(monkeypatch, plot_card, 1, _synthetic_lc())
+
+    assert fig.axes[0].get_legend() is None
+    (legend,) = fig.legends
+    assert sorted(text.get_text() for text in legend.get_texts()) == ["zg", "zi", "zr"]
+
+
+def test_card_renders_a_filter_no_colour_is_mapped_for():
+    data = {1: [{"mjd": 58000.0 + i, "mag": 18.0, "magerr": 0.05, "filter": "unheard_of"} for i in range(5)]}
+    assert plot_card(1, data).startswith(_WEBP_MAGIC)
+
+
+def test_site_card_is_the_same_shape_and_format_as_an_object_card():
+    """One picture for every page with no light curve, drawn rather than stored."""
+    from PIL import Image
+
+    from ztf_viewer.figure_render import plot_site_card
+
+    card = plot_site_card("SNAD ZTF viewer", "Light curves, cross-matches and cutouts.")
+
+    assert card.startswith(_WEBP_MAGIC)
+    with Image.open(BytesIO(card)) as img:
+        assert img.format == "WEBP"
+        assert img.size[0] / img.size[1] == pytest.approx(2.0)
+
+
+def test_site_card_carries_the_logo_and_the_wording(monkeypatch):
+    from ztf_viewer.figure_render import plot_site_card
+
+    fig = _captured_figure(monkeypatch, plot_site_card, "SNAD ZTF viewer", "What the site is for.")
+
+    assert [ax for ax in fig.axes if ax.images]
+    assert {text.get_text() for text in fig.texts} == {"SNAD ZTF viewer", "What the site is for."}
+
+
+def test_card_header_lines_start_at_the_same_x():
+    """Set at one anchor the two lines look ragged: a bold "6" has more side bearing than an "S"."""
+    from PIL import Image
+
+    card = plot_card(1, _synthetic_lc(), title="633207400004730", subtitle="SNAD ZTF DR24 viewer")
+    with Image.open(BytesIO(card)) as img:
+        pixels = np.asarray(img.convert("L"))
+
+    def first_ink(top, bottom):
+        """The leftmost column of a band that has ink in it, right of the logo."""
+        ink = (pixels[top:bottom, _RIGHT_OF_LOGO:] < 128).any(axis=0)
+        assert ink.any(), f"no text between rows {top} and {bottom}"
+        return int(np.argmax(ink))
+
+    assert first_ink(*_TITLE_ROWS) == pytest.approx(first_ink(*_SUBTITLE_ROWS), abs=1)
+
+
+async def test_card_image_is_cached(monkeypatch):
+    """Every platform that unfurls a link pulls the same picture; it is drawn once."""
+    from ztf_viewer.pages import figure
+
+    renders = []
+
+    async def stub_get_plot_data(oid, dr):
+        return _synthetic_lc()
+
+    async def stub_run_in_process(func, *args, **kwargs):
+        renders.append(args)
+        return func(*args, **kwargs)
+
+    monkeypatch.setattr(figure, "get_plot_data", stub_get_plot_data)
+    monkeypatch.setattr(figure, "run_in_process", stub_run_in_process)
+
+    kwargs = {"title": "SNAD101 — 4242", "subtitle": "SNAD ZTF DR24 viewer"}
+    img = await figure.card_image(4242, "dr24", **kwargs)
+    assert await figure.card_image(4242, "dr24", **kwargs) == img
+    assert len(renders) == 1
+    # The cache pickles what it stores, and a Redis round trip is not a local dict
+    assert pickle.loads(pickle.dumps(img)) == img
 
 
 def test_figure_render_import_has_no_app_side_effects():

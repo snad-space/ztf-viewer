@@ -52,6 +52,11 @@ def binary_response(data: bytes, mimetype: str, filename: str):
     )
 
 
+def image_response(data: bytes, mimetype: str):
+    """An image served inline rather than as a download, e.g. a link preview picture."""
+    return Response(data, media_type=mimetype)
+
+
 def csv_response(text: str, filename: str):
     """A CSV attachment response."""
     return Response(

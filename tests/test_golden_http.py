@@ -169,6 +169,17 @@ def test_favicon_bytes_match_the_logo_file(client):
     assert _body(response) == logo_path.read_bytes()
 
 
+def test_site_card_is_served_where_the_preview_tags_point(client):
+    """The tag and the route live in two files, which is how they would come to disagree."""
+    from ztf_viewer.social import SITE_CARD_PATH
+
+    response = client.get(f"/{SITE_CARD_PATH}")
+
+    assert response.status_code == 200
+    assert "image/webp" in _content_type(response)
+    assert _body(response).startswith(b"RIFF")
+
+
 def test_index(client):
     response = client.get("/")
 

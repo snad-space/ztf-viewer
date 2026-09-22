@@ -13,6 +13,7 @@ Version schema is `year.month.num_release`
 ### Added
 
 - "Download cutout" saves the FITS crop shown on the page, the one whose pixel coordinates match it https://github.com/snad-space/ztf-viewer/issues/340
+- A shared link previews as a card in social media and messengers https://github.com/snad-space/ztf-viewer/issues/98
 
 ## [2026.9.0] 2026 September 13
 

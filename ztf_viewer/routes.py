@@ -32,8 +32,15 @@ TAGS = re.compile(r"^/+tags/*$")
 BASE_TITLE = "SNAD ZTF viewer"
 
 
-def _dr_title(dr: str | None) -> str:
+def dr_title(dr: str | None) -> str:
     return f"SNAD ZTF {(dr or DEFAULT_DR).upper()} viewer"
+
+
+def object_title(oid, snad_name: str | None = None) -> str:
+    """How an object is named to a reader: its SNAD name where it has one, and its OID either way."""
+    if snad_name:
+        return f"{snad_name} — {oid}"
+    return str(oid)
 
 
 def page_title(pathname: str | None) -> str:
@@ -46,14 +53,14 @@ def page_title(pathname: str | None) -> str:
     if DR7.search(pathname):
         return f"DR7 is not supported — {BASE_TITLE}"
     if match := HOME.search(pathname):
-        return _dr_title(match["dr"])
+        return dr_title(match["dr"])
     if match := VIEWER_DEFAULT_DR.search(pathname):
-        return f"{match['oid']} — {_dr_title(None)}"
+        return f"{match['oid']} — {dr_title(None)}"
     if match := VIEWER.search(pathname):
-        return f"{match['oid']} — {_dr_title(match['dr'])}"
+        return f"{match['oid']} — {dr_title(match['dr'])}"
     if match := SEARCH.search(pathname):
         coord_or_name = urllib.parse.unquote(match["coord_or_name"])
-        return f"{coord_or_name} search — {_dr_title(match['dr'])}"
+        return f"{coord_or_name} search — {dr_title(match['dr'])}"
     if LOGIN.search(pathname):
         return f"Login — {BASE_TITLE}"
     if ANOMALIES.search(pathname):

@@ -34,7 +34,7 @@ from ztf_viewer.catalogs.conesearch import (
 )
 from ztf_viewer.catalogs.extinction import bayestar, csfd
 from ztf_viewer.catalogs.skybot import SKYBOT_QUERY
-from ztf_viewer.catalogs.snad.catalog import snad_catalog
+from ztf_viewer.catalogs.snad.catalog import snad_name
 from ztf_viewer.catalogs.vizier import find_vizier, vizier_catalog_details
 from ztf_viewer.catalogs.ztf_dr import find_ztf_circle, find_ztf_oid
 from ztf_viewer.catalogs.ztf_ref import ztf_ref
@@ -49,6 +49,7 @@ from ztf_viewer.lc_data.external import (
 from ztf_viewer.lc_data.plot_data import MJD_OFFSET, get_folded_plot_data, get_plot_data
 from ztf_viewer.lc_features import light_curve_features
 from ztf_viewer.model_fit import model_fit
+from ztf_viewer.routes import object_title
 from ztf_viewer.util import (
     DEFAULT_MIN_MAX_MJD,
     FILTER_COLORS,
@@ -945,13 +946,7 @@ async def get_layout(pathname, search):
     ],
 )
 async def set_title(oid, dr):
-    ra, dec = await find_ztf_oid.get_coord(oid, dr)
-    try:
-        snad_name = await snad_catalog.search_region(ra, dec, radius_arcsec=3)
-        snad_name = f"{snad_name} — "
-    except NotFound:
-        snad_name = ""
-    return f"{snad_name}{oid}"
+    return object_title(oid, await snad_name(oid, dr))
 
 
 @app.callback(
