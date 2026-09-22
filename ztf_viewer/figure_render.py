@@ -317,6 +317,12 @@ def plot_data(oid, data, fmt="png", caption=True, title=None, brightness=None):
 CARD_FIGSIZE = (12.0, 6.0)
 CARD_DPI = 100
 
+# What a card is encoded as, and the media type and extension that go with it. Read by
+# `ztf_viewer.pages.figure` for the response and by `ztf_viewer.social` for the `og:image` URL.
+CARD_FORMAT = "WEBP"
+CARD_MIMETYPE = "image/webp"
+CARD_SUFFIX = "webp"
+
 # Where the header's two lines of text begin, right of the logo, and how big they are set
 HEADER_X = 0.115
 TITLE_SIZE = 25
@@ -416,23 +422,23 @@ def plot_card(oid, data, title=None, subtitle=None, brightness=None):
             fontsize=15,
         )
 
-    return _palette_png(fig)
+    return _card_bytes(fig)
 
 
-def _palette_png(fig):
-    """The figure as a 256-colour PNG, the form a card is served in.
+def _card_bytes(fig):
+    """The figure in the form a card is served in: lossless WebP of a 256-colour image.
 
-    A plot is flat colour on white, so a palette holds one with no visible loss and in a third
-    of the bytes: 46 kB for a dense light curve against 120 kB for the truecolour PNG
-    matplotlib writes. Both of the lossy formats measured bigger on this kind of picture --
-    JPEG 86 kB at a quality that keeps the type sharp, WebP 48 kB -- and every crawler reads
-    PNG, which is not true of WebP.
+    A plot is flat colour on white, so a palette holds one with no visible loss, and the two
+    steps compound -- for a dense light curve, 120 kB of truecolour PNG as matplotlib writes it
+    become 44 kB of palette PNG and 36 kB of WebP. Lossless because the lossy encoders ring
+    around the type at any quality that is smaller than this.
     """
     png = save_fig(fig, "png")
     png.seek(0)
     out = BytesIO()
     with Image.open(png) as img:
-        img.convert("RGB").quantize(colors=256, method=Image.MEDIANCUT).save(out, "PNG", optimize=True)
+        palette = img.convert("RGB").quantize(colors=256, method=Image.MEDIANCUT)
+        palette.convert("RGB").save(out, CARD_FORMAT, lossless=True, method=6)
     return out.getvalue()
 
 

@@ -68,7 +68,7 @@ def test_index_carries_the_link_preview_of_the_page_asked_for(client, snad_name)
 
     assert response.status_code == 200
     assert '<meta property="og:title" content="633207400004730 — SNAD ZTF DR17 viewer">' in response.text
-    assert '<meta property="og:image" content="http://testserver/dr17/card/633207400004730.png">' in response.text
+    assert '<meta property="og:image" content="http://testserver/dr17/card/633207400004730.webp">' in response.text
 
 
 def test_index_of_a_named_object_leads_with_its_snad_name(client, snad_name):

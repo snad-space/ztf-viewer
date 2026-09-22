@@ -6,7 +6,15 @@ from ztf_viewer import routes
 from ztf_viewer.app import app
 from ztf_viewer.cache import cache
 from ztf_viewer.catalogs.snad.catalog import snad_name
-from ztf_viewer.figure_render import BRIGHTNESS, DEFAULT_BRIGHTNESS, plot_card, plot_data, plot_folded_data
+from ztf_viewer.figure_render import (
+    BRIGHTNESS,
+    CARD_MIMETYPE,
+    CARD_SUFFIX,
+    DEFAULT_BRIGHTNESS,
+    plot_card,
+    plot_data,
+    plot_folded_data,
+)
 from ztf_viewer.lc_data.external import external_lc_data, parse_external_lc_names
 from ztf_viewer.lc_data.plot_data import get_folded_plot_data, get_plot_data
 from ztf_viewer.procpool import run_in_process
@@ -102,7 +110,7 @@ async def card_image(oid: int, dr: str, title: str, subtitle: str) -> bytes:
     return await run_in_process(plot_card, oid, data, title=title, subtitle=subtitle)
 
 
-@app.server.api_route("/{dr}/card/{oid}.png")
+@app.server.api_route(f"/{{dr}}/card/{{oid}}.{CARD_SUFFIX}")
 async def response_card_image(dr: str, oid: int):
     """The light curve of an object, as the preview picture of a link to its page.
 
@@ -112,7 +120,7 @@ async def response_card_image(dr: str, oid: int):
     """
     title = routes.object_title(oid, await snad_name(oid, dr))
     img = await card_image(oid, dr, title=title, subtitle=routes.dr_title(dr))
-    return image_response(img, mimetype=MIMES["png"])
+    return image_response(img, mimetype=CARD_MIMETYPE)
 
 
 def parse_figure_args_helper(args, data=None):

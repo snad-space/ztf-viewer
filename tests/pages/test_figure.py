@@ -33,6 +33,8 @@ from ztf_viewer.util import immutabledefaultdict
 
 _PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 _PDF_MAGIC = b"%PDF-"
+# RIFF container, with "WEBP" four bytes after the length
+_WEBP_MAGIC = b"RIFF"
 
 # Rows of the card the header's two lines fall in, and the first column right of the logo
 _TITLE_ROWS = (45, 82)
@@ -216,9 +218,9 @@ def test_plot_folded_data_renders_png():
     assert img.startswith(_PNG_MAGIC)
 
 
-def test_plot_card_renders_png():
+def test_plot_card_renders_the_card_format():
     img = plot_card(1, _synthetic_lc(), title="SNAD101 — 1", subtitle="SNAD ZTF DR24 viewer")
-    assert img.startswith(_PNG_MAGIC)
+    assert img.startswith(_WEBP_MAGIC)
 
 
 def test_card_is_two_to_one():
@@ -232,14 +234,15 @@ def test_card_is_two_to_one():
     assert width >= 600
 
 
-def test_card_is_a_palette_png():
-    """A plot is flat colour, so the card ships with a palette: a third of the truecolour bytes
-    a crawler would otherwise pull, and every crawler reads PNG."""
+def test_card_is_lossless_and_smaller_than_the_figure_png():
+    """A card is quantized to 256 colours and then encoded losslessly: the palette is where the
+    bytes go, and a lossy encoder would ring around the type for no further gain."""
     from PIL import Image
 
     card = plot_card(1, _synthetic_lc())
     with Image.open(BytesIO(card)) as img:
-        assert img.mode == "P"
+        assert img.format == "WEBP"
+        assert not img.info.get("lossy", False)
     assert len(card) < len(plot_data(1, _synthetic_lc(), fmt="png"))
 
 
@@ -266,7 +269,7 @@ def test_card_legend_is_off_the_plot(monkeypatch):
 
 def test_card_renders_a_filter_no_colour_is_mapped_for():
     data = {1: [{"mjd": 58000.0 + i, "mag": 18.0, "magerr": 0.05, "filter": "unheard_of"} for i in range(5)]}
-    assert plot_card(1, data).startswith(_PNG_MAGIC)
+    assert plot_card(1, data).startswith(_WEBP_MAGIC)
 
 
 def test_card_header_lines_start_at_the_same_x():

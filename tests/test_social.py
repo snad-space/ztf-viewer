@@ -39,13 +39,13 @@ def test_object_page_description_names_its_data_release():
 def test_object_page_previews_its_light_curve():
     image = _content("/dr17/view/633207400004730", "og:image")
 
-    assert image == "https://ztf.snad.space/dr17/card/633207400004730.png"
+    assert image == "https://ztf.snad.space/dr17/card/633207400004730.webp"
     assert image == _content("/dr17/view/633207400004730", "twitter:image")
     assert _content("/dr17/view/633207400004730", "twitter:card") == "summary_large_image"
 
 
 def test_object_page_without_a_data_release_previews_the_default_one():
-    assert _content("/view/633207400004730", "og:image") == f"{_ROOT}{DEFAULT_DR}/card/633207400004730.png"
+    assert _content("/view/633207400004730", "og:image") == f"{_ROOT}{DEFAULT_DR}/card/633207400004730.webp"
 
 
 def test_image_url_follows_the_host_it_is_served_from():

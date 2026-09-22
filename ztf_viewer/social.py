@@ -11,6 +11,7 @@ import html
 import urllib.parse
 
 from ztf_viewer import routes
+from ztf_viewer.figure_render import CARD_MIMETYPE, CARD_SUFFIX
 from ztf_viewer.util import DEFAULT_DR
 
 SITE_NAME = "SNAD ZTF viewer"
@@ -46,8 +47,8 @@ def _description(pathname: str, snad_name: str | None) -> str:
 LOGO_PATH = "static/img/logo.png"
 
 
-def _preview_image(pathname: str) -> tuple[str, str]:
-    """Relative URL of the preview picture, and the card shape that fits it.
+def _preview_image(pathname: str) -> tuple[str, str, str]:
+    """Relative URL of the preview picture, its media type, and the card shape that fits it.
 
     An object page has a picture of its own -- the light curve `ztf_viewer.pages.figure` draws
     for the card, wide enough for the big card -- and every other page falls back to the SNAD
@@ -55,8 +56,8 @@ def _preview_image(pathname: str) -> tuple[str, str]:
     """
     if obj := _object(pathname):
         dr, oid = obj
-        return f"{dr}/card/{oid}.png", "summary_large_image"
-    return LOGO_PATH, "summary"
+        return f"{dr}/card/{oid}.{CARD_SUFFIX}", CARD_MIMETYPE, "summary_large_image"
+    return LOGO_PATH, "image/png", "summary"
 
 
 def social_meta_tags(pathname: str, url: str, root: str, snad_name: str | None = None) -> list[dict[str, str]]:
@@ -71,7 +72,7 @@ def social_meta_tags(pathname: str, url: str, root: str, snad_name: str | None =
     if snad_name and _object(pathname):
         title = f"{snad_name} — {title}"
     description = _description(pathname, snad_name)
-    image_path, card = _preview_image(pathname)
+    image_path, image_type, card = _preview_image(pathname)
     image_url = urllib.parse.urljoin(root, image_path)
 
     return [
@@ -82,6 +83,9 @@ def social_meta_tags(pathname: str, url: str, root: str, snad_name: str | None =
         {"property": "og:description", "content": description},
         {"property": "og:url", "content": url},
         {"property": "og:image", "content": image_url},
+        # The type is worth stating for a card: it tells a crawler the picture is WebP before
+        # it spends a fetch finding out, and one that cannot read WebP can skip it outright.
+        {"property": "og:image:type", "content": image_type},
         {"property": "og:image:alt", "content": title},
         {"name": "twitter:card", "content": card},
         {"name": "twitter:title", "content": title},
