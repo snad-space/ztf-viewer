@@ -43,6 +43,22 @@ def test_index_renders(client):
     assert '<div id="react-entry-point"' in response.text
 
 
+def test_index_carries_the_link_preview_of_the_page_asked_for(client):
+    """`ztf_viewer.social` only reaches a reader if the index is built per request."""
+    response = client.get("/dr17/view/633207400004730")
+
+    assert response.status_code == 200
+    assert '<meta property="og:title" content="633207400004730 — SNAD ZTF DR17 viewer">' in response.text
+    assert '<meta property="og:image" content="http://testserver/dr17/card/633207400004730.png">' in response.text
+
+
+def test_index_of_the_home_page_has_no_preview_picture(client):
+    response = client.get("/")
+
+    assert "og:image" not in response.text
+    assert '<meta name="twitter:card" content="summary">' in response.text
+
+
 def test_static_logo_is_served(client):
     response = client.get("/static/img/logo.svg")
 

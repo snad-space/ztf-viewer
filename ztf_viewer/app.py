@@ -5,6 +5,7 @@ from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 
 from ztf_viewer.config import WEBSOCKET_HEARTBEAT_INTERVAL_MS
+from ztf_viewer.social import social_meta_html
 
 _STATIC_DIR = pathlib.Path(__file__).parent / "static"
 
@@ -32,7 +33,25 @@ js9_js = [
 ]
 
 
-app = dash.Dash(
+class _Dash(dash.Dash):
+    """Dash, plus the link preview tags of the page being served.
+
+    Dash renders one index for every URL, so the social tags cannot be `meta_tags` given once at
+    construction: they are added here, where the request is still around to say which page the
+    index is standing in for.
+    """
+
+    def interpolate_index(self, metas="", **kwargs):
+        try:
+            request = self.backend.request_adapter()
+            social = social_meta_html(request.path, request.url, request.root)
+        except RuntimeError:
+            # No request in context — `index()` called directly, as the tests do.
+            social = ""
+        return super().interpolate_index(metas="\n      ".join(filter(None, [metas, social])), **kwargs)
+
+
+app = _Dash(
     __name__,
     external_stylesheets=js9_css,
     external_scripts=js9_js,
