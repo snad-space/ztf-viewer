@@ -258,3 +258,10 @@ Example:
 .superscript {
     display:flex;
 }
+
+/* Stands in for a section whose callback is still waiting on an external catalog. Muted,
+   because it is not the answer -- it only says the answer is still on its way. */
+.loading-placeholder {
+    color: #767676;
+    font-style: italic;
+}

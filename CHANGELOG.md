@@ -12,6 +12,7 @@ Version schema is `year.month.num_release`
 
 ### Added
 
+- Sections still waiting on a catalog say so instead of looking empty https://github.com/snad-space/ztf-viewer/issues/377
 - "Download cutout" saves the FITS crop shown on the page, the one whose pixel coordinates match it https://github.com/snad-space/ztf-viewer/issues/340
 - A shared link previews as a card in social media and messengers https://github.com/snad-space/ztf-viewer/issues/98
 
