@@ -7,11 +7,14 @@ import side effect. This module only pulls in matplotlib and plain data, so impo
 fresh worker is cheap and side-effect-free.
 """
 
+import pathlib
 from datetime import UTC, datetime
 from io import BytesIO
 
 import matplotlib
 import matplotlib.backends.backend_pgf
+import matplotlib.image
+import matplotlib.lines
 import numpy as np
 from matplotlib.ticker import AutoMinorLocator
 
@@ -178,13 +181,12 @@ def plot_folded_data(oid, data, period, repeat=None, fmt="png", caption=True, ti
     return bytes_io.getvalue()
 
 
-def plot_data(oid, data, fmt="png", caption=True, title=None, brightness=None):
-    usetex = fmt == "pdf"
-    brightness = brightness or DEFAULT_BRIGHTNESS
+def _light_curve_series(oid, data, brightness):
+    """Every light curve in `data` as one plottable series per OID and passband.
 
-    if title is None:
-        title = str(oid)
-
+    The object's own OID is drawn as round markers and an external survey as diamonds, each
+    bigger than the one behind it, so a crowded plot still reads which points are whose.
+    """
     lcs = {}
     seen_filters = set()
     for lc_oid, lc in data.items():
@@ -230,27 +232,11 @@ def plot_data(oid, data, fmt="png", caption=True, title=None, brightness=None):
                 "zorder": zorder,
             }
             seen_filters.add(fltr)
+    return lcs, seen_filters
 
-    fig = matplotlib.figure.Figure(dpi=300, figsize=(6.4, 4.8), constrained_layout=True)
-    if caption:
-        fig.text(
-            0.50,
-            0.005,
-            f"Generated with the SNAD ZTF viewer on {datetime.now(tz=UTC).date()}",
-            ha="center",
-            fontdict={"size": 8, "color": "grey", "usetex": usetex},
-        )
-    ax = fig.subplots()
-    if BRIGHTNESS[brightness]["inverted"]:
-        ax.invert_yaxis()
-    ax.set_title(title, usetex=usetex)
-    ax.set_xlabel("MJD", usetex=usetex)
-    ax.set_ylabel(BRIGHTNESS[brightness]["label"], usetex=usetex)
-    ax.ticklabel_format(axis="x", style="plain", useOffset=False)
-    ax.xaxis.set_minor_locator(AutoMinorLocator(2))
-    ax.yaxis.set_minor_locator(AutoMinorLocator(2))
-    ax.tick_params(which="major", direction="in", length=6, width=1.5)
-    ax.tick_params(which="minor", direction="in", length=4, width=1)
+
+def _draw_light_curve(ax, lcs):
+    """Draw the series of `_light_curve_series` on `ax`, error bars under the markers."""
     for lc in lcs.values():
         ax.errorbar(
             lc["t"],
@@ -275,6 +261,38 @@ def plot_data(oid, data, fmt="png", caption=True, title=None, brightness=None):
             zorder=lc["zorder"],
             alpha=0.7,
         )
+
+
+def plot_data(oid, data, fmt="png", caption=True, title=None, brightness=None):
+    usetex = fmt == "pdf"
+    brightness = brightness or DEFAULT_BRIGHTNESS
+
+    if title is None:
+        title = str(oid)
+
+    lcs, seen_filters = _light_curve_series(oid, data, brightness)
+
+    fig = matplotlib.figure.Figure(dpi=300, figsize=(6.4, 4.8), constrained_layout=True)
+    if caption:
+        fig.text(
+            0.50,
+            0.005,
+            f"Generated with the SNAD ZTF viewer on {datetime.now(tz=UTC).date()}",
+            ha="center",
+            fontdict={"size": 8, "color": "grey", "usetex": usetex},
+        )
+    ax = fig.subplots()
+    if BRIGHTNESS[brightness]["inverted"]:
+        ax.invert_yaxis()
+    ax.set_title(title, usetex=usetex)
+    ax.set_xlabel("MJD", usetex=usetex)
+    ax.set_ylabel(BRIGHTNESS[brightness]["label"], usetex=usetex)
+    ax.ticklabel_format(axis="x", style="plain", useOffset=False)
+    ax.xaxis.set_minor_locator(AutoMinorLocator(2))
+    ax.yaxis.set_minor_locator(AutoMinorLocator(2))
+    ax.tick_params(which="major", direction="in", length=6, width=1.5)
+    ax.tick_params(which="minor", direction="in", length=4, width=1)
+    _draw_light_curve(ax, lcs)
     legend_anchor_y = -0.026 if usetex else -0.032
     handles, labels = zip(*sorted(zip(*ax.get_legend_handles_labels()), key=lambda hl: FILTERS_ORDER[hl[1]]))
     legend = ax.legend(
@@ -289,6 +307,80 @@ def plot_data(oid, data, fmt="png", caption=True, title=None, brightness=None):
     _enlarge_legend_markers(legend)
     bytes_io = save_fig(fig, fmt)
     return bytes_io.getvalue()
+
+
+# The link preview picture, drawn at 2:1. Every card renderer crops to about that ratio, so a
+# plot drawn in the 4:3 of the downloadable figure would lose a slice of itself on the way.
+CARD_FIGSIZE = (12.0, 6.0)
+CARD_DPI = 100
+
+LOGO_PATH = pathlib.Path(__file__).parent / "static" / "img" / "logo.png"
+
+
+def _card_legend_marker(fltr):
+    """A legend dot for a passband, in its colour."""
+    return matplotlib.lines.Line2D(
+        [],
+        [],
+        ls="",
+        marker="o",
+        markersize=9,
+        markerfacecolor=FILTER_COLORS.get(fltr, UNKNOWN_FILTER_COLOR),
+        markeredgecolor="black",
+        markeredgewidth=0.5,
+    )
+
+
+def plot_card(oid, data, title=None, subtitle=None, brightness=None):
+    """The light curve as a link preview card: the plot under a header naming the object.
+
+    A card is read at a glance and at thumbnail size, so it carries the logo and larger type
+    than the downloadable figure, and leaves out its generated-on caption.
+    """
+    brightness = brightness or DEFAULT_BRIGHTNESS
+
+    if title is None:
+        title = str(oid)
+
+    lcs, seen_filters = _light_curve_series(oid, data, brightness)
+
+    fig = matplotlib.figure.Figure(figsize=CARD_FIGSIZE, dpi=CARD_DPI, facecolor="white")
+
+    logo_ax = fig.add_axes((0.026, 0.795, 0.075, 0.15))
+    logo_ax.imshow(matplotlib.image.imread(LOGO_PATH))
+    logo_ax.set_axis_off()
+    fig.text(0.115, 0.895, title, fontsize=25, fontweight="bold", va="center")
+    if subtitle:
+        fig.text(0.115, 0.827, subtitle, fontsize=15, color="#555555", va="center")
+
+    ax = fig.add_axes((0.07, 0.13, 0.905, 0.63))
+    if BRIGHTNESS[brightness]["inverted"]:
+        ax.invert_yaxis()
+    ax.set_xlabel("MJD", fontsize=15)
+    ax.set_ylabel(BRIGHTNESS[brightness]["label"], fontsize=15)
+    ax.ticklabel_format(axis="x", style="plain", useOffset=False)
+    ax.xaxis.set_minor_locator(AutoMinorLocator(2))
+    ax.yaxis.set_minor_locator(AutoMinorLocator(2))
+    ax.tick_params(which="major", direction="in", length=6, width=1.5, labelsize=13)
+    ax.tick_params(which="minor", direction="in", length=4, width=1)
+    _draw_light_curve(ax, lcs)
+    if seen_filters:
+        # In the header rather than on the axes: a card is one picture, and a legend inside it
+        # would sit on top of whichever corner of the light curve happens to be empty. Drawn
+        # from proxy markers, so every passband reads as a dot of its colour at card size.
+        labels = sorted(seen_filters, key=FILTERS_ORDER.__getitem__)
+        fig.legend(
+            [_card_legend_marker(fltr) for fltr in labels],
+            labels,
+            loc="upper right",
+            bbox_to_anchor=(0.975, 0.95),
+            ncol=min(4, len(labels)),
+            columnspacing=0.8,
+            frameon=False,
+            fontsize=15,
+        )
+
+    return save_fig(fig, "png").getvalue()
 
 
 def save_fig(fig, fmt):

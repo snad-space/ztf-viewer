@@ -1,9 +1,12 @@
 """`ztf_viewer.social` describes the page a shared link points at, for crawlers that never run
 the page's JavaScript."""
 
+from pathlib import Path
+
 import pytest
 
-from ztf_viewer.social import SITE_DESCRIPTION, social_meta_html, social_meta_tags
+import ztf_viewer
+from ztf_viewer.social import LOGO_PATH, SITE_DESCRIPTION, social_meta_html, social_meta_tags
 from ztf_viewer.util import DEFAULT_DR
 
 _ROOT = "https://ztf.snad.space/"
@@ -63,10 +66,14 @@ def test_search_page_description_is_url_decoded():
 
 
 @pytest.mark.parametrize("pathname", ["/", "/anomalies", "/tags", "/no-such-page"])
-def test_page_with_no_picture_falls_back_to_the_narrow_card(pathname):
-    assert _content(pathname, "og:image") is None
+def test_page_with_no_light_curve_falls_back_to_the_logo(pathname):
+    assert _content(pathname, "og:image") == f"{_ROOT}{LOGO_PATH}"
     assert _content(pathname, "twitter:card") == "summary"
     assert _content(pathname, "og:description") == SITE_DESCRIPTION
+
+
+def test_the_logo_it_falls_back_to_exists():
+    assert (Path(ztf_viewer.__file__).parent / LOGO_PATH).is_file()
 
 
 def test_url_is_the_one_being_served():

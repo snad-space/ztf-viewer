@@ -52,11 +52,18 @@ def test_index_carries_the_link_preview_of_the_page_asked_for(client):
     assert '<meta property="og:image" content="http://testserver/dr17/card/633207400004730.png">' in response.text
 
 
-def test_index_of_the_home_page_has_no_preview_picture(client):
+def test_index_of_a_page_without_a_light_curve_previews_the_logo(client):
     response = client.get("/")
 
-    assert "og:image" not in response.text
+    assert '<meta property="og:image" content="http://testserver/static/img/logo.png">' in response.text
     assert '<meta name="twitter:card" content="summary">' in response.text
+
+
+def test_the_logo_the_preview_points_at_is_served(client):
+    response = client.get("/static/img/logo.png")
+
+    assert response.status_code == 200
+    assert "image/png" in response.headers.get("content-type", "")
 
 
 def test_static_logo_is_served(client):

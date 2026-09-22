@@ -2,8 +2,9 @@ import numpy as np
 from fastapi import Body, Request
 from immutabledict import immutabledict
 
+from ztf_viewer import routes
 from ztf_viewer.app import app
-from ztf_viewer.figure_render import BRIGHTNESS, DEFAULT_BRIGHTNESS, plot_data, plot_folded_data
+from ztf_viewer.figure_render import BRIGHTNESS, DEFAULT_BRIGHTNESS, plot_card, plot_data, plot_folded_data
 from ztf_viewer.lc_data.external import external_lc_data, parse_external_lc_names
 from ztf_viewer.lc_data.plot_data import get_folded_plot_data, get_plot_data
 from ztf_viewer.procpool import run_in_process
@@ -95,12 +96,12 @@ async def response_figure(dr: str, oid: int, request: Request, body: bytes = Bod
 async def response_card_image(dr: str, oid: int):
     """The light curve of an object, as the preview picture of a link to its page.
 
-    The same plot as the PNG download, but served inline and without options: it is the
-    `og:image` of `/{dr}/view/{oid}` (see `ztf_viewer.social`), fetched by a messenger's
-    crawler rather than clicked by a reader.
+    Its own rendering rather than the PNG download: it is the `og:image` of
+    `/{dr}/view/{oid}` (see `ztf_viewer.social`), fetched by a messenger's crawler rather than
+    clicked by a reader, and shown small, branded and cropped to about 2:1.
     """
     data = await get_plot_data(oid, dr)
-    img = await run_in_process(plot_data, oid, data, fmt="png")
+    img = await run_in_process(plot_card, oid, data, title=str(oid), subtitle=routes.dr_title(dr))
     return image_response(img, mimetype=MIMES["png"])
 
 

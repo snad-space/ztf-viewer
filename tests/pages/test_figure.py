@@ -14,6 +14,7 @@ network is unavailable. These tests cover what that one can't, without any netwo
 import shutil
 import subprocess
 import sys
+from io import BytesIO
 
 import pytest
 
@@ -25,7 +26,7 @@ config.UNAVAILABLE_CATALOGS_CACHE_TYPE = "memory"
 import matplotlib.colors
 import numpy as np
 
-from ztf_viewer.figure_render import BRIGHTNESS, _brightness_arrays, plot_data, plot_folded_data
+from ztf_viewer.figure_render import BRIGHTNESS, _brightness_arrays, plot_card, plot_data, plot_folded_data
 from ztf_viewer.lc_data.plot_data import plot_data as add_photometry
 from ztf_viewer.util import immutabledefaultdict
 
@@ -118,8 +119,8 @@ def _external_lc(oid=9001, filters=("gaia_G", "gaia_BP", "gaia_RP"), n=9):
     }
 
 
-def _legend_labels(monkeypatch, render, *args, **kwargs):
-    """The legend the renderer actually draws, captured on its way to `save_fig`."""
+def _captured_figure(monkeypatch, render, *args, **kwargs):
+    """The figure a renderer actually draws, caught on its way to `save_fig`."""
     from ztf_viewer import figure_render
 
     captured = []
@@ -132,6 +133,12 @@ def _legend_labels(monkeypatch, render, *args, **kwargs):
     monkeypatch.setattr(figure_render, "save_fig", spy)
     render(*args, **kwargs)
     (fig,) = captured
+    return fig
+
+
+def _legend_labels(monkeypatch, render, *args, **kwargs):
+    """The legend the renderer actually draws."""
+    fig = _captured_figure(monkeypatch, render, *args, **kwargs)
     return [label for label in fig.axes[0].get_legend_handles_labels()[1] if label]
 
 
@@ -154,14 +161,9 @@ def test_plot_folded_data_gives_every_passband_of_an_external_survey_its_own_leg
 
 def test_plot_data_draws_each_passband_in_its_own_colour(monkeypatch):
     """The legend is only right if the points under it are: one colour per passband."""
-    from ztf_viewer import figure_render
     from ztf_viewer.util import FILTER_COLORS
 
-    captured = []
-    real_save_fig = figure_render.save_fig
-    monkeypatch.setattr(figure_render, "save_fig", lambda fig, fmt: captured.append(fig) or real_save_fig(fig, fmt))
-    plot_data(1, _external_lc(), fmt="png")
-    (fig,) = captured
+    fig = _captured_figure(monkeypatch, plot_data, 1, _external_lc(), fmt="png")
 
     # The error bars are `LineCollection`s matplotlib labels "_nolegend_"; the points are ours
     drawn = {c.get_label(): c.get_facecolor() for c in fig.axes[0].collections if not c.get_label().startswith("_")}
@@ -206,6 +208,48 @@ def test_plot_data_renders_pdf():
 def test_plot_folded_data_renders_png():
     img = plot_folded_data(1, _synthetic_folded_lc(), period=1.5, fmt="png")
     assert img.startswith(_PNG_MAGIC)
+
+
+def test_plot_card_renders_png():
+    img = plot_card(1, _synthetic_lc(), title="1", subtitle="SNAD ZTF DR24 viewer")
+    assert img.startswith(_PNG_MAGIC)
+
+
+def test_card_is_two_to_one():
+    """What every card renderer crops to: drawn at another ratio, the plot loses a slice of
+    itself in the preview."""
+    from PIL import Image
+
+    width, height = Image.open(BytesIO(plot_card(1, _synthetic_lc()))).size
+    assert width / height == pytest.approx(2.0)
+    # Above Twitter's 300x157 minimum for the large card, and both sides of its 5 MB limit
+    assert width >= 600
+
+
+def test_card_carries_the_logo_and_names_the_object(monkeypatch):
+    """The picture is the site's, not just a plot: logo, OID and data release are on it."""
+    from ztf_viewer.figure_render import LOGO_PATH
+
+    assert LOGO_PATH.is_file()
+    fig = _captured_figure(monkeypatch, plot_card, 1, _synthetic_lc(), title="1", subtitle="SNAD ZTF DR24 viewer")
+
+    assert [ax for ax in fig.axes if ax.images]
+    assert {text.get_text() for text in fig.texts} == {"1", "SNAD ZTF DR24 viewer"}
+
+
+def test_card_legend_is_off_the_plot(monkeypatch):
+    """A legend inside the axes would sit on top of the light curve, and a card has no tooltip
+    to say what it covers."""
+    fig = _captured_figure(monkeypatch, plot_card, 1, _synthetic_lc())
+
+    assert fig.axes[0].get_legend() is None
+    (legend,) = fig.legends
+    assert sorted(text.get_text() for text in legend.get_texts()) == ["zg", "zi", "zr"]
+
+
+def test_card_renders_a_filter_no_colour_is_mapped_for():
+    data = {1: [{"mjd": 58000.0 + i, "mag": 18.0, "magerr": 0.05, "filter": "unheard_of"} for i in range(5)]}
+    assert plot_card(1, data).startswith(_PNG_MAGIC)
 
 
 def test_figure_render_import_has_no_app_side_effects():
