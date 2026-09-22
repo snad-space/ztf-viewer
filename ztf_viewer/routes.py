@@ -37,8 +37,7 @@ def dr_title(dr: str | None) -> str:
 
 
 def object_title(oid, snad_name: str | None = None) -> str:
-    """How an object is named to a reader: by its SNAD name where it has one, and by its OID
-    either way. The page heading, the preview card and the preview title all use this."""
+    """How an object is named to a reader: its SNAD name where it has one, and its OID either way."""
     if snad_name:
         return f"{snad_name} — {oid}"
     return str(oid)

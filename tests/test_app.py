@@ -38,11 +38,7 @@ def client():
 
 @pytest.fixture
 def snad_name(monkeypatch):
-    """Name the object pages resolve, in place of the catalog and the API call behind it.
-
-    Returns a setter, so a test says what the object is called and nothing here touches the
-    network. Unset, an object has no SNAD name, which is the common case.
-    """
+    """A setter for the name object pages resolve, in place of the catalog and its API call."""
     from ztf_viewer.catalogs.snad import catalog
 
     def set_name(name):
@@ -72,8 +68,7 @@ def test_index_carries_the_link_preview_of_the_page_asked_for(client, snad_name)
 
 
 def test_index_of_a_named_object_leads_with_its_snad_name(client, snad_name):
-    """The name is not in the pathname, so the index only carries it if something looked it up
-    before Dash rendered the page."""
+    """The name is not in the pathname, so something must look it up before Dash renders."""
     snad_name("SNAD101")
 
     response = client.get("/dr17/view/633207400004730")

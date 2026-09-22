@@ -113,27 +113,20 @@ async def response_site_card():
 
 @cache()
 async def site_card_image(title: str, subtitle: str) -> bytes:
-    """The site's own card. One picture for the whole site, but still drawn rather than stored,
-    so it follows the logo and the wording instead of being a file someone has to redraw."""
+    """The site's own card."""
     return await run_in_process(plot_site_card, title, subtitle)
 
 
 @cache()
 async def card_image(oid: int, dr: str, title: str, subtitle: str) -> bytes:
-    """The rendered card, cached: a crawler asks for it once per platform that unfurls a link,
-    and every one of those would otherwise pay for the same plot to be drawn again."""
+    """The rendered card, cached."""
     data = await get_plot_data(oid, dr)
     return await run_in_process(plot_card, oid, data, title=title, subtitle=subtitle)
 
 
 @app.server.api_route(f"/{{dr}}/card/{{oid}}.{CARD_SUFFIX}")
 async def response_card_image(dr: str, oid: int):
-    """The light curve of an object, as the preview picture of a link to its page.
-
-    Its own rendering rather than the PNG download: it is the `og:image` of
-    `/{dr}/view/{oid}` (see `ztf_viewer.social`), fetched by a messenger's crawler rather than
-    clicked by a reader, and shown small, branded and cropped to about 2:1.
-    """
+    """The light curve of an object, as the preview picture of a link to its page."""
     title = routes.object_title(oid, await snad_name(oid, dr))
     img = await card_image(oid, dr, title=title, subtitle=routes.dr_title(dr))
     return image_response(img, mimetype=CARD_MIMETYPE)

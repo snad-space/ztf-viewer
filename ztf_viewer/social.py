@@ -1,11 +1,4 @@
-"""Open Graph and Twitter card tags, so a shared link previews as the page it points at.
-
-The app is a single Dash page whose content is filled in by callbacks, and crawlers do not run
-that JavaScript: whatever a preview shows has to be in the HTML the server sends, and the only
-thing telling the server what the link is about is the pathname it was asked for. So the tags
-are built here from the pathname, matched against the same `ztf_viewer.routes` patterns the
-router and the browser title use, and injected per request in `ztf_viewer.app`.
-"""
+"""Open Graph and Twitter card tags, built per request from the pathname being served."""
 
 import html
 import urllib.parse
@@ -52,12 +45,7 @@ SITE_CARD_PATH = f"card.{CARD_SUFFIX}"
 
 
 def _preview_image(pathname: str) -> tuple[str, str, str]:
-    """Relative URL of the preview picture, its media type, and the card shape that fits it.
-
-    An object page has a picture of its own -- the light curve `ztf_viewer.pages.figure` draws
-    for the card -- and every other page shows the site's card. Both are wide, so a link
-    unfurls as a picture rather than as a URL with a stamp beside it.
-    """
+    """Relative URL of the preview picture, its media type, and the card shape that fits it."""
     if obj := _object(pathname):
         dr, oid = obj
         return f"{dr}/card/{oid}.{CARD_SUFFIX}", CARD_MIMETYPE, "summary_large_image"
@@ -65,13 +53,7 @@ def _preview_image(pathname: str) -> tuple[str, str, str]:
 
 
 def social_meta_tags(pathname: str, url: str, root: str, snad_name: str | None = None) -> list[dict[str, str]]:
-    """Open Graph and Twitter tags for `pathname`, as attribute mappings.
-
-    `url` is the URL being served and `root` the site root both come from the request, so a
-    deployment behind any hostname advertises itself under that hostname. `snad_name` is the
-    object's name where the page is an object page and the object is in the SNAD catalog: it
-    is what the object is called, so the preview leads with it, as the page itself does.
-    """
+    """Open Graph and Twitter tags for `pathname`, as attribute mappings."""
     title = routes.page_title(pathname)
     if snad_name and _object(pathname):
         title = f"{snad_name} — {title}"

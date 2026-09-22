@@ -33,8 +33,6 @@ dependencies = [
     "requests",
     "redis",
     "matplotlib>=3.3",
-    # Used directly by figure_render to encode a preview card: matplotlib's PNG, quantized and
-    # re-encoded as lossless WebP
     "pillow",
     "cachetools",
     "scipy",

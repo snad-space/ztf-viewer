@@ -99,11 +99,7 @@ SNAD_MATCH_RADIUS_ARCSEC = 3
 
 
 async def snad_name(oid, dr) -> str | None:
-    """The SNAD name of the object an OID points at, or `None` if it has none.
-
-    The name the object is known by -- SNAD101 rather than 633207400004730 -- so it belongs
-    anywhere the object is named to a reader: the page heading and the link preview alike.
-    """
+    """The SNAD name of the object an OID points at, or `None` if it has none."""
     ra, dec = await find_ztf_oid.get_coord(oid, dr)
     try:
         return str(await snad_catalog.search_region(ra, dec, radius_arcsec=SNAD_MATCH_RADIUS_ARCSEC))

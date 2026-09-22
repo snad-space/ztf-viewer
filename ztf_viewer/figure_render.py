@@ -185,11 +185,7 @@ def plot_folded_data(oid, data, period, repeat=None, fmt="png", caption=True, ti
 
 
 def _light_curve_series(oid, data, brightness):
-    """Every light curve in `data` as one plottable series per OID and passband.
-
-    The object's own OID is drawn as round markers and an external survey as diamonds, each
-    bigger than the one behind it, so a crowded plot still reads which points are whose.
-    """
+    """Every light curve in `data` as one plottable series per OID and passband."""
     lcs = {}
     seen_filters = set()
     for lc_oid, lc in data.items():
@@ -332,12 +328,7 @@ LOGO_PATH = pathlib.Path(__file__).parent / "static" / "img" / "logo.png"
 
 
 def _ink_left(s, fontsize, weight):
-    """How far a string's first glyph sits from its anchor, as a fraction of the card width.
-
-    Two lines set at the same x still look ragged: the bold "6" of an OID carries more left
-    side bearing than the "S" of "SNAD" below it. The reader aligns the ink, not the anchor, so
-    the header subtracts the bearing from each line's x.
-    """
+    """How far a string's first glyph sits from its anchor, as a fraction of the card width."""
     if not s:
         return 0.0
     prop = matplotlib.font_manager.FontProperties(size=fontsize, weight=weight)
@@ -360,11 +351,7 @@ def _card_legend_marker(fltr):
 
 
 def plot_card(oid, data, title=None, subtitle=None, brightness=None):
-    """The light curve as a link preview card: the plot under a header naming the object.
-
-    A card is read at a glance and at thumbnail size, so it carries the logo and larger type
-    than the downloadable figure, and leaves out its generated-on caption.
-    """
+    """The light curve as a link preview card: the plot under a header naming the object."""
     brightness = brightness or DEFAULT_BRIGHTNESS
 
     if title is None:
@@ -407,9 +394,6 @@ def plot_card(oid, data, title=None, subtitle=None, brightness=None):
     ax.tick_params(which="minor", direction="in", length=4, width=1)
     _draw_light_curve(ax, lcs)
     if seen_filters:
-        # In the header rather than on the axes: a card is one picture, and a legend inside it
-        # would sit on top of whichever corner of the light curve happens to be empty. Drawn
-        # from proxy markers, so every passband reads as a dot of its colour at card size.
         labels = sorted(seen_filters, key=FILTERS_ORDER.__getitem__)
         fig.legend(
             [_card_legend_marker(fltr) for fltr in labels],
@@ -426,12 +410,7 @@ def plot_card(oid, data, title=None, subtitle=None, brightness=None):
 
 
 def plot_site_card(title, subtitle):
-    """The card a link to any page without a light curve of its own previews with.
-
-    The site's own picture -- logo, name, and what the site is for -- at the same size and in
-    the same format as an object's card, so a link to the front page or to a search unfurls as
-    something rather than as a bare URL with a logo stamp beside it.
-    """
+    """The card a link to any page without a light curve of its own previews with."""
     fig = matplotlib.figure.Figure(figsize=CARD_FIGSIZE, dpi=CARD_DPI, facecolor="white")
 
     logo_side = 0.36  # of the card's height; the logo is square and the card is 2:1
@@ -446,13 +425,7 @@ def plot_site_card(title, subtitle):
 
 
 def _card_bytes(fig):
-    """The figure in the form a card is served in: lossless WebP of a 256-colour image.
-
-    A plot is flat colour on white, so a palette holds one with no visible loss, and the two
-    steps compound -- for a dense light curve, 120 kB of truecolour PNG as matplotlib writes it
-    become 44 kB of palette PNG and 36 kB of WebP. Lossless because the lossy encoders ring
-    around the type at any quality that is smaller than this.
-    """
+    """The figure in the form a card is served in: lossless WebP of a 256-colour image."""
     png = save_fig(fig, "png")
     png.seek(0)
     out = BytesIO()

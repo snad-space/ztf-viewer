@@ -1,5 +1,4 @@
-"""`ztf_viewer.social` describes the page a shared link points at, for crawlers that never run
-the page's JavaScript."""
+"""`ztf_viewer.social` describes the page a shared link points at."""
 
 from pathlib import Path
 

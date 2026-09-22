@@ -224,8 +224,7 @@ def test_plot_card_renders_the_card_format():
 
 
 def test_card_is_two_to_one():
-    """What every card renderer crops to: drawn at another ratio, the plot loses a slice of
-    itself in the preview."""
+    """What every card renderer crops to, so the plot keeps all of itself in the preview."""
     from PIL import Image
 
     width, height = Image.open(BytesIO(plot_card(1, _synthetic_lc()))).size
@@ -235,8 +234,7 @@ def test_card_is_two_to_one():
 
 
 def test_card_is_lossless_and_smaller_than_the_figure_png():
-    """A card is quantized to 256 colours and then encoded losslessly: the palette is where the
-    bytes go, and a lossy encoder would ring around the type for no further gain."""
+    """Quantized to 256 colours, then encoded losslessly."""
     from PIL import Image
 
     card = plot_card(1, _synthetic_lc())
@@ -258,8 +256,7 @@ def test_card_carries_the_logo_and_names_the_object(monkeypatch):
 
 
 def test_card_legend_is_off_the_plot(monkeypatch):
-    """A legend inside the axes would sit on top of the light curve, and a card has no tooltip
-    to say what it covers."""
+    """A legend inside the axes would sit on top of the light curve."""
     fig = _captured_figure(monkeypatch, plot_card, 1, _synthetic_lc())
 
     assert fig.axes[0].get_legend() is None
@@ -273,8 +270,7 @@ def test_card_renders_a_filter_no_colour_is_mapped_for():
 
 
 def test_site_card_is_the_same_shape_and_format_as_an_object_card():
-    """One picture for every page with no light curve, drawn rather than stored so it follows
-    the logo and the wording."""
+    """One picture for every page with no light curve, drawn rather than stored."""
     from PIL import Image
 
     from ztf_viewer.figure_render import plot_site_card
@@ -297,8 +293,7 @@ def test_site_card_carries_the_logo_and_the_wording(monkeypatch):
 
 
 def test_card_header_lines_start_at_the_same_x():
-    """Set at one anchor the two lines still look ragged -- a bold "6" carries more side
-    bearing than an "S" -- and the ragged edge is the one a reader sees."""
+    """Set at one anchor the two lines look ragged: a bold "6" has more side bearing than an "S"."""
     from PIL import Image
 
     card = plot_card(1, _synthetic_lc(), title="633207400004730", subtitle="SNAD ZTF DR24 viewer")
@@ -315,8 +310,7 @@ def test_card_header_lines_start_at_the_same_x():
 
 
 async def test_card_image_is_cached(monkeypatch):
-    """A link posted anywhere is unfurled by every platform it reaches, each of them pulling
-    the same picture; drawing it once is the difference between a cheap card and a slow one."""
+    """Every platform that unfurls a link pulls the same picture; it is drawn once."""
     from ztf_viewer.pages import figure
 
     renders = []

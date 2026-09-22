@@ -170,8 +170,7 @@ def test_favicon_bytes_match_the_logo_file(client):
 
 
 def test_site_card_is_served_where_the_preview_tags_point(client):
-    """The site's card needs no object lookup, so it is hermetic -- and the tag and the route
-    are written in two files, which is exactly how they would come to disagree."""
+    """The tag and the route live in two files, which is how they would come to disagree."""
     from ztf_viewer.social import SITE_CARD_PATH
 
     response = client.get(f"/{SITE_CARD_PATH}")

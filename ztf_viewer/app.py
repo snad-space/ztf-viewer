@@ -38,12 +38,7 @@ js9_js = [
 
 
 class _Dash(dash.Dash):
-    """Dash, plus the link preview tags of the page being served.
-
-    Dash renders one index for every URL, so the social tags cannot be `meta_tags` given once at
-    construction: they are added here, where the request is still around to say which page the
-    index is standing in for.
-    """
+    """Dash, plus the link preview tags of the page being served."""
 
     def interpolate_index(self, metas="", **kwargs):
         try:
@@ -73,13 +68,7 @@ app.config.suppress_callback_exceptions = True
 
 @app.server.middleware("http")
 async def _resolve_snad_name(request, call_next):
-    """Put the object's SNAD name, where it has one, on the request the index is built from.
-
-    The name comes from a catalog and an API lookup, both of them async, and Dash builds the
-    index synchronously -- so a preview that wants to say "SNAD101" has to have asked before
-    `interpolate_index` runs. Registered here, at construction, because Starlette refuses new
-    middleware once the app is serving.
-    """
+    """Put the object's SNAD name, where it has one, on the request the index is built from."""
     # Imported inside: the catalogs pull in half the app, and this module is the bottom of it
     from ztf_viewer import routes
     from ztf_viewer.catalogs.snad.catalog import snad_name
