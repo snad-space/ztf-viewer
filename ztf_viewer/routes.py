@@ -36,6 +36,14 @@ def dr_title(dr: str | None) -> str:
     return f"SNAD ZTF {(dr or DEFAULT_DR).upper()} viewer"
 
 
+def object_title(oid, snad_name: str | None = None) -> str:
+    """How an object is named to a reader: by its SNAD name where it has one, and by its OID
+    either way. The page heading, the preview card and the preview title all use this."""
+    if snad_name:
+        return f"{snad_name} — {oid}"
+    return str(oid)
+
+
 def page_title(pathname: str | None) -> str:
     """Browser title for a pathname, the distinguishing part first.
 

@@ -36,6 +36,25 @@ def client():
         app._layout, app._layout_is_function = original
 
 
+@pytest.fixture
+def snad_name(monkeypatch):
+    """Name the object pages resolve, in place of the catalog and the API call behind it.
+
+    Returns a setter, so a test says what the object is called and nothing here touches the
+    network. Unset, an object has no SNAD name, which is the common case.
+    """
+    from ztf_viewer.catalogs.snad import catalog
+
+    def set_name(name):
+        async def stub(oid, dr):
+            return name
+
+        monkeypatch.setattr(catalog, "snad_name", stub)
+
+    set_name(None)
+    return set_name
+
+
 def test_index_renders(client):
     response = client.get("/")
 
@@ -43,13 +62,39 @@ def test_index_renders(client):
     assert '<div id="react-entry-point"' in response.text
 
 
-def test_index_carries_the_link_preview_of_the_page_asked_for(client):
+def test_index_carries_the_link_preview_of_the_page_asked_for(client, snad_name):
     """`ztf_viewer.social` only reaches a reader if the index is built per request."""
     response = client.get("/dr17/view/633207400004730")
 
     assert response.status_code == 200
     assert '<meta property="og:title" content="633207400004730 — SNAD ZTF DR17 viewer">' in response.text
     assert '<meta property="og:image" content="http://testserver/dr17/card/633207400004730.png">' in response.text
+
+
+def test_index_of_a_named_object_leads_with_its_snad_name(client, snad_name):
+    """The name is not in the pathname, so the index only carries it if something looked it up
+    before Dash rendered the page."""
+    snad_name("SNAD101")
+
+    response = client.get("/dr17/view/633207400004730")
+
+    assert '<meta property="og:title" content="SNAD101 — 633207400004730 — SNAD ZTF DR17 viewer">' in response.text
+    assert "SNAD101" in response.text.split('name="description" content="')[1]
+
+
+def test_index_still_renders_when_the_name_cannot_be_resolved(client, monkeypatch):
+    """The lookup goes to an external API; a preview is never worth failing the page over."""
+    from ztf_viewer.catalogs.snad import catalog
+
+    async def boom(oid, dr):
+        raise ConnectionError("no network")
+
+    monkeypatch.setattr(catalog, "snad_name", boom)
+
+    response = client.get("/dr17/view/633207400004730")
+
+    assert response.status_code == 200
+    assert '<meta property="og:title" content="633207400004730 — SNAD ZTF DR17 viewer">' in response.text
 
 
 def test_index_of_a_page_without_a_light_curve_previews_the_logo(client):

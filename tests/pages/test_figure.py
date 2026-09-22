@@ -11,6 +11,7 @@ network is unavailable. These tests cover what that one can't, without any netwo
   route and the real process pool (only `get_plot_data` and the renderer are stubbed).
 """
 
+import pickle
 import shutil
 import subprocess
 import sys
@@ -32,6 +33,11 @@ from ztf_viewer.util import immutabledefaultdict
 
 _PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 _PDF_MAGIC = b"%PDF-"
+
+# Rows of the card the header's two lines fall in, and the first column right of the logo
+_TITLE_ROWS = (45, 82)
+_SUBTITLE_ROWS = (92, 118)
+_RIGHT_OF_LOGO = 130
 
 
 def _pgf_texsystem():
@@ -211,7 +217,7 @@ def test_plot_folded_data_renders_png():
 
 
 def test_plot_card_renders_png():
-    img = plot_card(1, _synthetic_lc(), title="1", subtitle="SNAD ZTF DR24 viewer")
+    img = plot_card(1, _synthetic_lc(), title="SNAD101 — 1", subtitle="SNAD ZTF DR24 viewer")
     assert img.startswith(_PNG_MAGIC)
 
 
@@ -224,6 +230,17 @@ def test_card_is_two_to_one():
     assert width / height == pytest.approx(2.0)
     # Above Twitter's 300x157 minimum for the large card, and both sides of its 5 MB limit
     assert width >= 600
+
+
+def test_card_is_a_palette_png():
+    """A plot is flat colour, so the card ships with a palette: a third of the truecolour bytes
+    a crawler would otherwise pull, and every crawler reads PNG."""
+    from PIL import Image
+
+    card = plot_card(1, _synthetic_lc())
+    with Image.open(BytesIO(card)) as img:
+        assert img.mode == "P"
+    assert len(card) < len(plot_data(1, _synthetic_lc(), fmt="png"))
 
 
 def test_card_carries_the_logo_and_names_the_object(monkeypatch):
@@ -250,6 +267,49 @@ def test_card_legend_is_off_the_plot(monkeypatch):
 def test_card_renders_a_filter_no_colour_is_mapped_for():
     data = {1: [{"mjd": 58000.0 + i, "mag": 18.0, "magerr": 0.05, "filter": "unheard_of"} for i in range(5)]}
     assert plot_card(1, data).startswith(_PNG_MAGIC)
+
+
+def test_card_header_lines_start_at_the_same_x():
+    """Set at one anchor the two lines still look ragged -- a bold "6" carries more side
+    bearing than an "S" -- and the ragged edge is the one a reader sees."""
+    from PIL import Image
+
+    card = plot_card(1, _synthetic_lc(), title="633207400004730", subtitle="SNAD ZTF DR24 viewer")
+    with Image.open(BytesIO(card)) as img:
+        pixels = np.asarray(img.convert("L"))
+
+    def first_ink(top, bottom):
+        """The leftmost column of a band that has ink in it, right of the logo."""
+        ink = (pixels[top:bottom, _RIGHT_OF_LOGO:] < 128).any(axis=0)
+        assert ink.any(), f"no text between rows {top} and {bottom}"
+        return int(np.argmax(ink))
+
+    assert first_ink(*_TITLE_ROWS) == pytest.approx(first_ink(*_SUBTITLE_ROWS), abs=1)
+
+
+async def test_card_image_is_cached(monkeypatch):
+    """A link posted anywhere is unfurled by every platform it reaches, each of them pulling
+    the same picture; drawing it once is the difference between a cheap card and a slow one."""
+    from ztf_viewer.pages import figure
+
+    renders = []
+
+    async def stub_get_plot_data(oid, dr):
+        return _synthetic_lc()
+
+    async def stub_run_in_process(func, *args, **kwargs):
+        renders.append(args)
+        return func(*args, **kwargs)
+
+    monkeypatch.setattr(figure, "get_plot_data", stub_get_plot_data)
+    monkeypatch.setattr(figure, "run_in_process", stub_run_in_process)
+
+    kwargs = {"title": "SNAD101 — 4242", "subtitle": "SNAD ZTF DR24 viewer"}
+    img = await figure.card_image(4242, "dr24", **kwargs)
+    assert await figure.card_image(4242, "dr24", **kwargs) == img
+    assert len(renders) == 1
+    # The cache pickles what it stores, and a Redis round trip is not a local dict
+    assert pickle.loads(pickle.dumps(img)) == img
 
 
 def test_figure_render_import_has_no_app_side_effects():

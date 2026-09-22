@@ -10,6 +10,7 @@ from astropy.io import ascii
 from ztf_viewer import config
 from ztf_viewer.cache.single_flight import AsyncSingleFlight
 from ztf_viewer.catalogs.snad import data
+from ztf_viewer.catalogs.ztf_dr import find_ztf_oid
 from ztf_viewer.exceptions import NotFound
 from ztf_viewer.http import get_client
 
@@ -90,6 +91,24 @@ class _SnadCatalog:
 
 
 snad_catalog = _SnadCatalog()
+
+
+# How far from a catalogued SNAD object an OID may sit and still be that object. A single
+# source has one OID per field and passband, all within a couple of arcseconds of each other.
+SNAD_MATCH_RADIUS_ARCSEC = 3
+
+
+async def snad_name(oid, dr) -> str | None:
+    """The SNAD name of the object an OID points at, or `None` if it has none.
+
+    The name the object is known by -- SNAD101 rather than 633207400004730 -- so it belongs
+    anywhere the object is named to a reader: the page heading and the link preview alike.
+    """
+    ra, dec = await find_ztf_oid.get_coord(oid, dr)
+    try:
+        return str(await snad_catalog.search_region(ra, dec, radius_arcsec=SNAD_MATCH_RADIUS_ARCSEC))
+    except NotFound:
+        return None
 
 
 class SnadCatalogSource:

@@ -1,3 +1,4 @@
+import logging
 import pathlib
 
 import dash
@@ -8,6 +9,9 @@ from ztf_viewer.config import WEBSOCKET_HEARTBEAT_INTERVAL_MS
 from ztf_viewer.social import social_meta_html
 
 _STATIC_DIR = pathlib.Path(__file__).parent / "static"
+
+# Where `_resolve_snad_name` leaves the name for `_Dash.interpolate_index` to find
+SNAD_NAME_STATE = "snad_name"
 
 
 class _StaticFilesNoCache(StaticFiles):
@@ -44,7 +48,11 @@ class _Dash(dash.Dash):
     def interpolate_index(self, metas="", **kwargs):
         try:
             request = self.backend.request_adapter()
-            social = social_meta_html(request.path, request.url, request.root)
+            # `request.context` is the request's `state`, where `_resolve_snad_name` below left
+            # the object's name; the pathname alone cannot say whether it has one.
+            social = social_meta_html(
+                request.path, request.url, request.root, snad_name=getattr(request.context, SNAD_NAME_STATE, None)
+            )
         except RuntimeError:
             # No request in context — `index()` called directly, as the tests do.
             social = ""
@@ -61,6 +69,35 @@ app = _Dash(
     websocket_heartbeat_interval=WEBSOCKET_HEARTBEAT_INTERVAL_MS,
 )
 app.config.suppress_callback_exceptions = True
+
+
+@app.server.middleware("http")
+async def _resolve_snad_name(request, call_next):
+    """Put the object's SNAD name, where it has one, on the request the index is built from.
+
+    The name comes from a catalog and an API lookup, both of them async, and Dash builds the
+    index synchronously -- so a preview that wants to say "SNAD101" has to have asked before
+    `interpolate_index` runs. Registered here, at construction, because Starlette refuses new
+    middleware once the app is serving.
+    """
+    # Imported inside: the catalogs pull in half the app, and this module is the bottom of it
+    from ztf_viewer import routes
+    from ztf_viewer.catalogs.snad.catalog import snad_name
+    from ztf_viewer.util import DEFAULT_DR
+
+    path = request.url.path
+    match = routes.VIEWER.search(path) or routes.VIEWER_DEFAULT_DR.search(path)
+    if request.method == "GET" and match:
+        try:
+            name = await snad_name(int(match["oid"]), match.groupdict().get("dr") or DEFAULT_DR)
+        except Exception:
+            # Broad on purpose: the lookup goes to an external API, and a preview is never
+            # worth failing the page a reader asked for.
+            logging.getLogger(__name__).warning("cannot resolve the SNAD name of %s", path, exc_info=True)
+        else:
+            setattr(request.state, SNAD_NAME_STATE, name)
+    return await call_next(request)
+
 
 # Dash serves `assets/` but not `static/`, which holds JS9 and the logo. Mount it at construction
 # time: Dash appends a catch-all route later, and anything mounted after it never matches.

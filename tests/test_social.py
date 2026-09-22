@@ -12,8 +12,8 @@ from ztf_viewer.util import DEFAULT_DR
 _ROOT = "https://ztf.snad.space/"
 
 
-def _content(pathname, key, url=_ROOT, root=_ROOT):
-    tags = social_meta_tags(pathname, url, root)
+def _content(pathname, key, url=_ROOT, root=_ROOT, snad_name=None):
+    tags = social_meta_tags(pathname, url, root, snad_name)
     contents = [tag["content"] for tag in tags if key in (tag.get("name"), tag.get("property"))]
     assert len(contents) <= 1, f"{key} is set more than once"
     return contents[0] if contents else None
@@ -51,6 +51,26 @@ def test_object_page_without_a_data_release_previews_the_default_one():
 def test_image_url_follows_the_host_it_is_served_from():
     root = "http://localhost:8050/"
     assert _content("/view/1", "og:image", root=root).startswith(root)
+
+
+def test_object_with_a_snad_name_is_led_by_it():
+    """SNAD101 is what the object is called; the OID is how the database spells it."""
+    title = _content("/view/633207400004730", "og:title", snad_name="SNAD101")
+
+    assert title.startswith("SNAD101 — 633207400004730")
+    assert title == _content("/view/633207400004730", "twitter:title", snad_name="SNAD101")
+    assert "SNAD101" in _content("/view/633207400004730", "og:description", snad_name="SNAD101")
+
+
+def test_object_without_a_snad_name_is_named_by_its_oid_alone():
+    assert _content("/view/633207400004730", "og:title").startswith("633207400004730 —")
+    assert "SNAD" not in _content("/view/633207400004730", "og:description")
+
+
+@pytest.mark.parametrize("pathname", ["/", "/dr17/search/M31/10"])
+def test_a_name_never_leaks_onto_a_page_that_is_not_an_object(pathname):
+    """Nothing resolves a name for these, but a stale one must not retitle them either."""
+    assert "SNAD101" not in _content(pathname, "og:title", snad_name="SNAD101")
 
 
 def test_search_page_describes_the_search():

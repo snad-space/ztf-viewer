@@ -13,10 +13,13 @@ from io import BytesIO
 
 import matplotlib
 import matplotlib.backends.backend_pgf
+import matplotlib.font_manager
 import matplotlib.image
 import matplotlib.lines
+import matplotlib.textpath
 import numpy as np
 from matplotlib.ticker import AutoMinorLocator
+from PIL import Image
 
 from ztf_viewer.util import DENSE_LC_MIN_POINTS, FILTER_COLORS, FILTERS_ORDER, ZTF_FILTERS, flip
 
@@ -314,7 +317,26 @@ def plot_data(oid, data, fmt="png", caption=True, title=None, brightness=None):
 CARD_FIGSIZE = (12.0, 6.0)
 CARD_DPI = 100
 
+# Where the header's two lines of text begin, right of the logo, and how big they are set
+HEADER_X = 0.115
+TITLE_SIZE = 25
+SUBTITLE_SIZE = 15
+
 LOGO_PATH = pathlib.Path(__file__).parent / "static" / "img" / "logo.png"
+
+
+def _ink_left(s, fontsize, weight):
+    """How far a string's first glyph sits from its anchor, as a fraction of the card width.
+
+    Two lines set at the same x still look ragged: the bold "6" of an OID carries more left
+    side bearing than the "S" of "SNAD" below it. The reader aligns the ink, not the anchor, so
+    the header subtracts the bearing from each line's x.
+    """
+    if not s:
+        return 0.0
+    prop = matplotlib.font_manager.FontProperties(size=fontsize, weight=weight)
+    # TextPath is laid out in points, 72 to the inch
+    return matplotlib.textpath.TextPath((0, 0), s, prop=prop).get_extents().x0 / (72 * CARD_FIGSIZE[0])
 
 
 def _card_legend_marker(fltr):
@@ -349,9 +371,23 @@ def plot_card(oid, data, title=None, subtitle=None, brightness=None):
     logo_ax = fig.add_axes((0.026, 0.795, 0.075, 0.15))
     logo_ax.imshow(matplotlib.image.imread(LOGO_PATH))
     logo_ax.set_axis_off()
-    fig.text(0.115, 0.895, title, fontsize=25, fontweight="bold", va="center")
+    fig.text(
+        HEADER_X - _ink_left(title, TITLE_SIZE, "bold"),
+        0.895,
+        title,
+        fontsize=TITLE_SIZE,
+        fontweight="bold",
+        va="center",
+    )
     if subtitle:
-        fig.text(0.115, 0.827, subtitle, fontsize=15, color="#555555", va="center")
+        fig.text(
+            HEADER_X - _ink_left(subtitle, SUBTITLE_SIZE, "normal"),
+            0.827,
+            subtitle,
+            fontsize=SUBTITLE_SIZE,
+            color="#555555",
+            va="center",
+        )
 
     ax = fig.add_axes((0.07, 0.13, 0.905, 0.63))
     if BRIGHTNESS[brightness]["inverted"]:
@@ -380,7 +416,24 @@ def plot_card(oid, data, title=None, subtitle=None, brightness=None):
             fontsize=15,
         )
 
-    return save_fig(fig, "png").getvalue()
+    return _palette_png(fig)
+
+
+def _palette_png(fig):
+    """The figure as a 256-colour PNG, the form a card is served in.
+
+    A plot is flat colour on white, so a palette holds one with no visible loss and in a third
+    of the bytes: 46 kB for a dense light curve against 120 kB for the truecolour PNG
+    matplotlib writes. Both of the lossy formats measured bigger on this kind of picture --
+    JPEG 86 kB at a quality that keeps the type sharp, WebP 48 kB -- and every crawler reads
+    PNG, which is not true of WebP.
+    """
+    png = save_fig(fig, "png")
+    png.seek(0)
+    out = BytesIO()
+    with Image.open(png) as img:
+        img.convert("RGB").quantize(colors=256, method=Image.MEDIANCUT).save(out, "PNG", optimize=True)
+    return out.getvalue()
 
 
 def save_fig(fig, fmt):
