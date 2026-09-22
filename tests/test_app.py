@@ -97,14 +97,14 @@ def test_index_still_renders_when_the_name_cannot_be_resolved(client, monkeypatc
     assert '<meta property="og:title" content="633207400004730 — SNAD ZTF DR17 viewer">' in response.text
 
 
-def test_index_of_a_page_without_a_light_curve_previews_the_logo(client):
+def test_index_of_a_page_without_a_light_curve_previews_the_site_card(client):
     response = client.get("/")
 
-    assert '<meta property="og:image" content="http://testserver/static/img/logo.png">' in response.text
-    assert '<meta name="twitter:card" content="summary">' in response.text
+    assert '<meta property="og:image" content="http://testserver/card.webp">' in response.text
+    assert '<meta name="twitter:card" content="summary_large_image">' in response.text
 
 
-def test_the_logo_the_preview_points_at_is_served(client):
+def test_the_logo_the_cards_are_drawn_with_is_served(client):
     response = client.get("/static/img/logo.png")
 
     assert response.status_code == 200

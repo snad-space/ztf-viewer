@@ -46,18 +46,22 @@ def _description(pathname: str, snad_name: str | None) -> str:
 
 LOGO_PATH = "static/img/logo.png"
 
+# The site's own card, for pages with no light curve to show; `ztf_viewer.pages.figure` serves
+# this path, and the two must agree, which `tests/test_golden_http.py` checks.
+SITE_CARD_PATH = f"card.{CARD_SUFFIX}"
+
 
 def _preview_image(pathname: str) -> tuple[str, str, str]:
     """Relative URL of the preview picture, its media type, and the card shape that fits it.
 
     An object page has a picture of its own -- the light curve `ztf_viewer.pages.figure` draws
-    for the card, wide enough for the big card -- and every other page falls back to the SNAD
-    logo, which is square and belongs in the small one.
+    for the card -- and every other page shows the site's card. Both are wide, so a link
+    unfurls as a picture rather than as a URL with a stamp beside it.
     """
     if obj := _object(pathname):
         dr, oid = obj
         return f"{dr}/card/{oid}.{CARD_SUFFIX}", CARD_MIMETYPE, "summary_large_image"
-    return LOGO_PATH, "image/png", "summary"
+    return SITE_CARD_PATH, CARD_MIMETYPE, "summary_large_image"
 
 
 def social_meta_tags(pathname: str, url: str, root: str, snad_name: str | None = None) -> list[dict[str, str]]:

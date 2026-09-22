@@ -425,6 +425,26 @@ def plot_card(oid, data, title=None, subtitle=None, brightness=None):
     return _card_bytes(fig)
 
 
+def plot_site_card(title, subtitle):
+    """The card a link to any page without a light curve of its own previews with.
+
+    The site's own picture -- logo, name, and what the site is for -- at the same size and in
+    the same format as an object's card, so a link to the front page or to a search unfurls as
+    something rather than as a bare URL with a logo stamp beside it.
+    """
+    fig = matplotlib.figure.Figure(figsize=CARD_FIGSIZE, dpi=CARD_DPI, facecolor="white")
+
+    logo_side = 0.36  # of the card's height; the logo is square and the card is 2:1
+    logo_ax = fig.add_axes((0.5 - logo_side / 4, 0.46, logo_side / 2, logo_side))
+    logo_ax.imshow(matplotlib.image.imread(LOGO_PATH))
+    logo_ax.set_axis_off()
+
+    fig.text(0.5, 0.34, title, fontsize=42, fontweight="bold", ha="center", va="center")
+    fig.text(0.5, 0.20, subtitle, fontsize=19, color="#555555", ha="center", va="center")
+
+    return _card_bytes(fig)
+
+
 def _card_bytes(fig):
     """The figure in the form a card is served in: lossless WebP of a 256-colour image.
 

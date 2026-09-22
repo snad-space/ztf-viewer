@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 import ztf_viewer
-from ztf_viewer.social import LOGO_PATH, SITE_DESCRIPTION, social_meta_html, social_meta_tags
+from ztf_viewer.social import LOGO_PATH, SITE_CARD_PATH, SITE_DESCRIPTION, social_meta_html, social_meta_tags
 from ztf_viewer.util import DEFAULT_DR
 
 _ROOT = "https://ztf.snad.space/"
@@ -86,13 +86,20 @@ def test_search_page_description_is_url_decoded():
 
 
 @pytest.mark.parametrize("pathname", ["/", "/anomalies", "/tags", "/no-such-page"])
-def test_page_with_no_light_curve_falls_back_to_the_logo(pathname):
-    assert _content(pathname, "og:image") == f"{_ROOT}{LOGO_PATH}"
-    assert _content(pathname, "twitter:card") == "summary"
+def test_page_with_no_light_curve_previews_the_site_card(pathname):
+    """A link to the front page or a search deserves a picture too, not a bare URL."""
+    assert _content(pathname, "og:image") == f"{_ROOT}{SITE_CARD_PATH}"
+    assert _content(pathname, "twitter:card") == "summary_large_image"
     assert _content(pathname, "og:description") == SITE_DESCRIPTION
 
 
-def test_the_logo_it_falls_back_to_exists():
+def test_every_page_previews_a_wide_card():
+    """Both cards are drawn at 2:1, so neither page shape asks for the narrow one."""
+    for pathname in ["/", "/dr17/search/M31/10", "/view/1", "/dr17/view/1"]:
+        assert _content(pathname, "twitter:card") == "summary_large_image"
+
+
+def test_the_logo_the_cards_are_drawn_with_exists():
     assert (Path(ztf_viewer.__file__).parent / LOGO_PATH).is_file()
 
 

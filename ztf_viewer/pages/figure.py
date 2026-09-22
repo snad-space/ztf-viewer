@@ -14,10 +14,12 @@ from ztf_viewer.figure_render import (
     plot_card,
     plot_data,
     plot_folded_data,
+    plot_site_card,
 )
 from ztf_viewer.lc_data.external import external_lc_data, parse_external_lc_names
 from ztf_viewer.lc_data.plot_data import get_folded_plot_data, get_plot_data
 from ztf_viewer.procpool import run_in_process
+from ztf_viewer.social import SITE_CARD_PATH, SITE_DESCRIPTION
 from ztf_viewer.util import immutabledefaultdict, parse_json_to_immutable
 from ztf_viewer.web import binary_response, error_response, image_response, query_args
 
@@ -100,6 +102,20 @@ async def response_figure(dr: str, oid: int, request: Request, body: bytes = Bod
     img = await run_in_process(plot_data, oid, data, fmt=fmt, caption=caption, title=title, brightness=brightness)
 
     return binary_response(img, mimetype=MIMES[fmt], filename=f"{oid}.{fmt}")
+
+
+@app.server.api_route(f"/{SITE_CARD_PATH}")
+async def response_site_card():
+    """The preview picture of every page that has no light curve of its own."""
+    img = await site_card_image(routes.BASE_TITLE, SITE_DESCRIPTION)
+    return image_response(img, mimetype=CARD_MIMETYPE)
+
+
+@cache()
+async def site_card_image(title: str, subtitle: str) -> bytes:
+    """The site's own card. One picture for the whole site, but still drawn rather than stored,
+    so it follows the logo and the wording instead of being a file someone has to redraw."""
+    return await run_in_process(plot_site_card, title, subtitle)
 
 
 @cache()

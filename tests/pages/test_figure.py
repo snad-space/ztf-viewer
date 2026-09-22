@@ -272,6 +272,30 @@ def test_card_renders_a_filter_no_colour_is_mapped_for():
     assert plot_card(1, data).startswith(_WEBP_MAGIC)
 
 
+def test_site_card_is_the_same_shape_and_format_as_an_object_card():
+    """One picture for every page with no light curve, drawn rather than stored so it follows
+    the logo and the wording."""
+    from PIL import Image
+
+    from ztf_viewer.figure_render import plot_site_card
+
+    card = plot_site_card("SNAD ZTF viewer", "Light curves, cross-matches and cutouts.")
+
+    assert card.startswith(_WEBP_MAGIC)
+    with Image.open(BytesIO(card)) as img:
+        assert img.format == "WEBP"
+        assert img.size[0] / img.size[1] == pytest.approx(2.0)
+
+
+def test_site_card_carries_the_logo_and_the_wording(monkeypatch):
+    from ztf_viewer.figure_render import plot_site_card
+
+    fig = _captured_figure(monkeypatch, plot_site_card, "SNAD ZTF viewer", "What the site is for.")
+
+    assert [ax for ax in fig.axes if ax.images]
+    assert {text.get_text() for text in fig.texts} == {"SNAD ZTF viewer", "What the site is for."}
+
+
 def test_card_header_lines_start_at_the_same_x():
     """Set at one anchor the two lines still look ragged -- a bold "6" carries more side
     bearing than an "S" -- and the ragged edge is the one a reader sees."""
