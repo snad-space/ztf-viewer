@@ -102,10 +102,18 @@ LIST_MAXSHOW = 4
 # exactly what you want to keep reading while the new answer is on its way.
 LOADING_PLACEHOLDER = html.P("Loading…", className="loading-placeholder")
 
+# Re-queries after that first load say "Updating…" from `style.css`, keyed on the
+# `data-dash-is-loading` attribute Dash puts on a callback's output while it runs, one of:
+# - the section keeps showing its last answer under the label, still readable and usable
+UPDATES_IN_PLACE = "updates-in-place"
+# - the section's last answer is hidden behind the label, for text about a previous selection
+#   (a clicked observation, a chosen model) that would be wrong to keep showing
+UPDATES_REPLACE = "updates-replace"
 
-def loading_div(id, **kwargs):
+
+def loading_div(id, className=UPDATES_IN_PLACE, **kwargs):
     """An empty section that says it is still loading until its callback fills it."""
-    return html.Div(LOADING_PLACEHOLDER, id=id, **kwargs)
+    return html.Div(LOADING_PLACEHOLDER, id=id, className=className, **kwargs)
 
 
 # Plotly's own default figure height, so swapping this for the light curve moves nothing
@@ -525,7 +533,7 @@ async def get_layout(pathname, search):
                                             html.Div(
                                                 [
                                                     html.H3(id="results-fit-header", children="Parameters"),
-                                                    loading_div("results-fit"),
+                                                    loading_div("results-fit", className=UPDATES_REPLACE),
                                                 ],
                                                 id="results-fit-layout",
                                                 style={"display": "none"},
@@ -569,8 +577,8 @@ async def get_layout(pathname, search):
                         [
                             html.Div(className="JS9", id="JS9"),
                             dji.Import(src="/static/js/js9_helper.js"),
-                            html.Div(id="fits-to-show"),
-                            html.Div(id="skybot"),
+                            html.Div(id="fits-to-show", className=UPDATES_REPLACE),
+                            html.Div(id="skybot", className=UPDATES_REPLACE),
                         ],
                         style={"min-width": "450px", "width": "20%", "vertical-align": "top", "flex-shrink": 0},
                     ),
@@ -584,7 +592,7 @@ async def get_layout(pathname, search):
                             html.Div(
                                 [
                                     html.H2("Summary"),
-                                    loading_div("summary"),
+                                    loading_div("summary", className=None),
                                 ],
                                 id="summary-layout",
                             ),
@@ -610,7 +618,7 @@ async def get_layout(pathname, search):
                             html.Div(
                                 [
                                     html.H2("Metadata"),
-                                    loading_div("metadata"),
+                                    loading_div("metadata", className=None),
                                 ],
                                 id="metadata-layout",
                             ),

@@ -261,16 +261,62 @@ Example:
 
 /* Stands in for a section whose callback is still waiting on an external catalog. Muted,
    because it is not the answer -- it only says the answer is still on its way. */
-.loading-placeholder {
+.loading-placeholder,
+.updates-in-place[data-dash-is-loading="true"]:not(:has(> .loading-placeholder))::before,
+.updates-replace[data-dash-is-loading="true"]::before,
+#graph[data-dash-is-loading="true"]:not(:has(.annotation-text))::after {
     color: #767676;
     font-style: italic;
 }
 
+/* "Updating…" while a callback re-runs for a section that has already answered once. Dash
+   marks a callback's output with data-dash-is-loading while it runs, which is all this keys
+   on: nothing is wrapped or laid over the page, so everything stays usable meanwhile. */
+.updates-in-place[data-dash-is-loading="true"]:not(:has(> .loading-placeholder))::before,
+.updates-replace[data-dash-is-loading="true"]::before {
+    content: "Updating…";
+    display: block;
+    margin: 1em 0;
+    /* A section laid out in columns (Neighbours) keeps it above them, not in the first one */
+    column-span: all;
+}
+
+/* This text is about the previous selection -- the clicked observation, the chosen model --
+   so it goes away rather than being shown next to a status saying it is being replaced.
+   !important because callbacks lay some of it out with an inline `display` (the fit
+   parameters are an inline flexbox), which would otherwise win over this. */
+.updates-replace[data-dash-is-loading="true"] > * {
+    display: none !important;
+}
+
+#skybot[data-dash-is-loading="true"]::before {
+    content: "Looking for minor planets…";
+}
+
+/* The light curve stays fully drawn and interactive while it re-renders, so the status sits
+   in the empty margin above the axes and lets every click and hover through. Skipped for the
+   first load, whose stand-in figure (the only one with an annotation) says "Loading…" itself. */
+#graph {
+    position: relative;
+}
+
+#graph[data-dash-is-loading="true"]:not(:has(.annotation-text))::after {
+    content: "Updating…";
+    position: absolute;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    pointer-events: none;
+}
+
 /* Pulse, so a slow catalog reads as still working rather than stuck. The light curve's
-   stand-in figure is the only figure on the page that carries an annotation, so this
-   selector reaches its "Loading…" and nothing on the real plot. */
+   stand-in figure is the only figure on the page that carries an annotation, so
+   `#graph .annotation-text` reaches its "Loading…" and nothing on the real plot. */
 .loading-placeholder,
-#graph .annotation-text {
+#graph .annotation-text,
+.updates-in-place[data-dash-is-loading="true"]::before,
+.updates-replace[data-dash-is-loading="true"]::before,
+#graph[data-dash-is-loading="true"]::after {
     animation: loading-pulse 1.2s ease-in-out infinite alternate;
 }
 
@@ -285,7 +331,10 @@ Example:
 
 @media (prefers-reduced-motion: reduce) {
     .loading-placeholder,
-    #graph .annotation-text {
+    #graph .annotation-text,
+    .updates-in-place[data-dash-is-loading="true"]::before,
+    .updates-replace[data-dash-is-loading="true"]::before,
+    #graph[data-dash-is-loading="true"]::after {
         animation: none;
     }
 }
