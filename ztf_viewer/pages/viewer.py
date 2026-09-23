@@ -93,6 +93,66 @@ MARKER_SIZE = 10
 
 LIST_MAXSHOW = 4
 
+# Every section below starts empty and is filled by a callback that waits on an external
+# catalog, so until one answers a blank section reads the same as "nothing found". This sits
+# where that section's own content will go, and the callback's first result replaces it.
+#
+# Deliberately not `dcc.Loading`: its spinner is centred in the section rather than placed
+# where the text lands, and on a re-query it covers what is already on screen -- which is
+# exactly what you want to keep reading while the new answer is on its way.
+LOADING_PLACEHOLDER = html.P("Loading…", className="loading-placeholder")
+
+# Re-queries after that first load say "Updating…" from `style.css`, keyed on the
+# `data-dash-is-loading` attribute Dash puts on a callback's output while it runs, one of:
+# - the section keeps showing its last answer under the label, still readable and usable
+UPDATES_IN_PLACE = "updates-in-place"
+# - the section's last answer is hidden behind the label, for text about a previous selection
+#   (a clicked observation, a chosen model) that would be wrong to keep showing
+UPDATES_REPLACE = "updates-replace"
+
+
+def loading_div(id, className=UPDATES_IN_PLACE, **kwargs):
+    """An empty section that says it is still loading until its callback fills it."""
+    return html.Div(LOADING_PLACEHOLDER, id=id, className=className, **kwargs)
+
+
+# Plotly's own default figure height, so swapping this for the light curve moves nothing
+GRAPH_HEIGHT_PX = 450
+
+PLOT_BGCOLOR = "#E8E8E8"
+
+
+def loading_figure():
+    """The light curve's stand-in until the real one arrives.
+
+    A `dcc.Graph` with no figure draws empty 0-6 axes, which look like a plot of nothing
+    rather than a plot on its way. This keeps the height and says what is happening.
+
+    Its annotation is what `style.css` pulses, via `#graph .annotation-text`, so the real
+    light curve must stay annotation-free or its labels would pulse too.
+    """
+    figure = go.Figure()
+    figure.update_layout(
+        height=GRAPH_HEIGHT_PX,
+        # The light curve's own plot background, so the real plot just fills this frame in
+        plot_bgcolor=PLOT_BGCOLOR,
+        xaxis={"visible": False},
+        yaxis={"visible": False},
+        annotations=[
+            {
+                "text": "Loading…",
+                "xref": "paper",
+                "yref": "paper",
+                "x": 0.5,
+                "y": 0.5,
+                "showarrow": False,
+                "font": {"size": 16, "color": "#555555"},
+            }
+        ],
+    )
+    return figure
+
+
 LIGHT_CURVE_VALUE_VERSION_ANNOTATION = defaultdict(str) | {
     "v0.1": " (Malanchev et al. 2021)",
     "v0.2": " (Aleo et al. 2022)",
@@ -334,6 +394,7 @@ async def get_layout(pathname, search):
                         [
                             dcc.Graph(
                                 id="graph",
+                                figure=loading_figure(),
                                 config={
                                     "toImageButtonOptions": {"filename": str(oid)},
                                     "displaylogo": False,
@@ -472,7 +533,7 @@ async def get_layout(pathname, search):
                                             html.Div(
                                                 [
                                                     html.H3(id="results-fit-header", children="Parameters"),
-                                                    html.Div(id="results-fit"),
+                                                    loading_div("results-fit", className=UPDATES_REPLACE),
                                                 ],
                                                 id="results-fit-layout",
                                                 style={"display": "none"},
@@ -516,8 +577,8 @@ async def get_layout(pathname, search):
                         [
                             html.Div(className="JS9", id="JS9"),
                             dji.Import(src="/static/js/js9_helper.js"),
-                            html.Div(id="fits-to-show"),
-                            html.Div(id="skybot"),
+                            html.Div(id="fits-to-show", className=UPDATES_REPLACE),
+                            html.Div(id="skybot", className=UPDATES_REPLACE),
                         ],
                         style={"min-width": "450px", "width": "20%", "vertical-align": "top", "flex-shrink": 0},
                     ),
@@ -531,7 +592,7 @@ async def get_layout(pathname, search):
                             html.Div(
                                 [
                                     html.H2("Summary"),
-                                    html.Div(id="summary"),
+                                    loading_div("summary", className=None),
                                 ],
                                 id="summary-layout",
                             ),
@@ -550,14 +611,14 @@ async def get_layout(pathname, search):
                                     " search radius, arcsec",
                                     # The style lives here and not on the callback's output: the
                                     # callback replaces `children` only, so the columns survive it.
-                                    html.Div(id="neighbours", style={"columns": 2}),
+                                    loading_div("neighbours", style={"columns": 2}),
                                 ],
                                 id="neighbours-layout",
                             ),
                             html.Div(
                                 [
                                     html.H2("Metadata"),
-                                    html.Div(id="metadata"),
+                                    loading_div("metadata", className=None),
                                 ],
                                 id="metadata-layout",
                             ),
@@ -597,7 +658,7 @@ async def get_layout(pathname, search):
                         type="number",
                     ),
                     " search radius, arcsec",
-                    html.Div(id="gcvs-table"),
+                    loading_div("gcvs-table"),
                 ],
                 id="gcvs",
             ),
@@ -611,7 +672,7 @@ async def get_layout(pathname, search):
                         type="number",
                     ),
                     " search radius, arcsec",
-                    html.Div(id="vsx-table"),
+                    loading_div("vsx-table"),
                 ],
                 id="vsx",
             ),
@@ -625,7 +686,7 @@ async def get_layout(pathname, search):
                         type="number",
                     ),
                     " search radius, arcsec",
-                    html.Div(id="spicy-table"),
+                    loading_div("spicy-table"),
                 ],
                 id="spicy",
             ),
@@ -639,7 +700,7 @@ async def get_layout(pathname, search):
                         type="number",
                     ),
                     "search radius, arcsec",
-                    html.Div(id="sdss-dr16-quasars-table"),
+                    loading_div("sdss-dr16-quasars-table"),
                 ]
             ),
             html.Div(
@@ -652,7 +713,7 @@ async def get_layout(pathname, search):
                         type="number",
                     ),
                     " search radius, arcsec",
-                    html.Div(id="atlas-table"),
+                    loading_div("atlas-table"),
                 ],
                 id="atlas",
             ),
@@ -669,7 +730,7 @@ async def get_layout(pathname, search):
                         step="0.001",
                     ),
                     " search radius, arcsec",
-                    html.Div(id="ztf-periodic-table"),
+                    loading_div("ztf-periodic-table"),
                 ],
                 id="ztf-periodic",
             ),
@@ -684,7 +745,7 @@ async def get_layout(pathname, search):
                         step="1",
                     ),
                     " search radius, arcsec",
-                    html.Div(id="pan-starrs-dr2-stacked-table"),
+                    loading_div("pan-starrs-dr2-stacked-table"),
                 ],
                 id="pan-starrs-dr2-stacked",
             ),
@@ -699,7 +760,7 @@ async def get_layout(pathname, search):
                         step="1",
                     ),
                     " search radius, arcsec",
-                    html.Div(id="transient-name-server-table"),
+                    loading_div("transient-name-server-table"),
                 ],
                 id="transient-name-server",
             ),
@@ -723,7 +784,7 @@ async def get_layout(pathname, search):
                         step="1",
                     ),
                     " search radius, degrees",
-                    html.Div(id="astro-colibri-table"),
+                    loading_div("astro-colibri-table"),
                 ],
                 id="astro-colibri",
             ),
@@ -738,7 +799,7 @@ async def get_layout(pathname, search):
                         step="1",
                     ),
                     " search radius, arcsec",
-                    html.Div(id="astrocats-table"),
+                    loading_div("astrocats-table"),
                 ],
                 id="astrocats",
             ),
@@ -753,7 +814,7 @@ async def get_layout(pathname, search):
                         step="1",
                     ),
                     " search radius, arcsec",
-                    html.Div(id="otter-table"),
+                    loading_div("otter-table"),
                 ],
                 id="otter",
             ),
@@ -769,7 +830,7 @@ async def get_layout(pathname, search):
                         max="323999",
                     ),
                     " search radius, arcsec",
-                    html.Div(id="ogle-table"),
+                    loading_div("ogle-table"),
                 ],
                 id="ogle",
             ),
@@ -783,7 +844,7 @@ async def get_layout(pathname, search):
                         type="number",
                     ),
                     " search radius, arcsec",
-                    html.Div(id="simbad-table"),
+                    loading_div("simbad-table"),
                 ],
                 id="simbad",
             ),
@@ -797,7 +858,7 @@ async def get_layout(pathname, search):
                         type="number",
                     ),
                     " search radius, arcsec",
-                    html.Div(id="gaia-edr3-distances-table"),
+                    loading_div("gaia-edr3-distances-table"),
                 ],
                 id="gaia-edr3-distances",
             ),
@@ -811,7 +872,7 @@ async def get_layout(pathname, search):
                         type="number",
                     ),
                     " search radius, arcsec",
-                    html.Div(id="gaia-dr3-table"),
+                    loading_div("gaia-dr3-table"),
                 ],
                 id="gaia-dr3",
             ),
@@ -825,7 +886,7 @@ async def get_layout(pathname, search):
                         type="number",
                     ),
                     " search radius, arcsec",
-                    html.Div(id="alerce-table"),
+                    loading_div("alerce-table"),
                 ],
                 id="alerce",
             ),
@@ -839,7 +900,7 @@ async def get_layout(pathname, search):
                         type="number",
                     ),
                     " search radius, arcsec",
-                    html.Div(id="fink-table"),
+                    loading_div("fink-table"),
                 ],
                 id="fink",
             ),
@@ -902,7 +963,7 @@ async def get_layout(pathname, search):
                         style={"align-items": "center", "display": "flex"},
                     ),
                     html.Br(),
-                    html.Div(id="features-list"),
+                    loading_div("features-list"),
                     html.Br(),
                     html.Div(
                         [
@@ -2192,7 +2253,7 @@ async def set_figure(
     fw.layout.legend.orientation = "h"
     fw.layout.legend.xanchor = "left"
     fw.layout.legend.y = -0.1
-    fw.layout.plot_bgcolor = "#E8E8E8"
+    fw.layout.plot_bgcolor = PLOT_BGCOLOR
     return fw, message_fit, str(uuid4())
 
 
