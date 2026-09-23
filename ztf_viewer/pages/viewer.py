@@ -119,6 +119,9 @@ def loading_figure():
 
     A `dcc.Graph` with no figure draws empty 0-6 axes, which look like a plot of nothing
     rather than a plot on its way. This keeps the height and says what is happening.
+
+    Its annotation is what `style.css` pulses, via `#graph .annotation-text`, so the real
+    light curve must stay annotation-free or its labels would pulse too.
     """
     figure = go.Figure()
     figure.update_layout(

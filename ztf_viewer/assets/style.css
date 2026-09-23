@@ -265,3 +265,27 @@ Example:
     color: #767676;
     font-style: italic;
 }
+
+/* Pulse, so a slow catalog reads as still working rather than stuck. The light curve's
+   stand-in figure is the only figure on the page that carries an annotation, so this
+   selector reaches its "Loading…" and nothing on the real plot. */
+.loading-placeholder,
+#graph .annotation-text {
+    animation: loading-pulse 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes loading-pulse {
+    from {
+        opacity: 1;
+    }
+    to {
+        opacity: 0.3;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .loading-placeholder,
+    #graph .annotation-text {
+        animation: none;
+    }
+}
