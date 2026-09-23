@@ -113,7 +113,7 @@ def html_from_astropy_table(table: astropy.table.Table, columns: dict, html_colu
     """
     template = Template(
         """
-        <table id="simbad-table">
+        <table>
         <tr>
         {% for column in columns %}
             <td>{{columns[column]}}</td>

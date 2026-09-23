@@ -24,6 +24,19 @@ def test_html_from_astropy_table_is_single_commonmark_html_block():
     assert lines[0].startswith("<table"), "first line must start the HTML block with no indentation"
 
 
+def test_table_has_no_id():
+    """Every cross-match section and the cone-search page render through this, several of
+    them on one page, so any fixed id would be duplicated -- it used to be "simbad-table",
+    which also collides with the id of the Simbad section's own container."""
+    columns = {"name": "Name"}
+    table = Table(rows=[("some name",)], names=["name"])
+
+    html = html_from_astropy_table(table, columns)
+
+    root = ET.fromstring(f"<root>{html}</root>")
+    assert all("id" not in element.attrib for element in root.iter())
+
+
 def test_plain_cells_and_headers_are_escaped():
     """Most cell/header values are plain scientific text, which may happen to contain
     markdown-special characters (*, _) or HTML/XML-special characters (&, <, >, "). Since
