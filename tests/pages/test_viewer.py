@@ -373,7 +373,7 @@ async def test_get_summary_mixed_success_and_failures(summary_upstreams):
         ["Name", ": ", ["Stub SN 2020xyz (4.940″ ", success_link, ")"]],
         ["Type", ": ", ["SN Ia (4.940″ ", success_link, ")"]],
         ["Distance", ": ", ["100.000 (z=0.020, 4.940″ ", success_link, ")"]],
-        ["Average mag (including neighbourhood)", ": ", "zg  18.00", ", ", "zr  17.40", ", ", "(zg–zr)  0.60"],
+        ["Average mag (including neighbourhood)", ": ", "zg = 18.00", ", ", "zr = 17.40", ", ", "(zg–zr) = 0.60"],
         [
             "Search in brokers",
             ": ",

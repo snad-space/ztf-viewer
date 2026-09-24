@@ -6,6 +6,10 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
+### Fixed
+
+- "=" is back in the summary's average magnitudes https://github.com/snad-space/ztf-viewer/issues/772
+
 ## [2026.9.1] 2026 September 24
 
 ### Changed

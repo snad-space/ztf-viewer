@@ -1886,10 +1886,10 @@ async def get_summary(oid, dr, neighbours, radius_ids, radius_values):
     mean_mag = {fltr: np.mean(m) for fltr, m in mags.items()}
     peak_mag = {fltr: np.min(m) for fltr, m in mags.items()}
     elements["Average mag (including neighbourhood)"] = [
-        f"{fltr} {mean_mag[fltr]: .2f}" for fltr in ZTF_FILTERS if fltr in mean_mag
+        f"{fltr} = {mean_mag[fltr]:.2f}" for fltr in ZTF_FILTERS if fltr in mean_mag
     ]
     if "zg" in mean_mag and "zr" in mean_mag:
-        elements["Average mag (including neighbourhood)"].append(f'(zg–zr) {mean_mag["zg"] - mean_mag["zr"]: .2f}')
+        elements["Average mag (including neighbourhood)"].append(f'(zg–zr) = {mean_mag["zg"] - mean_mag["zr"]:.2f}')
 
     ebv = None
     try:
