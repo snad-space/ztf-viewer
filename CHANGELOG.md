@@ -6,14 +6,16 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
+## [2026.9.1] 2026 September 24
+
 ### Changed
 
 - "Neighbours" is a single list of every OID around https://github.com/snad-space/ztf-viewer/issues/440
 
 ### Added
 
-- Sections and the plot say when they are loading or updating, without blocking the data already shown https://github.com/snad-space/ztf-viewer/issues/377
-- "Download cutout" saves the FITS crop shown on the page, the one whose pixel coordinates match it https://github.com/snad-space/ztf-viewer/issues/340
+- Sections and the plot say when they are loading or updating https://github.com/snad-space/ztf-viewer/issues/377
+- "Download cutout" saves the FITS crop shown on the page https://github.com/snad-space/ztf-viewer/issues/340
 - A shared link previews as a card in social media and messengers https://github.com/snad-space/ztf-viewer/issues/98
 
 ## [2026.9.0] 2026 September 13
