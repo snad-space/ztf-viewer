@@ -3,6 +3,7 @@ import dataclasses
 import inspect
 import io
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 import urllib.parse
@@ -401,15 +402,18 @@ class _BaseHatsQuery(_BaseCatalogQuery):
             "columns": self._hats_columns,
             "region": [{"type": "circle", "ra": ra, "dec": dec, "radius_arcsec": radius_arcsec}],
             "format": "parquet",
+            "streaming": True,
         }
         if self._hats_row_limit is not None:
             body["limit"] = self._hats_row_limit
+        start = time.perf_counter()
         response = await get_client().post(self._api_url, json=body, timeout=TIMEOUT_HATS)
         if response.status_code != 200:
             logger.warning(response.text)
             raise CatalogUnavailable(response.text, catalog=self)
         df = read_parquet(io.BytesIO(response.content))
-        logger.info(f"{self.query_name}: {len(df)} rows in {response.headers['x-hats-elapsed-ms']}ms")
+        # a streamed response carries no x-hats-* counts, so time it here
+        logger.info(f"{self.query_name}: {len(df)} rows in {(time.perf_counter() - start) * 1000:.0f}ms")
         if len(df) == 0:
             raise NotFound
         return df

@@ -27,7 +27,7 @@ class ZubercalQuery(_BaseHatsQuery, _BaseLightCurveQuery):
         "n_obs": "Number of detections",
     }
 
-    _hats_url = "https://data.lsdb.io/hats/ztf_dr20/zubercal/zubercal"
+    _hats_url = "/ztf_dr20/zubercal/zubercal"
     _hats_columns = ("objectid", "objra", "objdec", "mjd", "band", "mag", "magerr")
 
     def _table_from_rows(self, df: NestedFrame) -> Table:

@@ -31,7 +31,7 @@ class TessLightCurveQuery(_BaseHatsQuery, _BaseLightCurveQuery):
         "n_obs": "Number of valid points",
     }
 
-    _hats_url = "https://data.lsdb.io/hats/tess/tess_lightcurve/tess_lightcurve"
+    _hats_url = "/tess/tess_lightcurve/tess_lightcurve"
     _hats_columns = (
         "ticid",
         "sector",
