@@ -57,7 +57,11 @@ async def _fracs(products_root):
     url = urljoin(ZTF_FITS_PROXY_URL, products_root)
     client = get_client()
     response = await client.get(url, timeout=TIMEOUT_ZTF_FITS_PROXY)
+    response.raise_for_status()
     fracs = re.findall(r'<a href="(\d{6})/">\1/</a>', response.text)
+    # Raise rather than return: an empty list would be cached and break the whole night.
+    if not fracs:
+        raise ValueError(f"no exposure directories found at {url}")
     return sorted(int(f) for f in fracs)
 
 
