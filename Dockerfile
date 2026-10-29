@@ -31,7 +31,7 @@ RUN apt-get update \
     && ln -s /opt/texlive/bin/*-linux /opt/texlive/bin/linux
 ENV PATH="/opt/texlive/bin/linux:$PATH"
 RUN echo "main_memory = 50000000" >> /opt/texlive/texmf.cnf \
-    && tlmgr install xetex fontspec pgf hyperref geometry underscore amsfonts \
+    && tlmgr install xetex fontspec pgf hyperref etoolbox geometry underscore amsfonts \
     && fmtutil-sys --byfmt xelatex
 
 FROM python:3.14-slim-bookworm
