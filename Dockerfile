@@ -18,7 +18,7 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 COPY --from=js9 /app/ztf_viewer/static/js9 /app/ztf_viewer/static/js9
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends texlive-xetex texlive-latex-recommended texlive-pictures fonts-lmodern \
+    && apt-get install -y --no-install-recommends texlive-xetex texlive-latex-recommended texlive-pictures texlive-fonts-recommended fonts-lmodern \
     && rm -rf /var/lib/apt/lists/* /usr/share/doc/* \
     && echo "main_memory = 50000000" > /etc/texmf/texmf.d/10main_memory.cnf \
     && update-texmf \
