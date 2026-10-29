@@ -14,7 +14,7 @@ description = "ZTF data releases viewer"
 readme = "README.md"
 license = {text = "MIT"}
 keywords = ["science", "astrophysics"]
-requires-python = ">=3.14"
+requires-python = ">=3.15"
 dependencies = [
     "dash[async,fastapi]>=4.4.1,<5.0",
     "uvicorn[standard]",
@@ -100,12 +100,12 @@ asyncio_default_fixture_loop_scope = "function"
 
 [tool.black]
 line-length = 120
-target-version = ["py314"]
+target-version = ["py315"]
 include = '\.py$'
 
 [tool.ruff]
 line-length = 120
-target-version = "py314"
+target-version = "py315"
 
 [tool.ruff.lint.per-file-ignores]
 # F401: imported but unused
