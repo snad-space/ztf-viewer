@@ -1,5 +1,5 @@
 # Original repo: https://github.com/ericmandel/js9
-FROM python:3.14-slim-bookworm AS js9
+FROM python:3.14-slim-trixie AS js9
 ARG JS9_VERSION=3.9
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl ca-certificates gcc libc6-dev make \
@@ -11,7 +11,7 @@ RUN apt-get update \
     && make install
 
 # Minimal frozen TeX Live 2025 for matplotlib's pgf backend
-FROM python:3.14-slim-bookworm AS texlive
+FROM python:3.14-slim-trixie AS texlive
 ARG TL_REPO=https://ftp.tu-chemnitz.de/pub/tug/historic/systems/texlive/2025/tlnet-final
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl ca-certificates perl xz-utils libfontconfig1 \
@@ -34,7 +34,7 @@ RUN echo "main_memory = 50000000" >> /opt/texlive/texmf.cnf \
     && tlmgr install xetex fontspec pgf hyperref etoolbox geometry underscore amsfonts \
     && fmtutil-sys --byfmt xelatex
 
-FROM python:3.14-slim-bookworm
+FROM python:3.14-slim-trixie
 
 ENV TZ=Europe/Paris
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
