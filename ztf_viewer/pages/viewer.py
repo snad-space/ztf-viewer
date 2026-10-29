@@ -8,6 +8,7 @@ from urllib.parse import parse_qs, urlencode, urljoin, urlparse
 from uuid import uuid4
 
 import dash_defer_js_import as dji
+import httpx
 import numpy as np
 import pandas as pd
 import plotly.express as px
@@ -39,7 +40,7 @@ from ztf_viewer.catalogs.vizier import find_vizier, vizier_catalog_details
 from ztf_viewer.catalogs.ztf_dr import find_ztf_circle, find_ztf_oid
 from ztf_viewer.catalogs.ztf_ref import ztf_ref
 from ztf_viewer.config import JS9_URL, ZTF_FITS_PROXY_URL
-from ztf_viewer.date_with_frac import DateWithFrac, correct_date
+from ztf_viewer.date_with_frac import DateWithFrac, ProductsListingError, correct_date
 from ztf_viewer.exceptions import CatalogUnavailable, NotFound
 from ztf_viewer.lc_data.external import (
     ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC,
@@ -302,7 +303,13 @@ async def fits_children_for_observation(mjd, oid, fieldid, rcid, fltr, dr):
     ra, dec = await find_ztf_oid.get_coord(oid, dr)
     coord = await find_ztf_oid.get_sky_coord(oid, dr)
     date = DateWithFrac.from_hmjd(mjd, coord=coord)
-    await correct_date(date)
+    try:
+        await correct_date(date)
+    except httpx.HTTPError, ProductsListingError:
+        message = (
+            f"FITS image for {fltr}, MJD {mjd:.5f} is unavailable: the FITS server didn't respond, try again later"
+        )
+        return [html.Div(message, id="fits-to-show-error")]
     fits_url = urljoin(ZTF_FITS_PROXY_URL, date.sciimg_path(fieldid=fieldid, rcid=rcid, filter=fltr))
     cutout_query = urlencode({"size": "449pix", "gzip": "false", "center": f"{ra},{dec}"})
     fits_cutout_url = f"{fits_url}?{cutout_query}"
@@ -2419,7 +2426,8 @@ app.clientside_callback(
     """
     function(divs) {
         console.log(divs);
-        if (divs) {
+        // The panel holds only an error message when the FITS listing failed
+        if (divs && document.getElementById("fits-to-show-cutout-url")) {
             let ra = document.getElementById("fits-to-show-ra").innerText;
             let dec = document.getElementById("fits-to-show-dec").innerText;
             let fits = document.getElementById("fits-to-show-cutout-url").innerText;

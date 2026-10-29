@@ -28,6 +28,7 @@ import time
 import types
 from unittest.mock import AsyncMock, patch
 
+import httpx
 import pytest
 from astropy.table import Table
 from dash import html
@@ -47,6 +48,7 @@ config.CACHE_TYPE = "memory"
 config.UNAVAILABLE_CATALOGS_CACHE_TYPE = "memory"
 
 from ztf_viewer.catalogs import unavailable_catalogs
+from ztf_viewer.date_with_frac import ProductsListingError
 from ztf_viewer.exceptions import CatalogUnavailable, NotFound
 from ztf_viewer.lc_data import EXTERNAL_LC_DATA
 from ztf_viewer.lc_data.plot_data import folded_plot_data, plot_data
@@ -1396,6 +1398,31 @@ async def test_load_fits_for_graph_clicked_click_trigger_still_works(summary_ups
         context_value.reset(token)
     *_, download_link, _, _ = _project(children)
     assert download_link["text"] == "Download full FITS"
+    assert selected == {"mjd": 58000.0, "oid": "633207400004730"}
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        httpx.HTTPStatusError("503", request=httpx.Request("GET", "https://x"), response=httpx.Response(503)),
+        httpx.ReadTimeout("timed out"),
+        ProductsListingError("no exposure directories"),
+    ],
+    ids=["status", "timeout", "empty-listing"],
+)
+async def test_load_fits_for_graph_clicked_reports_unavailable_listing(summary_upstreams, error):
+    """A failed products listing must say so in the FITS panel instead of a silent callback 500."""
+    data = {"points": [{"customdata": [58000.0, "633207400004730", 796, 12, "zg"]}]}
+    token = _set_triggered("graph.clickData")
+    try:
+        with patch.object(viewer, "correct_date", AsyncMock(side_effect=error)):
+            children, selected = await load_fits_for_graph_clicked(data, "633207400004730", "dr24", "")
+    finally:
+        context_value.reset(token)
+    (message,) = children
+    assert message.id == "fits-to-show-error"
+    assert "MJD 58000.00000" in message.children
+    assert "try again" in message.children
     assert selected == {"mjd": 58000.0, "oid": "633207400004730"}
 
 
