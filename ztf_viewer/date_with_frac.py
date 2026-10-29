@@ -1,3 +1,4 @@
+import asyncio
 import os
 import re
 from dataclasses import dataclass
@@ -9,6 +10,14 @@ from ztf_viewer.cache import cache
 from ztf_viewer.config import TIMEOUT_ZTF_FITS_PROXY, ZTF_FITS_PROXY_URL
 from ztf_viewer.http import get_client
 from ztf_viewer.util import ccdid_from_rcid, hmjd_to_earth, qid_from_rcid
+
+# The FITS server answers 503 when busy; a short pause usually clears it.
+LISTING_RETRY_DELAYS = (1.0, 2.0, 4.0)
+LISTING_RETRY_STATUSES = frozenset({502, 503, 504})
+
+
+class ProductsListingError(RuntimeError):
+    """The products directory listing has no exposure directories."""
 
 
 @dataclass
@@ -56,12 +65,16 @@ class DateWithFrac:
 async def _fracs(products_root):
     url = urljoin(ZTF_FITS_PROXY_URL, products_root)
     client = get_client()
-    response = await client.get(url, timeout=TIMEOUT_ZTF_FITS_PROXY)
+    for delay in (*LISTING_RETRY_DELAYS, None):
+        response = await client.get(url, timeout=TIMEOUT_ZTF_FITS_PROXY)
+        if delay is None or response.status_code not in LISTING_RETRY_STATUSES:
+            break
+        await asyncio.sleep(delay)
     response.raise_for_status()
     fracs = re.findall(r'<a href="(\d{6})/">\1/</a>', response.text)
     # Raise rather than return: an empty list would be cached and break the whole night.
     if not fracs:
-        raise ValueError(f"no exposure directories found at {url}")
+        raise ProductsListingError(f"no exposure directories found at {url}")
     return sorted(int(f) for f in fracs)
 
 
