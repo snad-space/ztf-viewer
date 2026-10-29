@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 
 logger = logging.getLogger(__name__)
@@ -6,10 +7,11 @@ from typing import ClassVar
 
 import antares_client.search
 import numpy as np
+from antares_client.exceptions import AntaresException
 from antares_client.models import Locus
 from astropy.coordinates import Angle, SkyCoord
 from astropy.table import Table
-from requests import RequestException
+from httpx import HTTPError
 
 from ztf_viewer.cache import cache
 from ztf_viewer.catalogs.conesearch._base import (
@@ -41,7 +43,8 @@ class AntaresQuery(_BaseCatalogApiQuery, _BaseLightCurveQuery, _BaseNameResolver
             loci = sorted(
                 antares_client.search.cone_search(coord, radius), key=lambda locus: locus.coordinates.separation(coord)
             )
-        except RequestException as e:
+        # The client builds AntaresException from response.json(), so a non-JSON error page raises JSONDecodeError
+        except (HTTPError, AntaresException, json.JSONDecodeError) as e:
             logger.warning(str(e))
             raise CatalogUnavailable(catalog=self)
         return loci

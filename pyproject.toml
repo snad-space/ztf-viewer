@@ -39,7 +39,7 @@ dependencies = [
     # v4 brake our immutabledefaultdict implementation
     "immutabledict<4",
     "alerce",
-    "antares-client>=1.2.0",
+    "antares-client>=2.0.2",
     "plotly[express]",
     # required by plotly
     "anywidget",

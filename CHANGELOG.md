@@ -6,6 +6,10 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
+### Changed
+
+- Antares is queried through its v2 API https://github.com/snad-space/ztf-viewer/issues/780
+
 ## [2026.9.1] 2026 September 24
 
 ### Changed
