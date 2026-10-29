@@ -10,6 +10,30 @@ RUN apt-get update \
     && make \
     && make install
 
+# Minimal frozen TeX Live 2025 for matplotlib's pgf backend
+FROM python:3.14-slim-bookworm AS texlive
+ARG TL_REPO=https://ftp.tu-chemnitz.de/pub/tug/historic/systems/texlive/2025/tlnet-final
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl ca-certificates perl xz-utils libfontconfig1 \
+    && mkdir /install-tl \
+    && curl -L ${TL_REPO}/install-tl-unx.tar.gz | tar -xz --strip-components=1 -C /install-tl \
+    && printf '%s\n' \
+        'selected_scheme scheme-infraonly' \
+        'TEXDIR /opt/texlive' \
+        'TEXMFLOCAL /opt/texlive/texmf-local' \
+        'TEXMFSYSCONFIG /opt/texlive/texmf-config' \
+        'TEXMFSYSVAR /opt/texlive/texmf-var' \
+        'tlpdbopt_install_docfiles 0' \
+        'tlpdbopt_install_srcfiles 0' \
+        'tlpdbopt_autobackup 0' \
+        > /install-tl/texlive.profile \
+    && /install-tl/install-tl --profile=/install-tl/texlive.profile --repository=${TL_REPO} \
+    && ln -s /opt/texlive/bin/*-linux /opt/texlive/bin/linux
+ENV PATH="/opt/texlive/bin/linux:$PATH"
+RUN echo "main_memory = 50000000" >> /opt/texlive/texmf.cnf \
+    && tlmgr install xetex fontspec pgf hyperref geometry underscore amsfonts \
+    && fmtutil-sys --byfmt xelatex
+
 FROM python:3.14-slim-bookworm
 
 ENV TZ=Europe/Paris
@@ -18,11 +42,10 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 COPY --from=js9 /app/ztf_viewer/static/js9 /app/ztf_viewer/static/js9
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends texlive-xetex texlive-latex-recommended texlive-pictures texlive-fonts-recommended fonts-lmodern \
-    && rm -rf /var/lib/apt/lists/* /usr/share/doc/* \
-    && echo "main_memory = 50000000" > /etc/texmf/texmf.d/10main_memory.cnf \
-    && update-texmf \
-    && fmtutil-sys --byfmt xelatex
+    && apt-get install -y --no-install-recommends libfontconfig1 \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=texlive /opt/texlive /opt/texlive
+ENV PATH="/opt/texlive/bin/linux:$PATH"
 
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:0.12.11 /uv /uvx /usr/local/bin/
