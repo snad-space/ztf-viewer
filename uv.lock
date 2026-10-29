@@ -51,22 +51,22 @@ wheels = [
 
 [[package]]
 name = "antares-client"
-version = "1.14.0"
+version = "2.0.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "astropy" },
     { name = "astropy-healpix" },
     { name = "click" },
-    { name = "marshmallow" },
-    { name = "marshmallow-jsonapi" },
+    { name = "httpx" },
     { name = "numpy" },
     { name = "pandas" },
+    { name = "pydantic" },
     { name = "requests" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/87/22/ae7190a02fec938dc9a51f89d2bbc957234136b74cdfa93be681394e44fb/antares_client-1.14.0.tar.gz", hash = "sha256:66f09746731f08bd03cd971d70e76a7a1aebd1f8618dd57baba285b80e1c207a", size = 15785, upload-time = "2026-02-09T22:12:39.407Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/30/a2/6183543f53fc4cb62109237ed049e9ecf8453c45f8851096a5b5b856ae14/antares_client-2.0.2.tar.gz", hash = "sha256:4ade0a6fe2a400c877cf22b0faec0fb3363756d92d5601d38700b759422bfcbc", size = 17903, upload-time = "2026-10-22T19:16:55.944Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/0d/09/600d18f23274b461458c161f23f0acebf85b86113a09f764ca3bc3f0f32a/antares_client-1.14.0-py3-none-any.whl", hash = "sha256:717055d29f7da9c69a4982dfc853c8c149dd01d69d60b52fdc9aa3e18f077407", size = 19140, upload-time = "2026-02-09T22:12:38.507Z" },
+    { url = "https://files.pythonhosted.org/packages/0f/d4/4425bf357f645b15e9377ecd90cfd1d8040c8b4db883a2e9d9cdfbd584f4/antares_client-2.0.2-py3-none-any.whl", hash = "sha256:c20fc7cabd292652055adea11769583f441a0ae578ccaf075b83d77885d441a5", size = 22641, upload-time = "2026-10-22T19:16:55.01Z" },
 ]
 
 [[package]]
@@ -826,30 +826,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/50/09/c419f6f5a92e5fadde27efd190eca90f05e1261b10dbd8cbcb39cd8ea1dc/markupsafe-3.0.3-cp314-cp314t-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:fed51ac40f757d41b7c48425901843666a6677e3e8eb0abcff09e4ba6e664f50", size = 23598, upload-time = "2025-09-27T18:37:21.177Z" },
     { url = "https://files.pythonhosted.org/packages/5f/57/1b0b3f100259dc9fffe780cfb60d4be71375510e435efec3d116b6436d43/markupsafe-3.0.3-cp314-cp314t-musllinux_1_2_aarch64.whl", hash = "sha256:e56b7d45a839a697b5eb268c82a71bd8c7f6c94d6fd50c3d577fa39a9f1409f5", size = 24835, upload-time = "2025-09-27T18:37:23.296Z" },
     { url = "https://files.pythonhosted.org/packages/14/c7/ca723101509b518797fedc2fdf79ba57f886b4aca8a7d31857ba3ee8281f/markupsafe-3.0.3-cp314-cp314t-musllinux_1_2_x86_64.whl", hash = "sha256:5678211cb9333a6468fb8d8be0305520aa073f50d17f089b5b4b477ea6e67fdc", size = 23672, upload-time = "2025-09-27T18:37:25.271Z" },
-]
-
-[[package]]
-name = "marshmallow"
-version = "3.26.2"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "packaging" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/55/79/de6c16cc902f4fc372236926b0ce2ab7845268dcc30fb2fbb7f71b418631/marshmallow-3.26.2.tar.gz", hash = "sha256:bbe2adb5a03e6e3571b573f42527c6fe926e17467833660bebd11593ab8dfd57", size = 222095, upload-time = "2025-12-22T06:53:53.309Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/be/2f/5108cb3ee4ba6501748c4908b908e55f42a5b66245b4cfe0c99326e1ef6e/marshmallow-3.26.2-py3-none-any.whl", hash = "sha256:013fa8a3c4c276c24d26d84ce934dc964e2aa794345a0f8c7e5a7191482c8a73", size = 50964, upload-time = "2025-12-22T06:53:51.801Z" },
-]
-
-[[package]]
-name = "marshmallow-jsonapi"
-version = "0.24.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "marshmallow" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/42/8e/5148bdc8ffb44e03a259ac4c824d568ad9ce2653c63e216382ee94308bc3/marshmallow-jsonapi-0.24.0.tar.gz", hash = "sha256:bd88c0ac0e2ddeb0a3ceb86229963b9f828d898041f29d92a68f585a1feb37b5", size = 34563, upload-time = "2020-12-27T16:52:52.39Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/b6/44/5cf50d083ac6e1ca654e1cbaab0342b1f231591a3cd184f72827eccfa9f3/marshmallow_jsonapi-0.24.0-py2.py3-none-any.whl", hash = "sha256:b7403688297dfe8b89173582811989badbe1328ac36447c5a151c006fbe34d24", size = 14332, upload-time = "2020-12-27T16:52:50.667Z" },
 ]
 
 [[package]]
@@ -1826,7 +1802,7 @@ tests = [
 [package.metadata]
 requires-dist = [
     { name = "alerce" },
-    { name = "antares-client", specifier = ">=1.2.0" },
+    { name = "antares-client", specifier = ">=2.0.2" },
     { name = "anywidget" },
     { name = "astropy" },
     { name = "astroquery" },
