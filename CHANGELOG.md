@@ -8,7 +8,7 @@ Version schema is `year.month.num_release`
 
 ### Added
 
-- Antares light curves show Rubin LSST alerts in their own ugrizy bands, as total magnitudes, and as difference magnitudes in the "diff" plots https://github.com/snad-space/ztf-viewer/issues/762
+- Antares light curves include Rubin LSST observations https://github.com/snad-space/ztf-viewer/issues/762
 
 ### Fixed
 
