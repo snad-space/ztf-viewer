@@ -6,6 +6,10 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
+### Added
+
+- Antares light curves include Rubin LSST observations https://github.com/snad-space/ztf-viewer/issues/762
+
 ### Fixed
 
 - Zubercal light curves drop detections flagged by either Zubercal's calibration flag or the pipeline's infobits https://github.com/snad-space/ztf-viewer/issues/791
