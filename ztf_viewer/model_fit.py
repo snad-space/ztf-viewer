@@ -11,9 +11,9 @@ from ztf_viewer.cache import cache
 from ztf_viewer.catalogs.ztf_dr import find_ztf_oid
 from ztf_viewer.config import MODEL_FIT_API_URL, TIMEOUT_MODEL_FIT
 from ztf_viewer.http import get_client
-from ztf_viewer.util import ABZPMAG_JY, LN10_04
+from ztf_viewer.util import ABZPMAG_JY, DEFAULT_REF_MAG, DEFAULT_REF_MAGERR, LN10_04
 
-_DEFAULT_REF_MAGERR: frozendict = frozendict()
+_EMPTY_FROZENDICT: frozendict = frozendict()
 
 
 async def post_request(url, data):
@@ -90,14 +90,14 @@ class ModelFit:
         min_mjd=None,
         max_mjd=None,
         ref_mag,
-        ref_magerr=_DEFAULT_REF_MAGERR,
+        ref_magerr=_EMPTY_FROZENDICT,
     ):
         observations = []
         for oid in oids:
             lc = await find_ztf_oid.get_lc(oid, dr, min_mjd=min_mjd, max_mjd=max_mjd)
             flt = (await find_ztf_oid.get_meta(oid, dr))["filter"]
-            ref_flux = 10 ** (-0.4 * (ref_mag.get(oid, np.inf) - ABZPMAG_JY))
-            ref_fluxerr = LN10_04 * ref_flux * ref_magerr.get(oid, 0.0)
+            ref_flux = 10 ** (-0.4 * (ref_mag.get(oid, DEFAULT_REF_MAG) - ABZPMAG_JY))
+            ref_fluxerr = LN10_04 * ref_flux * ref_magerr.get(oid, DEFAULT_REF_MAGERR)
             for obs in lc:
                 flux_Jy = 10 ** (-0.4 * (obs["mag"] - ABZPMAG_JY))
                 fluxerr_Jy = LN10_04 * flux_Jy * obs["magerr"]
@@ -139,7 +139,7 @@ class ModelFit:
         for oid in oids:
             lc = await find_ztf_oid.get_lc(oid, dr, min_mjd=min_mjd, max_mjd=max_mjd)
             flt = (await find_ztf_oid.get_meta(oid, dr))["filter"]
-            ref_flux = 10 ** (-0.4 * (ref_mag.get(oid, np.inf) - ABZPMAG_JY))
+            ref_flux = 10 ** (-0.4 * (ref_mag.get(oid, DEFAULT_REF_MAG) - ABZPMAG_JY))
             for obs in lc:
                 mjd_values.append(obs["mjd"])
                 band_ref_sums[flt] = band_ref_sums.get(flt, 0.0) + ref_flux

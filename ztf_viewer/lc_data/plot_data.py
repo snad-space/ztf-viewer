@@ -9,6 +9,8 @@ from ztf_viewer.lc_data.arbitrary import add_id_to_obs
 from ztf_viewer.lc_data.ztf_dr import ztf_dr_lc
 from ztf_viewer.util import (
     ABZPMAG_JY,
+    DEFAULT_REF_MAG,
+    DEFAULT_REF_MAGERR,
     DENSE_LC_MARK_SIZE,
     DENSE_LC_MIN_POINTS,
     FILTERS_ORDER,
@@ -47,8 +49,8 @@ def plot_data(
     magerr = np.array([obs["magerr"] for obs in data])
     # Normally we have a single oid for the light curve, but it could not
     # be a case, see get_antares_lc for an example
-    ref_mag_arr = np.array([ref_mag.get(obs["oid"], np.inf) for obs in data])
-    ref_magerr_arr = np.array([ref_magerr.get(obs["oid"], 0.0) for obs in data])
+    ref_mag_arr = np.array([ref_mag.get(obs["oid"], DEFAULT_REF_MAG) for obs in data])
+    ref_magerr_arr = np.array([ref_magerr.get(obs["oid"], DEFAULT_REF_MAGERR) for obs in data])
 
     ref_flux = 10 ** (-0.4 * (ref_mag_arr - ABZPMAG_JY))
     ref_fluxerr = LN10_04 * ref_flux * ref_magerr_arr

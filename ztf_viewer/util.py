@@ -37,6 +37,10 @@ LGE_25 = 2.5 / np.log(10.0)
 
 ABZPMAG_JY = 8.9
 
+# Used for an oid without a user-entered reference magnitude: zero reference flux
+DEFAULT_REF_MAG = np.inf
+DEFAULT_REF_MAGERR = 0.0
+
 FILTER_COLORS = {
     "g": "#62D03E",
     "r": "#CC3344",
