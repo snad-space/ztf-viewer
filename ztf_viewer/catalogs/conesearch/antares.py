@@ -59,20 +59,24 @@ class AntaresQuery(_BaseCatalogApiQuery, _BaseLightCurveQuery, _BaseNameResolver
 
     @staticmethod
     def _locus_to_light_curve(locus):
-        lc = locus.lightcurve[~np.isnan(locus.lightcurve["ant_mag"])]
-        return [
-            {
-                "oid": locus.locus_id,
-                "mjd": obs.ant_mjd,
-                "mag": obs.ant_mag,
-                "magerr": obs.ant_magerr,
-                # LSST passbands are lowercase ugrizy, so LSST "g" would otherwise merge with ZTF "g"
-                "filter": (
-                    f"ant_lsst_{obs.ant_passband}" if obs.alert_id.startswith("lsst:") else f"ant_{obs.ant_passband}"
-                ),
-            }
-            for obs in lc.itertuples()
-        ]
+        light_curve = []
+        for obs in locus.lightcurve.itertuples():
+            if obs.alert_id.startswith("lsst:"):
+                # ant_mag is from |psfFlux| on the difference image, ant_mag_corrected is from scienceFlux
+                photometry = {
+                    "mag": obs.ant_mag_corrected,
+                    "magerr": obs.ant_magerr_corrected,
+                    "diffimg_mag": obs.ant_mag,
+                    "diffimg_magerr": obs.ant_magerr,
+                    # LSST passbands are lowercase ugrizy, so LSST "g" would otherwise merge with ZTF "g"
+                    "filter": f"ant_lsst_{obs.ant_passband}",
+                }
+            else:
+                photometry = {"mag": obs.ant_mag, "magerr": obs.ant_magerr, "filter": f"ant_{obs.ant_passband}"}
+            if np.isnan(photometry["mag"]):
+                continue
+            light_curve.append({"oid": locus.locus_id, "mjd": obs.ant_mjd, **photometry})
+        return light_curve
 
     @cache()
     def light_curve(self, id, row=None):

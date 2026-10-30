@@ -45,12 +45,25 @@ def plot_data(
         return []
     data = [lc[i] for i in idx]
     mjd = mjd_all[idx]
-    mag = np.array([obs["mag"] for obs in data])
-    magerr = np.array([obs["magerr"] for obs in data])
-    # Normally we have a single oid for the light curve, but it could not
-    # be a case, see get_antares_lc for an example
-    ref_mag_arr = np.array([ref_mag.get(obs["oid"], DEFAULT_REF_MAG) for obs in data])
-    ref_magerr_arr = np.array([ref_magerr.get(obs["oid"], DEFAULT_REF_MAGERR) for obs in data])
+    mag = np.empty(idx.size)
+    magerr = np.empty(idx.size)
+    ref_mag_arr = np.empty(idx.size)
+    ref_magerr_arr = np.empty(idx.size)
+    # Some sources measure the difference image themselves, the reference doesn't apply to them
+    has_diffimg = np.zeros(idx.size, dtype=bool)
+    diffimg_mag = np.empty(idx.size)
+    diffimg_magerr = np.empty(idx.size)
+    for i, obs in enumerate(data):
+        mag[i] = obs["mag"]
+        magerr[i] = obs["magerr"]
+        # Normally we have a single oid for the light curve, but it could not
+        # be a case, see get_antares_lc for an example
+        ref_mag_arr[i] = ref_mag.get(obs["oid"], DEFAULT_REF_MAG)
+        ref_magerr_arr[i] = ref_magerr.get(obs["oid"], DEFAULT_REF_MAGERR)
+        if "diffimg_mag" in obs:
+            has_diffimg[i] = True
+            diffimg_mag[i] = obs["diffimg_mag"]
+            diffimg_magerr[i] = obs["diffimg_magerr"]
 
     ref_flux = 10 ** (-0.4 * (ref_mag_arr - ABZPMAG_JY))
     ref_fluxerr = LN10_04 * ref_flux * ref_magerr_arr
@@ -58,6 +71,8 @@ def plot_data(
     fluxerr_Jy = LN10_04 * flux_Jy * magerr
     diffflux_Jy = flux_Jy - ref_flux
     difffluxerr_Jy = np.hypot(fluxerr_Jy, ref_fluxerr)
+    diffflux_Jy[has_diffimg] = 10 ** (-0.4 * (diffimg_mag[has_diffimg] - ABZPMAG_JY))
+    difffluxerr_Jy[has_diffimg] = LN10_04 * diffflux_Jy[has_diffimg] * diffimg_magerr[has_diffimg]
 
     # we do both for a weird case of negative error
     bad = (diffflux_Jy <= 0) | (diffflux_Jy < difffluxerr_Jy)

@@ -192,7 +192,7 @@ def parse_pathname(pathname):
 
 ADDITIONAL_LC_OPTIONS = (
     {
-        "label": "Antares object, diff-photometry",
+        "label": "Antares object, ZTF diff-photometry, LSST total",
         "value": "antares",
         "disabled": False,
     },
@@ -1377,7 +1377,7 @@ async def get_antares_lc_option(oid, dr, old):
     else:
         option["label"] = html.Span(
             [
-                f'Antares {row[ANTARES_QUERY.id_column]} ({np.round(row["separation"], 1)}″), diff-photometry',
+                f'Antares {row[ANTARES_QUERY.id_column]} ({np.round(row["separation"], 1)}″), ZTF diff-photometry, LSST total',
                 " ",
                 html.A("CSV", href=f"/antares/csv/{row[ANTARES_QUERY.id_column]}"),
             ]

@@ -96,6 +96,17 @@ def test_a_difference_flux_below_its_own_uncertainty_has_no_difference_magnitude
     assert obs["diffmagerr_minus"] == np.inf
 
 
+def test_a_measured_difference_magnitude_replaces_the_reference_subtraction():
+    """The reference is ignored for it, while the other observation still subtracts it."""
+    measured = {**_obs(mag=MAG_1_JY, magerr=0.1), "diffimg_mag": MAG_1E4_JY, "diffimg_magerr": 0.1}
+    measured_out, subtracted_out = plot_data([measured, _obs(mjd=58001.0)], **_ref(mag=MAG_1E5_JY))
+    assert measured_out["flux_Jy"] == pytest.approx(1.0)
+    assert measured_out["diffflux_Jy"] == pytest.approx(1e-4)
+    assert measured_out["difffluxerr_Jy"] == pytest.approx(9.210340371976186e-06)
+    assert measured_out["diffmag"] == pytest.approx(MAG_1E4_JY)
+    assert subtracted_out["diffflux_Jy"] == pytest.approx(9e-5)
+
+
 @pytest.mark.parametrize("mjd, date", [(58000.0, "2017-09-04"), (58200.5, "2018-03-23"), (59000.0, "2020-05-31")])
 def test_date_and_offset_mjd_come_from_the_observation_mjd(mjd, date):
     (obs,) = plot_data([_obs(mjd=mjd)])

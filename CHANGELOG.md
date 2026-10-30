@@ -6,6 +6,10 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
+### Added
+
+- Antares light curves show Rubin LSST alerts in their own ugrizy bands, as total magnitudes, and as difference magnitudes in the "diff" plots https://github.com/snad-space/ztf-viewer/issues/762
+
 ### Fixed
 
 - Zubercal light curves drop detections flagged by either Zubercal's calibration flag or the pipeline's infobits https://github.com/snad-space/ztf-viewer/issues/791
