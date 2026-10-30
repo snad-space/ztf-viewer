@@ -12,13 +12,16 @@ _DEC = 42.78436
 
 def _rows():
     """Two objects' detections, interleaved and out of time order, as the service returns them."""
-    return NestedFrame.from_records(
+    rows = NestedFrame.from_records(
         [
             {"objectid": 1, "objra": 10.0, "objdec": 20.0, "mjd": 59000.0, "band": "r", "mag": 18.0, "magerr": 100},
             {"objectid": 2, "objra": 10.01, "objdec": 20.0, "mjd": 58000.0, "band": "g", "mag": 19.0, "magerr": 200},
             {"objectid": 1, "objra": 10.002, "objdec": 20.0, "mjd": 58500.0, "band": "g", "mag": 18.5, "magerr": 50},
         ]
     )
+    rows["flag"] = 0
+    rows["info"] = 0
+    return rows
 
 
 @pytest.fixture(scope="module")
@@ -87,6 +90,17 @@ async def test_an_object_whose_detections_are_all_unusable_is_dropped(query):
     table = await _table(query, rows)
 
     assert set(table["objectid"]) == {1}
+
+
+@pytest.mark.parametrize("column, value", [("flag", 8), ("info", 256)])
+async def test_a_detection_flagged_by_either_flag_is_dropped(query, column, value):
+    rows = _rows()
+    rows.loc[rows["mjd"] == 59000.0, column] = value
+
+    table = await _table(query, rows)
+
+    assert _row(table, 1)["n_obs"] == 1
+    assert [obs["mjd"] for obs in query.light_curve(1, row=_row(table, 1))] == [58500.0]
 
 
 async def test_the_closest_object_is_the_one_plotted(query):
