@@ -50,7 +50,7 @@ class ZubercalQuery(_BaseHatsQuery, _BaseLightCurveQuery):
         obs = df.drop(columns="band")
         # Arrow string_view: pandas cannot concatenate it and a take has no kernel for it
         obs["filter"] = np.char.add("zuber_", df["band"].to_numpy(dtype=str))
-        obs = obs.query("magerr > 0 and mag > 0 and mjd > 0 and flag == 0 and info == 0")
+        obs = obs.query("magerr > 0 and mag > 0 and mjd > 0 and flag == 0 and info == 0").drop(columns=["flag", "info"])
         obs["oid"] = obs["objectid"]
         obs["magerr"] = obs["magerr"] * MAGERR_UNIT
         return obs.sort_values("mjd")
