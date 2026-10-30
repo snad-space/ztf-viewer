@@ -1,9 +1,15 @@
 """Zubercal's cone search: detections come back one per row and have to be folded into objects."""
 
+import io
+import json
+
+import httpx
 import numpy as np
 import pytest
 from astropy.coordinates import SkyCoord
 from nested_pandas import NestedFrame
+
+from ztf_viewer.catalogs.conesearch import ZUBERCAL_QUERY
 
 # A bright ZTF-covered star, RR Lyr
 _RA = 291.36625
@@ -12,16 +18,13 @@ _DEC = 42.78436
 
 def _rows():
     """Two objects' detections, interleaved and out of time order, as the service returns them."""
-    rows = NestedFrame.from_records(
+    return NestedFrame.from_records(
         [
             {"objectid": 1, "objra": 10.0, "objdec": 20.0, "mjd": 59000.0, "band": "r", "mag": 18.0, "magerr": 100},
             {"objectid": 2, "objra": 10.01, "objdec": 20.0, "mjd": 58000.0, "band": "g", "mag": 19.0, "magerr": 200},
             {"objectid": 1, "objra": 10.002, "objdec": 20.0, "mjd": 58500.0, "band": "g", "mag": 18.5, "magerr": 50},
         ]
     )
-    rows["flag"] = 0
-    rows["info"] = 0
-    return rows
 
 
 @pytest.fixture(scope="module")
@@ -92,15 +95,22 @@ async def test_an_object_whose_detections_are_all_unusable_is_dropped(query):
     assert set(table["objectid"]) == {1}
 
 
-@pytest.mark.parametrize("column, value", [("flag", 8), ("info", 256)])
-async def test_a_detection_flagged_by_either_flag_is_dropped(query, column, value):
-    rows = _rows()
-    rows.loc[rows["mjd"] == 59000.0, column] = value
+async def test_the_service_is_asked_for_detections_clean_by_both_flags(monkeypatch):
+    seen = {}
+    parquet = io.BytesIO()
+    _rows().to_parquet(parquet)
 
-    table = await _table(query, rows)
+    async def handler(request):
+        seen["body"] = json.loads(request.content)
+        return httpx.Response(200, content=parquet.getvalue())
 
-    assert _row(table, 1)["n_obs"] == 1
-    assert [obs["mjd"] for obs in query.light_curve(1, row=_row(table, 1))] == [58500.0]
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    monkeypatch.setattr("ztf_viewer.catalogs.conesearch._base.get_client", lambda: client)
+
+    await ZUBERCAL_QUERY._api_query_region(10.0, 20.0, 1.0)
+
+    assert seen["body"]["filters"] == "flag == 0 and info == 0"
+    await client.aclose()
 
 
 async def test_the_closest_object_is_the_one_plotted(query):
@@ -113,8 +123,6 @@ async def test_the_closest_object_is_the_one_plotted(query):
 
 
 async def test_live_cone_search_returns_a_light_curve():
-    from ztf_viewer.catalogs.conesearch import ZUBERCAL_QUERY
-
     table = await ZUBERCAL_QUERY.find(_RA, _DEC, 1.0)
 
     assert len(table) > 0

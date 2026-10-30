@@ -28,7 +28,8 @@ class ZubercalQuery(_BaseHatsQuery, _BaseLightCurveQuery):
     }
 
     _hats_url = "/ztf_dr20/zubercal/zubercal"
-    _hats_columns = ("objectid", "objra", "objdec", "mjd", "band", "mag", "magerr", "flag", "info")
+    _hats_columns = ("objectid", "objra", "objdec", "mjd", "band", "mag", "magerr")
+    _hats_filter = "flag == 0 and info == 0"
 
     def _table_from_rows(self, df: NestedFrame) -> Table:
         """One row per PS1 object, the detections matched to it packed into a light curve."""
@@ -50,7 +51,7 @@ class ZubercalQuery(_BaseHatsQuery, _BaseLightCurveQuery):
         obs = df.drop(columns="band")
         # Arrow string_view: pandas cannot concatenate it and a take has no kernel for it
         obs["filter"] = np.char.add("zuber_", df["band"].to_numpy(dtype=str))
-        obs = obs.query("magerr > 0 and mag > 0 and mjd > 0 and flag == 0 and info == 0").drop(columns=["flag", "info"])
+        obs = obs.query("magerr > 0 and mag > 0 and mjd > 0")
         obs["oid"] = obs["objectid"]
         obs["magerr"] = obs["magerr"] * MAGERR_UNIT
         return obs.sort_values("mjd")

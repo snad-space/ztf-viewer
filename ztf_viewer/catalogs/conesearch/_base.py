@@ -390,6 +390,7 @@ class _BaseHatsQuery(_BaseCatalogQuery):
     _hats_url: ClassVar[str]
     _hats_columns: ClassVar[tuple[str, ...]]
     _hats_row_limit: ClassVar[int | None] = None
+    _hats_filter: ClassVar[str | None] = None
 
     _query_timeout_seconds: ClassVar[float] = TIMEOUT_HATS.read
 
@@ -406,6 +407,8 @@ class _BaseHatsQuery(_BaseCatalogQuery):
         }
         if self._hats_row_limit is not None:
             body["limit"] = self._hats_row_limit
+        if self._hats_filter is not None:
+            body["filters"] = self._hats_filter
         start = time.perf_counter()
         response = await get_client().post(self._api_url, json=body, timeout=TIMEOUT_HATS)
         if response.status_code != 200:
