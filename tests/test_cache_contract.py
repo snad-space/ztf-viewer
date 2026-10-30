@@ -22,8 +22,6 @@ from astropy import units as u
 from astropy.coordinates import SkyCoord
 from astropy.table import Table
 
-from ztf_viewer.util import frozendefaultdict
-
 # Long enough that nothing expires mid-test.
 LONG_TTL = 3600
 # Redis TTLs have a one-second granularity, so this is as short as it gets.
@@ -161,28 +159,28 @@ def test_hit_on_nested_frozendict(cache):
     assert counter.calls == 1
 
 
-def test_hit_on_frozendefaultdict(cache):
+def test_hit_on_ref_mags(cache):
     """``ref_mag`` / ``ref_magerr`` as pages/viewer.py:901 builds them."""
     counter = Counter(cache)
 
     def make_ref_mag():
-        return frozendefaultdict(lambda: np.inf, {"zr": 18.5, "zg": 19.25})
+        return frozendict({"zr": 18.5, "zg": 19.25})
 
     def make_ref_magerr():
-        return frozendefaultdict(float, {"zr": 0.1})
+        return frozendict({"zr": 0.1})
 
     counter(make_ref_mag(), make_ref_magerr())
     assert counter.calls == 1
     counter(make_ref_mag(), make_ref_magerr())
-    assert counter.calls == 1, "equal frozendefaultdicts built separately must hit"
+    assert counter.calls == 1, "equal frozendicts built separately must hit"
 
 
-def test_hit_on_empty_frozendefaultdict(cache):
+def test_hit_on_empty_ref_mags(cache):
     """The common case: no reference magnitudes entered, so the mappings are empty."""
     counter = Counter(cache)
-    counter(frozendefaultdict(lambda: np.inf), frozendefaultdict(float))
+    counter(frozendict(), frozendict())
     assert counter.calls == 1
-    counter(frozendefaultdict(lambda: np.inf), frozendefaultdict(float))
+    counter(frozendict(), frozendict())
     assert counter.calls == 1
 
 
@@ -199,8 +197,8 @@ def test_hit_on_full_plot_data_signature(cache):
             max_mjd=58000.0,
             external_data=frozendict({"antares": frozendict({"radius_arcsec": 1.0})}),
             additional_data=frozendict(),
-            ref_mag=frozendefaultdict(lambda: np.inf, {"zr": 18.5}),
-            ref_magerr=frozendefaultdict(float, {"zr": 0.1}),
+            ref_mag=frozendict({"zr": 18.5}),
+            ref_magerr=frozendict({"zr": 0.1}),
         )
 
     call()
@@ -241,14 +239,9 @@ def test_hit_on_none_and_float_arguments(cache):
             id="frozendict-key",
         ),
         pytest.param(
-            (frozendefaultdict(lambda: np.inf, {"zr": 18.5}),),
-            (frozendefaultdict(lambda: np.inf, {"zr": 19.5}),),
-            id="frozendefaultdict-value",
-        ),
-        pytest.param(
-            (frozendefaultdict(lambda: np.inf),),
-            (frozendefaultdict(lambda: np.inf, {"zr": 18.5}),),
-            id="frozendefaultdict-empty-vs-not",
+            (frozendict(),),
+            (frozendict({"zr": 18.5}),),
+            id="frozendict-empty-vs-not",
         ),
         pytest.param((1, 2), (2, 1), id="positional-order"),
         pytest.param((1,), (1, 2), id="arity"),

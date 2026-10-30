@@ -284,22 +284,6 @@ def qid_from_rcid(rcid: int) -> int:
     return rcid % 4 + 1
 
 
-class frozendefaultdict(frozendict):
-    """``frozendict`` that returns ``default_factory()`` for a missing key, without storing it."""
-
-    __slots__ = ("default_factory",)
-
-    def __new__(cls, default_factory=None, /, *args, **kwargs):
-        self = super().__new__(cls, *args, **kwargs)
-        self.default_factory = default_factory
-        return self
-
-    def __missing__(self, key):
-        if self.default_factory is None:
-            raise KeyError(key)
-        return self.default_factory()
-
-
 def compose_plus_minus_expression(value, lower, upper, **to_str_kwargs):
     return Markup(f"""
         <div class="expression">

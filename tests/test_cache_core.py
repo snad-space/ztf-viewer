@@ -25,7 +25,6 @@ from ztf_viewer.cache.core import (
     function_id,
     self_class,
 )
-from ztf_viewer.util import frozendefaultdict
 
 
 def some_function(*args, **kwargs):
@@ -148,7 +147,6 @@ def test_positional_and_keyword_are_distinguished():
         (((1, 2),), ([1, 2],)),
         (((1, 2),), (frozenset({1, 2}),)),
         ((frozendict({"a": 1}),), ({"a": 1},)),
-        ((frozendict({"a": 1}),), (frozendefaultdict(float, {"a": 1}),)),
         (("a", "bc"), ("ab", "c")),
         ((("a",), ("b", "c")), (("a", "b"), ("c",))),
         # Container boundaries must not be flattened away.
@@ -169,24 +167,12 @@ def test_different_arguments_get_different_keys(first, second):
             (frozendict({"antares": frozendict({"radius_arcsec": 1.0})}),),
             (frozendict({"antares": frozendict({"radius_arcsec": 1.0})}),),
         ),
-        ((frozendefaultdict(float, {"zr": 0.1}),), (frozendefaultdict(float, {"zr": 0.1}),)),
-        # The default factory is a fresh lambda every time, so it must not reach the key.
-        ((frozendefaultdict(lambda: np.inf),), (frozendefaultdict(lambda: np.inf),)),
         (("dr23", [1, {"a": frozenset({"g", "r"})}]), ("dr23", [1, {"a": frozenset({"r", "g"})}])),
     ],
 )
 def test_equal_arguments_get_equal_keys(first, second):
     """Separately built but equal arguments must reach the same entry."""
     assert key(*first) == key(*second)
-
-
-def test_frozendefaultdict_missing_key_lookup_does_not_change_the_key():
-    """A missing key returns the default without being stored, so probing keeps the key."""
-    pristine = frozendefaultdict(float, {"zr": 0.1})
-    probed = frozendefaultdict(float, {"zr": 0.1})
-    assert probed["zg"] == 0.0
-    assert "zg" not in probed
-    assert key(probed) == key(pristine)
 
 
 def test_unhashable_arguments_are_keyed_rather_than_rejected():

@@ -29,7 +29,6 @@ import numpy as np
 
 from ztf_viewer.figure_render import BRIGHTNESS, _brightness_arrays, plot_card, plot_data, plot_folded_data
 from ztf_viewer.lc_data.plot_data import plot_data as add_photometry
-from ztf_viewer.util import frozendefaultdict
 
 _PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 _PDF_MAGIC = b"%PDF-"
@@ -80,8 +79,8 @@ def _photometry_lc(n=60, ref_mag=19.0):
     return {
         1: add_photometry(
             lc,
-            ref_mag=frozendefaultdict(lambda: np.inf, {1: ref_mag}),
-            ref_magerr=frozendefaultdict(float, {1: 0.05}),
+            ref_mag=frozendict({1: ref_mag}),
+            ref_magerr=frozendict({1: 0.05}),
         )
     }
 

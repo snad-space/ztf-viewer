@@ -57,7 +57,6 @@ from ztf_viewer.util import (
     ZTF_FILTERS,
     available_drs,
     format_sep,
-    frozendefaultdict,
     hmjd_to_earth,
     html_from_astropy_table,
     list_join,
@@ -1085,11 +1084,9 @@ async def fit_lc(
     if min_mjd is not None and max_mjd is not None and min_mjd >= max_mjd:
         raise PreventUpdate
 
-    ref_mag = frozendefaultdict(
-        lambda: np.inf, {id["index"]: value for id, value in zip(ref_mag_ids, ref_mag_values) if value is not None}
-    )
-    ref_magerr = frozendefaultdict(
-        float, {id["index"]: value for id, value in zip(ref_magerr_ids, ref_magerr_values) if value is not None}
+    ref_mag = frozendict({id["index"]: value for id, value in zip(ref_mag_ids, ref_mag_values) if value is not None})
+    ref_magerr = frozendict(
+        {id["index"]: value for id, value in zip(ref_magerr_ids, ref_magerr_values) if value is not None}
     )
 
     other_oids = neighbour_oids(neighbours)
@@ -2120,11 +2117,9 @@ async def set_figure(
     else:
         raise ValueError(f'Wrong brightness_type "{brightness_type}"')
 
-    ref_mag = frozendefaultdict(
-        lambda: np.inf, {id["index"]: value for id, value in zip(ref_mag_ids, ref_mag_values) if value is not None}
-    )
-    ref_magerr = frozendefaultdict(
-        float, {id["index"]: value for id, value in zip(ref_magerr_ids, ref_magerr_values) if value is not None}
+    ref_mag = frozendict({id["index"]: value for id, value in zip(ref_mag_ids, ref_mag_values) if value is not None})
+    ref_magerr = frozendict(
+        {id["index"]: value for id, value in zip(ref_magerr_ids, ref_magerr_values) if value is not None}
     )
 
     external_data = external_lc_data(additional_lc_types)
