@@ -17,7 +17,6 @@ import numpy as np
 from astropy import units
 from astropy.coordinates import EarthLocation
 from astropy.time import Time
-from immutabledict import immutabledict
 from jinja2 import Template
 from markupsafe import Markup
 
@@ -37,6 +36,10 @@ LN10_04 = 0.4 * np.log(10.0)
 LGE_25 = 2.5 / np.log(10.0)
 
 ABZPMAG_JY = 8.9
+
+# Used for an oid without a user-entered reference magnitude: zero reference flux
+DEFAULT_REF_MAG = np.inf
+DEFAULT_REF_MAGERR = 0.0
 
 FILTER_COLORS = {
     "g": "#62D03E",
@@ -265,7 +268,7 @@ def _json_hook(d):
     for k, v in d.items():
         if isinstance(v, list):
             d[k] = tuple(v)
-    return immutabledict(d)
+    return frozendict(d)
 
 
 def parse_json_to_immutable(s):
@@ -283,10 +286,6 @@ def ccdid_from_rcid(rcid: int) -> int:
 
 def qid_from_rcid(rcid: int) -> int:
     return rcid % 4 + 1
-
-
-class immutabledefaultdict(immutabledict):
-    dict_cls = defaultdict
 
 
 def compose_plus_minus_expression(value, lower, upper, **to_str_kwargs):

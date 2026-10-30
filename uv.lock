@@ -527,15 +527,6 @@ wheels = [
 ]
 
 [[package]]
-name = "immutabledict"
-version = "3.0.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/21/26/792a4d9fc86a8bc4563b803021f724ab6489d54c2f9d369ad2256bc7dbba/immutabledict-3.0.0.tar.gz", hash = "sha256:5a23cd369a6187f76a8c29d7d687980b092538eb9800e58964603f1b973c56fe", size = 4478, upload-time = "2023-07-21T18:14:17.063Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/df/ef/e038d0d7cd1954c46402a0c27794dd93982c40632085046efb6ab8aa6c1d/immutabledict-3.0.0-py3-none-any.whl", hash = "sha256:034bacc6c6872707c4ec0ea9515de6bbe0dcf0fcabd97ae19fd4e4c338f05798", size = 4018, upload-time = "2023-07-21T18:14:15.632Z" },
-]
-
-[[package]]
 name = "importlib-metadata"
 version = "9.0.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1599,7 +1590,6 @@ dependencies = [
     { name = "dash", extra = ["async", "fastapi"] },
     { name = "dash-defer-js-import" },
     { name = "httpx" },
-    { name = "immutabledict" },
     { name = "ipywidgets" },
     { name = "jinja2" },
     { name = "markupsafe" },
@@ -1637,7 +1627,6 @@ requires-dist = [
     { name = "dash", extras = ["async", "fastapi"], specifier = ">=4.4.1,<5.0" },
     { name = "dash-defer-js-import" },
     { name = "httpx" },
-    { name = "immutabledict", specifier = "<4" },
     { name = "ipywidgets", specifier = ">=7.0.0" },
     { name = "jinja2" },
     { name = "markupsafe" },

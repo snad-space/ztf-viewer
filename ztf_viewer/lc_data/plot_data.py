@@ -2,7 +2,6 @@ import asyncio
 
 import numpy as np
 from astropy.time import Time
-from immutabledict import immutabledict
 
 from ztf_viewer.cache import cache
 from ztf_viewer.lc_data import EXTERNAL_LC_DATA
@@ -10,19 +9,18 @@ from ztf_viewer.lc_data.arbitrary import add_id_to_obs
 from ztf_viewer.lc_data.ztf_dr import ztf_dr_lc
 from ztf_viewer.util import (
     ABZPMAG_JY,
+    DEFAULT_REF_MAG,
+    DEFAULT_REF_MAGERR,
     DENSE_LC_MARK_SIZE,
     DENSE_LC_MIN_POINTS,
     FILTERS_ORDER,
     LN10_04,
-    immutabledefaultdict,
 )
 
 MJD_OFFSET = 58000
 
 
-_DEFAULT_REF_MAG = immutabledefaultdict(lambda: np.inf)
-_DEFAULT_REF_MAGERR = immutabledefaultdict(float)
-_EMPTY_IMMUTABLEDICT: immutabledict = immutabledict()
+_EMPTY_FROZENDICT: frozendict = frozendict()
 
 
 def plot_data(
@@ -30,8 +28,8 @@ def plot_data(
     mark_size=1,
     min_mjd=None,
     max_mjd=None,
-    ref_mag=_DEFAULT_REF_MAG,
-    ref_magerr=_DEFAULT_REF_MAGERR,
+    ref_mag=_EMPTY_FROZENDICT,
+    ref_magerr=_EMPTY_FROZENDICT,
 ):
     """Add photometry and time properties to observations, it mutates input"""
     if min_mjd is None:
@@ -51,8 +49,8 @@ def plot_data(
     magerr = np.array([obs["magerr"] for obs in data])
     # Normally we have a single oid for the light curve, but it could not
     # be a case, see get_antares_lc for an example
-    ref_mag_arr = np.array([ref_mag[obs["oid"]] for obs in data])
-    ref_magerr_arr = np.array([ref_magerr[obs["oid"]] for obs in data])
+    ref_mag_arr = np.array([ref_mag.get(obs["oid"], DEFAULT_REF_MAG) for obs in data])
+    ref_magerr_arr = np.array([ref_magerr.get(obs["oid"], DEFAULT_REF_MAGERR) for obs in data])
 
     ref_flux = 10 ** (-0.4 * (ref_mag_arr - ABZPMAG_JY))
     ref_fluxerr = LN10_04 * ref_flux * ref_magerr_arr
@@ -108,10 +106,10 @@ async def get_plot_data(
     other_oids=frozenset(),
     min_mjd=None,
     max_mjd=None,
-    external_data=_EMPTY_IMMUTABLEDICT,
-    additional_data=_EMPTY_IMMUTABLEDICT,
-    ref_mag=_DEFAULT_REF_MAG,
-    ref_magerr=_DEFAULT_REF_MAGERR,
+    external_data=_EMPTY_FROZENDICT,
+    additional_data=_EMPTY_FROZENDICT,
+    ref_mag=_EMPTY_FROZENDICT,
+    ref_magerr=_EMPTY_FROZENDICT,
 ):
     """Get plot data
 
@@ -184,10 +182,10 @@ async def get_folded_plot_data(
     other_oids=frozenset(),
     min_mjd=None,
     max_mjd=None,
-    external_data=_EMPTY_IMMUTABLEDICT,
-    additional_data=_EMPTY_IMMUTABLEDICT,
-    ref_mag=_DEFAULT_REF_MAG,
-    ref_magerr=_DEFAULT_REF_MAGERR,
+    external_data=_EMPTY_FROZENDICT,
+    additional_data=_EMPTY_FROZENDICT,
+    ref_mag=_EMPTY_FROZENDICT,
+    ref_magerr=_EMPTY_FROZENDICT,
 ):
     lcs = await get_plot_data(
         cur_oid=cur_oid,

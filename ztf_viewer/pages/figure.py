@@ -1,6 +1,4 @@
-import numpy as np
 from fastapi import Body, Request
-from immutabledict import immutabledict
 
 from ztf_viewer import routes
 from ztf_viewer.app import app
@@ -20,7 +18,7 @@ from ztf_viewer.lc_data.external import external_lc_data, parse_external_lc_name
 from ztf_viewer.lc_data.plot_data import get_folded_plot_data, get_plot_data
 from ztf_viewer.procpool import run_in_process
 from ztf_viewer.social import SITE_CARD_PATH, SITE_DESCRIPTION
-from ztf_viewer.util import immutabledefaultdict, parse_json_to_immutable
+from ztf_viewer.util import parse_json_to_immutable
 from ztf_viewer.web import binary_response, error_response, image_response, query_args
 
 MIMES = {
@@ -41,7 +39,7 @@ class UnknownBrightness(InvalidFigureArgs):
     """Raised by `parse_figure_args_helper` when `brightness` isn't one of `BRIGHTNESS`."""
 
 
-def _parse_ref_mags(values, default_factory):
+def _parse_ref_mags(values):
     """Parse repeated `oid:value` query arguments into the mapping `get_plot_data` takes."""
     ref = {}
     for value in values:
@@ -50,7 +48,7 @@ def _parse_ref_mags(values, default_factory):
             ref[int(oid)] = float(mag)
         except ValueError:
             raise InvalidFigureArgs(value) from None
-    return immutabledefaultdict(default_factory, ref)
+    return frozendict(ref)
 
 
 @app.server.api_route("/{dr}/figure/{oid}/folded/{period}")
@@ -139,8 +137,8 @@ def parse_figure_args_helper(args, data=None):
         other_oids = frozenset(int(oid) for oid in args.getlist("other_oid"))
     except ValueError as e:
         raise InvalidFigureArgs(str(e)) from None
-    ref_mag = _parse_ref_mags(args.getlist("ref_mag"), lambda: np.inf)
-    ref_magerr = _parse_ref_mags(args.getlist("ref_magerr"), float)
+    ref_mag = _parse_ref_mags(args.getlist("ref_mag"))
+    ref_magerr = _parse_ref_mags(args.getlist("ref_magerr"))
     external_data = external_lc_data(parse_external_lc_names(args.getlist("lc")))
     title = args.get("title", None)
     min_mjd = args.get("min_mjd", None)
@@ -159,7 +157,7 @@ def parse_figure_args_helper(args, data=None):
     if data:
         data = parse_json_to_immutable(data)
     else:
-        data = immutabledict()
+        data = frozendict()
 
     return {
         "fmt": fmt,
