@@ -1,7 +1,5 @@
 from functools import partial
 
-from immutabledict import immutabledict
-
 from ztf_viewer.catalogs.conesearch import ANTARES_QUERY, GAIA_DR3, PANSTARRS_DR2_QUERY, TESS_QUERY, ZUBERCAL_QUERY
 
 EXTERNAL_LC_DATA = {
@@ -19,7 +17,7 @@ ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC = 5.0
 # Where a catalog wants a tighter cone than the shared default: Zubercal and TESS are queried
 # through a service that reads the photometry itself, so a wider cone costs far more than a
 # neighbour is worth.
-LC_SEARCH_RADIUS_ARCSEC = immutabledict({"zubercal": 1.0, "tess": 1.0})
+LC_SEARCH_RADIUS_ARCSEC = frozendict({"zubercal": 1.0, "tess": 1.0})
 
 
 def lc_search_radius_arcsec(name: str) -> float:
@@ -36,6 +34,6 @@ def parse_external_lc_names(values: list[str]) -> list[str]:
     return [name for name in EXTERNAL_LC_DATA if name in requested]
 
 
-def external_lc_data(names) -> immutabledict:
+def external_lc_data(names) -> frozendict:
     """The `external_data` mapping `get_plot_data` takes for the named light curves."""
-    return immutabledict({name: immutabledict({"radius_arcsec": lc_search_radius_arcsec(name)}) for name in names})
+    return frozendict({name: frozendict({"radius_arcsec": lc_search_radius_arcsec(name)}) for name in names})

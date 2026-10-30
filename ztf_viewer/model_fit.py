@@ -11,9 +11,9 @@ from ztf_viewer.cache import cache
 from ztf_viewer.catalogs.ztf_dr import find_ztf_oid
 from ztf_viewer.config import MODEL_FIT_API_URL, TIMEOUT_MODEL_FIT
 from ztf_viewer.http import get_client
-from ztf_viewer.util import ABZPMAG_JY, LN10_04, immutabledefaultdict
+from ztf_viewer.util import ABZPMAG_JY, LN10_04, frozendefaultdict
 
-_DEFAULT_REF_MAGERR = immutabledefaultdict(float)
+_DEFAULT_REF_MAGERR = frozendefaultdict(float)
 
 
 async def post_request(url, data):

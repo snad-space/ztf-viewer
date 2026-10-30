@@ -17,7 +17,6 @@ import numpy as np
 from astropy import units
 from astropy.coordinates import EarthLocation
 from astropy.time import Time
-from immutabledict import immutabledict
 from jinja2 import Template
 from markupsafe import Markup
 
@@ -265,7 +264,7 @@ def _json_hook(d):
     for k, v in d.items():
         if isinstance(v, list):
             d[k] = tuple(v)
-    return immutabledict(d)
+    return frozendict(d)
 
 
 def parse_json_to_immutable(s):
@@ -285,8 +284,20 @@ def qid_from_rcid(rcid: int) -> int:
     return rcid % 4 + 1
 
 
-class immutabledefaultdict(immutabledict):
-    dict_cls = defaultdict
+class frozendefaultdict(frozendict):
+    """``frozendict`` that returns ``default_factory()`` for a missing key, without storing it."""
+
+    __slots__ = ("default_factory",)
+
+    def __new__(cls, default_factory=None, /, *args, **kwargs):
+        self = super().__new__(cls, *args, **kwargs)
+        self.default_factory = default_factory
+        return self
+
+    def __missing__(self, key):
+        if self.default_factory is None:
+            raise KeyError(key)
+        return self.default_factory()
 
 
 def compose_plus_minus_expression(value, lower, upper, **to_str_kwargs):

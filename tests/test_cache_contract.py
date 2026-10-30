@@ -21,9 +21,8 @@ import redis
 from astropy import units as u
 from astropy.coordinates import SkyCoord
 from astropy.table import Table
-from immutabledict import immutabledict
 
-from ztf_viewer.util import immutabledefaultdict
+from ztf_viewer.util import frozendefaultdict
 
 # Long enough that nothing expires mid-test.
 LONG_TTL = 3600
@@ -141,20 +140,20 @@ def test_hit_on_tuple_of_int(cache):
     assert counter.calls == 1
 
 
-def test_hit_on_immutabledict(cache):
+def test_hit_on_frozendict(cache):
     counter = Counter(cache)
-    counter(immutabledict({"radius_arcsec": 1.0}))
+    counter(frozendict({"radius_arcsec": 1.0}))
     assert counter.calls == 1
-    counter(immutabledict({"radius_arcsec": 1.0}))
+    counter(frozendict({"radius_arcsec": 1.0}))
     assert counter.calls == 1
 
 
-def test_hit_on_nested_immutabledict(cache):
+def test_hit_on_nested_frozendict(cache):
     """``external_data`` as pages/viewer.py:1658 builds it."""
     counter = Counter(cache)
 
     def make():
-        return immutabledict({"antares": immutabledict({"radius_arcsec": 1.0})})
+        return frozendict({"antares": frozendict({"radius_arcsec": 1.0})})
 
     counter(make())
     assert counter.calls == 1
@@ -162,28 +161,28 @@ def test_hit_on_nested_immutabledict(cache):
     assert counter.calls == 1
 
 
-def test_hit_on_immutabledefaultdict(cache):
+def test_hit_on_frozendefaultdict(cache):
     """``ref_mag`` / ``ref_magerr`` as pages/viewer.py:901 builds them."""
     counter = Counter(cache)
 
     def make_ref_mag():
-        return immutabledefaultdict(lambda: np.inf, {"zr": 18.5, "zg": 19.25})
+        return frozendefaultdict(lambda: np.inf, {"zr": 18.5, "zg": 19.25})
 
     def make_ref_magerr():
-        return immutabledefaultdict(float, {"zr": 0.1})
+        return frozendefaultdict(float, {"zr": 0.1})
 
     counter(make_ref_mag(), make_ref_magerr())
     assert counter.calls == 1
     counter(make_ref_mag(), make_ref_magerr())
-    assert counter.calls == 1, "equal immutabledefaultdicts built separately must hit"
+    assert counter.calls == 1, "equal frozendefaultdicts built separately must hit"
 
 
-def test_hit_on_empty_immutabledefaultdict(cache):
+def test_hit_on_empty_frozendefaultdict(cache):
     """The common case: no reference magnitudes entered, so the mappings are empty."""
     counter = Counter(cache)
-    counter(immutabledefaultdict(lambda: np.inf), immutabledefaultdict(float))
+    counter(frozendefaultdict(lambda: np.inf), frozendefaultdict(float))
     assert counter.calls == 1
-    counter(immutabledefaultdict(lambda: np.inf), immutabledefaultdict(float))
+    counter(frozendefaultdict(lambda: np.inf), frozendefaultdict(float))
     assert counter.calls == 1
 
 
@@ -198,10 +197,10 @@ def test_hit_on_full_plot_data_signature(cache):
             other_oids=frozenset({633207200004431}),
             min_mjd=None,
             max_mjd=58000.0,
-            external_data=immutabledict({"antares": immutabledict({"radius_arcsec": 1.0})}),
-            additional_data=immutabledict(),
-            ref_mag=immutabledefaultdict(lambda: np.inf, {"zr": 18.5}),
-            ref_magerr=immutabledefaultdict(float, {"zr": 0.1}),
+            external_data=frozendict({"antares": frozendict({"radius_arcsec": 1.0})}),
+            additional_data=frozendict(),
+            ref_mag=frozendefaultdict(lambda: np.inf, {"zr": 18.5}),
+            ref_magerr=frozendefaultdict(float, {"zr": 0.1}),
         )
 
     call()
@@ -232,24 +231,24 @@ def test_hit_on_none_and_float_arguments(cache):
         pytest.param(((1, 2),), ((2, 1),), id="tuple-order"),
         pytest.param(((1, 2),), ((1, 2, 3),), id="tuple-length"),
         pytest.param(
-            (immutabledict({"a": 1}),),
-            (immutabledict({"a": 2}),),
-            id="immutabledict-value",
+            (frozendict({"a": 1}),),
+            (frozendict({"a": 2}),),
+            id="frozendict-value",
         ),
         pytest.param(
-            (immutabledict({"a": 1}),),
-            (immutabledict({"b": 1}),),
-            id="immutabledict-key",
+            (frozendict({"a": 1}),),
+            (frozendict({"b": 1}),),
+            id="frozendict-key",
         ),
         pytest.param(
-            (immutabledefaultdict(lambda: np.inf, {"zr": 18.5}),),
-            (immutabledefaultdict(lambda: np.inf, {"zr": 19.5}),),
-            id="immutabledefaultdict-value",
+            (frozendefaultdict(lambda: np.inf, {"zr": 18.5}),),
+            (frozendefaultdict(lambda: np.inf, {"zr": 19.5}),),
+            id="frozendefaultdict-value",
         ),
         pytest.param(
-            (immutabledefaultdict(lambda: np.inf),),
-            (immutabledefaultdict(lambda: np.inf, {"zr": 18.5}),),
-            id="immutabledefaultdict-empty-vs-not",
+            (frozendefaultdict(lambda: np.inf),),
+            (frozendefaultdict(lambda: np.inf, {"zr": 18.5}),),
+            id="frozendefaultdict-empty-vs-not",
         ),
         pytest.param((1, 2), (2, 1), id="positional-order"),
         pytest.param((1,), (1, 2), id="arity"),
@@ -500,13 +499,13 @@ def test_unhashable_argument_does_not_raise(request, cache):
     assert counter([1, 2, 3]) == "result-1"
 
 
-def test_immutabledict_value_round_trips(cache):
+def test_frozendict_value_round_trips(cache):
     """``parse_json_to_immutable`` (util.py:256) results travel through cached call chains."""
-    value = immutabledict({"a": (1, 2), "b": immutabledict({"c": 3})})
+    value = frozendict({"a": (1, 2), "b": frozendict({"c": 3})})
     counter = Counter(cache, result=value)
     _, second = assert_hit(counter, 1)
     assert second == value
-    assert isinstance(second, immutabledict)
+    assert isinstance(second, frozendict)
 
 
 # --------------------------------------------------------------------------------------------

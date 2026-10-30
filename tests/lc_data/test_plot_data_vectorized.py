@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 
 from ztf_viewer.lc_data.plot_data import MJD_OFFSET, plot_data
-from ztf_viewer.util import ABZPMAG_JY, immutabledefaultdict
+from ztf_viewer.util import ABZPMAG_JY, frozendefaultdict
 
 MAG_1_JY = ABZPMAG_JY
 MAG_1E4_JY = 18.9
@@ -34,8 +34,8 @@ def _obs(mjd=58000.0, mag=MAG_1E4_JY, magerr=0.1, band="zg", oid=1):
 
 
 def _ref(mag=None, magerr=None):
-    ref_mag = immutabledefaultdict(lambda: np.inf, {} if mag is None else {1: mag})
-    ref_magerr = immutabledefaultdict(float, {} if magerr is None else {1: magerr})
+    ref_mag = frozendefaultdict(lambda: np.inf, {} if mag is None else {1: mag})
+    ref_magerr = frozendefaultdict(float, {} if magerr is None else {1: magerr})
     return {"ref_mag": ref_mag, "ref_magerr": ref_magerr}
 
 
@@ -72,7 +72,7 @@ def test_reference_uncertainty_enters_the_error_in_quadrature():
 
 def test_reference_is_looked_up_per_oid():
     """One light curve can carry several oids -- see `get_antares_lc`."""
-    ref_mag = immutabledefaultdict(lambda: np.inf, {1: MAG_1E5_JY, 2: MAG_1_JY})
+    ref_mag = frozendefaultdict(lambda: np.inf, {1: MAG_1E5_JY, 2: MAG_1_JY})
     first, second = plot_data([_obs(oid=1), _obs(oid=2, mjd=58001.0)], ref_mag=ref_mag)
     assert first["ref_flux"] == pytest.approx(1e-5)
     assert second["ref_flux"] == pytest.approx(1.0)

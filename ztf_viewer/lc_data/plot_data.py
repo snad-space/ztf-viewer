@@ -2,7 +2,6 @@ import asyncio
 
 import numpy as np
 from astropy.time import Time
-from immutabledict import immutabledict
 
 from ztf_viewer.cache import cache
 from ztf_viewer.lc_data import EXTERNAL_LC_DATA
@@ -14,15 +13,15 @@ from ztf_viewer.util import (
     DENSE_LC_MIN_POINTS,
     FILTERS_ORDER,
     LN10_04,
-    immutabledefaultdict,
+    frozendefaultdict,
 )
 
 MJD_OFFSET = 58000
 
 
-_DEFAULT_REF_MAG = immutabledefaultdict(lambda: np.inf)
-_DEFAULT_REF_MAGERR = immutabledefaultdict(float)
-_EMPTY_IMMUTABLEDICT: immutabledict = immutabledict()
+_DEFAULT_REF_MAG = frozendefaultdict(lambda: np.inf)
+_DEFAULT_REF_MAGERR = frozendefaultdict(float)
+_EMPTY_FROZENDICT: frozendict = frozendict()
 
 
 def plot_data(
@@ -108,8 +107,8 @@ async def get_plot_data(
     other_oids=frozenset(),
     min_mjd=None,
     max_mjd=None,
-    external_data=_EMPTY_IMMUTABLEDICT,
-    additional_data=_EMPTY_IMMUTABLEDICT,
+    external_data=_EMPTY_FROZENDICT,
+    additional_data=_EMPTY_FROZENDICT,
     ref_mag=_DEFAULT_REF_MAG,
     ref_magerr=_DEFAULT_REF_MAGERR,
 ):
@@ -184,8 +183,8 @@ async def get_folded_plot_data(
     other_oids=frozenset(),
     min_mjd=None,
     max_mjd=None,
-    external_data=_EMPTY_IMMUTABLEDICT,
-    additional_data=_EMPTY_IMMUTABLEDICT,
+    external_data=_EMPTY_FROZENDICT,
+    additional_data=_EMPTY_FROZENDICT,
     ref_mag=_DEFAULT_REF_MAG,
     ref_magerr=_DEFAULT_REF_MAGERR,
 ):

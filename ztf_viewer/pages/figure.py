@@ -1,6 +1,5 @@
 import numpy as np
 from fastapi import Body, Request
-from immutabledict import immutabledict
 
 from ztf_viewer import routes
 from ztf_viewer.app import app
@@ -20,7 +19,7 @@ from ztf_viewer.lc_data.external import external_lc_data, parse_external_lc_name
 from ztf_viewer.lc_data.plot_data import get_folded_plot_data, get_plot_data
 from ztf_viewer.procpool import run_in_process
 from ztf_viewer.social import SITE_CARD_PATH, SITE_DESCRIPTION
-from ztf_viewer.util import immutabledefaultdict, parse_json_to_immutable
+from ztf_viewer.util import frozendefaultdict, parse_json_to_immutable
 from ztf_viewer.web import binary_response, error_response, image_response, query_args
 
 MIMES = {
@@ -50,7 +49,7 @@ def _parse_ref_mags(values, default_factory):
             ref[int(oid)] = float(mag)
         except ValueError:
             raise InvalidFigureArgs(value) from None
-    return immutabledefaultdict(default_factory, ref)
+    return frozendefaultdict(default_factory, ref)
 
 
 @app.server.api_route("/{dr}/figure/{oid}/folded/{period}")
@@ -159,7 +158,7 @@ def parse_figure_args_helper(args, data=None):
     if data:
         data = parse_json_to_immutable(data)
     else:
-        data = immutabledict()
+        data = frozendict()
 
     return {
         "fmt": fmt,

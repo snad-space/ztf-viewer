@@ -18,7 +18,6 @@ from astropy.units import Quantity
 from dash import ALL, MATCH, Input, Output, State, ctx, dcc, html, set_props
 from dash.dash_table import DataTable
 from dash.exceptions import PreventUpdate
-from immutabledict import immutabledict
 from requests import ConnectionError
 
 from ztf_viewer import brokers
@@ -58,9 +57,9 @@ from ztf_viewer.util import (
     ZTF_FILTERS,
     available_drs,
     format_sep,
+    frozendefaultdict,
     hmjd_to_earth,
     html_from_astropy_table,
-    immutabledefaultdict,
     list_join,
     min_max_mjd_short,
     to_str,
@@ -1086,10 +1085,10 @@ async def fit_lc(
     if min_mjd is not None and max_mjd is not None and min_mjd >= max_mjd:
         raise PreventUpdate
 
-    ref_mag = immutabledefaultdict(
+    ref_mag = frozendefaultdict(
         lambda: np.inf, {id["index"]: value for id, value in zip(ref_mag_ids, ref_mag_values) if value is not None}
     )
-    ref_magerr = immutabledefaultdict(
+    ref_magerr = frozendefaultdict(
         float, {id["index"]: value for id, value in zip(ref_magerr_ids, ref_magerr_values) if value is not None}
     )
 
@@ -1624,7 +1623,7 @@ async def set_ref_mag_magerr(dr, _n_clicks, link_id, all_mag_ids, all_mag_values
     )
 
 
-SUMMARY_MAX_SEPARATION_ARCSEC = immutabledict({"astro-colibri": 5.0})
+SUMMARY_MAX_SEPARATION_ARCSEC = frozendict({"astro-colibri": 5.0})
 
 
 async def _find_catalog_for_summary(catalog, query, ra, dec, radii):
@@ -2121,10 +2120,10 @@ async def set_figure(
     else:
         raise ValueError(f'Wrong brightness_type "{brightness_type}"')
 
-    ref_mag = immutabledefaultdict(
+    ref_mag = frozendefaultdict(
         lambda: np.inf, {id["index"]: value for id, value in zip(ref_mag_ids, ref_mag_values) if value is not None}
     )
-    ref_magerr = immutabledefaultdict(
+    ref_magerr = frozendefaultdict(
         float, {id["index"]: value for id, value in zip(ref_magerr_ids, ref_magerr_values) if value is not None}
     )
 
@@ -2224,7 +2223,7 @@ async def set_figure(
             oids,
             dr,
             bright=bright,
-            params=immutabledict(fit_params),
+            params=frozendict(fit_params),
             name_model=name_model,
             min_mjd=min_mjd,
             max_mjd=max_mjd,
