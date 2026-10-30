@@ -1,9 +1,15 @@
 """Zubercal's cone search: detections come back one per row and have to be folded into objects."""
 
+import io
+import json
+
+import httpx
 import numpy as np
 import pytest
 from astropy.coordinates import SkyCoord
 from nested_pandas import NestedFrame
+
+from ztf_viewer.catalogs.conesearch import ZUBERCAL_QUERY
 
 # A bright ZTF-covered star, RR Lyr
 _RA = 291.36625
@@ -89,6 +95,24 @@ async def test_an_object_whose_detections_are_all_unusable_is_dropped(query):
     assert set(table["objectid"]) == {1}
 
 
+async def test_the_service_is_asked_for_detections_clean_by_both_flags(monkeypatch):
+    seen = {}
+    parquet = io.BytesIO()
+    _rows().to_parquet(parquet)
+
+    async def handler(request):
+        seen["body"] = json.loads(request.content)
+        return httpx.Response(200, content=parquet.getvalue())
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    monkeypatch.setattr("ztf_viewer.catalogs.conesearch._base.get_client", lambda: client)
+
+    await ZUBERCAL_QUERY._api_query_region(10.0, 20.0, 1.0)
+
+    assert seen["body"]["filters"] == "flag == 0 and info == 0"
+    await client.aclose()
+
+
 async def test_the_closest_object_is_the_one_plotted(query):
     """Zubercal resolves ZTF's own blends, so the nearest match is the object asked about."""
     _serve(query, _rows())
@@ -99,8 +123,6 @@ async def test_the_closest_object_is_the_one_plotted(query):
 
 
 async def test_live_cone_search_returns_a_light_curve():
-    from ztf_viewer.catalogs.conesearch import ZUBERCAL_QUERY
-
     table = await ZUBERCAL_QUERY.find(_RA, _DEC, 1.0)
 
     assert len(table) > 0
