@@ -53,6 +53,13 @@ FILTER_COLORS = {
     "zi": "#1c1309",
     "ant_g": "#05ffc5",
     "ant_R": "#f08b98",
+    # Rubin's standard band colours
+    "ant_lsst_u": "#48A8D4",
+    "ant_lsst_g": "#31DE1F",
+    "ant_lsst_r": "#B52626",
+    "ant_lsst_i": "#370201",
+    "ant_lsst_z": "#BA52FF",
+    "ant_lsst_y": "#61A2B3",
     "gaia_G": "grey",
     "gaia_BP": "blue",
     "gaia_RP": "red",

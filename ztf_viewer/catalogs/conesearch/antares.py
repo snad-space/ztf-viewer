@@ -66,7 +66,10 @@ class AntaresQuery(_BaseCatalogApiQuery, _BaseLightCurveQuery, _BaseNameResolver
                 "mjd": obs.ant_mjd,
                 "mag": obs.ant_mag,
                 "magerr": obs.ant_magerr,
-                "filter": f"ant_{obs.ant_passband}",
+                # LSST passbands are lowercase ugrizy, so LSST "g" would otherwise merge with ZTF "g"
+                "filter": (
+                    f"ant_lsst_{obs.ant_passband}" if obs.alert_id.startswith("lsst:") else f"ant_{obs.ant_passband}"
+                ),
             }
             for obs in lc.itertuples()
         ]
