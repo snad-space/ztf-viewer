@@ -2,7 +2,7 @@ from functools import partial
 
 from ztf_viewer.catalogs.conesearch import (
     FINK_LSST_QUERY,
-    FINK_QUERY,
+    FINK_ZTF_QUERY,
     GAIA_DR3,
     PANSTARRS_DR2_QUERY,
     TESS_QUERY,
@@ -10,7 +10,7 @@ from ztf_viewer.catalogs.conesearch import (
 )
 
 EXTERNAL_LC_DATA = {
-    "fink_ztf": partial(FINK_QUERY.closest_light_curve_by_oid, fail_on_empty=False, fail_on_unavailable=False),
+    "fink_ztf": partial(FINK_ZTF_QUERY.closest_light_curve_by_oid, fail_on_empty=False, fail_on_unavailable=False),
     "fink_lsst": partial(FINK_LSST_QUERY.closest_light_curve_by_oid, fail_on_empty=False, fail_on_unavailable=False),
     "gaia": partial(GAIA_DR3.closest_light_curve_by_oid, fail_on_empty=False, fail_on_unavailable=False),
     "panstarrs": partial(

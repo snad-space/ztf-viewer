@@ -15,7 +15,7 @@ from ztf_viewer.app import app
 from ztf_viewer.catalogs import find_ztf_oid
 from ztf_viewer.catalogs.conesearch import (
     FINK_LSST_QUERY,
-    FINK_QUERY,
+    FINK_ZTF_QUERY,
     GAIA_DR3,
     PANSTARRS_DR2_QUERY,
     TESS_QUERY,
@@ -98,7 +98,7 @@ def response_gaia_csv(source_id: int):
 async def response_fink_ztf_csv(object_id: str):
     """Download Fink/ZTF alert light curve, apparent magnitudes, for a given ZTF object ID as CSV."""
     try:
-        lc = await FINK_QUERY.light_curve(id=object_id)
+        lc = await FINK_ZTF_QUERY.light_curve(id=object_id)
     except NotFound, CatalogUnavailable:
         return error_response("", 404)
     return _lc_to_csv_response(lc, f"fink_ztf_{object_id}.csv")

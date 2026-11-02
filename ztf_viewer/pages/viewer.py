@@ -25,7 +25,7 @@ from ztf_viewer.akb import akb
 from ztf_viewer.app import app
 from ztf_viewer.catalogs.conesearch import (
     FINK_LSST_QUERY,
-    FINK_QUERY,
+    FINK_ZTF_QUERY,
     GAIA_DR3,
     PANSTARRS_DR2_QUERY,
     TESS_QUERY,
@@ -906,14 +906,14 @@ async def get_layout(pathname, search):
                     html.H2("Fink/ZTF"),
                     dcc.Input(
                         value="1",
-                        id={"type": "search-radius", "index": "fink"},
+                        id={"type": "search-radius", "index": "fink-ztf"},
                         placeholder="Search radius, arcsec",
                         type="number",
                     ),
                     " search radius, arcsec",
-                    loading_div("fink-table"),
+                    loading_div("fink-ztf-table"),
                 ],
-                id="fink",
+                id="fink-ztf",
             ),
             html.Div(
                 [
@@ -1396,7 +1396,7 @@ async def _get_fink_lc_option(oid, dr, old, *, query, title, csv_path):
 
 
 async def get_fink_ztf_lc_option(oid, dr, old):
-    return await _get_fink_lc_option(oid, dr, old, query=FINK_QUERY, title="Fink/ZTF", csv_path="fink-ztf")
+    return await _get_fink_lc_option(oid, dr, old, query=FINK_ZTF_QUERY, title="Fink/ZTF", csv_path="fink-ztf")
 
 
 async def get_fink_lsst_lc_option(oid, dr, old):
@@ -1994,7 +1994,7 @@ async def get_summary(oid, dr, neighbours, radius_ids, radius_values):
     elements["Search in brokers"] = [
         brokers.alerce_tag(ra, dec),
         brokers.antares_tag(ra, dec, oid=oid),
-        brokers.fink_tag(ra, dec),
+        brokers.fink_ztf_tag(ra, dec),
     ]
 
     elements["Coordinates"] = [
