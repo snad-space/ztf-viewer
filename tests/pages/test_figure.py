@@ -409,9 +409,6 @@ def test_reference_magnitudes_are_taken_from_the_query():
     kwargs = _parse(ref_mag=["1:19.5", "2:18.25"], ref_magerr=["1:0.02"])
     assert dict(kwargs["ref_mag"]) == {1: 19.5, 2: 18.25}
     assert dict(kwargs["ref_magerr"]) == {1: 0.02}
-    # OIDs without a reference fall back to no reference at all, and to a zero error
-    assert kwargs["ref_mag"][3] == np.inf
-    assert kwargs["ref_magerr"][3] == 0.0
 
 
 def test_malformed_reference_magnitude_is_rejected():

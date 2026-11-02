@@ -152,6 +152,7 @@ async def test_slot_is_kept_when_someone_is_already_queued_behind_it():
     than the rate allows, which is the one direction that must never happen.
     """
     limiter = AsyncRateLimiter(max_calls=1, period=PERIOD)
+    start = time.monotonic()
     await limiter.acquire()
 
     cancelled = asyncio.create_task(limiter.acquire())
@@ -164,11 +165,11 @@ async def test_slot_is_kept_when_someone_is_already_queued_behind_it():
 
     # Handing that slot back would leave the schedule pointing at the slot `behind` already
     # holds, and the next caller would then go out at the same instant as `behind`.
+    # Timed from `start`, not from `behind` returning: `behind` may wake late, its slot may not.
     await behind
-    served = time.monotonic()
     await limiter.acquire()
 
-    assert time.monotonic() - served >= limiter.min_interval
+    assert time.monotonic() - start >= 3 * limiter.min_interval
 
 
 def test_window_is_shared_across_event_loops():
