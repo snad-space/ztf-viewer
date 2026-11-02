@@ -17,6 +17,7 @@ from ztf_viewer.catalogs.conesearch import (
     FINK_LSST_QUERY,
     FINK_ZTF_QUERY,
     GAIA_DR3,
+    MACHO_QUERY,
     PANSTARRS_DR2_QUERY,
     SKYMAPPER_DR4_QUERY,
     TESS_QUERY,
@@ -146,6 +147,12 @@ async def response_tess_csv(dr: str, oid: int):
 async def response_skymapper_csv(dr: str, oid: int):
     """Download the SkyMapper DR4 light curve closest to a ZTF object as CSV."""
     return await _hats_csv_response(SKYMAPPER_DR4_QUERY, "skymapper", dr, oid)
+
+
+@app.server.api_route("/macho/csv/{dr}/{oid}")
+async def response_macho_csv(dr: str, oid: int):
+    """Download the MACHO light curve closest to a ZTF object as CSV."""
+    return await _hats_csv_response(MACHO_QUERY, "macho", dr, oid)
 
 
 # Keep last: `oid` is an int, so this also matches the catalog routes above.

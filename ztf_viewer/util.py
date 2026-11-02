@@ -80,6 +80,8 @@ FILTER_COLORS = {
     "sm_r": "#D2691E",
     "sm_i": "#8B4513",
     "sm_z": "#483D8B",
+    "macho_V": "#2F7F7F",
+    "macho_R": "#A0522D",
 }
 FILTERS_ORDER = defaultdict(lambda: 100) | dict(zip(FILTER_COLORS, count(1)))
 FILTERS = tuple(FILTER_COLORS)
