@@ -6,6 +6,8 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
+## [2026.11.0] 2026 November 2
+
 ### Changed
 
 - Alert light curves come from Fink/ZTF and Fink/LSST instead of Antares, with both difference and apparent photometry
