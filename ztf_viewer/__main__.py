@@ -9,6 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import anyio.to_thread
 import uvicorn
+from astropy import units
 from astropy.coordinates import SkyCoord, get_icrs_coordinates
 from astropy.coordinates.name_resolve import NameResolveError
 from dash import Input, Output, State, dcc, html, no_update
@@ -294,6 +295,21 @@ async def oid_from_input(s: str):
     return s
 
 
+def _sky_coord_without_units(s):
+    """Two decimal numbers as degrees, or sexagesimal without unit letters as hours and degrees."""
+    s = s.replace(",", " ")
+    parts = s.split()
+    if len(parts) == 2:
+        try:
+            return SkyCoord(float(parts[0]), float(parts[1]), unit="deg")
+        except ValueError:
+            pass
+    try:
+        return SkyCoord(s, unit=(units.hourangle, units.deg))
+    except ValueError:
+        return None
+
+
 async def sky_coord_from_str(s):
     s = s.strip()
     if s.upper().startswith("SNAD"):
@@ -307,6 +323,9 @@ async def sky_coord_from_str(s):
         return SkyCoord(s)
     except ValueError:
         pass
+
+    if (coord := _sky_coord_without_units(s)) is not None:
+        return coord
 
     if s.upper().startswith("AT") or s.upper().startswith("SN"):
         s = s.removeprefix("AT").removeprefix("at").removeprefix("SN").removeprefix("sn").strip()
