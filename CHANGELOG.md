@@ -8,7 +8,6 @@ Version schema is `year.month.num_release`
 
 ### Fixed
 
-- Coordinate search works without unit letters while CDS name resolution is down https://github.com/snad-space/ztf-viewer/pull/796
 - Zubercal light curves drop detections flagged by either Zubercal's calibration flag or the pipeline's infobits https://github.com/snad-space/ztf-viewer/issues/791
 
 ## [2026.9.1] 2026 September 24
