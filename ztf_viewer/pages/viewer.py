@@ -28,6 +28,7 @@ from ztf_viewer.catalogs.conesearch import (
     FINK_ZTF_QUERY,
     GAIA_DR3,
     PANSTARRS_DR2_QUERY,
+    SKYMAPPER_DR4_QUERY,
     TESS_QUERY,
     ZUBERCAL_QUERY,
     catalog_query_objects,
@@ -220,6 +221,11 @@ ADDITIONAL_LC_OPTIONS = (
     {
         "label": "TESS light curve, apparent",
         "value": "tess",
+        "disabled": False,
+    },
+    {
+        "label": "SkyMapper DR4 object, apparent",
+        "value": "skymapper",
         "disabled": False,
     },
 )
@@ -1365,6 +1371,8 @@ async def update_additional_light_curve_options(oid, dr, values, old_options):
             option = await get_zubercal_lc_option(oid, dr, old=options_dict[value])
         elif value == "tess":
             option = await get_tess_lc_option(oid, dr, old=options_dict[value])
+        elif value == "skymapper":
+            option = await get_skymapper_lc_option(oid, dr, old=options_dict[value])
         else:
             raise ValueError(f'additional light curve value "{value}" unknown')
         options_dict[value] = option
@@ -1516,6 +1524,33 @@ async def get_tess_lc_option(oid, dr, old):
                 ),
                 " ",
                 html.A("CSV", href=f"/tess/csv/{dr}/{oid}"),
+            ]
+        )
+        option["disabled"] = False
+    return option
+
+
+async def get_skymapper_lc_option(oid, dr, old):
+    option = old.copy()
+    radius = lc_search_radius_arcsec("skymapper")
+    ra, dec = await find_ztf_oid.get_coord(oid, dr)
+    try:
+        row = await SKYMAPPER_DR4_QUERY.find_closest(ra, dec, radius_arcsec=radius)
+    except NotFound:
+        option["label"] = f"SkyMapper DR4 object (not found in {radius}″)"
+        option["disabled"] = True
+    except CatalogUnavailable:
+        option["label"] = "HATS API is unavailable now"
+        option["disabled"] = False
+    else:
+        option["label"] = html.Span(
+            [
+                (
+                    f'SkyMapper DR4 {row[SKYMAPPER_DR4_QUERY.id_column]} ({np.round(row["separation"], 1)}″), '
+                    f'{row["n_obs"]} detections, apparent'
+                ),
+                " ",
+                html.A("CSV", href=f"/skymapper/csv/{dr}/{oid}"),
             ]
         )
         option["disabled"] = False
@@ -2690,7 +2725,7 @@ async def set_table(radius, oid, dr, catalog):
 
 # Light-curve sources only: their cone-search tables say nothing the light-curve checkbox does
 # not, so the page has no section for them.
-CATALOGS_WITHOUT_TABLE = frozenset({"zubercal-dr20", "tess", "fink-lsst"})
+CATALOGS_WITHOUT_TABLE = frozenset({"zubercal-dr20", "tess", "skymapper-dr4", "fink-lsst"})
 
 
 def set_tables():

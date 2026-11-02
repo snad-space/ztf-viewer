@@ -18,6 +18,7 @@ from ztf_viewer.catalogs.conesearch import (
     FINK_ZTF_QUERY,
     GAIA_DR3,
     PANSTARRS_DR2_QUERY,
+    SKYMAPPER_DR4_QUERY,
     TESS_QUERY,
     ZUBERCAL_QUERY,
 )
@@ -139,6 +140,12 @@ async def response_zubercal_csv(dr: str, oid: int):
 async def response_tess_csv(dr: str, oid: int):
     """Download the longest TESS light curve near a ZTF object as CSV."""
     return await _hats_csv_response(TESS_QUERY, "tess", dr, oid)
+
+
+@app.server.api_route("/skymapper/csv/{dr}/{oid}")
+async def response_skymapper_csv(dr: str, oid: int):
+    """Download the SkyMapper DR4 light curve closest to a ZTF object as CSV."""
+    return await _hats_csv_response(SKYMAPPER_DR4_QUERY, "skymapper", dr, oid)
 
 
 # Keep last: `oid` is an int, so this also matches the catalog routes above.

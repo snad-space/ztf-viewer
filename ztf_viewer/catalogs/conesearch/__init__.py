@@ -15,6 +15,7 @@ from .otter import OtterQuery
 from .panstarrs import PanstarrsDr2StackedQuery
 from .sdss import SdssQuasarsQuery
 from .simbad import SimbadQuery
+from .skymapper import SkyMapperDr4Query
 from .spicy import SpicyQuery
 from .tess import TessLightCurveQuery
 from .tns import TnsQuery
@@ -38,6 +39,7 @@ OGLE_QUERY = OgleQuery("OGLE")
 PANSTARRS_DR2_QUERY = PanstarrsDr2StackedQuery("Pan-STARRS DR2 Stacked")
 SDSS_QUASARS_QUERY = SdssQuasarsQuery("SDSS DR16 Quasars")
 SIMBAD_QUERY = SimbadQuery("Simbad")
+SKYMAPPER_DR4_QUERY = SkyMapperDr4Query("SkyMapper DR4")
 SPICY_QUERY = SpicyQuery("SPICY")
 TESS_QUERY = TessLightCurveQuery("TESS")
 TNS_QUERY = TnsQuery("Transient Name Server")
