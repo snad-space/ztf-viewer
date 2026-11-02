@@ -30,7 +30,6 @@ class SkyMapperDr4Query(_BaseHatsQuery, _BaseLightCurveQuery):
     }
 
     _hats_url = "/skymapper_dr4/skymapper_dr4"
-    # Not the object-level `flags`: it would clash with `photometry.flags` once exploded
     _hats_columns = (
         "object_id",
         "raj2000",
