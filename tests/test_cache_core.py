@@ -164,8 +164,8 @@ def test_different_arguments_get_different_keys(first, second):
         ((frozenset({1, "a", None}),), (frozenset({None, "a", 1}),)),
         ((frozendict({"a": 1, "b": 2}),), (frozendict({"b": 2, "a": 1}),)),
         (
-            (frozendict({"antares": frozendict({"radius_arcsec": 1.0})}),),
-            (frozendict({"antares": frozendict({"radius_arcsec": 1.0})}),),
+            (frozendict({"fink_ztf": frozendict({"radius_arcsec": 1.0})}),),
+            (frozendict({"fink_ztf": frozendict({"radius_arcsec": 1.0})}),),
         ),
         (("dr23", [1, {"a": frozenset({"g", "r"})}]), ("dr23", [1, {"a": frozenset({"r", "g"})}])),
     ],

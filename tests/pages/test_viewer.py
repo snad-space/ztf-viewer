@@ -383,7 +383,7 @@ async def test_get_summary_mixed_success_and_failures(summary_upstreams):
             ", ",
             {"text": "Antares", "href": antares_href},
             ", ",
-            {"text": "Fink", "href": "https://ztf.fink-portal.org/?action=conesearch&ra=10.0&dec=20.0&radius=3"},
+            {"text": "Fink/ZTF", "href": "https://ztf.fink-portal.org/?action=conesearch&ra=10.0&dec=20.0&radius=3"},
         ],
         ["Coordinates", ": ", "Eq 10.00000 +20.00000", ", ", "Gal 00h40m00s +20d00m00s"],
     ]
@@ -1160,8 +1160,8 @@ def test_set_figure_link_omits_reference_magnitudes_for_magnitude():
 def test_set_figure_link_carries_the_external_light_curves():
     """The checked external light curves are plotted on the page, so the downloaded figure only
     matches the plot if the link asks for them too."""
-    href = _figure_link(lc_type="full", additional_lc=["antares", "gaia"], fmt="png")
-    assert "lc=antares&lc=gaia" in href
+    href = _figure_link(lc_type="full", additional_lc=["fink_ztf", "gaia"], fmt="png")
+    assert "lc=fink_ztf&lc=gaia" in href
 
 
 def test_set_figure_link_omits_the_external_light_curves_when_none_are_checked():
@@ -1185,7 +1185,7 @@ def test_set_figure_link_prevents_update_when_range_is_backwards():
 
 def test_set_figure_link_raises_for_unknown_type():
     with pytest.raises(ValueError, match="lc_type"):
-        _figure_link(lc_type="bogus", fmt="png")
+        _figure_link(lc_type="unknown", fmt="png")
 
 
 # ---------------------------------------------------------------------------------------------
@@ -1218,23 +1218,23 @@ def test_parse_search_lc_param_absent():
 
 
 def test_parse_search_lc_param_single():
-    assert parse_search("?lc=antares")["lc"] == ["antares"]
+    assert parse_search("?lc=fink_ztf")["lc"] == ["fink_ztf"]
 
 
 def test_parse_search_lc_param_comma_separated():
-    assert parse_search("?lc=antares,gaia")["lc"] == ["antares", "gaia"]
+    assert parse_search("?lc=fink_ztf,gaia")["lc"] == ["fink_ztf", "gaia"]
 
 
 def test_parse_search_lc_param_repeated():
-    assert parse_search("?lc=antares&lc=gaia")["lc"] == ["antares", "gaia"]
+    assert parse_search("?lc=fink_ztf&lc=gaia")["lc"] == ["fink_ztf", "gaia"]
 
 
 def test_parse_additional_lc_is_case_insensitive_and_trims():
-    assert parse_additional_lc([" Antares , GAIA "]) == ["antares", "gaia"]
+    assert parse_additional_lc([" Fink_ZTF , GAIA "]) == ["fink_ztf", "gaia"]
 
 
 def test_parse_additional_lc_drops_unknown_names():
-    assert parse_additional_lc(["antares,bogus"]) == ["antares"]
+    assert parse_additional_lc(["fink_ztf,unknown"]) == ["fink_ztf"]
 
 
 def test_parse_additional_lc_deduplicates():
@@ -1260,7 +1260,7 @@ def test_pick_fits_observation_empty_lc():
 
 def test_pick_fits_observation_unknown_param():
     lc = [{"mjd": 58000.0, "mag": 18.0}]
-    assert pick_fits_observation(lc, "bogus") is None
+    assert pick_fits_observation(lc, "unknown") is None
 
 
 def test_pick_fits_observation_first():

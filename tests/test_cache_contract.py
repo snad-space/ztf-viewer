@@ -151,7 +151,7 @@ def test_hit_on_nested_frozendict(cache):
     counter = Counter(cache)
 
     def make():
-        return frozendict({"antares": frozendict({"radius_arcsec": 1.0})})
+        return frozendict({"fink_ztf": frozendict({"radius_arcsec": 1.0})})
 
     counter(make())
     assert counter.calls == 1
@@ -195,7 +195,7 @@ def test_hit_on_full_plot_data_signature(cache):
             other_oids=frozenset({633207200004431}),
             min_mjd=None,
             max_mjd=58000.0,
-            external_data=frozendict({"antares": frozendict({"radius_arcsec": 1.0})}),
+            external_data=frozendict({"fink_ztf": frozendict({"radius_arcsec": 1.0})}),
             additional_data=frozendict(),
             ref_mag=frozendict({"zr": 18.5}),
             ref_magerr=frozendict({"zr": 0.1}),

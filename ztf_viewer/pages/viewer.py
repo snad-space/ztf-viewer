@@ -24,7 +24,8 @@ from ztf_viewer import brokers
 from ztf_viewer.akb import akb
 from ztf_viewer.app import app
 from ztf_viewer.catalogs.conesearch import (
-    ANTARES_QUERY,
+    FINK_LSST_QUERY,
+    FINK_ZTF_QUERY,
     GAIA_DR3,
     PANSTARRS_DR2_QUERY,
     TESS_QUERY,
@@ -192,8 +193,13 @@ def parse_pathname(pathname):
 
 ADDITIONAL_LC_OPTIONS = (
     {
-        "label": "Antares object, diff-photometry",
-        "value": "antares",
+        "label": "Fink/ZTF object",
+        "value": "fink_ztf",
+        "disabled": False,
+    },
+    {
+        "label": "Fink/LSST object",
+        "value": "fink_lsst",
         "disabled": False,
     },
     {
@@ -222,7 +228,7 @@ ADDITIONAL_LC_OPTIONS = (
 def parse_additional_lc(values: list[str]) -> list[str]:
     """Additional light curves asked for by the `?lc=` query parameter.
 
-    Both `?lc=antares&lc=gaia` and `?lc=antares,gaia` are accepted. Unknown names are dropped
+    Both `?lc=fink_ztf&lc=gaia` and `?lc=fink_ztf,gaia` are accepted. Unknown names are dropped
     rather than raising: a stale bookmark should still show the object. The order follows the
     checklist, not the query, so the returned value compares equal to what the widget reports
     back once the user touches it.
@@ -897,17 +903,17 @@ async def get_layout(pathname, search):
             ),
             html.Div(
                 [
-                    html.H2("Fink"),
+                    html.H2("Fink/ZTF"),
                     dcc.Input(
                         value="1",
-                        id={"type": "search-radius", "index": "fink"},
+                        id={"type": "search-radius", "index": "fink-ztf"},
                         placeholder="Search radius, arcsec",
                         type="number",
                     ),
                     " search radius, arcsec",
-                    loading_div("fink-table"),
+                    loading_div("fink-ztf-table"),
                 ],
-                id="fink",
+                id="fink-ztf",
             ),
             html.Div(
                 [
@@ -1347,8 +1353,10 @@ async def update_additional_light_curve_options(oid, dr, values, old_options):
         raise PreventUpdate
     options_dict = {option["value"]: option for option in old_options}
     for value in values:
-        if value == "antares":
-            option = await get_antares_lc_option(oid, dr, old=options_dict[value])
+        if value == "fink_ztf":
+            option = await get_fink_ztf_lc_option(oid, dr, old=options_dict[value])
+        elif value == "fink_lsst":
+            option = await get_fink_lsst_lc_option(oid, dr, old=options_dict[value])
         elif value == "gaia":
             option = await get_gaia_lc_option(oid, dr, old=options_dict[value])
         elif value == "panstarrs":
@@ -1363,27 +1371,36 @@ async def update_additional_light_curve_options(oid, dr, values, old_options):
     return list(options_dict.values())
 
 
-async def get_antares_lc_option(oid, dr, old):
+async def _get_fink_lc_option(oid, dr, old, *, query, title, csv_path):
     option = old.copy()
     ra, dec = await find_ztf_oid.get_coord(oid, dr)
     try:
-        row = await ANTARES_QUERY.find_closest(ra, dec, radius_arcsec=ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC)
+        row = await query.find_closest(ra, dec, radius_arcsec=ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC)
     except NotFound:
-        option["label"] = f"Antares object (not found in {ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC}″)"
+        option["label"] = f"{title} object (not found in {ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC}″)"
         option["disabled"] = True
     except CatalogUnavailable:
-        option["label"] = "Antares API is unavailable now"
+        option["label"] = f"{title} API is unavailable now"
         option["disabled"] = False
     else:
+        object_id = row[query.id_column]
         option["label"] = html.Span(
             [
-                f'Antares {row[ANTARES_QUERY.id_column]} ({np.round(row["separation"], 1)}″), diff-photometry',
+                f'{title} {object_id} ({np.round(row["separation"], 1)}″)',
                 " ",
-                html.A("CSV", href=f"/antares/csv/{row[ANTARES_QUERY.id_column]}"),
+                html.A("CSV", href=f"/{csv_path}/csv/{object_id}"),
             ]
         )
         option["disabled"] = False
     return option
+
+
+async def get_fink_ztf_lc_option(oid, dr, old):
+    return await _get_fink_lc_option(oid, dr, old, query=FINK_ZTF_QUERY, title="Fink/ZTF", csv_path="fink-ztf")
+
+
+async def get_fink_lsst_lc_option(oid, dr, old):
+    return await _get_fink_lc_option(oid, dr, old, query=FINK_LSST_QUERY, title="Fink/LSST", csv_path="fink-lsst")
 
 
 async def get_gaia_lc_option(oid, dr, old):
@@ -1977,7 +1994,7 @@ async def get_summary(oid, dr, neighbours, radius_ids, radius_values):
     elements["Search in brokers"] = [
         brokers.alerce_tag(ra, dec),
         brokers.antares_tag(ra, dec, oid=oid),
-        brokers.fink_tag(ra, dec),
+        brokers.fink_ztf_tag(ra, dec),
     ]
 
     elements["Coordinates"] = [
@@ -2673,7 +2690,7 @@ async def set_table(radius, oid, dr, catalog):
 
 # Light-curve sources only: their cone-search tables say nothing the light-curve checkbox does
 # not, so the page has no section for them.
-CATALOGS_WITHOUT_TABLE = frozenset({"zubercal-dr20", "tess"})
+CATALOGS_WITHOUT_TABLE = frozenset({"zubercal-dr20", "tess", "fink-lsst"})
 
 
 def set_tables():

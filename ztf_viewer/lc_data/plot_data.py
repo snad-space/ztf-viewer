@@ -48,7 +48,7 @@ def plot_data(
     mag = np.array([obs["mag"] for obs in data])
     magerr = np.array([obs["magerr"] for obs in data])
     # Normally we have a single oid for the light curve, but it could not
-    # be a case, see get_antares_lc for an example
+    # be a case, e.g. for an external light curve
     ref_mag_arr = np.array([ref_mag.get(obs["oid"], DEFAULT_REF_MAG) for obs in data])
     ref_magerr_arr = np.array([ref_magerr.get(obs["oid"], DEFAULT_REF_MAGERR) for obs in data])
 
@@ -58,6 +58,12 @@ def plot_data(
     fluxerr_Jy = LN10_04 * flux_Jy * magerr
     diffflux_Jy = flux_Jy - ref_flux
     difffluxerr_Jy = np.hypot(fluxerr_Jy, ref_fluxerr)
+
+    # Alert light curves provide fluxes: measured difference and simulated apparent
+    flux_Jy = np.array([obs.get("flux_Jy", value) for obs, value in zip(data, flux_Jy)])
+    fluxerr_Jy = np.array([obs.get("fluxerr_Jy", value) for obs, value in zip(data, fluxerr_Jy)])
+    diffflux_Jy = np.array([obs.get("diffflux_Jy", value) for obs, value in zip(data, diffflux_Jy)])
+    difffluxerr_Jy = np.array([obs.get("difffluxerr_Jy", value) for obs, value in zip(data, difffluxerr_Jy)])
 
     # we do both for a weird case of negative error
     bad = (diffflux_Jy <= 0) | (diffflux_Jy < difffluxerr_Jy)
@@ -115,7 +121,7 @@ async def get_plot_data(
 
     external_data format:
     {
-        'antares': {<kwargs for get_antares_lc(oid, dr, **kwargs)>},
+        'fink_ztf': {<kwargs for EXTERNAL_LC_DATA['fink_ztf'](oid, dr, **kwargs)>},
         ...
     }
 

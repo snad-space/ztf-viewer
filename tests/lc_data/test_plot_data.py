@@ -1,7 +1,7 @@
 """`get_plot_data`'s fan-out over the current OID, neighbour OIDs and external light curves.
 
 The three groups of upstream calls (the current OID's ZTF light curve, each neighbour OID's, and
-each external source's -- antares/gaia/panstarrs) are independent of one another and are now
+each external source's -- fink_ztf/gaia/panstarrs) are independent of one another and are now
 gathered concurrently. These tests pin that the fan-out actually overlaps in wall time and that a
 failure in one upstream still propagates (nothing here swallows exceptions).
 """
@@ -38,11 +38,11 @@ async def test_get_plot_data_fanout_is_concurrent():
 
     with (
         patch.object(plot_data_module, "ztf_dr_lc", fake_ztf_dr_lc),
-        patch.dict(plot_data_module.EXTERNAL_LC_DATA, {"antares": fake_external}, clear=True),
+        patch.dict(plot_data_module.EXTERNAL_LC_DATA, {"fink_ztf": fake_external}, clear=True),
     ):
         start = time.perf_counter()
         await plot_data_module.get_plot_data.__wrapped__(
-            "1", "dr24", other_oids=other_oids, external_data={"antares": {}}
+            "1", "dr24", other_oids=other_oids, external_data={"fink_ztf": {}}
         )
         elapsed = time.perf_counter() - start
     # Serial (1 current + 3 neighbours + 1 external) would take 5 * DELAY.

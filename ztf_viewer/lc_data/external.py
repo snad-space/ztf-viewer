@@ -1,9 +1,17 @@
 from functools import partial
 
-from ztf_viewer.catalogs.conesearch import ANTARES_QUERY, GAIA_DR3, PANSTARRS_DR2_QUERY, TESS_QUERY, ZUBERCAL_QUERY
+from ztf_viewer.catalogs.conesearch import (
+    FINK_LSST_QUERY,
+    FINK_ZTF_QUERY,
+    GAIA_DR3,
+    PANSTARRS_DR2_QUERY,
+    TESS_QUERY,
+    ZUBERCAL_QUERY,
+)
 
 EXTERNAL_LC_DATA = {
-    "antares": partial(ANTARES_QUERY.closest_light_curve_by_oid, fail_on_empty=False, fail_on_unavailable=False),
+    "fink_ztf": partial(FINK_ZTF_QUERY.closest_light_curve_by_oid, fail_on_empty=False, fail_on_unavailable=False),
+    "fink_lsst": partial(FINK_LSST_QUERY.closest_light_curve_by_oid, fail_on_empty=False, fail_on_unavailable=False),
     "gaia": partial(GAIA_DR3.closest_light_curve_by_oid, fail_on_empty=False, fail_on_unavailable=False),
     "panstarrs": partial(
         PANSTARRS_DR2_QUERY.closest_light_curve_by_oid, fail_on_empty=False, fail_on_unavailable=False
@@ -27,7 +35,7 @@ def lc_search_radius_arcsec(name: str) -> float:
 def parse_external_lc_names(values: list[str]) -> list[str]:
     """External light-curve names asked for by a repeated `lc=` query parameter.
 
-    Both `lc=antares&lc=gaia` and `lc=antares,gaia` are accepted, and unknown names are dropped
+    Both `lc=fink_ztf&lc=gaia` and `lc=fink_ztf,gaia` are accepted, and unknown names are dropped
     rather than raising, exactly as the page's own `?lc=` parameter does.
     """
     requested = {name.strip().lower() for value in values for name in value.split(",")}

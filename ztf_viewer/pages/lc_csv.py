@@ -14,7 +14,8 @@ from fastapi import Request
 from ztf_viewer.app import app
 from ztf_viewer.catalogs import find_ztf_oid
 from ztf_viewer.catalogs.conesearch import (
-    ANTARES_QUERY,
+    FINK_LSST_QUERY,
+    FINK_ZTF_QUERY,
     GAIA_DR3,
     PANSTARRS_DR2_QUERY,
     TESS_QUERY,
@@ -93,14 +94,24 @@ def response_gaia_csv(source_id: int):
     return _lc_to_csv_response(lc, f"gaia_{source_id}.csv")
 
 
-@app.server.api_route("/antares/csv/{locus_id}")
-def response_antares_csv(locus_id: str):
-    """Download Antares light curve for a given locus ID as CSV."""
+@app.server.api_route("/fink-ztf/csv/{object_id}")
+async def response_fink_ztf_csv(object_id: str):
+    """Download Fink/ZTF alert light curve, apparent magnitudes, for a given ZTF object ID as CSV."""
     try:
-        lc = ANTARES_QUERY.light_curve(id=locus_id)
+        lc = await FINK_ZTF_QUERY.light_curve(id=object_id)
     except NotFound, CatalogUnavailable:
         return error_response("", 404)
-    return _lc_to_csv_response(lc, f"antares_{locus_id}.csv")
+    return _lc_to_csv_response(lc, f"fink_ztf_{object_id}.csv")
+
+
+@app.server.api_route("/fink-lsst/csv/{dia_object_id}")
+async def response_fink_lsst_csv(dia_object_id: int):
+    """Download Fink/LSST alert light curve, apparent magnitudes, for a given diaObjectId as CSV."""
+    try:
+        lc = await FINK_LSST_QUERY.light_curve(id=dia_object_id)
+    except NotFound, CatalogUnavailable:
+        return error_response("", 404)
+    return _lc_to_csv_response(lc, f"fink_lsst_{dia_object_id}.csv")
 
 
 async def _hats_csv_response(query, name, dr, oid):

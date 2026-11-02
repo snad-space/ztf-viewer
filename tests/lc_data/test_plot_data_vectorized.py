@@ -71,7 +71,7 @@ def test_reference_uncertainty_enters_the_error_in_quadrature():
 
 
 def test_reference_is_looked_up_per_oid():
-    """One light curve can carry several oids -- see `get_antares_lc`."""
+    """One light curve can carry several oids -- e.g. an external one."""
     ref_mag = frozendict({1: MAG_1E5_JY, 2: MAG_1_JY})
     first, second = plot_data([_obs(oid=1), _obs(oid=2, mjd=58001.0)], ref_mag=ref_mag)
     assert first["ref_flux"] == pytest.approx(1e-5)
@@ -151,3 +151,18 @@ def test_empty_input():
 
 def test_all_observations_filtered_out_by_mjd_range():
     assert plot_data([_obs(mjd=58000.0)], min_mjd=1.0, max_mjd=2.0) == []
+
+
+def test_provided_fluxes_are_kept_and_reference_is_not_subtracted():
+    """Alert light curves provide fluxes: a negative difference flux stays negative."""
+    fluxes = {"flux_Jy": 2e-5, "fluxerr_Jy": 1e-6, "diffflux_Jy": -1e-5, "difffluxerr_Jy": 2e-6}
+    (obs,) = plot_data([_obs(mag=MAG_1E5_JY) | fluxes], **_ref(mag=MAG_1E5_JY))
+    assert {key: obs[key] for key in fluxes} == fluxes
+    assert obs["diffmag"] == np.inf
+
+
+def test_provided_fluxes_do_not_leak_into_other_points():
+    fluxes = {"flux_Jy": 2e-5, "fluxerr_Jy": 1e-6, "diffflux_Jy": 1e-5, "difffluxerr_Jy": 2e-6}
+    provided, derived = plot_data([_obs(oid=2) | fluxes, _obs(oid=1, mjd=58001.0)], **_ref(mag=MAG_1E5_JY))
+    assert provided["diffflux_Jy"] == 1e-5
+    assert derived["diffflux_Jy"] == pytest.approx(9e-5)
