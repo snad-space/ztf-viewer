@@ -74,6 +74,12 @@ FILTER_COLORS = {
     "zuber_r": "#8F2430",
     "zuber_i": "#140D06",
     "TESS": "#8C7853",
+    "sm_u": "#7B3FA0",
+    "sm_v": "#3F5FBF",
+    "sm_g": "#2E8B57",
+    "sm_r": "#D2691E",
+    "sm_i": "#8B4513",
+    "sm_z": "#483D8B",
 }
 FILTERS_ORDER = defaultdict(lambda: 100) | dict(zip(FILTER_COLORS, count(1)))
 FILTERS = tuple(FILTER_COLORS)
