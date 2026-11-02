@@ -6,6 +6,11 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
+### Changed
+
+- Alert light curves come from Fink/ZTF and Fink/LSST instead of Antares, with both difference and apparent photometry
+- "Fink" is renamed to "Fink/ZTF" on the object page
+
 ### Fixed
 
 - Zubercal light curves drop detections flagged by either Zubercal's calibration flag or the pipeline's infobits https://github.com/snad-space/ztf-viewer/issues/791

@@ -20,7 +20,7 @@ Left out entirely, and why:
 * Byte-exact CSV data rows and byte-exact PNG/PDF content — pure network/library payload, not
   ours to pin (matplotlib and LaTeX output is not reproducible across versions either).
 * The Pan-STARRS and Gaia CSV "friends" of ``/dr24/csv/<oid>``: they share the same
-  ``_lc_to_csv_response`` helper in ``ztf_viewer/pages/lc_csv.py`` as the Antares route exercised
+  ``_lc_to_csv_response`` helper in ``ztf_viewer/pages/lc_csv.py`` as the Fink/ZTF route exercised
   below, which already covers that code path.
 * Full Dash index HTML snapshots for any page route — Dash's index is not a stable golden and
   would churn on every Dash upgrade for reasons with nothing to do with this repo's routing.
@@ -40,9 +40,8 @@ _PACKAGE_ROOT = Path(ztf_viewer.__file__).parent
 _OID = 633207400004730
 _DR = "dr24"
 
-# A real Antares locus near a known ZTF object (`tests/catalogs/conesearch/test_antares.py`'s
-# coordinates), resolved once against the live API.
-_ANTARES_LOCUS_ID = "ANT2020g7nq"
+# A real ZTF alert object known to Fink/ZTF
+_FINK_ZTF_OBJECT_ID = "ZTF21abfmbix"
 
 
 def _load_app():
@@ -249,18 +248,18 @@ def test_csv_dr_oid(client):
 
 
 @pytest.mark.network
-def test_csv_antares(client):
+def test_csv_fink_ztf(client):
     """Exercises the shared `_lc_to_csv_response` helper also used by the Pan-STARRS and Gaia CSV
     routes (left out of this file -- see the module docstring).
     """
-    response = client.get(f"/antares/csv/{_ANTARES_LOCUS_ID}")
+    response = client.get(f"/fink-ztf/csv/{_FINK_ZTF_OBJECT_ID}")
 
     assert response.status_code == 200
     assert "text/csv" in _content_type(response)
-    assert response.headers.get("Content-Disposition") == f"attachment; filename=antares_{_ANTARES_LOCUS_ID}.csv"
+    assert response.headers.get("Content-Disposition") == f"attachment; filename=fink_ztf_{_FINK_ZTF_OBJECT_ID}.csv"
 
     header_line = _body(response).split(b"\n", 1)[0].decode()
-    assert header_line == "oid,mjd,mag,magerr,filter"
+    assert header_line == "oid,mjd,mag,magerr,flux_Jy,fluxerr_Jy,diffflux_Jy,difffluxerr_Jy,filter,ref_catalog"
 
 
 # --------------------------------------------------------------------------------------------

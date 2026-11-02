@@ -45,4 +45,4 @@ def fink_conesearch_url(ra, dec, radius_arcsec=DEFAULT_SEARCH_RADIUS_ARCSEC):
 
 
 def fink_tag(ra, dec, radius_arcsec=DEFAULT_SEARCH_RADIUS_ARCSEC):
-    return _a_tag("Fink", fink_conesearch_url(ra, dec, radius_arcsec))
+    return _a_tag("Fink/ZTF", fink_conesearch_url(ra, dec, radius_arcsec))

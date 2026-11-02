@@ -426,9 +426,9 @@ def test_external_light_curves_are_taken_from_the_query():
     them, in the shape `get_plot_data` takes."""
     from ztf_viewer.lc_data.external import ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC
 
-    external_data = _parse(lc=["antares", "gaia,panstarrs"])["external_data"]
-    assert set(external_data) == {"antares", "gaia", "panstarrs"}
-    assert external_data["antares"] == {"radius_arcsec": ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC}
+    external_data = _parse(lc=["fink_ztf", "gaia,panstarrs"])["external_data"]
+    assert set(external_data) == {"fink_ztf", "gaia", "panstarrs"}
+    assert external_data["fink_ztf"] == {"radius_arcsec": ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC}
 
 
 def test_no_external_light_curves_without_the_query_argument():
@@ -437,7 +437,7 @@ def test_no_external_light_curves_without_the_query_argument():
 
 def test_unknown_external_light_curve_is_dropped():
     """A stale bookmark should still render the ZTF light curve rather than 404."""
-    assert set(_parse(lc=["antares,bogus"])["external_data"]) == {"antares"}
+    assert set(_parse(lc=["fink_ztf,unknown"])["external_data"]) == {"fink_ztf"}
 
 
 def test_other_oids_are_parsed_as_integers():
