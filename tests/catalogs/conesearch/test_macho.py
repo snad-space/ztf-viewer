@@ -118,7 +118,7 @@ async def test_light_curve_is_sorted_and_filters_are_ones_the_figures_can_colour
         {"berr": [0.05, None]},
     ],
 )
-async def test_a_band_failing_macho_quality_cuts_is_dropped_on_its_own(query, bad):
+async def test_a_band_failing_macho_quality_cuts_is_dropped_alone(query, bad):
     """An epoch's red point survives a bad blue one: they are measured independently."""
     table = await _table(query, _frame([_star(1, 10.0, 20.0, **bad)]))
     light_curve = query.light_curve(1, row=_row(table, 1))
@@ -128,7 +128,7 @@ async def test_a_band_failing_macho_quality_cuts_is_dropped_on_its_own(query, ba
 
 
 async def test_template_boundary_types_are_kept(query):
-    """MACHO's own averages accept types 21-26, a good measurement near a template chunk edge."""
+    """Types 21-26 are 1-6 near a template chunk boundary, accepted by MACHO TAP magave_kv."""
     table = await _table(query, _frame([_star(1, 10.0, 20.0, btype=[21.0, 26.0])]))
 
     assert len(_band(query.light_curve(1, row=_row(table, 1)), "V")) == 2
@@ -140,15 +140,6 @@ async def test_a_star_with_no_usable_detections_is_dropped(query):
     table = await _table(query, rows)
 
     assert set(table["starid"]) == {1}
-
-
-async def test_the_link_asks_macho_for_this_star_alone(query):
-    table = await _table(query)
-
-    url = query.get_url(1, row=_row(table, 1))
-
-    assert url.startswith("https://machotap.asvo.nci.org.au/")
-    assert "fieldid+%3D+301+AND+tileid+%3D+45950+AND+seqn+%3D+1" in url
 
 
 async def test_live_cone_search_returns_a_light_curve():

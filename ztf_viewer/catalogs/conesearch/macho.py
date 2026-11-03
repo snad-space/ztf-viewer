@@ -1,4 +1,3 @@
-import urllib.parse
 from typing import ClassVar
 
 import pandas as pd
@@ -11,12 +10,9 @@ from ztf_viewer.catalogs.conesearch._base import _BaseHatsQuery, _BaseLightCurve
 # https://ui.adsabs.harvard.edu/abs/2007AJ....133..734B
 VEGA_TO_AB = {"V": 0.02, "R": 0.21}
 
-# MACHO's own rule for its averaged kv / kr: SoDOPHOT types 1-6, also +20 near a template chunk
-# boundary, and no instrumental magnitude brighter than -12.
+# Cuts of varstar_view.magave_kv / magave_kr in the MACHO TAP schema (machotap.asvo.nci.org.au)
 GOOD_TYPES = frozenset(range(1, 7)) | frozenset(range(21, 27))
 MIN_INSTRUMENTAL_MAG = -12.0
-
-MACHO_TAP_URL = "https://machotap.asvo.nci.org.au/ncitap/tap/sync"
 
 
 class MachoQuery(_BaseHatsQuery, _BaseLightCurveQuery):
@@ -113,11 +109,6 @@ class MachoQuery(_BaseHatsQuery, _BaseLightCurveQuery):
         """The detections `_table_from_rows` packed for this row."""
         return row["light_curve"].to_dict("records")
 
-    def get_url(self, id, row=None):
-        """The star's photometry from MACHO's own TAP service, as CSV: MACHO has no per-star page."""
-        query = (
-            "SELECT * FROM public.photometry_view"
-            f" WHERE fieldid = {row['fieldid']} AND tileid = {row['tileid']} AND seqn = {row['seqn']}"
-        )
-        params = {"REQUEST": "doQuery", "LANG": "ADQL", "FORMAT": "csv", "QUERY": query}
-        return f"{MACHO_TAP_URL}?{urllib.parse.urlencode(params)}"
+    def get_link(self, id, name, row=None):
+        """MACHO has no per-star page to link to."""
+        return name
