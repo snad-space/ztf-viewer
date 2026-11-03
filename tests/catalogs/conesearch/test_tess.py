@@ -89,16 +89,15 @@ async def test_the_longest_light_curve_is_plotted_not_the_closest(query):
     assert row["ticid"] == 20
 
 
-async def test_flux_becomes_magnitude_and_time_becomes_mjd(query):
-    from ztf_viewer.catalogs.conesearch.tess import BTJD_TO_MJD, TESS_ZP_MAG
+async def test_flux_becomes_ab_magnitude_and_time_becomes_mjd(query):
+    from ztf_viewer.catalogs.conesearch.tess import BTJD_TO_MJD
 
     table = await _table(query)
     light_curve = query.light_curve(10, row=_row(table, 10))
 
     assert light_curve[0]["mjd"] == pytest.approx(2000.0 + BTJD_TO_MJD)
-    # 15000 e-/s is Tmag 10 by definition of the zero point
-    assert TESS_ZP_MAG == pytest.approx(20.44)
-    assert light_curve[0]["mag"] == pytest.approx(10.0, abs=1e-3)
+    # 15000 e-/s is Tmag 10, i.e. 2416 Jy * 1e-4 = 0.2416 Jy, which is AB 10.442
+    assert light_curve[0]["mag"] == pytest.approx(10.442, abs=1e-3)
     assert light_curve[0]["filter"] == "TESS"
 
 

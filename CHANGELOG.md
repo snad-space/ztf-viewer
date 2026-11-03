@@ -6,6 +6,10 @@ Version schema is `year.month.num_release`
 
 ## [Unreleased]
 
+### Changed
+
+- TESS light curves are in AB magnitudes https://github.com/snad-space/ztf-viewer/issues/799
+
 ## [2026.11.0] 2026 November 2
 
 ### Changed

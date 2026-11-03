@@ -10,12 +10,14 @@ from ztf_viewer.util import LGE_25
 # BTJD is BJD - 2457000; the TDB-to-UTC difference is not corrected
 BTJD_TO_MJD = 2457000.0 - 2400000.5
 
-# Tmag of one electron per second: Tmag = 10 at 15000 e-/s (TESS Instrument Handbook).
-TESS_ZP_MAG = 20.44
+# AB magnitude of one electron per second: Tmag = 10 at 15000 e-/s (TESS Instrument Handbook), and Tmag 0 is
+# 2416 Jy, the Cousins I Vega zero point the TESS system is defined to match, against 3631 Jy for AB 0
+# https://tess.mit.edu/public/tesstransients/pages/readme.html
+TESS_ZP_MAG = 20.44 + 2.5 * np.log10(3631.0 / 2416.0)
 
 
 class TessLightCurveQuery(_BaseHatsQuery, _BaseLightCurveQuery):
-    """TESS 2-minute cadence light curves.
+    """TESS 2-minute cadence light curves, Tmag converted to AB.
 
     A row is one sector of one target, holding that sector's photometry packed into the
     `lightcurve` struct, so an object is the rows sharing a TIC ID.
