@@ -1,3 +1,5 @@
+import logging
+import threading
 import urllib.parse
 from typing import ClassVar
 
@@ -5,10 +7,62 @@ import numpy as np
 from astropy import units
 from astropy.table import hstack, vstack
 from astroquery.simbad import Simbad
+from cachetools import TTLCache
+from pyvo.dal import DALFormatError, DALServiceError
+from requests import RequestException
+from requests.adapters import HTTPAdapter
 
 from ztf_viewer.catalogs.conesearch._base import _BaseCatalogQuery
-from ztf_viewer.config import SIMBAD_MAX_QUERIES_PER_SECOND, SIMBAD_RATE_LIMIT_MAX_WAIT
+from ztf_viewer.config import (
+    SIMBAD_MAX_QUERIES_PER_SECOND,
+    SIMBAD_RATE_LIMIT_MAX_WAIT,
+    SIMBAD_SERVER_DOWN_TTL,
+    SIMBAD_SERVER_TIMEOUT,
+    SIMBAD_SERVERS,
+)
 from ztf_viewer.rate_limit import AsyncRateLimiter
+
+logger = logging.getLogger(__name__)
+
+
+class SimbadUnavailable(RequestException):
+    """No SIMBAD host answered; a RequestException so `find()` reports the catalog unavailable."""
+
+
+class _DefaultTimeoutAdapter(HTTPAdapter):
+    """pyvo sends SIMBAD's TAP requests with no timeout, so a hung host would never fail over."""
+
+    def send(self, request, timeout=None, **kwargs):
+        return super().send(request, timeout=SIMBAD_SERVER_TIMEOUT if timeout is None else timeout, **kwargs)
+
+
+class SimbadServers:
+    """SIMBAD hosts, main first; a host that failed is skipped for a while."""
+
+    def __init__(self, servers=SIMBAD_SERVERS, down_ttl=SIMBAD_SERVER_DOWN_TTL):
+        self.servers = tuple(servers)
+        self._down = TTLCache(maxsize=len(self.servers), ttl=down_ttl)
+        # find() runs queries in worker threads, and TTLCache is not thread-safe.
+        self._lock = threading.Lock()
+
+    def available(self):
+        """Hosts to try in order; when every one is down, all of them rather than none."""
+        with self._lock:
+            up = [server for server in self.servers if server not in self._down]
+        return up or list(self.servers)
+
+    def call(self, func):
+        """``func(server)`` on each available host until one answers."""
+        for server in self.available():
+            try:
+                return func(server)
+            # pyvo wraps transport errors in these, and a read timeout mid-body in DALFormatError
+            except (OSError, DALServiceError, DALFormatError) as e:
+                error = e
+            logger.warning(f"SIMBAD host {server} failed: {error}")
+            with self._lock:
+                self._down[server] = None
+        raise SimbadUnavailable(f"No SIMBAD host answered, last error: {error}") from error
 
 
 class SimbadQuery(_BaseCatalogQuery):
@@ -20,6 +74,8 @@ class SimbadQuery(_BaseCatalogQuery):
         period=1.0,
         max_wait=SIMBAD_RATE_LIMIT_MAX_WAIT,
     )
+    # Up to a full per-host timeout on a hung main host, then the same again for the mirror.
+    _query_timeout_seconds: ClassVar[float] = 2 * sum(SIMBAD_SERVER_TIMEOUT)
 
     id_column = "main_id"
     type_column = "otype"
@@ -42,17 +98,24 @@ class SimbadQuery(_BaseCatalogQuery):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._query = None
+        self._servers = SimbadServers()
+        self._clients = {}
 
-    def _query_region(self, coord, radius=None):
+    def _client(self, server):
         # add_votable_fields validates the field names against SIMBAD's TAP schema over the
         # network, so build the client on first query instead of at import. find() reaches this
         # through _ensure_coroutine, so the build runs in a worker thread, not on the loop.
-        if self._query is None:
+        if server not in self._clients:
             query = Simbad()
+            query.server = server
+            query._session.mount("https://", _DefaultTimeoutAdapter())
             query.add_votable_fields("mesdistance", "R", "V", "otype", "otypes", "mesVar")
-            self._query = query
-        return self._one_row_per_object(self._query.query_region(coord, radius=radius))
+            self._clients[server] = query
+        return self._clients[server]
+
+    def _query_region(self, coord, radius=None):
+        table = self._servers.call(lambda server: self._client(server).query_region(coord, radius=radius))
+        return self._one_row_per_object(table)
 
     @classmethod
     def _one_row_per_object(cls, table):
