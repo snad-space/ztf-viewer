@@ -4,6 +4,7 @@ from ztf_viewer.catalogs.conesearch import (
     FINK_LSST_QUERY,
     FINK_ZTF_QUERY,
     GAIA_DR3,
+    MACHO_QUERY,
     PANSTARRS_DR2_QUERY,
     SKYMAPPER_DR4_QUERY,
     TESS_QUERY,
@@ -22,6 +23,7 @@ EXTERNAL_LC_DATA = {
     "skymapper": partial(
         SKYMAPPER_DR4_QUERY.closest_light_curve_by_oid, fail_on_empty=False, fail_on_unavailable=False
     ),
+    "macho": partial(MACHO_QUERY.closest_light_curve_by_oid, fail_on_empty=False, fail_on_unavailable=False),
 }
 
 ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC = 5.0
@@ -29,7 +31,7 @@ ADDITIONAL_LC_SEARCH_RADIUS_ARCSEC = 5.0
 # Where a catalog wants a tighter cone than the shared default: the HATS catalogs are queried
 # through a service that reads the photometry itself, so a wider cone costs far more than a
 # neighbour is worth.
-LC_SEARCH_RADIUS_ARCSEC = frozendict({"zubercal": 1.0, "tess": 1.0, "skymapper": 1.0})
+LC_SEARCH_RADIUS_ARCSEC = frozendict({"zubercal": 1.0, "tess": 1.0, "skymapper": 1.0, "macho": 1.0})
 
 
 def lc_search_radius_arcsec(name: str) -> float:
