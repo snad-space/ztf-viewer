@@ -191,11 +191,15 @@ def test_every_host_down_is_reported_and_all_are_tried_again(simbad_servers):
         asked.append(server)
         raise ConnectionError(f"{server} is down")
 
-    for _ in range(2):
-        # A RequestException, which `find()` turns into CatalogUnavailable.
-        with pytest.raises(RequestException, match="mirror is down"):
-            simbad_servers.call(query)
-    assert asked == ["main", "mirror", "main", "mirror"], "all hosts down means try them all, not none"
+    # A RequestException, which `find()` turns into CatalogUnavailable.
+    with pytest.raises(RequestException, match="mirror is down"):
+        simbad_servers.call(query)
+    assert asked == ["main", "mirror"]
+
+    # Every host is marked down now, which must mean try them all again, not none.
+    with pytest.raises(RequestException, match="mirror is down"):
+        simbad_servers.call(query)
+    assert asked == ["main", "mirror", "main", "mirror"]
 
 
 def test_query_error_does_not_fall_over(simbad_servers):
