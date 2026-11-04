@@ -147,3 +147,56 @@ async def test_cone_search(simbad_query):
     assert crab["__type"] == "Psr"
     assert "SN*" in crab["__otypes"], f"the Crab is a supernova remnant; got {crab['__otypes']!r}"
     assert to_str(crab["__distance"]) == "2000.00 pc"
+
+
+@pytest.fixture
+def simbad_servers():
+    from ztf_viewer.catalogs.conesearch.simbad import SimbadServers
+
+    return SimbadServers(servers=["main", "mirror"], down_ttl=60)
+
+
+def test_failed_host_falls_over_to_the_mirror_and_is_skipped_after(simbad_servers):
+    asked = []
+
+    def query(server):
+        asked.append(server)
+        if server == "main":
+            raise ConnectionError("main is down")
+        return server
+
+    assert simbad_servers.call(query) == "mirror"
+    assert simbad_servers.call(query) == "mirror"
+    assert asked == ["main", "mirror", "mirror"], "the failed host is not asked again while it is marked down"
+
+
+def test_mid_body_read_timeout_falls_over(simbad_servers):
+    """pyvo reports a read timeout while parsing the VOTable as a DALFormatError, not a transport error."""
+    from pyvo.dal import DALFormatError
+
+    def query(server):
+        if server == "main":
+            raise DALFormatError(TimeoutError("read timed out"), "https://main/simbad/sim-tap/sync")
+        return server
+
+    assert simbad_servers.call(query) == "mirror"
+
+
+def test_every_host_down_is_reported_and_all_are_tried_again(simbad_servers):
+    from requests import RequestException
+
+    asked = []
+
+    def query(server):
+        asked.append(server)
+        raise ConnectionError(f"{server} is down")
+
+    # A RequestException, which `find()` turns into CatalogUnavailable.
+    with pytest.raises(RequestException, match="mirror is down"):
+        simbad_servers.call(query)
+    assert asked == ["main", "mirror"]
+
+    # Every host is marked down now, which must mean try them all again, not none.
+    with pytest.raises(RequestException, match="mirror is down"):
+        simbad_servers.call(query)
+    assert asked == ["main", "mirror", "main", "mirror"]
