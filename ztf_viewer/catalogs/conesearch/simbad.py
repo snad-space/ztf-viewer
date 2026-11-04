@@ -40,7 +40,7 @@ class SimbadServers:
     """SIMBAD hosts, main first; a host that failed is skipped for a while."""
 
     def __init__(self, servers=SIMBAD_SERVERS, down_ttl=SIMBAD_SERVER_DOWN_TTL):
-        self.servers = tuple(servers)
+        self.servers = servers
         self._down = TTLCache(maxsize=len(self.servers), ttl=down_ttl)
         # find() runs queries in worker threads, and TTLCache is not thread-safe.
         self._lock = threading.Lock()
