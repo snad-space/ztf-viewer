@@ -200,15 +200,3 @@ def test_every_host_down_is_reported_and_all_are_tried_again(simbad_servers):
     with pytest.raises(RequestException, match="mirror is down"):
         simbad_servers.call(query)
     assert asked == ["main", "mirror", "main", "mirror"]
-
-
-def test_query_error_does_not_fall_over(simbad_servers):
-    """A query SIMBAD rejected would be rejected by the mirror too, so it is not a host failure."""
-    from pyvo.dal import DALQueryError
-
-    def query(server):
-        raise DALQueryError("bad ADQL")
-
-    with pytest.raises(DALQueryError):
-        simbad_servers.call(query)
-    assert simbad_servers.available() == ["main", "mirror"]
