@@ -76,7 +76,7 @@ SIMBAD_MAX_QUERIES_PER_SECOND = 8
 # full query's worth of time for a slot is one whose user is unlikely to still be waiting.
 SIMBAD_RATE_LIMIT_MAX_WAIT = 10.0
 # SIMBAD hosts, main first; CfA runs its only mirror. A host that failed is skipped for a while.
-SIMBAD_SERVERS = ("simbad.cds.unistra.fr", "simbad.harvard.edu")
+SIMBAD_SERVERS = ["simbad.cds.unistra.fr", "simbad.harvard.edu"]
 SIMBAD_SERVER_DOWN_TTL = 5 * 60
 # Per host, so a dead main host leaves time to ask the mirror. The mirror needs 10-20s to answer
 # a cone search with the measurement joins `SimbadQuery` asks for.
