@@ -8,6 +8,8 @@ from .fink_lsst import FinkLsstQuery
 from .fink_ztf import FinkZtfQuery
 from .gaia2dis import Gaia2Dis
 from .gaia_dr3 import GaiaDr3Query
+from .gaia_dr3_extragalactic import GaiaDr3GalCandQuery, GaiaDr3QsoCandQuery
+from .gaia_dr3_vari import GaiaDr3VariQuery
 from .gaia_edr3_dis import GaiaEdr3Dis
 from .gcvs import GcvsQuery
 from .macho import MachoQuery
@@ -34,6 +36,9 @@ FINK_LSST_QUERY = FinkLsstQuery("Fink LSST")
 FINK_ZTF_QUERY = FinkZtfQuery("Fink ZTF")
 GAIA2_DIS = Gaia2Dis("Gaia DR2 Distances")
 GAIA_DR3 = GaiaDr3Query("Gaia DR3")
+GAIA_DR3_GAL_CAND = GaiaDr3GalCandQuery("Gaia DR3 Galaxy Candidates")
+GAIA_DR3_QSO_CAND = GaiaDr3QsoCandQuery("Gaia DR3 QSO Candidates")
+GAIA_DR3_VARI = GaiaDr3VariQuery("Gaia DR3 Variability")
 GAIA_EDR3_DIS = GaiaEdr3Dis("Gaia EDR3 Distances")
 GCVS_QUERY = GcvsQuery("GCVS")
 MACHO_QUERY = MachoQuery("MACHO")
